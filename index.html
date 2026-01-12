@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html lang="sv">
+<head>
+  <meta charset="UTF-8" />
+  <title>AI Kundtjänst</title>
+
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background: hsl(240, 78%, 70%);
+      padding: 20px;
+    }
+
+    #chat {
+      max-width: 600px;
+      margin: auto;
+      background: rgb(245, 4, 4);
+      padding: 20px;
+      border-radius: 8px;
+    }
+
+    .msg {
+      margin-bottom: 10px;
+    }
+
+    .user {
+      font-weight: bold;
+    }
+
+    .ai {
+      color: rgb(5, 248, 5);
+    }
+
+    input, button {
+      padding: 8px;
+      width: 100%;
+      margin-top: 10px;
+    }
+  </style>
+</head>
+
+<body>
+
+  <div id="chat">
+    <h2>AI Kundtjänst – Demo AB</h2>
+    <div id="messages"></div>
+
+    <input id="messageInput" placeholder="Skriv ditt meddelande..." />
+    <button onclick="sendMessage()">Skicka</button>
+  </div>
+
+  <script>
+async function sendMessage() {
+  console.log("sendMessage körs ✅");
+
+  const input = document.getElementById("messageInput");
+  const messagesDiv = document.getElementById("messages");
+
+  const text = input.value;
+  if (!text) return;
+
+  messagesDiv.innerHTML += `<div class="msg user">Du: ${text}</div>`;
+  input.value = "";
+
+  const response = await fetch("http://localhost:3000/chat", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      companyId: "demo",
+      message: text
+    })
+  });
+
+  const data = await response.json();
+  console.log("Svar från server:", data);
+
+  messagesDiv.innerHTML += `<div class="msg ai">AI: ${data.reply}</div>`;
+}
+</script>
+
+
+
+
+</body>
+</html>
