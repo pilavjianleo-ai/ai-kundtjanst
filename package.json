@@ -12,8 +12,11 @@
   "license": "ISC",
   "type": "commonjs",
   "dependencies": {
+    "cors": "^2.8.5",
     "dotenv": "^17.2.3",
     "express": "^5.2.1",
-    "openai": "^6.16.0"
+    "express-rate-limit": "^8.2.1",
+    "openai": "^6.16.0",
+    "sanitize-html": "^2.17.0"
   }
 }
