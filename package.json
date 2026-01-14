@@ -2,9 +2,8 @@
   "name": "ai-kundtjanst",
   "version": "1.0.0",
   "description": "",
-  "main": "Server.js",
+  "main": "server.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1",
     "start": "node server.js"
   },
   "keywords": [],
@@ -22,5 +21,8 @@
     "mongoose": "^9.1.3",
     "openai": "^6.16.0",
     "sanitize-html": "^2.17.0"
+  },
+  "engines": {
+    "node": "20.x"
   }
 }
