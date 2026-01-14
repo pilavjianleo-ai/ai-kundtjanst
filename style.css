@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="sv">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>AI Kundtjänst</title>
+
+  <link rel="stylesheet" href="style.css" />
+  <script src="https://kit.fontawesome.com/a2d9d5b5f5.js" crossorigin="anonymous"></script>
+</head>
+
+<body data-theme="dark">
+  <div class="container">
+
+    <div class="header">
+      <h2>AI Kundtjänst</h2>
+      <button id="logoutBtn" class="btn danger" style="display:none;">
+        <i class="fas fa-sign-out-alt"></i> Logga ut
+      </button>
+    </div>
+
+    <!-- AUTH -->
+    <div id="auth" class="card">
+      <h3>Logga in / Registrera</h3>
+      <input id="username" type="text" placeholder="Användarnamn" />
+      <input id="password" type="password" placeholder="Lösenord" />
+
+      <div class="row">
+        <button id="loginBtn" class="btn primary">Logga in</button>
+        <button id="registerBtn" class="btn secondary">Registrera</button>
+      </div>
+
+      <p id="authMessage" class="msgtext"></p>
+    </div>
+
+    <!-- CHAT -->
+    <div id="chat" class="card" style="display:none;">
+      <div id="messages" class="messages"></div>
+
+      <div class="controls">
+        <input id="messageInput" type="text" placeholder="Skriv ditt meddelande..." />
+        <button id="sendBtn" class="btn primary"><i class="fas fa-paper-plane"></i></button>
+      </div>
+
+      <div class="row">
+        <button id="exportChat" class="btn secondary">
+          <i class="fas fa-file-export"></i> Exportera
+        </button>
+      </div>
+    </div>
+
+  </div>
+
+  <script src="script.js"></script>
+</body>
+</html>
