@@ -16,6 +16,14 @@ app.use(cors());
 app.use(express.static(__dirname));
 
 /* ========= ENV CHECK ========= */
+process.on("uncaughtException", (err) => {
+  console.error("❌ Uncaught Exception:", err);
+});
+
+process.on("unhandledRejection", (err) => {
+  console.error("❌ Unhandled Rejection:", err);
+});
+
 const mongoUri = process.env.MONGO_URI || process.env.MONGODB_URI;
 
 console.log("✅ ENV CHECK:");
