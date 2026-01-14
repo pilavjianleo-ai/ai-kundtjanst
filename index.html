@@ -6,29 +6,46 @@
   <title>AI Kundtjänst</title>
 
   <link rel="stylesheet" href="style.css" />
-  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css"/>
+  <script src="https://kit.fontawesome.com/a2d9d5b5f5.js" crossorigin="anonymous"></script>
 </head>
 
 <body data-theme="dark">
   <div class="container">
 
     <div class="header">
-      <div>
-        <h2 id="pageTitle">AI Kundtjänst</h2>
-        <p id="userLabel" class="smallMuted" style="display:none;"></p>
+      <div class="titleWrap">
+        <h2 id="title">AI Kundtjänst</h2>
+        <span id="subtitle" class="subtitle"></span>
       </div>
 
-      <button id="logoutBtn" class="btn danger" style="display:none;">
-        <i class="fas fa-sign-out-alt"></i> Logga ut
-      </button>
+      <div class="headerActions">
+        <button id="themeToggle" class="btn secondary" title="Växla tema">
+          <i class="fas fa-moon"></i>
+        </button>
+
+        <button id="refreshCategory" class="btn secondary" title="Uppdatera kategori">
+          <i class="fas fa-sync"></i>
+        </button>
+
+        <button id="clearChat" class="btn secondary" title="Rensa chatten">
+          <i class="fas fa-trash"></i>
+        </button>
+
+        <button id="exportChat" class="btn secondary" title="Exportera chat">
+          <i class="fas fa-download"></i>
+        </button>
+
+        <button id="logoutBtn" class="btn danger" style="display:none;" title="Logga ut">
+          <i class="fas fa-sign-out-alt"></i>
+        </button>
+      </div>
     </div>
 
     <!-- AUTH -->
     <div id="auth" class="card">
       <h3>Logga in / Registrera</h3>
-
-      <input id="username" type="text" placeholder="Användarnamn" />
-      <input id="password" type="password" placeholder="Lösenord" />
+      <input id="username" type="text" placeholder="Användarnamn" autocomplete="username" />
+      <input id="password" type="password" placeholder="Lösenord" autocomplete="current-password" />
 
       <div class="row">
         <button id="loginBtn" class="btn primary">Logga in</button>
@@ -40,106 +57,19 @@
 
     <!-- CHAT -->
     <div id="chat" class="card" style="display:none;">
-      <div class="chatTopbar">
-        <div class="pill">
-          <i class="fas fa-layer-group"></i>
-          <select id="companySelect" class="select">
-            <option value="demo">Demo</option>
-            <option value="tech">Tech</option>
-            <option value="law">Juridik</option>
-            <option value="cleaning">Städservice</option>
-          </select>
-        </div>
-
-        <div class="topButtons">
-          <button id="themeToggle" class="iconBtn" title="Växla tema">
-            <i class="fas fa-moon"></i>
-          </button>
-          <button id="refreshCategory" class="iconBtn" title="Uppdatera kategori">
-            <i class="fas fa-sync"></i>
-          </button>
-          <button id="clearChat" class="iconBtn dangerBtn" title="Rensa chatt">
-            <i class="fas fa-trash"></i>
-          </button>
-        </div>
-      </div>
-
-      <div class="row">
-        <button id="exportCategoryBtn" class="btn secondary">
-          <i class="fas fa-download"></i> Export kategori
-        </button>
-        <button id="exportAllBtn" class="btn secondary">
-          <i class="fas fa-file-export"></i> Export allt
-        </button>
-      </div>
-
       <div id="messages" class="messages"></div>
 
       <div class="controls">
         <input id="messageInput" type="text" placeholder="Skriv ditt meddelande..." />
-        <button id="sendBtn" class="btn primary">
+        <button id="sendBtn" class="btn primary" title="Skicka">
           <i class="fas fa-paper-plane"></i>
         </button>
       </div>
 
-      <hr class="sep"/>
-
-      <!-- ✅ KB hidden behind toggle -->
-      <div class="row">
-        <button id="toggleKbBtn" class="btn secondary">
-          <i class="fas fa-database"></i> Kunskapsdatabas
-        </button>
-      </div>
-
-      <div id="kbSection" style="display:none;">
-        <h3 style="margin-top: 10px;">Kunskapsdatabas (RAG)</h3>
-        <p class="smallMuted">
-          Ladda upp text, URL eller PDF per kategori. Chatten använder automatiskt denna kunskap.
-        </p>
-
-        <div class="kbGrid">
-          <div class="kbCard">
-            <h4>📄 Text</h4>
-            <input id="kbTitle" type="text" placeholder="Titel (valfritt)" />
-            <textarea id="kbText" placeholder="Klistra in text här..."></textarea>
-            <button id="uploadTextBtn" class="btn primary"><i class="fas fa-upload"></i> Ladda upp text</button>
-          </div>
-
-          <div class="kbCard">
-            <h4>🔗 URL</h4>
-            <input id="kbUrl" type="text" placeholder="https://..." />
-            <button id="uploadUrlBtn" class="btn primary"><i class="fas fa-link"></i> Ladda upp URL</button>
-            <p class="smallMuted">Vi hämtar text från sidan och sparar i KB.</p>
-          </div>
-
-          <div class="kbCard">
-            <h4>📕 PDF</h4>
-            <input id="kbPdf" type="file" accept="application/pdf" />
-            <button id="uploadPdfBtn" class="btn primary"><i class="fas fa-file-pdf"></i> Ladda upp PDF</button>
-            <p class="smallMuted">PDF upp till 10MB.</p>
-          </div>
-        </div>
-
-        <div class="row">
-          <button id="refreshKbBtn" class="btn secondary"><i class="fas fa-rotate"></i> Visa KB för kategori</button>
-          <button id="downloadKbBtn" class="btn secondary"><i class="fas fa-database"></i> Ladda ner KB JSON</button>
-        </div>
-
-        <div id="kbList" class="kbList"></div>
-
-        <!-- Admin -->
-        <div id="adminPanel" class="adminPanel" style="display:none;">
-          <h3>Admin</h3>
-          <button id="adminExportAllBtn" class="btn danger">
-            <i class="fas fa-shield"></i> Export ALLA användare
-          </button>
-          <p class="smallMuted">
-            Detta exporterar alla användare, chatthistorik, KB och träningsdata.
-          </p>
-        </div>
-      </div>
+      <div id="ragBadge" class="ragBadge" style="display:none;"></div>
     </div>
 
+    <!-- KB PANEL (Admin only, inserted by JS) -->
   </div>
 
   <script src="script.js"></script>

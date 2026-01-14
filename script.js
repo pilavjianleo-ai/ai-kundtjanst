@@ -16,13 +16,17 @@ const API_KB_LIST = `${API_BASE}/kb/list`;
 const API_KB_DELETE = `${API_BASE}/kb/item`;
 
 const API_EXPORT_MY = `${API_BASE}/export/knowledgebase`;
+const API_EXPORT_KB_CATEGORY = `${API_BASE}/export/kb`;
 const API_EXPORT_ALL = `${API_BASE}/admin/export/all`;
 
 /*************************************************
- * ✅ companyId från URL (?company=law / tech / cleaning)
+ * ✅ companyId from URL
  *************************************************/
-const urlParams = new URLSearchParams(window.location.search);
-let companyId = urlParams.get("company") || "demo";
+function getCompanyIdFromURL() {
+  const params = new URLSearchParams(window.location.search);
+  return params.get("company") || "demo";
+}
+let companyId = getCompanyIdFromURL();
 
 /*************************************************
  * ✅ Auth
@@ -31,10 +35,25 @@ let token = localStorage.getItem("token");
 let userRole = localStorage.getItem("role") || null;
 
 /*************************************************
- * ✅ UI helpers
+ * ✅ helpers
  *************************************************/
+function escapeHtml(str) {
+  return String(str || "")
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("'", "&#039;");
+}
+
+function setSubtitle(text) {
+  const el = document.getElementById("subtitle");
+  if (!el) return;
+  el.textContent = text || "";
+}
+
 function updateTitle() {
-  const titleEl = document.querySelector("h2");
+  const titleEl = document.getElementById("title");
   if (!titleEl) return;
 
   const map = {
@@ -80,17 +99,28 @@ function removeTypingIndicator() {
   if (typing) typing.remove();
 }
 
-function copyToClipboard(text) {
-  navigator.clipboard.writeText(text).then(() => alert("Text kopierad!"));
+function showRagBadge(text, isGood) {
+  const badge = document.getElementById("ragBadge");
+  if (!badge) return;
+
+  if (!text) {
+    badge.style.display = "none";
+    badge.innerHTML = "";
+    return;
+  }
+
+  badge.style.display = "block";
+  badge.innerHTML = `
+    <span class="dot ${isGood ? "good" : "warn"}"></span>
+    <span>${escapeHtml(text)}</span>
+  `;
 }
 
-function escapeHtml(str) {
-  return String(str || "")
-    .replaceAll("&", "&amp;")
-    .replaceAll("<", "&lt;")
-    .replaceAll(">", "&gt;")
-    .replaceAll('"', "&quot;")
-    .replaceAll("'", "&#039;");
+function copyToClipboard(text) {
+  navigator.clipboard.writeText(text).then(() => {
+    setSubtitle("✅ Kopierat!");
+    setTimeout(() => setSubtitle(""), 1200);
+  });
 }
 
 /*************************************************
@@ -110,15 +140,16 @@ function renderMessages(messages) {
           <div class="content">${escapeHtml(msg.content)}</div>
         </div>`;
     } else if (msg.role === "assistant") {
-      const safeContent = String(msg.content || "").replace(/'/g, "\\'");
+      const safeCopy = String(msg.content || "").replace(/'/g, "\\'");
       messagesDiv.innerHTML += `
         <div class="msg ai">
           <div class="avatar"><i class="fas fa-robot"></i></div>
           <div class="content">${escapeHtml(msg.content)}</div>
+
           <div class="feedback">
-            <button onclick="giveFeedback('positive')"><i class="fas fa-thumbs-up"></i></button>
-            <button onclick="giveFeedback('negative')"><i class="fas fa-thumbs-down"></i></button>
-            <button onclick="copyToClipboard('${safeContent}')"><i class="fas fa-copy"></i></button>
+            <button class="miniBtn" onclick="giveFeedback('positive')"><i class="fas fa-thumbs-up"></i></button>
+            <button class="miniBtn" onclick="giveFeedback('negative')"><i class="fas fa-thumbs-down"></i></button>
+            <button class="miniBtn" onclick="copyToClipboard('${safeCopy}')"><i class="fas fa-copy"></i></button>
           </div>
         </div>`;
     }
@@ -128,7 +159,7 @@ function renderMessages(messages) {
 }
 
 /*************************************************
- * ✅ Fetch history
+ * ✅ History
  *************************************************/
 async function loadHistory() {
   if (!token) return;
@@ -153,6 +184,7 @@ async function sendMessage() {
   const text = input.value.trim();
   if (!text) return;
 
+  // Render user message immediately
   messagesDiv.innerHTML += `
     <div class="msg user">
       <div class="avatar"><i class="fas fa-user"></i></div>
@@ -162,13 +194,16 @@ async function sendMessage() {
   input.value = "";
 
   showTypingIndicator();
+  showRagBadge("", false);
 
   try {
+    // get history
     const resHistory = await fetch(`${API_HISTORY}/${companyId}`, {
       headers: { Authorization: `Bearer ${token}` },
     });
     const history = resHistory.ok ? await resHistory.json() : [];
 
+    // build conversation + new user text
     const conversation = history.map((m) => ({ role: m.role, content: m.content }));
     conversation.push({ role: "user", content: text });
 
@@ -184,34 +219,36 @@ async function sendMessage() {
     const data = await response.json();
     removeTypingIndicator();
 
+    if (!response.ok) {
+      messagesDiv.innerHTML += `
+        <div class="msg ai">
+          <div class="avatar"><i class="fas fa-robot"></i></div>
+          <div class="content">Serverfel: ${escapeHtml(data.error || "okänt fel")}</div>
+        </div>`;
+      return;
+    }
+
     if (data.reply) {
       const safeReply = String(data.reply || "").replace(/'/g, "\\'");
       messagesDiv.innerHTML += `
         <div class="msg ai">
           <div class="avatar"><i class="fas fa-robot"></i></div>
           <div class="content">${escapeHtml(data.reply)}</div>
+
           <div class="feedback">
-            <button onclick="giveFeedback('positive')"><i class="fas fa-thumbs-up"></i></button>
-            <button onclick="giveFeedback('negative')"><i class="fas fa-thumbs-down"></i></button>
-            <button onclick="copyToClipboard('${safeReply}')"><i class="fas fa-copy"></i></button>
+            <button class="miniBtn" onclick="giveFeedback('positive')"><i class="fas fa-thumbs-up"></i></button>
+            <button class="miniBtn" onclick="giveFeedback('negative')"><i class="fas fa-thumbs-down"></i></button>
+            <button class="miniBtn" onclick="copyToClipboard('${safeReply}')"><i class="fas fa-copy"></i></button>
           </div>
         </div>`;
-
-      if (typeof data.ragUsed !== "undefined") {
-        messagesDiv.innerHTML += `
-          <div class="msg ai">
-            <div class="avatar"><i class="fas fa-info-circle"></i></div>
-            <div class="content"><small>RAG användes: <b>${data.ragUsed ? "JA ✅" : "NEJ ⚠️"}</b></small></div>
-          </div>`;
-      }
-
       messagesDiv.scrollTop = messagesDiv.scrollHeight;
+    }
+
+    // ✅ Only show badge when ragUsed true
+    if (data.ragUsed === true) {
+      showRagBadge("RAG användes ✅ (kunskapsdatabas)", true);
     } else {
-      messagesDiv.innerHTML += `
-        <div class="msg ai">
-          <div class="avatar"><i class="fas fa-robot"></i></div>
-          <div class="content">AI: Något gick fel.</div>
-        </div>`;
+      showRagBadge("", false);
     }
   } catch (err) {
     console.error("Chat-fel:", err);
@@ -229,13 +266,72 @@ async function sendMessage() {
  *************************************************/
 async function giveFeedback(type) {
   if (!token) return;
+
   await fetch(API_FEEDBACK, {
     method: "POST",
     headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
     body: JSON.stringify({ type, companyId }),
   });
 
-  alert(`Tack för feedback! (${type})`);
+  setSubtitle(`✅ Feedback skickad (${type})`);
+  setTimeout(() => setSubtitle(""), 1200);
+}
+
+/*************************************************
+ * ✅ Export chat
+ *************************************************/
+async function exportChat() {
+  if (!token) return;
+
+  const res = await fetch(`${API_HISTORY}/${companyId}`, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  const messages = res.ok ? await res.json() : [];
+
+  let text = `Chatt-historik (${companyId})\n\n`;
+  for (const m of messages) {
+    const t = m.timestamp ? new Date(m.timestamp).toLocaleString() : "";
+    if (m.role === "user") text += `[${t}] Du: ${m.content}\n`;
+    if (m.role === "assistant") text += `[${t}] AI: ${m.content}\n`;
+  }
+
+  const blob = new Blob([text], { type: "text/plain" });
+  const url = URL.createObjectURL(blob);
+
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = `chat_${companyId}_${new Date().toISOString().split("T")[0]}.txt`;
+  a.click();
+
+  URL.revokeObjectURL(url);
+}
+
+/*************************************************
+ * ✅ Clear chat (UI only)
+ *************************************************/
+function clearChat() {
+  const messagesDiv = document.getElementById("messages");
+  if (messagesDiv) messagesDiv.innerHTML = "";
+  showRagBadge("", false);
+  setSubtitle("🗑️ Chatten rensad (endast UI)");
+  setTimeout(() => setSubtitle(""), 1200);
+}
+
+/*************************************************
+ * ✅ Theme toggle
+ *************************************************/
+function toggleTheme() {
+  const body = document.body;
+  const icon = document.querySelector("#themeToggle i");
+  const current = body.getAttribute("data-theme") || "dark";
+
+  if (current === "dark") {
+    body.setAttribute("data-theme", "light");
+    if (icon) icon.className = "fas fa-sun";
+  } else {
+    body.setAttribute("data-theme", "dark");
+    if (icon) icon.className = "fas fa-moon";
+  }
 }
 
 /*************************************************
@@ -249,26 +345,34 @@ function logout() {
 
   setLoggedInUI(false);
   showKbPanel(false);
+  showRagBadge("", false);
 
   const messagesDiv = document.getElementById("messages");
   if (messagesDiv) messagesDiv.innerHTML = "";
+
+  setSubtitle("✅ Utloggad");
+  setTimeout(() => setSubtitle(""), 1200);
 }
 
 /*************************************************
- * ✅ Category change
+ * ✅ Category refresh
  *************************************************/
-async function updateCategory() {
-  const newParams = new URLSearchParams(window.location.search);
-  const newCompanyId = newParams.get("company") || "demo";
+async function refreshCategory() {
+  const newCompanyId = getCompanyIdFromURL();
+  companyId = newCompanyId;
+  updateTitle();
+  showRagBadge("", false);
 
-  if (newCompanyId !== companyId) {
-    companyId = newCompanyId;
-    updateTitle();
-    if (token) {
-      await loadHistory();
-      if (userRole === "admin") await loadKbList();
+  if (token) {
+    await loadHistory();
+    if (userRole === "admin") {
+      ensureKbPanel();
+      updateKbTitle();
+      await loadKbList();
     }
   }
+  setSubtitle("🔄 Kategori uppdaterad");
+  setTimeout(() => setSubtitle(""), 1200);
 }
 
 /*************************************************
@@ -297,14 +401,17 @@ async function handleLogin() {
     setLoggedInUI(true);
     await loadHistory();
 
-    // ✅ Admin-only KB
     if (userRole === "admin") {
       ensureKbPanel();
       showKbPanel(true);
+      updateKbTitle();
       await loadKbList();
     } else {
       showKbPanel(false);
     }
+
+    setSubtitle("✅ Inloggad");
+    setTimeout(() => setSubtitle(""), 1200);
   } else {
     if (msg) msg.textContent = data.error || "Fel vid login.";
   }
@@ -326,54 +433,70 @@ async function handleRegister() {
 }
 
 /*************************************************
- * ✅ Knowledge Base UI (Admin-only)
+ * ✅ KnowledgeBase (Admin-only)
  *************************************************/
 function ensureKbPanel() {
   if (document.getElementById("kbPanel")) return;
 
-  const container = document.querySelector(".container") || document.body;
-
+  const container = document.querySelector(".container");
   const panel = document.createElement("div");
   panel.id = "kbPanel";
   panel.className = "card";
   panel.style.display = "none";
 
   panel.innerHTML = `
-    <h3 style="margin-top:0;">Admin: Kunskapsdatabas (kategori: ${companyId})</h3>
-
-    <div style="display:flex; gap:10px; flex-wrap:wrap; margin-bottom:12px;">
-      <button id="kbReloadBtn" class="btn secondary">🔄 Uppdatera</button>
-      <button id="kbExportMyBtn" class="btn secondary">⬇️ Exportera min KB</button>
-      <button id="kbExportAllBtn" class="btn danger">🛡️ Admin Export ALLT</button>
+    <div class="kbHeader">
+      <h3 id="kbTitle" style="margin:0;">Admin: Kunskapsdatabas</h3>
+      <div class="kbActions">
+        <button id="kbReloadBtn" class="btn secondary">🔄 Uppdatera</button>
+        <button id="kbExportCategoryBtn" class="btn secondary">⬇️ Exportera kategori</button>
+        <button id="kbExportMyBtn" class="btn secondary">⬇️ Exportera min</button>
+        <button id="kbExportAllBtn" class="btn danger">🛡️ Export ALLT</button>
+      </div>
     </div>
 
-    <div style="display:flex; flex-direction:column; gap:8px; margin-bottom:12px;">
-      <input id="kbUrlInput" placeholder="Klistra in URL..." />
-      <button id="kbUploadUrlBtn" class="btn primary">Ladda upp URL</button>
+    <div class="kbGrid">
+      <div class="kbBox">
+        <h4>URL</h4>
+        <input id="kbUrlInput" placeholder="https://..." />
+        <button id="kbUploadUrlBtn" class="btn primary">Ladda upp URL</button>
+      </div>
 
-      <textarea id="kbTextInput" rows="4" placeholder="Klistra in text..."></textarea>
-      <button id="kbUploadTextBtn" class="btn primary">Ladda upp Text</button>
+      <div class="kbBox">
+        <h4>Text</h4>
+        <textarea id="kbTextInput" rows="5" placeholder="Klistra in text..."></textarea>
+        <button id="kbUploadTextBtn" class="btn primary">Ladda upp Text</button>
+      </div>
 
-      <input id="kbPdfInput" type="file" accept="application/pdf" />
-      <button id="kbUploadPdfBtn" class="btn primary">Ladda upp PDF</button>
-
-      <div id="kbMsg" class="msgtext"></div>
+      <div class="kbBox">
+        <h4>PDF</h4>
+        <input id="kbPdfInput" type="file" accept="application/pdf" />
+        <button id="kbUploadPdfBtn" class="btn primary">Ladda upp PDF</button>
+      </div>
     </div>
 
-    <div>
-      <h4 style="margin:6px 0;">Mina källor</h4>
-      <div id="kbList" style="display:flex; flex-direction:column; gap:8px;"></div>
-    </div>
+    <div id="kbMsg" class="kbMsg"></div>
+
+    <h4 style="margin-top:12px;">Källor i kategori</h4>
+    <div id="kbList" class="kbList"></div>
   `;
 
   container.appendChild(panel);
 
   document.getElementById("kbReloadBtn")?.addEventListener("click", loadKbList);
+  document.getElementById("kbExportCategoryBtn")?.addEventListener("click", exportCategoryKB);
   document.getElementById("kbExportMyBtn")?.addEventListener("click", exportMyKB);
   document.getElementById("kbExportAllBtn")?.addEventListener("click", exportAllAdmin);
+
   document.getElementById("kbUploadUrlBtn")?.addEventListener("click", uploadKbUrl);
   document.getElementById("kbUploadTextBtn")?.addEventListener("click", uploadKbText);
   document.getElementById("kbUploadPdfBtn")?.addEventListener("click", uploadKbPdf);
+}
+
+function updateKbTitle() {
+  const kbTitle = document.getElementById("kbTitle");
+  if (!kbTitle) return;
+  kbTitle.innerText = `Admin: Kunskapsdatabas (kategori: ${companyId})`;
 }
 
 function showKbPanel(show) {
@@ -388,47 +511,54 @@ async function loadKbList() {
   const kbMsg = document.getElementById("kbMsg");
   if (!kbList) return;
 
-  kbList.innerHTML = "Laddar...";
+  kbList.innerHTML = `<div class="kbEmpty">Laddar…</div>`;
   if (kbMsg) kbMsg.textContent = "";
 
   const res = await fetch(`${API_KB_LIST}/${companyId}`, {
     headers: { Authorization: `Bearer ${token}` },
   });
 
+  const data = await res.json();
+
   if (!res.ok) {
-    kbList.innerHTML = "Kunde inte ladda KB.";
+    kbList.innerHTML = `<div class="kbEmpty">❌ ${escapeHtml(data.error || "Kunde inte ladda KB")}</div>`;
     return;
   }
 
-  const items = await res.json();
+  if (!data.length) {
+    kbList.innerHTML = `<div class="kbEmpty">Inga källor ännu i denna kategori.</div>`;
+    return;
+  }
+
   kbList.innerHTML = "";
 
-  if (!items.length) {
-    kbList.innerHTML = `<div style="opacity:0.8;">Inga källor ännu.</div>`;
-    return;
-  }
-
-  for (const it of items) {
+  for (const it of data) {
     kbList.innerHTML += `
-      <div style="border:1px solid rgba(255,255,255,0.12); border-radius:12px; padding:10px;">
-        <div><b>${escapeHtml(it.title || "Untitled")}</b></div>
-        <div style="font-size:13px; opacity:0.9;">
-          Typ: ${escapeHtml(it.sourceType)} • ${it.embeddingOk ? "✅ RAG-ready" : "⚠️ No embeddings"}
-        </div>
-        <div style="display:flex; gap:8px; margin-top:8px;">
-          <button class="btn danger" onclick="deleteKbItem('${it._id}')">Ta bort</button>
+      <div class="kbItem">
+        <div class="kbItemTop">
+          <div>
+            <div class="kbItemTitle">${escapeHtml(it.title || "Untitled")}</div>
+            <div class="kbMeta">
+              Typ: ${escapeHtml(it.sourceType)} • ${it.embeddingOk ? "✅ RAG-ready" : "⚠️ Ingen embedding"}
+            </div>
+          </div>
+          <button class="btn danger small" onclick="deleteKbItem('${it._id}')">Ta bort</button>
         </div>
       </div>
     `;
   }
+
+  if (kbMsg) kbMsg.textContent = `✅ Laddade ${data.length} källor`;
 }
 
 async function deleteKbItem(id) {
   if (!token || userRole !== "admin") return;
+
   await fetch(`${API_KB_DELETE}/${id}`, {
     method: "DELETE",
     headers: { Authorization: `Bearer ${token}` },
   });
+
   await loadKbList();
 }
 
@@ -437,12 +567,11 @@ async function uploadKbUrl() {
 
   const input = document.getElementById("kbUrlInput");
   const kbMsg = document.getElementById("kbMsg");
-  if (!input) return;
-
-  const url = input.value.trim();
+  const url = input?.value?.trim();
   if (!url) return;
 
-  kbMsg.textContent = "Laddar upp URL...";
+  kbMsg.textContent = "⏳ Hämtar URL…";
+
   const res = await fetch(API_KB_URL, {
     method: "POST",
     headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
@@ -453,11 +582,13 @@ async function uploadKbUrl() {
 
   if (!res.ok) {
     kbMsg.textContent = `❌ ${data.error || "Fel vid URL-upload"}`;
-  } else {
-    kbMsg.textContent = `✅ ${data.message} (embeddingOk=${data.embeddingOk})`;
-    input.value = "";
-    await loadKbList();
+    if (data.debug) console.log("URL debug:", data.debug);
+    return;
   }
+
+  kbMsg.textContent = `✅ ${data.message}`;
+  input.value = "";
+  await loadKbList();
 }
 
 async function uploadKbText() {
@@ -465,12 +596,11 @@ async function uploadKbText() {
 
   const input = document.getElementById("kbTextInput");
   const kbMsg = document.getElementById("kbMsg");
-  if (!input) return;
-
-  const content = input.value.trim();
+  const content = input?.value?.trim();
   if (!content) return;
 
-  kbMsg.textContent = "Laddar upp text...";
+  kbMsg.textContent = "⏳ Laddar upp text…";
+
   const res = await fetch(API_KB_TEXT, {
     method: "POST",
     headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
@@ -481,11 +611,12 @@ async function uploadKbText() {
 
   if (!res.ok) {
     kbMsg.textContent = `❌ ${data.error || "Fel vid text-upload"}`;
-  } else {
-    kbMsg.textContent = `✅ ${data.message} (embeddingOk=${data.embeddingOk})`;
-    input.value = "";
-    await loadKbList();
+    return;
   }
+
+  kbMsg.textContent = `✅ ${data.message}`;
+  input.value = "";
+  await loadKbList();
 }
 
 async function uploadKbPdf() {
@@ -495,11 +626,10 @@ async function uploadKbPdf() {
   const kbMsg = document.getElementById("kbMsg");
   if (!fileInput || !fileInput.files?.length) return;
 
-  const file = fileInput.files[0];
-  kbMsg.textContent = "Laddar upp PDF...";
+  kbMsg.textContent = "⏳ Laddar upp PDF…";
 
   const form = new FormData();
-  form.append("pdf", file);
+  form.append("pdf", fileInput.files[0]);
   form.append("companyId", companyId);
 
   const res = await fetch(API_KB_PDF, {
@@ -512,11 +642,12 @@ async function uploadKbPdf() {
 
   if (!res.ok) {
     kbMsg.textContent = `❌ ${data.error || "Fel vid PDF-upload"}`;
-  } else {
-    kbMsg.textContent = `✅ ${data.message} (embeddingOk=${data.embeddingOk})`;
-    fileInput.value = "";
-    await loadKbList();
+    return;
   }
+
+  kbMsg.textContent = `✅ ${data.message}`;
+  fileInput.value = "";
+  await loadKbList();
 }
 
 async function exportMyKB() {
@@ -524,28 +655,29 @@ async function exportMyKB() {
   window.location.href = API_EXPORT_MY;
 }
 
+async function exportCategoryKB() {
+  if (!token || userRole !== "admin") return;
+  window.location.href = `${API_EXPORT_KB_CATEGORY}/${companyId}`;
+}
+
 async function exportAllAdmin() {
   if (!token || userRole !== "admin") return;
-
   const ok = confirm("Vill du ladda ner ALLT? (users + chats + KB + feedback + training)");
   if (!ok) return;
-
   window.location.href = API_EXPORT_ALL;
 }
 
 /*************************************************
- * ✅ Init
+ * ✅ INIT
  *************************************************/
 document.addEventListener("DOMContentLoaded", async () => {
+  // initial category
+  companyId = getCompanyIdFromURL();
   updateTitle();
   setLoggedInUI(!!token);
 
+  // Buttons
   document.getElementById("sendBtn")?.addEventListener("click", sendMessage);
-  document.getElementById("logoutBtn")?.addEventListener("click", logout);
-
-  document.getElementById("loginBtn")?.addEventListener("click", handleLogin);
-  document.getElementById("registerBtn")?.addEventListener("click", handleRegister);
-
   document.getElementById("messageInput")?.addEventListener("keydown", (e) => {
     if (e.key === "Enter") {
       e.preventDefault();
@@ -553,9 +685,16 @@ document.addEventListener("DOMContentLoaded", async () => {
     }
   });
 
-  window.addEventListener("popstate", updateCategory);
-  window.addEventListener("hashchange", updateCategory);
+  document.getElementById("themeToggle")?.addEventListener("click", toggleTheme);
+  document.getElementById("clearChat")?.addEventListener("click", clearChat);
+  document.getElementById("refreshCategory")?.addEventListener("click", refreshCategory);
+  document.getElementById("exportChat")?.addEventListener("click", exportChat);
+  document.getElementById("logoutBtn")?.addEventListener("click", logout);
 
+  document.getElementById("loginBtn")?.addEventListener("click", handleLogin);
+  document.getElementById("registerBtn")?.addEventListener("click", handleRegister);
+
+  // if logged in, load history
   if (token) {
     setLoggedInUI(true);
     await loadHistory();
@@ -563,6 +702,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     if (userRole === "admin") {
       ensureKbPanel();
       showKbPanel(true);
+      updateKbTitle();
       await loadKbList();
     } else {
       showKbPanel(false);
