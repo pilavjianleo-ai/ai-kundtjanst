@@ -12,39 +12,48 @@
 <body data-theme="dark">
   <div class="container">
 
-    <div class="header">
-      <div class="titleWrap">
-        <h2 id="title">AI Kundtjänst</h2>
-        <span id="subtitle" class="subtitle"></span>
+    <!-- TOPBAR -->
+    <div class="topbar">
+      <div class="brand">
+        <div class="brandTitle" id="title">AI Kundtjänst</div>
+        <div class="brandSub" id="subtitle"></div>
       </div>
 
-      <div class="headerActions">
-        <!-- ✅ Dropdown kategori -->
-        <select id="companySelect" class="select">
-          <option value="demo">Demo AB</option>
-          <option value="law">Juridik</option>
-          <option value="tech">Teknisk support</option>
-          <option value="cleaning">Städservice</option>
-        </select>
+      <div class="toolbar">
+        <div class="toolbarGroup">
+          <label class="label">Kategori</label>
+          <select id="companySelect" class="select">
+            <option value="demo">Demo AB</option>
+            <option value="law">Juridik</option>
+            <option value="tech">Teknisk support</option>
+            <option value="cleaning">Städservice</option>
+          </select>
+        </div>
 
-        <button id="themeToggle" class="btn secondary" title="Växla tema">
+        <!-- KB button (only admin) -->
+        <button id="kbOpenBtn" class="btn secondary" style="display:none;">
+          <i class="fas fa-database"></i>
+          Kunskapsdatabas
+        </button>
+
+        <button id="themeToggle" class="btn ghost" title="Växla tema">
           <i class="fas fa-moon"></i>
+          Tema
         </button>
 
-        <button id="refreshCategory" class="btn secondary" title="Uppdatera kategori">
-          <i class="fas fa-sync"></i>
-        </button>
-
-        <button id="clearChat" class="btn secondary" title="Rensa chatten">
+        <button id="clearChat" class="btn ghost" title="Rensa chatten">
           <i class="fas fa-trash"></i>
+          Rensa
         </button>
 
-        <button id="exportChat" class="btn secondary" title="Exportera chat">
+        <button id="exportChat" class="btn ghost" title="Exportera chat">
           <i class="fas fa-download"></i>
+          Export
         </button>
 
-        <button id="logoutBtn" class="btn danger" style="display:none;" title="Logga ut">
+        <button id="logoutBtn" class="btn danger" style="display:none;">
           <i class="fas fa-sign-out-alt"></i>
+          Logga ut
         </button>
       </div>
     </div>
@@ -67,17 +76,75 @@
     <div id="chat" class="card" style="display:none;">
       <div id="messages" class="messages"></div>
 
-      <div class="controls">
+      <div class="inputBar">
         <input id="messageInput" type="text" placeholder="Skriv ditt meddelande..." />
-        <button id="sendBtn" class="btn primary" title="Skicka">
+        <button id="sendBtn" class="btn primary">
           <i class="fas fa-paper-plane"></i>
+          Skicka
         </button>
       </div>
 
       <div id="ragBadge" class="ragBadge" style="display:none;"></div>
     </div>
 
-    <!-- KB PANEL inserted by JS for admin -->
+    <!-- ✅ KB MODAL -->
+    <div id="kbModal" class="modal" style="display:none;">
+      <div class="modalBackdrop" id="kbCloseBackdrop"></div>
+
+      <div class="modalCard">
+        <div class="modalHeader">
+          <div>
+            <h3 id="kbTitle" style="margin:0;">Kunskapsdatabas</h3>
+            <div class="smallMuted" id="kbSub">Hantera källor för vald kategori</div>
+          </div>
+
+          <div class="modalHeaderActions">
+            <button id="kbReloadBtn" class="btn ghost">
+              <i class="fas fa-sync"></i> Uppdatera
+            </button>
+            <button id="kbCloseBtn" class="btn danger">
+              <i class="fas fa-times"></i> Stäng
+            </button>
+          </div>
+        </div>
+
+        <div class="kbGrid">
+          <div class="kbBox">
+            <h4>URL</h4>
+            <input id="kbUrlInput" placeholder="https://..." />
+            <button id="kbUploadUrlBtn" class="btn primary">Ladda upp URL</button>
+          </div>
+
+          <div class="kbBox">
+            <h4>Text</h4>
+            <textarea id="kbTextInput" rows="5" placeholder="Klistra in text..."></textarea>
+            <button id="kbUploadTextBtn" class="btn primary">Ladda upp Text</button>
+          </div>
+
+          <div class="kbBox">
+            <h4>PDF</h4>
+            <input id="kbPdfInput" type="file" accept="application/pdf" />
+            <button id="kbUploadPdfBtn" class="btn primary">Ladda upp PDF</button>
+          </div>
+        </div>
+
+        <div class="kbFooter">
+          <div id="kbMsg" class="kbMsg"></div>
+          <div class="kbExportRow">
+            <button id="kbExportCategoryBtn" class="btn secondary">
+              <i class="fas fa-file-export"></i> Exportera kategori
+            </button>
+            <button id="kbExportAllBtn" class="btn danger">
+              <i class="fas fa-shield-alt"></i> Export ALLT (admin)
+            </button>
+          </div>
+        </div>
+
+        <h4 style="margin-top:12px;">Källor i kategori</h4>
+        <div id="kbList" class="kbList"></div>
+      </div>
+    </div>
+
   </div>
 
   <script src="script.js"></script>

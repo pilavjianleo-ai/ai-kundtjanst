@@ -1,6 +1,3 @@
-/*************************************************
- * ✅ API endpoints
- *************************************************/
 const API_BASE = window.location.hostname === "localhost" ? "http://localhost:3000" : "";
 
 const API_CHAT = `${API_BASE}/chat`;
@@ -15,13 +12,9 @@ const API_KB_PDF = `${API_BASE}/kb/upload-pdf`;
 const API_KB_LIST = `${API_BASE}/kb/list`;
 const API_KB_DELETE = `${API_BASE}/kb/item`;
 
-const API_EXPORT_MY = `${API_BASE}/export/knowledgebase`;
 const API_EXPORT_KB_CATEGORY = `${API_BASE}/export/kb`;
 const API_EXPORT_ALL = `${API_BASE}/admin/export/all`;
 
-/*************************************************
- * ✅ Category helpers
- *************************************************/
 function getCompanyIdFromURL() {
   const params = new URLSearchParams(window.location.search);
   return params.get("company") || "demo";
@@ -30,20 +23,13 @@ function getCompanyIdFromURL() {
 function setCompanyIdInURL(newCompanyId) {
   const url = new URL(window.location.href);
   url.searchParams.set("company", newCompanyId);
-  window.history.pushState({}, "", url.toString());
+  history.pushState({}, "", url.toString());
 }
 
 let companyId = getCompanyIdFromURL();
-
-/*************************************************
- * ✅ Auth
- *************************************************/
 let token = localStorage.getItem("token");
 let userRole = localStorage.getItem("role") || null;
 
-/*************************************************
- * ✅ helpers
- *************************************************/
 function escapeHtml(str) {
   return String(str || "")
     .replaceAll("&", "&amp;")
@@ -130,9 +116,6 @@ function copyToClipboard(text) {
   });
 }
 
-/*************************************************
- * ✅ Render messages
- *************************************************/
 function renderMessages(messages) {
   const messagesDiv = document.getElementById("messages");
   if (!messagesDiv) return;
@@ -165,9 +148,6 @@ function renderMessages(messages) {
   messagesDiv.scrollTop = messagesDiv.scrollHeight;
 }
 
-/*************************************************
- * ✅ History
- *************************************************/
 async function loadHistory() {
   if (!token) return;
 
@@ -180,9 +160,6 @@ async function loadHistory() {
   renderMessages(messages);
 }
 
-/*************************************************
- * ✅ Send message
- *************************************************/
 async function sendMessage() {
   const input = document.getElementById("messageInput");
   const messagesDiv = document.getElementById("messages");
@@ -248,11 +225,9 @@ async function sendMessage() {
       messagesDiv.scrollTop = messagesDiv.scrollHeight;
     }
 
-    if (data.ragUsed === true) {
-      showRagBadge("RAG användes ✅ (kunskapsdatabas)", true);
-    } else {
-      showRagBadge("", false);
-    }
+    if (data.ragUsed === true) showRagBadge("RAG användes ✅ (kunskapsdatabas)", true);
+    else showRagBadge("", false);
+
   } catch (err) {
     console.error("Chat-fel:", err);
     removeTypingIndicator();
@@ -264,9 +239,6 @@ async function sendMessage() {
   }
 }
 
-/*************************************************
- * ✅ Feedback
- *************************************************/
 async function giveFeedback(type) {
   if (!token) return;
 
@@ -280,9 +252,6 @@ async function giveFeedback(type) {
   setTimeout(() => setSubtitle(""), 1200);
 }
 
-/*************************************************
- * ✅ Export chat
- *************************************************/
 async function exportChat() {
   if (!token) return;
 
@@ -309,20 +278,14 @@ async function exportChat() {
   URL.revokeObjectURL(url);
 }
 
-/*************************************************
- * ✅ Clear chat (UI only)
- *************************************************/
 function clearChat() {
   const messagesDiv = document.getElementById("messages");
   if (messagesDiv) messagesDiv.innerHTML = "";
   showRagBadge("", false);
-  setSubtitle("🗑️ Chatten rensad (endast UI)");
+  setSubtitle("🗑️ Rensad (endast UI)");
   setTimeout(() => setSubtitle(""), 1200);
 }
 
-/*************************************************
- * ✅ Theme toggle
- *************************************************/
 function toggleTheme() {
   const body = document.body;
   const icon = document.querySelector("#themeToggle i");
@@ -337,9 +300,6 @@ function toggleTheme() {
   }
 }
 
-/*************************************************
- * ✅ Logout
- *************************************************/
 function logout() {
   localStorage.removeItem("token");
   localStorage.removeItem("role");
@@ -347,8 +307,8 @@ function logout() {
   userRole = null;
 
   setLoggedInUI(false);
-  showKbPanel(false);
-  showRagBadge("", false);
+  setKbButtonVisible(false);
+  closeKbModal();
 
   const messagesDiv = document.getElementById("messages");
   if (messagesDiv) messagesDiv.innerHTML = "";
@@ -358,11 +318,9 @@ function logout() {
 }
 
 /*************************************************
- * ✅ Category switching (from dropdown)
+ * ✅ CATEGORY DROPDOWN
  *************************************************/
 async function handleCompanyChange(newCompanyId) {
-  if (!newCompanyId) return;
-
   companyId = newCompanyId;
   setCompanyIdInURL(companyId);
 
@@ -371,154 +329,38 @@ async function handleCompanyChange(newCompanyId) {
 
   if (token) {
     await loadHistory();
-
-    if (userRole === "admin") {
-      ensureKbPanel();
-      updateKbTitle();
-      await loadKbList();
-    }
+    if (userRole === "admin") await loadKbList();
   }
 
-  setSubtitle(`✅ Bytte kategori till: ${companyId}`);
-  setTimeout(() => setSubtitle(""), 1200);
+  setSubtitle(`✅ Bytte kategori: ${companyId}`);
+  setTimeout(() => setSubtitle(""), 1000);
 }
 
 /*************************************************
- * ✅ Manual refresh
+ * ✅ KB MODAL (Admin only)
  *************************************************/
-async function refreshCategory() {
-  const dropdown = document.getElementById("companySelect");
-  const currentSelected = dropdown?.value || getCompanyIdFromURL();
-  await handleCompanyChange(currentSelected);
+function setKbButtonVisible(show) {
+  const btn = document.getElementById("kbOpenBtn");
+  if (btn) btn.style.display = show ? "inline-flex" : "none";
 }
 
-/*************************************************
- * ✅ Auth actions
- *************************************************/
-async function handleLogin() {
-  const username = document.getElementById("username")?.value;
-  const password = document.getElementById("password")?.value;
-
-  const res = await fetch(API_LOGIN, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ username, password }),
-  });
-
-  const data = await res.json();
-  const msg = document.getElementById("authMessage");
-
-  if (data.token) {
-    localStorage.setItem("token", data.token);
-    token = data.token;
-
-    userRole = data.user?.role || "user";
-    localStorage.setItem("role", userRole);
-
-    setLoggedInUI(true);
-    await loadHistory();
-
-    if (userRole === "admin") {
-      ensureKbPanel();
-      showKbPanel(true);
-      updateKbTitle();
-      await loadKbList();
-    } else {
-      showKbPanel(false);
-    }
-
-    setSubtitle("✅ Inloggad");
-    setTimeout(() => setSubtitle(""), 1200);
-  } else {
-    if (msg) msg.textContent = data.error || "Fel vid login.";
-  }
+function openKbModal() {
+  const modal = document.getElementById("kbModal");
+  if (modal) modal.style.display = "block";
+  updateKbTitle();
+  loadKbList();
 }
 
-async function handleRegister() {
-  const username = document.getElementById("username")?.value;
-  const password = document.getElementById("password")?.value;
-
-  const res = await fetch(API_REGISTER, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ username, password }),
-  });
-
-  const data = await res.json();
-  const msg = document.getElementById("authMessage");
-  if (msg) msg.textContent = data.message || data.error || "Ok";
-}
-
-/*************************************************
- * ✅ KnowledgeBase (Admin-only)
- *************************************************/
-function ensureKbPanel() {
-  if (document.getElementById("kbPanel")) return;
-
-  const container = document.querySelector(".container");
-  const panel = document.createElement("div");
-  panel.id = "kbPanel";
-  panel.className = "card";
-  panel.style.display = "none";
-
-  panel.innerHTML = `
-    <div class="kbHeader">
-      <h3 id="kbTitle" style="margin:0;">Admin: Kunskapsdatabas</h3>
-      <div class="kbActions">
-        <button id="kbReloadBtn" class="btn secondary">🔄 Uppdatera</button>
-        <button id="kbExportCategoryBtn" class="btn secondary">⬇️ Exportera kategori</button>
-        <button id="kbExportMyBtn" class="btn secondary">⬇️ Exportera min</button>
-        <button id="kbExportAllBtn" class="btn danger">🛡️ Export ALLT</button>
-      </div>
-    </div>
-
-    <div class="kbGrid">
-      <div class="kbBox">
-        <h4>URL</h4>
-        <input id="kbUrlInput" placeholder="https://..." />
-        <button id="kbUploadUrlBtn" class="btn primary">Ladda upp URL</button>
-      </div>
-
-      <div class="kbBox">
-        <h4>Text</h4>
-        <textarea id="kbTextInput" rows="5" placeholder="Klistra in text..."></textarea>
-        <button id="kbUploadTextBtn" class="btn primary">Ladda upp Text</button>
-      </div>
-
-      <div class="kbBox">
-        <h4>PDF</h4>
-        <input id="kbPdfInput" type="file" accept="application/pdf" />
-        <button id="kbUploadPdfBtn" class="btn primary">Ladda upp PDF</button>
-      </div>
-    </div>
-
-    <div id="kbMsg" class="kbMsg"></div>
-
-    <h4 style="margin-top:12px;">Källor i kategori</h4>
-    <div id="kbList" class="kbList"></div>
-  `;
-
-  container.appendChild(panel);
-
-  document.getElementById("kbReloadBtn")?.addEventListener("click", loadKbList);
-  document.getElementById("kbExportCategoryBtn")?.addEventListener("click", exportCategoryKB);
-  document.getElementById("kbExportMyBtn")?.addEventListener("click", exportMyKB);
-  document.getElementById("kbExportAllBtn")?.addEventListener("click", exportAllAdmin);
-
-  document.getElementById("kbUploadUrlBtn")?.addEventListener("click", uploadKbUrl);
-  document.getElementById("kbUploadTextBtn")?.addEventListener("click", uploadKbText);
-  document.getElementById("kbUploadPdfBtn")?.addEventListener("click", uploadKbPdf);
+function closeKbModal() {
+  const modal = document.getElementById("kbModal");
+  if (modal) modal.style.display = "none";
 }
 
 function updateKbTitle() {
-  const kbTitle = document.getElementById("kbTitle");
-  if (!kbTitle) return;
-  kbTitle.innerText = `Admin: Kunskapsdatabas (kategori: ${companyId})`;
-}
-
-function showKbPanel(show) {
-  const panel = document.getElementById("kbPanel");
-  if (panel) panel.style.display = show ? "block" : "none";
+  const title = document.getElementById("kbTitle");
+  const sub = document.getElementById("kbSub");
+  if (title) title.textContent = `Kunskapsdatabas (kategori: ${companyId})`;
+  if (sub) sub.textContent = `Du jobbar just nu med ${companyId}`;
 }
 
 async function loadKbList() {
@@ -543,7 +385,7 @@ async function loadKbList() {
   }
 
   if (!data.length) {
-    kbList.innerHTML = `<div class="kbEmpty">Inga källor ännu i denna kategori.</div>`;
+    kbList.innerHTML = `<div class="kbEmpty">Inga källor i denna kategori ännu.</div>`;
     return;
   }
 
@@ -565,17 +407,15 @@ async function loadKbList() {
     `;
   }
 
-  if (kbMsg) kbMsg.textContent = `✅ Laddade ${data.length} källor`;
+  if (kbMsg) kbMsg.textContent = `✅ ${data.length} källor laddade`;
 }
 
 async function deleteKbItem(id) {
   if (!token || userRole !== "admin") return;
-
   await fetch(`${API_KB_DELETE}/${id}`, {
     method: "DELETE",
     headers: { Authorization: `Bearer ${token}` },
   });
-
   await loadKbList();
 }
 
@@ -599,7 +439,6 @@ async function uploadKbUrl() {
 
   if (!res.ok) {
     kbMsg.textContent = `❌ ${data.error || "Fel vid URL-upload"}`;
-    if (data.debug) console.log("URL debug:", data.debug);
     return;
   }
 
@@ -667,19 +506,14 @@ async function uploadKbPdf() {
   await loadKbList();
 }
 
-async function exportMyKB() {
-  if (!token || userRole !== "admin") return;
-  window.location.href = API_EXPORT_MY;
-}
-
-async function exportCategoryKB() {
+function exportCategoryKB() {
   if (!token || userRole !== "admin") return;
   window.location.href = `${API_EXPORT_KB_CATEGORY}/${companyId}`;
 }
 
-async function exportAllAdmin() {
+function exportAllAdmin() {
   if (!token || userRole !== "admin") return;
-  const ok = confirm("Vill du ladda ner ALLT? (users + chats + KB + feedback + training)");
+  const ok = confirm("Vill du exportera ALLT? (admin)");
   if (!ok) return;
   window.location.href = API_EXPORT_ALL;
 }
@@ -688,21 +522,16 @@ async function exportAllAdmin() {
  * ✅ INIT
  *************************************************/
 document.addEventListener("DOMContentLoaded", async () => {
-  // init category
   companyId = getCompanyIdFromURL();
   updateTitle();
   setLoggedInUI(!!token);
 
-  // dropdown sync
   const dropdown = document.getElementById("companySelect");
   if (dropdown) {
     dropdown.value = companyId;
-    dropdown.addEventListener("change", async (e) => {
-      await handleCompanyChange(e.target.value);
-    });
+    dropdown.addEventListener("change", (e) => handleCompanyChange(e.target.value));
   }
 
-  // buttons
   document.getElementById("sendBtn")?.addEventListener("click", sendMessage);
   document.getElementById("messageInput")?.addEventListener("keydown", (e) => {
     if (e.key === "Enter") {
@@ -713,27 +542,70 @@ document.addEventListener("DOMContentLoaded", async () => {
 
   document.getElementById("themeToggle")?.addEventListener("click", toggleTheme);
   document.getElementById("clearChat")?.addEventListener("click", clearChat);
-  document.getElementById("refreshCategory")?.addEventListener("click", refreshCategory);
   document.getElementById("exportChat")?.addEventListener("click", exportChat);
   document.getElementById("logoutBtn")?.addEventListener("click", logout);
 
   document.getElementById("loginBtn")?.addEventListener("click", handleLogin);
   document.getElementById("registerBtn")?.addEventListener("click", handleRegister);
 
-  // load history if logged in
+  // KB Modal events
+  document.getElementById("kbOpenBtn")?.addEventListener("click", openKbModal);
+  document.getElementById("kbCloseBtn")?.addEventListener("click", closeKbModal);
+  document.getElementById("kbCloseBackdrop")?.addEventListener("click", closeKbModal);
+
+  document.getElementById("kbReloadBtn")?.addEventListener("click", loadKbList);
+  document.getElementById("kbUploadUrlBtn")?.addEventListener("click", uploadKbUrl);
+  document.getElementById("kbUploadTextBtn")?.addEventListener("click", uploadKbText);
+  document.getElementById("kbUploadPdfBtn")?.addEventListener("click", uploadKbPdf);
+
+  document.getElementById("kbExportCategoryBtn")?.addEventListener("click", exportCategoryKB);
+  document.getElementById("kbExportAllBtn")?.addEventListener("click", exportAllAdmin);
+
+  // If already logged in: show chat + admin features
   if (token) {
     setLoggedInUI(true);
     await loadHistory();
 
+    // ✅ show KB button only if admin
     if (userRole === "admin") {
-      ensureKbPanel();
-      showKbPanel(true);
-      updateKbTitle();
-      await loadKbList();
+      setKbButtonVisible(true);
     } else {
-      showKbPanel(false);
+      setKbButtonVisible(false);
     }
   } else {
-    showKbPanel(false);
+    setKbButtonVisible(false);
   }
 });
+
+async function handleLogin() {
+  const username = document.getElementById("username")?.value;
+  const password = document.getElementById("password")?.value;
+
+  const res = await fetch(API_LOGIN, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ username, password }),
+  });
+
+  const data = await res.json();
+  const msg = document.getElementById("authMessage");
+
+  if (data.token) {
+    localStorage.setItem("token", data.token);
+    token = data.token;
+
+    userRole = data.user?.role || "user";
+    localStorage.setItem("role", userRole);
+
+    setLoggedInUI(true);
+    await loadHistory();
+
+    if (userRole === "admin") setKbButtonVisible(true);
+    else setKbButtonVisible(false);
+
+    setSubtitle("✅ Inloggad");
+    setTimeout(() => setSubtitle(""), 1200);
+  } else {
+    if (msg) msg.textContent = data.error || "Fel vid login.";
+  }
+}
