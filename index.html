@@ -4,226 +4,275 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>AI Kundtjänst</title>
+
   <link rel="stylesheet" href="style.css" />
-  <script src="https://kit.fontawesome.com/a2d9d5b5f5.js" crossorigin="anonymous"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" />
 </head>
 
 <body data-theme="dark">
   <div class="app">
 
-    <!-- AUTH -->
-    <section id="authScreen" class="authScreen">
-      <div class="authCard">
-        <div class="authBrand">
-          <div class="logo">AI</div>
-          <div>
-            <h1>AI Kundtjänst</h1>
-            <p>Logga in för att fortsätta</p>
-          </div>
-        </div>
-
-        <div class="authInputs">
-          <label>Användarnamn</label>
-          <input id="username" type="text" placeholder="ex: pilav" autocomplete="username" />
-
-          <label>Lösenord</label>
-          <input id="password" type="password" placeholder="••••••••" autocomplete="current-password" />
-
-          <div id="authMessage" class="authMessage"></div>
-
-          <div class="authButtons">
-            <button id="loginBtn" class="btn primary">
-              <i class="fas fa-right-to-bracket"></i> Logga in
-            </button>
-            <button id="registerBtn" class="btn ghost">
-              <i class="fas fa-user-plus"></i> Registrera
-            </button>
-          </div>
-
-          <div class="authHint">
-            <i class="fas fa-shield"></i>
-            Din data sparas per konto.
-          </div>
+    <!-- TOP BAR -->
+    <header class="topbar">
+      <div class="brand">
+        <div class="logo"><i class="fa-solid fa-headset"></i></div>
+        <div class="brandText">
+          <div class="brandTitle">AI Kundtjänst</div>
+          <div class="brandSub" id="roleBadge">Inte inloggad</div>
         </div>
       </div>
-    </section>
 
-    <!-- MAIN APP -->
-    <section id="mainApp" class="mainApp" style="display:none;">
+      <div class="topbarRight">
+        <div class="categoryWrap">
+          <label class="labelSmall">Kategori</label>
+          <select id="categorySelect" class="select">
+            <option value="demo">Demo AB</option>
+            <option value="law">Juridik</option>
+            <option value="tech">Teknisk support</option>
+            <option value="cleaning">Städservice</option>
+          </select>
+        </div>
 
-      <!-- SIDEBAR -->
+        <button id="themeToggle" class="iconBtn" title="Växla tema">
+          <i class="fa-solid fa-moon"></i>
+        </button>
+
+        <button id="logoutBtn" class="btn danger" style="display:none;">
+          <i class="fa-solid fa-right-from-bracket"></i> Logga ut
+        </button>
+      </div>
+    </header>
+
+    <main class="layout">
+      <!-- LEFT SIDEBAR -->
       <aside class="sidebar">
-        <div class="sidebarTop">
-          <div class="sideBrand">
-            <div class="logo small">AI</div>
-            <div>
-              <div class="sideTitle">Kundtjänst</div>
-              <div class="sideSub">Tickets + AI</div>
-            </div>
-          </div>
+        <div class="card">
+          <div class="cardTitle">Meny</div>
 
-          <div class="sideBlock">
-            <div class="sideLabel">Kategori</div>
-            <select id="companySelect" class="select">
-              <option value="demo">Demo AB</option>
-              <option value="law">Juridik</option>
-              <option value="tech">Teknisk support</option>
-              <option value="cleaning">Städservice</option>
-            </select>
-          </div>
+          <button id="openChatView" class="menuBtn active">
+            <i class="fa-solid fa-comments"></i>
+            Chatt
+          </button>
 
-          <div class="sideNav">
-            <button id="navTickets" class="navItem active">
-              <i class="fas fa-ticket"></i> Ärenden
-            </button>
+          <button id="openAdminView" class="menuBtn" style="display:none;">
+            <i class="fa-solid fa-user-shield"></i>
+            Adminpanel
+          </button>
 
-            <button id="navChat" class="navItem">
-              <i class="fas fa-comments"></i> Chatt
-            </button>
+          <div class="divider"></div>
 
-            <button id="navKb" class="navItem" style="display:none;">
-              <i class="fas fa-database"></i> Kunskapsdatabas
-              <span class="chip">Admin</span>
-            </button>
+          <button id="exportChatBtn" class="menuBtn">
+            <i class="fa-solid fa-file-arrow-down"></i>
+            Exportera chatt
+          </button>
+
+          <button id="clearChatBtn" class="menuBtn">
+            <i class="fa-solid fa-trash"></i>
+            Rensa chatt
+          </button>
+
+          <div class="divider"></div>
+
+          <button id="toggleDebugBtn" class="menuBtn">
+            <i class="fa-solid fa-bug"></i>
+            Debug
+          </button>
+
+          <div class="tinyNote">
+            Byt kategori för att ändra AI:ns “personlighet”.
           </div>
         </div>
 
-        <div class="sidebarBottom">
-          <button id="themeToggle" class="btn ghost full">
-            <i class="fas fa-moon"></i> Växla tema
-          </button>
-
-          <button id="logoutBtn" class="btn danger full">
-            <i class="fas fa-sign-out-alt"></i> Logga ut
-          </button>
-
-          <div class="tiny">AI Kundtjänst • Render</div>
+        <div id="debugPanel" class="card" style="display:none;">
+          <div class="cardTitle">Debug</div>
+          <div class="debugRow"><span>Inloggad:</span> <b id="dbgLogged">NEJ</b></div>
+          <div class="debugRow"><span>Roll:</span> <b id="dbgRole">-</b></div>
+          <div class="debugRow"><span>RAG användes:</span> <b id="dbgRag">-</b></div>
+          <div class="debugRow"><span>Ticket ID:</span> <b id="dbgTicket">-</b></div>
+          <div class="debugRow"><span>API base:</span> <b id="dbgApi">-</b></div>
         </div>
       </aside>
 
-      <!-- CONTENT -->
-      <main class="content">
+      <!-- MAIN CONTENT -->
+      <section class="content">
 
-        <!-- TOPBAR -->
-        <div class="topbar">
-          <div class="titleBlock">
-            <div class="title" id="title">AI Kundtjänst</div>
-            <div class="subtitle" id="subtitle"></div>
-          </div>
+        <!-- AUTH VIEW -->
+        <section id="authView" class="view">
+          <div class="authCard">
+            <h2>Logga in</h2>
+            <p class="muted">Logga in eller skapa ett konto för att använda AI Kundtjänst.</p>
 
-          <div class="actions">
-            <button id="clearChat" class="btn ghost">
-              <i class="fas fa-trash"></i> Rensa
-            </button>
+            <div class="formGrid">
+              <input id="username" class="input" type="text" placeholder="Användarnamn" />
+              <input id="password" class="input" type="password" placeholder="Lösenord" />
+            </div>
 
-            <button id="exportChat" class="btn ghost">
-              <i class="fas fa-download"></i> Export
-            </button>
-          </div>
-        </div>
-
-        <!-- TICKETS VIEW -->
-        <section id="ticketsView" class="view">
-          <div class="ticketsCard">
-            <div class="ticketsHeader">
-              <div>
-                <h2>Ärenden</h2>
-                <p class="muted">Klicka ett ärende för att öppna chatten</p>
-              </div>
-
-              <button id="ticketsReloadBtn" class="btn ghost">
-                <i class="fas fa-sync"></i> Uppdatera
+            <div class="row">
+              <button id="loginBtn" class="btn primary">
+                <i class="fa-solid fa-arrow-right-to-bracket"></i> Logga in
+              </button>
+              <button id="registerBtn" class="btn secondary">
+                <i class="fa-solid fa-user-plus"></i> Registrera
               </button>
             </div>
 
-            <div class="ticketsGrid">
-              <div class="ticketsCol">
-                <h3>Mina ärenden</h3>
-                <div id="ticketsMine" class="ticketsList"></div>
-              </div>
-
-              <div class="ticketsCol" id="ticketsAdminBox" style="display:none;">
-                <h3>Alla ärenden (Admin)</h3>
-                <div id="ticketsAdmin" class="ticketsList"></div>
-              </div>
-            </div>
+            <div id="authMessage" class="alert" style="display:none;"></div>
           </div>
         </section>
 
         <!-- CHAT VIEW -->
         <section id="chatView" class="view" style="display:none;">
           <div class="chatCard">
+            <div class="chatHeader">
+              <div>
+                <div class="chatTitle" id="chatTitle">AI Kundtjänst – Demo AB</div>
+                <div class="chatSubtitle" id="chatSubtitle">Ställ en fråga så hjälper jag dig direkt.</div>
+              </div>
+              <div class="chatHeaderRight">
+                <button id="newTicketBtn" class="btn secondary small">
+                  <i class="fa-solid fa-plus"></i> Nytt ärende
+                </button>
+              </div>
+            </div>
+
             <div id="messages" class="messages"></div>
 
             <div class="composer">
-              <div class="composerBox">
-                <input id="messageInput" type="text" placeholder="Skriv ditt meddelande..." />
-                <button id="sendBtn" class="btn primary">
-                  <i class="fas fa-paper-plane"></i> Skicka
+              <input id="messageInput" class="input" type="text" placeholder="Skriv ditt meddelande..." />
+              <button id="sendBtn" class="btn primary circle" title="Skicka">
+                <i class="fa-solid fa-paper-plane"></i>
+              </button>
+            </div>
+
+            <div class="hintRow">
+              <div class="muted small">
+                Tips: tryck <b>Enter</b> för att skicka.
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- ADMIN VIEW -->
+        <section id="adminView" class="view" style="display:none;">
+          <div class="adminGrid">
+
+            <!-- KB MANAGER -->
+            <div class="card">
+              <div class="cardTitle">Kunskapsdatabas (RAG)</div>
+              <div class="muted small" style="margin-bottom:10px;">
+                Ladda upp PDF / Text / URL per kategori. Detta används automatiskt av AI när det matchar.
+              </div>
+
+              <div class="kbRow">
+                <label class="labelSmall">Kategori</label>
+                <select id="kbCategorySelect" class="select">
+                  <option value="demo">Demo AB</option>
+                  <option value="law">Juridik</option>
+                  <option value="tech">Teknisk support</option>
+                  <option value="cleaning">Städservice</option>
+                </select>
+              </div>
+
+              <div class="kbTabs">
+                <button class="tabBtn active" data-tab="textTab"><i class="fa-solid fa-file-lines"></i> Text</button>
+                <button class="tabBtn" data-tab="urlTab"><i class="fa-solid fa-link"></i> URL</button>
+                <button class="tabBtn" data-tab="pdfTab"><i class="fa-solid fa-file-pdf"></i> PDF</button>
+              </div>
+
+              <!-- TEXT TAB -->
+              <div id="textTab" class="tabPanel">
+                <input id="kbTextTitle" class="input" placeholder="Titel (t.ex. FAQ / Prislista)" />
+                <textarea id="kbTextContent" class="textarea" placeholder="Klistra in text här..."></textarea>
+                <button id="kbUploadTextBtn" class="btn primary">
+                  <i class="fa-solid fa-upload"></i> Ladda upp text
                 </button>
               </div>
-              <div id="ragBadge" class="ragBadge" style="display:none;"></div>
 
-              <!-- ✅ Agent takeover (admin) -->
-              <div id="agentPanel" class="agentPanel" style="display:none;">
-                <div class="agentTitle"><i class="fas fa-headset"></i> Agent takeover</div>
-                <div class="agentRow">
-                  <input id="agentInput" placeholder="Svara som agent..." />
-                  <button id="agentSendBtn" class="btn danger">
-                    <i class="fas fa-paper-plane"></i> Skicka
-                  </button>
+              <!-- URL TAB -->
+              <div id="urlTab" class="tabPanel" style="display:none;">
+                <input id="kbUrlInput" class="input" placeholder="Klistra in URL (https://...)" />
+                <button id="kbUploadUrlBtn" class="btn primary">
+                  <i class="fa-solid fa-upload"></i> Ladda upp URL
+                </button>
+                <div class="muted small" style="margin-top:8px;">
+                  Om sidan är “låst” eller laddas via JS kan texten ibland inte extraheras.
                 </div>
-                <div class="mutedTiny">Tip: agent-svar hamnar i ärendet som “agent”.</div>
               </div>
+
+              <!-- PDF TAB -->
+              <div id="pdfTab" class="tabPanel" style="display:none;">
+                <input id="kbPdfFile" type="file" accept="application/pdf" class="file" />
+                <button id="kbUploadPdfBtn" class="btn primary">
+                  <i class="fa-solid fa-upload"></i> Ladda upp PDF
+                </button>
+              </div>
+
+              <div class="divider"></div>
+
+              <div class="row">
+                <button id="kbRefreshBtn" class="btn secondary">
+                  <i class="fa-solid fa-rotate"></i> Uppdatera lista
+                </button>
+                <button id="kbExportBtn" class="btn secondary">
+                  <i class="fa-solid fa-download"></i> Exportera KB (JSON)
+                </button>
+              </div>
+
+              <div id="kbMsg" class="alert" style="display:none;margin-top:10px;"></div>
+
+              <div class="kbListTitle">Senaste chunks</div>
+              <div id="kbList" class="kbList"></div>
             </div>
+
+            <!-- USERS -->
+            <div class="card">
+              <div class="cardTitle">Användare (Admin)</div>
+              <div class="row" style="margin-bottom:10px;">
+                <button id="adminUsersRefreshBtn" class="btn secondary">
+                  <i class="fa-solid fa-rotate"></i> Ladda users
+                </button>
+                <button id="adminExportAllBtn" class="btn secondary">
+                  <i class="fa-solid fa-box-archive"></i> Export ALLT
+                </button>
+              </div>
+
+              <div id="adminUsersMsg" class="alert" style="display:none;"></div>
+              <div id="adminUsersList" class="adminList"></div>
+            </div>
+
+            <!-- TICKETS -->
+            <div class="card">
+              <div class="cardTitle">Tickets (Admin)</div>
+              <div class="row" style="margin-bottom:10px;">
+                <button id="adminTicketsRefreshBtn" class="btn secondary">
+                  <i class="fa-solid fa-rotate"></i> Ladda tickets
+                </button>
+              </div>
+
+              <div id="adminTicketsMsg" class="alert" style="display:none;"></div>
+              <div id="adminTicketsList" class="adminList"></div>
+
+              <div class="divider"></div>
+
+              <div class="cardTitle" style="margin-top:8px;">Agent-svar</div>
+              <div class="muted small">
+                Svara på en ticket som mänsklig agent (takeover). Välj ticket först.
+              </div>
+
+              <input id="agentTicketId" class="input" placeholder="Ticket ID..." />
+              <textarea id="agentReplyText" class="textarea" placeholder="Skriv agent-svar..."></textarea>
+              <button id="sendAgentReplyBtn" class="btn primary">
+                <i class="fa-solid fa-reply"></i> Skicka agent-svar
+              </button>
+
+              <div id="agentMsg" class="alert" style="display:none;margin-top:10px;"></div>
+            </div>
+
           </div>
         </section>
 
-        <!-- KB VIEW (ADMIN) -->
-        <section id="kbView" class="view" style="display:none;">
-          <div class="kbCard">
-            <div class="kbHeader">
-              <div>
-                <h2 id="kbTitle">Kunskapsdatabas</h2>
-                <p class="muted">Ladda upp Text/URL. PDF kommer i nästa version.</p>
-              </div>
-
-              <div class="kbHeaderActions">
-                <button id="kbReloadBtn" class="btn ghost">
-                  <i class="fas fa-sync"></i> Uppdatera
-                </button>
-                <button id="kbExportCategoryBtn" class="btn ghost">
-                  <i class="fas fa-file-export"></i> Exportera kategori
-                </button>
-                <button id="kbExportAllBtn" class="btn danger">
-                  <i class="fas fa-shield-alt"></i> Export ALLT
-                </button>
-              </div>
-            </div>
-
-            <div class="kbGrid">
-              <div class="kbBox">
-                <div class="kbBoxTitle"><i class="fas fa-link"></i> URL</div>
-                <input id="kbUrlInput" placeholder="https://..." />
-                <button id="kbUploadUrlBtn" class="btn primary full">Spara URL</button>
-              </div>
-
-              <div class="kbBox">
-                <div class="kbBoxTitle"><i class="fas fa-align-left"></i> Text</div>
-                <textarea id="kbTextInput" rows="6" placeholder="Klistra in text..."></textarea>
-                <button id="kbUploadTextBtn" class="btn primary full">Ladda upp text</button>
-              </div>
-            </div>
-
-            <div id="kbMsg" class="kbMsg"></div>
-
-            <h3 style="margin-top:18px;">Källor i kategori</h3>
-            <div id="kbList" class="kbList"></div>
-          </div>
-        </section>
-
-      </main>
-    </section>
+      </section>
+    </main>
   </div>
 
   <script src="script.js"></script>
