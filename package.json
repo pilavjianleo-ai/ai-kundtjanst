@@ -1,6 +1,6 @@
 {
   "name": "ai-kundtjanst",
-  "version": "2.1.0",
+  "version": "2.1.1",
   "description": "AI Kundtjänst med KnowledgeBase + RAG + Admin",
   "main": "server.js",
   "type": "commonjs",
@@ -8,6 +8,7 @@
     "start": "node server.js"
   },
   "dependencies": {
+    "axios": "^1.6.8",
     "bcryptjs": "^3.0.3",
     "cheerio": "^1.0.0-rc.12",
     "cors": "^2.8.5",
