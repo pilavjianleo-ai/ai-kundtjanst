@@ -80,7 +80,7 @@ app.use("/register", limiterAuth);
 const userSchema = new mongoose.Schema({
   username: { type: String, unique: true, required: true },
   password: { type: String, required: true },
-  role: { type: String, default: "user" },
+  role: { type: String, default: "user" }, // first user becomes admin
   createdAt: { type: Date, default: Date.now },
 });
 const User = mongoose.model("User", userSchema);
@@ -158,9 +158,6 @@ function dot(a, b) {
   return s;
 }
 
-/**
- * ✅ Safe embedding: appen fungerar även om OpenAI är slut/429/billing
- */
 async function safeEmbed(text) {
   try {
     const emb = await openai.embeddings.create({
@@ -175,16 +172,11 @@ async function safeEmbed(text) {
   }
 }
 
-/**
- * ✅ Tries to embed list of chunks. If any chunk fails -> stop and return embeddingOk=false
- */
 async function embedChunks(chunks) {
   const embeddings = [];
   for (const c of chunks) {
     const r = await safeEmbed(c);
-    if (!r.ok) {
-      return { embeddingOk: false, embeddings: [] };
-    }
+    if (!r.ok) return { embeddingOk: false, embeddings: [] };
     embeddings.push(r.vector);
   }
   return { embeddingOk: true, embeddings };
@@ -232,10 +224,10 @@ const upload = multer({
 });
 
 // --------------------
-// ✅ URL extraction helper (Readability + fallback)
+// ✅ URL extraction helper
 // --------------------
 function extractTextFromHtml(url, html) {
-  // 1) Readability (best for articles)
+  // 1) Readability
   try {
     const dom = new JSDOM(html, { url });
     const reader = new Readability(dom.window.document);
@@ -244,9 +236,7 @@ function extractTextFromHtml(url, html) {
     if (article?.textContent && article.textContent.trim().length > 200) {
       return sanitize(article.textContent).replace(/\s+/g, " ").trim();
     }
-  } catch {
-    // ignore
-  }
+  } catch {}
 
   // 2) Cheerio fallback
   try {
@@ -265,7 +255,6 @@ function extractTextFromHtml(url, html) {
     let raw = candidates.find((t) => t && t.trim().length > 0) || "";
     raw = sanitize(raw).replace(/\s+/g, " ").trim();
 
-    // meta fallback
     if (!raw || raw.length < 250) {
       const title = $("title").text() || "";
       const desc = $('meta[name="description"]').attr("content") || "";
@@ -281,13 +270,9 @@ function extractTextFromHtml(url, html) {
 }
 
 // --------------------
-// ✅ Health
+// ✅ Health + Frontend
 // --------------------
 app.get("/health", (req, res) => res.json({ ok: true }));
-
-// --------------------
-// ✅ Frontend
-// --------------------
 app.get("/", (req, res) => res.sendFile(path.join(__dirname, "index.html")));
 app.get("/favicon.ico", (req, res) => res.status(204).end());
 
@@ -300,6 +285,8 @@ app.post("/register", async (req, res) => {
     if (!username || !password) return res.status(400).json({ error: "Användarnamn och lösenord krävs" });
 
     const hashedPassword = await bcrypt.hash(password, 10);
+
+    // first registered user becomes admin
     const count = await User.countDocuments();
     const role = count === 0 ? "admin" : "user";
 
@@ -387,7 +374,6 @@ app.post("/kb/upload-pdf", authenticate, upload.single("pdf"), async (req, res) 
     if (!clean) return res.status(400).json({ error: "Kunde inte läsa text från PDF" });
 
     const chunks = chunkText(clean);
-
     const { embeddingOk, embeddings } = await embedChunks(chunks);
 
     const item = await new KnowledgeItem({
@@ -474,7 +460,6 @@ app.post("/kb/upload-url", authenticate, async (req, res) => {
     }
 
     const chunks = chunkText(raw);
-
     const { embeddingOk, embeddings } = await embedChunks(chunks);
 
     const item = await new KnowledgeItem({
@@ -506,7 +491,7 @@ app.post("/kb/upload-url", authenticate, async (req, res) => {
 });
 
 // --------------------
-// ✅ KB List/Delete
+// ✅ KB List/Delete (for current admin user)
 // --------------------
 app.get("/kb/list/:companyId", authenticate, async (req, res) => {
   try {
@@ -644,7 +629,7 @@ app.get("/history/:companyId", authenticate, async (req, res) => {
 });
 
 // --------------------
-// ✅ Export: user
+// ✅ Export: user (all my data)
 // --------------------
 app.get("/export/knowledgebase", authenticate, async (req, res) => {
   const chats = await Chat.find({ userId: req.user.id }).lean();
@@ -667,7 +652,35 @@ app.get("/export/knowledgebase", authenticate, async (req, res) => {
 });
 
 // --------------------
-// ✅ Admin export all
+// ✅ Export: KB per kategori (my data)
+// --------------------
+app.get("/export/kb/:companyId", authenticate, async (req, res) => {
+  try {
+    const companyId = req.params.companyId;
+
+    const kb = await KnowledgeItem.find({
+      createdBy: req.user.id,
+      companyId,
+    }).lean();
+
+    const payload = {
+      exportedAt: new Date().toISOString(),
+      userId: req.user.id,
+      companyId,
+      knowledgeBase: kb,
+    };
+
+    res.setHeader("Content-Type", "application/json");
+    res.setHeader("Content-Disposition", `attachment; filename="kb_${companyId}_${Date.now()}.json"`);
+    res.send(JSON.stringify(payload, null, 2));
+  } catch (e) {
+    console.error("Export KB per category error:", e?.message || e);
+    res.status(500).json({ error: "Kunde inte exportera kategori" });
+  }
+});
+
+// --------------------
+// ✅ Admin export ALLT
 // --------------------
 app.get("/admin/export/all", authenticate, requireAdmin, async (req, res) => {
   const users = await User.find({}).select("_id username role createdAt").lean();
@@ -678,7 +691,7 @@ app.get("/admin/export/all", authenticate, requireAdmin, async (req, res) => {
 
   res.setHeader("Content-Type", "application/json");
   res.setHeader("Content-Disposition", `attachment; filename="ADMIN_EXPORT_ALL_${Date.now()}.json"`);
-  res.send(JSON.stringify({ users, chats, kb, feedback, training }, null, 2));
+  res.send(JSON.stringify({ exportedAt: new Date().toISOString(), users, chats, kb, feedback, training }, null, 2));
 });
 
 // --------------------

@@ -1,75 +1,66 @@
+/*************************************************
+ * ✅ API endpoints
+ *************************************************/
 const API_BASE = window.location.hostname === "localhost" ? "http://localhost:3000" : "";
 
+const API_CHAT = `${API_BASE}/chat`;
 const API_LOGIN = `${API_BASE}/login`;
 const API_REGISTER = `${API_BASE}/register`;
-const API_CHAT = `${API_BASE}/chat`;
 const API_HISTORY = `${API_BASE}/history`;
 const API_FEEDBACK = `${API_BASE}/feedback`;
-
-const API_EXPORT_ALL = `${API_BASE}/export/knowledgebase`;
-const API_EXPORT_CATEGORY = (companyId) => `${API_BASE}/export/knowledgebase/${companyId}`;
-const API_ADMIN_EXPORT_ALL = `${API_BASE}/admin/export/all`;
 
 const API_KB_TEXT = `${API_BASE}/kb/upload-text`;
 const API_KB_URL = `${API_BASE}/kb/upload-url`;
 const API_KB_PDF = `${API_BASE}/kb/upload-pdf`;
-const API_KB_LIST = (companyId) => `${API_BASE}/kb/list/${companyId}`;
-const API_KB_DELETE = (id) => `${API_BASE}/kb/item/${id}`;
+const API_KB_LIST = `${API_BASE}/kb/list`;
+const API_KB_DELETE = `${API_BASE}/kb/item`;
 
+const API_EXPORT_MY = `${API_BASE}/export/knowledgebase`;
+const API_EXPORT_ALL = `${API_BASE}/admin/export/all`;
+
+/*************************************************
+ * ✅ companyId från URL (?company=law / tech / cleaning)
+ *************************************************/
+const urlParams = new URLSearchParams(window.location.search);
+let companyId = urlParams.get("company") || "demo";
+
+/*************************************************
+ * ✅ Auth
+ *************************************************/
 let token = localStorage.getItem("token");
-let user = JSON.parse(localStorage.getItem("user") || "null");
-let companyId = "demo";
+let userRole = localStorage.getItem("role") || null;
 
-// safe JSON helper
-async function fetchJson(url, options = {}) {
-  const res = await fetch(url, options);
-  const text = await res.text();
-  let data;
-  try {
-    data = JSON.parse(text);
-  } catch {
-    throw new Error(`Servern svarade inte med JSON.\nStatus: ${res.status}\nBody: ${text.slice(0, 120)}...`);
-  }
-  if (!res.ok) throw new Error(data?.error || `HTTP ${res.status}`);
-  return data;
+/*************************************************
+ * ✅ UI helpers
+ *************************************************/
+function updateTitle() {
+  const titleEl = document.querySelector("h2");
+  if (!titleEl) return;
+
+  const map = {
+    law: "AI Kundtjänst – Juridik",
+    tech: "AI Kundtjänst – Teknisk support",
+    cleaning: "AI Kundtjänst – Städservice",
+    demo: "AI Kundtjänst – Demo AB",
+  };
+
+  titleEl.innerText = map[companyId] || map.demo;
 }
 
 function setLoggedInUI(isLoggedIn) {
-  document.getElementById("auth").style.display = isLoggedIn ? "none" : "block";
-  document.getElementById("chat").style.display = isLoggedIn ? "block" : "none";
-  document.getElementById("logoutBtn").style.display = isLoggedIn ? "inline-flex" : "none";
+  const auth = document.getElementById("auth");
+  const chat = document.getElementById("chat");
+  const logoutBtn = document.getElementById("logoutBtn");
 
-  const label = document.getElementById("userLabel");
-  if (isLoggedIn && user) {
-    label.style.display = "block";
-    label.textContent = `Inloggad som: ${user.username} (${user.role})`;
-  } else {
-    label.style.display = "none";
-    label.textContent = "";
-  }
-
-  const adminPanel = document.getElementById("adminPanel");
-  if (adminPanel) {
-    adminPanel.style.display = isLoggedIn && user?.role === "admin" ? "block" : "none";
-  }
-}
-
-function updateTitle() {
-  const titleEl = document.getElementById("pageTitle");
-  const map = {
-    demo: "AI Kundtjänst – Demo AB",
-    tech: "AI Kundtjänst – Teknisk support",
-    law: "AI Kundtjänst – Juridik",
-    cleaning: "AI Kundtjänst – Städservice",
-  };
-  titleEl.textContent = map[companyId] || map.demo;
-
-  const selectEl = document.getElementById("companySelect");
-  if (selectEl) selectEl.value = companyId;
+  if (auth) auth.style.display = isLoggedIn ? "none" : "block";
+  if (chat) chat.style.display = isLoggedIn ? "block" : "none";
+  if (logoutBtn) logoutBtn.style.display = isLoggedIn ? "inline-flex" : "none";
 }
 
 function showTypingIndicator() {
   const messagesDiv = document.getElementById("messages");
+  if (!messagesDiv) return;
+
   const existing = document.getElementById("typing");
   if (existing) existing.remove();
 
@@ -93,8 +84,22 @@ function copyToClipboard(text) {
   navigator.clipboard.writeText(text).then(() => alert("Text kopierad!"));
 }
 
+function escapeHtml(str) {
+  return String(str || "")
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("'", "&#039;");
+}
+
+/*************************************************
+ * ✅ Render messages
+ *************************************************/
 function renderMessages(messages) {
   const messagesDiv = document.getElementById("messages");
+  if (!messagesDiv) return;
+
   messagesDiv.innerHTML = "";
 
   for (const msg of messages) {
@@ -102,14 +107,14 @@ function renderMessages(messages) {
       messagesDiv.innerHTML += `
         <div class="msg user">
           <div class="avatar"><i class="fas fa-user"></i></div>
-          <div class="content">${msg.content}</div>
+          <div class="content">${escapeHtml(msg.content)}</div>
         </div>`;
     } else if (msg.role === "assistant") {
       const safeContent = String(msg.content || "").replace(/'/g, "\\'");
       messagesDiv.innerHTML += `
         <div class="msg ai">
           <div class="avatar"><i class="fas fa-robot"></i></div>
-          <div class="content">${msg.content}</div>
+          <div class="content">${escapeHtml(msg.content)}</div>
           <div class="feedback">
             <button onclick="giveFeedback('positive')"><i class="fas fa-thumbs-up"></i></button>
             <button onclick="giveFeedback('negative')"><i class="fas fa-thumbs-down"></i></button>
@@ -122,24 +127,36 @@ function renderMessages(messages) {
   messagesDiv.scrollTop = messagesDiv.scrollHeight;
 }
 
+/*************************************************
+ * ✅ Fetch history
+ *************************************************/
 async function loadHistory() {
   if (!token) return;
-  const messages = await fetchJson(`${API_HISTORY}/${companyId}`, {
+
+  const res = await fetch(`${API_HISTORY}/${companyId}`, {
     headers: { Authorization: `Bearer ${token}` },
   });
+
+  if (!res.ok) return;
+  const messages = await res.json();
   renderMessages(messages);
 }
 
+/*************************************************
+ * ✅ Send message
+ *************************************************/
 async function sendMessage() {
   const input = document.getElementById("messageInput");
   const messagesDiv = document.getElementById("messages");
+  if (!input || !messagesDiv) return;
+
   const text = input.value.trim();
   if (!text) return;
 
   messagesDiv.innerHTML += `
     <div class="msg user">
       <div class="avatar"><i class="fas fa-user"></i></div>
-      <div class="content">${text}</div>
+      <div class="content">${escapeHtml(text)}</div>
     </div>`;
   messagesDiv.scrollTop = messagesDiv.scrollHeight;
   input.value = "";
@@ -147,14 +164,15 @@ async function sendMessage() {
   showTypingIndicator();
 
   try {
-    const history = await fetchJson(`${API_HISTORY}/${companyId}`, {
+    const resHistory = await fetch(`${API_HISTORY}/${companyId}`, {
       headers: { Authorization: `Bearer ${token}` },
     });
+    const history = resHistory.ok ? await resHistory.json() : [];
 
     const conversation = history.map((m) => ({ role: m.role, content: m.content }));
     conversation.push({ role: "user", content: text });
 
-    const data = await fetchJson(API_CHAT, {
+    const response = await fetch(API_CHAT, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -163,343 +181,393 @@ async function sendMessage() {
       body: JSON.stringify({ companyId, conversation }),
     });
 
+    const data = await response.json();
     removeTypingIndicator();
 
-    messagesDiv.innerHTML += `
-      <div class="msg ai">
-        <div class="avatar"><i class="fas fa-robot"></i></div>
-        <div class="content">${data.reply}</div>
-        <div class="feedback">
-          <button onclick="giveFeedback('positive')"><i class="fas fa-thumbs-up"></i></button>
-          <button onclick="giveFeedback('negative')"><i class="fas fa-thumbs-down"></i></button>
-          <button onclick="copyToClipboard('${String(data.reply).replace(/'/g, "\\'")}')"><i class="fas fa-copy"></i></button>
-        </div>
-      </div>`;
-    messagesDiv.scrollTop = messagesDiv.scrollHeight;
+    if (data.reply) {
+      const safeReply = String(data.reply || "").replace(/'/g, "\\'");
+      messagesDiv.innerHTML += `
+        <div class="msg ai">
+          <div class="avatar"><i class="fas fa-robot"></i></div>
+          <div class="content">${escapeHtml(data.reply)}</div>
+          <div class="feedback">
+            <button onclick="giveFeedback('positive')"><i class="fas fa-thumbs-up"></i></button>
+            <button onclick="giveFeedback('negative')"><i class="fas fa-thumbs-down"></i></button>
+            <button onclick="copyToClipboard('${safeReply}')"><i class="fas fa-copy"></i></button>
+          </div>
+        </div>`;
+
+      if (typeof data.ragUsed !== "undefined") {
+        messagesDiv.innerHTML += `
+          <div class="msg ai">
+            <div class="avatar"><i class="fas fa-info-circle"></i></div>
+            <div class="content"><small>RAG användes: <b>${data.ragUsed ? "JA ✅" : "NEJ ⚠️"}</b></small></div>
+          </div>`;
+      }
+
+      messagesDiv.scrollTop = messagesDiv.scrollHeight;
+    } else {
+      messagesDiv.innerHTML += `
+        <div class="msg ai">
+          <div class="avatar"><i class="fas fa-robot"></i></div>
+          <div class="content">AI: Något gick fel.</div>
+        </div>`;
+    }
   } catch (err) {
+    console.error("Chat-fel:", err);
     removeTypingIndicator();
-    console.error(err);
     messagesDiv.innerHTML += `
       <div class="msg ai">
         <div class="avatar"><i class="fas fa-robot"></i></div>
-        <div class="content">Fel: ${err.message}</div>
+        <div class="content">AI: Tekniskt fel.</div>
       </div>`;
   }
 }
 
+/*************************************************
+ * ✅ Feedback
+ *************************************************/
 async function giveFeedback(type) {
   if (!token) return;
-  try {
-    await fetchJson(API_FEEDBACK, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${token}`,
-      },
-      body: JSON.stringify({ type, companyId }),
-    });
-    alert(`Tack för feedback! (${type})`);
-  } catch (err) {
-    alert("Feedback misslyckades: " + err.message);
-  }
-}
-
-function toggleTheme() {
-  const body = document.body;
-  const icon = document.querySelector("#themeToggle i");
-  const current = body.dataset.theme || "dark";
-  const next = current === "dark" ? "light" : "dark";
-  body.dataset.theme = next;
-  localStorage.setItem("theme", next);
-  if (icon) icon.className = next === "dark" ? "fas fa-moon" : "fas fa-sun";
-}
-
-async function clearChat() {
-  const ok = confirm("Vill du rensa chatthistoriken för denna kategori?");
-  if (!ok) return;
-
-  document.getElementById("messages").innerHTML = "";
-
-  await fetchJson(`${API_HISTORY}/${companyId}`, {
-    method: "DELETE",
-    headers: { Authorization: `Bearer ${token}` },
+  await fetch(API_FEEDBACK, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+    body: JSON.stringify({ type, companyId }),
   });
+
+  alert(`Tack för feedback! (${type})`);
 }
 
-async function refreshCategory() {
-  updateTitle();
-  await loadHistory();
+/*************************************************
+ * ✅ Logout
+ *************************************************/
+function logout() {
+  localStorage.removeItem("token");
+  localStorage.removeItem("role");
+  token = null;
+  userRole = null;
+
+  setLoggedInUI(false);
+  showKbPanel(false);
+
+  const messagesDiv = document.getElementById("messages");
+  if (messagesDiv) messagesDiv.innerHTML = "";
 }
 
-async function exportAll() {
-  const res = await fetch(API_EXPORT_ALL, { headers: { Authorization: `Bearer ${token}` } });
-  const blob = await res.blob();
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement("a");
-  a.href = url;
-  a.download = `my_export_all_${new Date().toISOString().split("T")[0]}.json`;
-  a.click();
-  URL.revokeObjectURL(url);
-}
+/*************************************************
+ * ✅ Category change
+ *************************************************/
+async function updateCategory() {
+  const newParams = new URLSearchParams(window.location.search);
+  const newCompanyId = newParams.get("company") || "demo";
 
-async function exportCategory() {
-  const res = await fetch(API_EXPORT_CATEGORY(companyId), { headers: { Authorization: `Bearer ${token}` } });
-  const blob = await res.blob();
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement("a");
-  a.href = url;
-  a.download = `my_export_${companyId}_${new Date().toISOString().split("T")[0]}.json`;
-  a.click();
-  URL.revokeObjectURL(url);
-}
-
-async function refreshKbList() {
-  if (!token) return;
-  const list = document.getElementById("kbList");
-  if (!list) return;
-
-  list.innerHTML = "Laddar KB...";
-
-  try {
-    const items = await fetchJson(API_KB_LIST(companyId), {
-      headers: { Authorization: `Bearer ${token}` },
-    });
-
-    if (!items.length) {
-      list.innerHTML = `<p class="smallMuted">Ingen kunskap sparad för denna kategori ännu.</p>`;
-      return;
+  if (newCompanyId !== companyId) {
+    companyId = newCompanyId;
+    updateTitle();
+    if (token) {
+      await loadHistory();
+      if (userRole === "admin") await loadKbList();
     }
-
-    list.innerHTML = items
-      .map((i) => {
-        const when = new Date(i.createdAt).toLocaleString();
-        const src = i.sourceRef ? ` • ${i.sourceRef}` : "";
-        return `
-          <div class="kbItem">
-            <div class="kbMeta">
-              <b>${i.title}</b>
-              <span class="smallMuted">${i.sourceType.toUpperCase()} • ${when}${src}</span>
-            </div>
-            <button class="btn danger" onclick="deleteKbItem('${i._id}')">
-              <i class="fas fa-trash"></i>
-            </button>
-          </div>`;
-      })
-      .join("");
-  } catch (err) {
-    list.innerHTML = `<p class="smallMuted">KB fel: ${err.message}</p>`;
   }
 }
 
-async function deleteKbItem(id) {
-  const ok = confirm("Vill du ta bort detta från kunskapsdatabasen?");
-  if (!ok) return;
-
-  try {
-    await fetchJson(API_KB_DELETE(id), {
-      method: "DELETE",
-      headers: { Authorization: `Bearer ${token}` },
-    });
-    await refreshKbList();
-  } catch (err) {
-    alert("Kunde inte ta bort: " + err.message);
-  }
-}
-
-async function uploadText() {
-  const title = document.getElementById("kbTitle").value.trim();
-  const content = document.getElementById("kbText").value.trim();
-  if (!content) return alert("Klistra in text först.");
-
-  try {
-    await fetchJson(API_KB_TEXT, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${token}`,
-      },
-      body: JSON.stringify({ companyId, title, content }),
-    });
-
-    document.getElementById("kbText").value = "";
-    alert("✅ Text uppladdad!");
-    await refreshKbList();
-  } catch (err) {
-    alert("Fel: " + err.message);
-  }
-}
-
-async function uploadUrl() {
-  const url = document.getElementById("kbUrl").value.trim();
-  if (!url) return alert("Skriv en URL först.");
-
-  try {
-    await fetchJson(API_KB_URL, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${token}`,
-      },
-      body: JSON.stringify({ companyId, url }),
-    });
-
-    document.getElementById("kbUrl").value = "";
-    alert("✅ URL uppladdad!");
-    await refreshKbList();
-  } catch (err) {
-    alert("Fel: " + err.message);
-  }
-}
-
-async function uploadPdf() {
-  const fileInput = document.getElementById("kbPdf");
-  if (!fileInput.files || !fileInput.files[0]) return alert("Välj en PDF först.");
-
-  const form = new FormData();
-  form.append("companyId", companyId);
-  form.append("pdf", fileInput.files[0]);
-
-  try {
-    const res = await fetch(API_KB_PDF, {
-      method: "POST",
-      headers: { Authorization: `Bearer ${token}` },
-      body: form,
-    });
-
-    const text = await res.text();
-    let data;
-    try {
-      data = JSON.parse(text);
-    } catch {
-      throw new Error("Servern svarade inte med JSON.");
-    }
-
-    if (!res.ok) throw new Error(data.error || "Fel vid PDF upload");
-
-    fileInput.value = "";
-    alert("✅ PDF uppladdad!");
-    await refreshKbList();
-  } catch (err) {
-    alert("Fel: " + err.message);
-  }
-}
-
-async function adminExportAll() {
-  try {
-    const res = await fetch(API_ADMIN_EXPORT_ALL, { headers: { Authorization: `Bearer ${token}` } });
-    const blob = await res.blob();
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `ADMIN_EXPORT_ALL_${new Date().toISOString().split("T")[0]}.json`;
-    a.click();
-    URL.revokeObjectURL(url);
-  } catch (err) {
-    alert("Admin export fail: " + err.message);
-  }
-}
-
+/*************************************************
+ * ✅ Auth actions
+ *************************************************/
 async function handleLogin() {
-  const username = document.getElementById("username").value.trim();
-  const password = document.getElementById("password").value.trim();
+  const username = document.getElementById("username")?.value;
+  const password = document.getElementById("password")?.value;
+
+  const res = await fetch(API_LOGIN, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ username, password }),
+  });
+
+  const data = await res.json();
   const msg = document.getElementById("authMessage");
 
-  try {
-    const data = await fetchJson(API_LOGIN, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ username, password }),
-    });
-
+  if (data.token) {
+    localStorage.setItem("token", data.token);
     token = data.token;
-    user = data.user;
 
-    localStorage.setItem("token", token);
-    localStorage.setItem("user", JSON.stringify(user));
+    userRole = data.user?.role || "user";
+    localStorage.setItem("role", userRole);
 
-    msg.textContent = "";
     setLoggedInUI(true);
-    updateTitle();
     await loadHistory();
-  } catch (err) {
-    msg.textContent = err.message;
+
+    // ✅ Admin-only KB
+    if (userRole === "admin") {
+      ensureKbPanel();
+      showKbPanel(true);
+      await loadKbList();
+    } else {
+      showKbPanel(false);
+    }
+  } else {
+    if (msg) msg.textContent = data.error || "Fel vid login.";
   }
 }
 
 async function handleRegister() {
-  const username = document.getElementById("username").value.trim();
-  const password = document.getElementById("password").value.trim();
-  const msg = document.getElementById("authMessage");
+  const username = document.getElementById("username")?.value;
+  const password = document.getElementById("password")?.value;
 
-  try {
-    const data = await fetchJson(API_REGISTER, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ username, password }),
-    });
-    msg.textContent = data.message || "OK";
-  } catch (err) {
-    msg.textContent = err.message;
+  const res = await fetch(API_REGISTER, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ username, password }),
+  });
+
+  const data = await res.json();
+  const msg = document.getElementById("authMessage");
+  if (msg) msg.textContent = data.message || data.error || "Ok";
+}
+
+/*************************************************
+ * ✅ Knowledge Base UI (Admin-only)
+ *************************************************/
+function ensureKbPanel() {
+  if (document.getElementById("kbPanel")) return;
+
+  const container = document.querySelector(".container") || document.body;
+
+  const panel = document.createElement("div");
+  panel.id = "kbPanel";
+  panel.className = "card";
+  panel.style.display = "none";
+
+  panel.innerHTML = `
+    <h3 style="margin-top:0;">Admin: Kunskapsdatabas (kategori: ${companyId})</h3>
+
+    <div style="display:flex; gap:10px; flex-wrap:wrap; margin-bottom:12px;">
+      <button id="kbReloadBtn" class="btn secondary">🔄 Uppdatera</button>
+      <button id="kbExportMyBtn" class="btn secondary">⬇️ Exportera min KB</button>
+      <button id="kbExportAllBtn" class="btn danger">🛡️ Admin Export ALLT</button>
+    </div>
+
+    <div style="display:flex; flex-direction:column; gap:8px; margin-bottom:12px;">
+      <input id="kbUrlInput" placeholder="Klistra in URL..." />
+      <button id="kbUploadUrlBtn" class="btn primary">Ladda upp URL</button>
+
+      <textarea id="kbTextInput" rows="4" placeholder="Klistra in text..."></textarea>
+      <button id="kbUploadTextBtn" class="btn primary">Ladda upp Text</button>
+
+      <input id="kbPdfInput" type="file" accept="application/pdf" />
+      <button id="kbUploadPdfBtn" class="btn primary">Ladda upp PDF</button>
+
+      <div id="kbMsg" class="msgtext"></div>
+    </div>
+
+    <div>
+      <h4 style="margin:6px 0;">Mina källor</h4>
+      <div id="kbList" style="display:flex; flex-direction:column; gap:8px;"></div>
+    </div>
+  `;
+
+  container.appendChild(panel);
+
+  document.getElementById("kbReloadBtn")?.addEventListener("click", loadKbList);
+  document.getElementById("kbExportMyBtn")?.addEventListener("click", exportMyKB);
+  document.getElementById("kbExportAllBtn")?.addEventListener("click", exportAllAdmin);
+  document.getElementById("kbUploadUrlBtn")?.addEventListener("click", uploadKbUrl);
+  document.getElementById("kbUploadTextBtn")?.addEventListener("click", uploadKbText);
+  document.getElementById("kbUploadPdfBtn")?.addEventListener("click", uploadKbPdf);
+}
+
+function showKbPanel(show) {
+  const panel = document.getElementById("kbPanel");
+  if (panel) panel.style.display = show ? "block" : "none";
+}
+
+async function loadKbList() {
+  if (!token || userRole !== "admin") return;
+
+  const kbList = document.getElementById("kbList");
+  const kbMsg = document.getElementById("kbMsg");
+  if (!kbList) return;
+
+  kbList.innerHTML = "Laddar...";
+  if (kbMsg) kbMsg.textContent = "";
+
+  const res = await fetch(`${API_KB_LIST}/${companyId}`, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+
+  if (!res.ok) {
+    kbList.innerHTML = "Kunde inte ladda KB.";
+    return;
+  }
+
+  const items = await res.json();
+  kbList.innerHTML = "";
+
+  if (!items.length) {
+    kbList.innerHTML = `<div style="opacity:0.8;">Inga källor ännu.</div>`;
+    return;
+  }
+
+  for (const it of items) {
+    kbList.innerHTML += `
+      <div style="border:1px solid rgba(255,255,255,0.12); border-radius:12px; padding:10px;">
+        <div><b>${escapeHtml(it.title || "Untitled")}</b></div>
+        <div style="font-size:13px; opacity:0.9;">
+          Typ: ${escapeHtml(it.sourceType)} • ${it.embeddingOk ? "✅ RAG-ready" : "⚠️ No embeddings"}
+        </div>
+        <div style="display:flex; gap:8px; margin-top:8px;">
+          <button class="btn danger" onclick="deleteKbItem('${it._id}')">Ta bort</button>
+        </div>
+      </div>
+    `;
   }
 }
 
-function logout() {
-  localStorage.removeItem("token");
-  localStorage.removeItem("user");
-  token = null;
-  user = null;
-  setLoggedInUI(false);
-  document.getElementById("messages").innerHTML = "";
+async function deleteKbItem(id) {
+  if (!token || userRole !== "admin") return;
+  await fetch(`${API_KB_DELETE}/${id}`, {
+    method: "DELETE",
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  await loadKbList();
 }
 
-document.addEventListener("DOMContentLoaded", async () => {
-  const theme = localStorage.getItem("theme");
-  if (theme) document.body.dataset.theme = theme;
+async function uploadKbUrl() {
+  if (!token || userRole !== "admin") return;
 
+  const input = document.getElementById("kbUrlInput");
+  const kbMsg = document.getElementById("kbMsg");
+  if (!input) return;
+
+  const url = input.value.trim();
+  if (!url) return;
+
+  kbMsg.textContent = "Laddar upp URL...";
+  const res = await fetch(API_KB_URL, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+    body: JSON.stringify({ companyId, url }),
+  });
+
+  const data = await res.json();
+
+  if (!res.ok) {
+    kbMsg.textContent = `❌ ${data.error || "Fel vid URL-upload"}`;
+  } else {
+    kbMsg.textContent = `✅ ${data.message} (embeddingOk=${data.embeddingOk})`;
+    input.value = "";
+    await loadKbList();
+  }
+}
+
+async function uploadKbText() {
+  if (!token || userRole !== "admin") return;
+
+  const input = document.getElementById("kbTextInput");
+  const kbMsg = document.getElementById("kbMsg");
+  if (!input) return;
+
+  const content = input.value.trim();
+  if (!content) return;
+
+  kbMsg.textContent = "Laddar upp text...";
+  const res = await fetch(API_KB_TEXT, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+    body: JSON.stringify({ companyId, title: "Text", content }),
+  });
+
+  const data = await res.json();
+
+  if (!res.ok) {
+    kbMsg.textContent = `❌ ${data.error || "Fel vid text-upload"}`;
+  } else {
+    kbMsg.textContent = `✅ ${data.message} (embeddingOk=${data.embeddingOk})`;
+    input.value = "";
+    await loadKbList();
+  }
+}
+
+async function uploadKbPdf() {
+  if (!token || userRole !== "admin") return;
+
+  const fileInput = document.getElementById("kbPdfInput");
+  const kbMsg = document.getElementById("kbMsg");
+  if (!fileInput || !fileInput.files?.length) return;
+
+  const file = fileInput.files[0];
+  kbMsg.textContent = "Laddar upp PDF...";
+
+  const form = new FormData();
+  form.append("pdf", file);
+  form.append("companyId", companyId);
+
+  const res = await fetch(API_KB_PDF, {
+    method: "POST",
+    headers: { Authorization: `Bearer ${token}` },
+    body: form,
+  });
+
+  const data = await res.json();
+
+  if (!res.ok) {
+    kbMsg.textContent = `❌ ${data.error || "Fel vid PDF-upload"}`;
+  } else {
+    kbMsg.textContent = `✅ ${data.message} (embeddingOk=${data.embeddingOk})`;
+    fileInput.value = "";
+    await loadKbList();
+  }
+}
+
+async function exportMyKB() {
+  if (!token || userRole !== "admin") return;
+  window.location.href = API_EXPORT_MY;
+}
+
+async function exportAllAdmin() {
+  if (!token || userRole !== "admin") return;
+
+  const ok = confirm("Vill du ladda ner ALLT? (users + chats + KB + feedback + training)");
+  if (!ok) return;
+
+  window.location.href = API_EXPORT_ALL;
+}
+
+/*************************************************
+ * ✅ Init
+ *************************************************/
+document.addEventListener("DOMContentLoaded", async () => {
   updateTitle();
   setLoggedInUI(!!token);
 
-  document.getElementById("companySelect").addEventListener("change", async (e) => {
-    companyId = e.target.value;
-    updateTitle();
-    if (token) await loadHistory();
-  });
+  document.getElementById("sendBtn")?.addEventListener("click", sendMessage);
+  document.getElementById("logoutBtn")?.addEventListener("click", logout);
 
-  document.getElementById("loginBtn").addEventListener("click", handleLogin);
-  document.getElementById("registerBtn").addEventListener("click", handleRegister);
-  document.getElementById("logoutBtn").addEventListener("click", logout);
+  document.getElementById("loginBtn")?.addEventListener("click", handleLogin);
+  document.getElementById("registerBtn")?.addEventListener("click", handleRegister);
 
-  document.getElementById("sendBtn").addEventListener("click", sendMessage);
-  document.getElementById("messageInput").addEventListener("keydown", (e) => {
+  document.getElementById("messageInput")?.addEventListener("keydown", (e) => {
     if (e.key === "Enter") {
       e.preventDefault();
       sendMessage();
     }
   });
 
-  document.getElementById("themeToggle").addEventListener("click", toggleTheme);
-  document.getElementById("clearChat").addEventListener("click", clearChat);
-  document.getElementById("refreshCategory").addEventListener("click", refreshCategory);
+  window.addEventListener("popstate", updateCategory);
+  window.addEventListener("hashchange", updateCategory);
 
-  document.getElementById("exportAllBtn").addEventListener("click", exportAll);
-  document.getElementById("exportCategoryBtn").addEventListener("click", exportCategory);
+  if (token) {
+    setLoggedInUI(true);
+    await loadHistory();
 
-  // ✅ Toggle KB section (hidden by default)
-  document.getElementById("toggleKbBtn")?.addEventListener("click", async () => {
-    const sec = document.getElementById("kbSection");
-    if (!sec) return;
-    const open = sec.style.display !== "none";
-    sec.style.display = open ? "none" : "block";
-    if (!open && token) await refreshKbList();
-  });
-
-  document.getElementById("uploadTextBtn")?.addEventListener("click", uploadText);
-  document.getElementById("uploadUrlBtn")?.addEventListener("click", uploadUrl);
-  document.getElementById("uploadPdfBtn")?.addEventListener("click", uploadPdf);
-  document.getElementById("refreshKbBtn")?.addEventListener("click", refreshKbList);
-  document.getElementById("downloadKbBtn")?.addEventListener("click", exportCategory);
-
-  document.getElementById("adminExportAllBtn")?.addEventListener("click", adminExportAll);
-
-  if (token) await loadHistory();
+    if (userRole === "admin") {
+      ensureKbPanel();
+      showKbPanel(true);
+      await loadKbList();
+    } else {
+      showKbPanel(false);
+    }
+  } else {
+    showKbPanel(false);
+  }
 });
