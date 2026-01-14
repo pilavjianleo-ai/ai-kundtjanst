@@ -1,161 +1,84 @@
-require("dotenv").config();
+require("dotenv").config()
+const express = require("express")
+const OpenAI = require("openai")
+const cors = require("cors")
+const rateLimit = require("express-rate-limit")
+const sanitizeHtml = require("sanitize-html")
 
-const path = require("path");
-const express = require("express");
-const cors = require("cors");
-const rateLimit = require("express-rate-limit");
-const OpenAI = require("openai");
+const app = express()
+app.use(express.json())
+app.use(cors()) // Tillåt cross-origin requests
 
-const app = express();
-const PORT = process.env.PORT || 3000;
+// Rate limiting för att förhindra missbruk
+const limiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minuter
+  max: 100, // Max 100 requests per IP
+  message: "För många requests, försök igen senare."
+})
+app.use("/chat", limiter)
 
-/* =========================
-   Middleware
-========================= */
-app.use(cors());
-app.use(express.json());
-app.use(express.static(__dirname));
+const path = require("path")
+app.use(express.static(__dirname))
 
-/* =========================
-   Rate limit (skydd)
-========================= */
-const chatLimiter = rateLimit({
-  windowMs: 60 * 1000, // 1 minut
-  max: 20, // max 20 requests/min
-  standardHeaders: true,
-  legacyHeaders: false,
-});
-
-/* =========================
-   Root – visa index.html
-========================= */
-app.get("/", (req, res) => {
-  res.sendFile(path.join(__dirname, "index.html"));
-});
-
-/* =========================
-   OpenAI client
-========================= */
 const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY,
-});
+  apiKey: process.env.OPENAI_API_KEY
+})
 
-/* =========================
-   In-memory session store
-========================= */
-const conversations = {};
-const SESSION_TTL = 30 * 60 * 1000; // 30 min
-const MAX_MESSAGES_PER_SESSION = 12;
+// Funktion för att hämta systemprompt baserat på companyId
+function getSystemPrompt(companyId) {
+  switch (companyId) {
+    case 'law':
+      return "Du är en AI-assistent för juridiska frågor. Ge råd baserat på allmän svensk lag, men rekommendera alltid att konsultera en professionell jurist för specifika fall. Var hjälpsam, korrekt och tydlig."
+    case 'tech':
+      return "Du är en AI-assistent för tekniska frågor inom IT och programmering. Förklara begrepp enkelt, ge kodexempel när möjligt och fokusera på bästa praxis. Var pedagogisk och uppmuntrande."
+    case 'cleaning':
+      return "Du är en AI-assistent för städ- och rengöringsfrågor. Ge praktiska råd om rengöringstekniker, produkter och säkerhet. Var vänlig och användbar för både hem och professionella miljöer."
+    default:
+      return "Du är en allmän AI-assistent. Ge hjälpsamma och korrekta svar på frågor."
+  }
+}
 
-/* =========================
-   Chat endpoint
-========================= */
-app.post("/chat", chatLimiter, async (req, res) => {
+app.get("/", (req, res) => {
+  res.send("AI Kundtjänst körs")
+})
+
+app.get("/favicon.ico", (req, res) => {
+  res.status(204).end(); // Hantera favicon utan fel
+})
+
+app.post("/chat", async (req, res) => {
   try {
-    let { companyId, sessionId, message } = req.body;
-
-    /* ---------- Validering ---------- */
-    if (!sessionId) {
-      return res.status(400).json({ reply: "Session saknas." });
-    }
+    const { companyId, conversation } = req.body;
 
     if (!companyId) {
-      return res.status(400).json({ reply: "companyId saknas." });
+      return res.status(400).json({ error: "companyId saknas" });
     }
 
-    if (!message || message.trim().length < 2) {
-      return res.status(400).json({ reply: "Meddelandet är för kort." });
+    if (!conversation || !Array.isArray(conversation)) {
+      return res.status(400).json({ error: "Konversation saknas" });
     }
 
-    message = message.trim();
+    // Lägg till systemprompt baserat på companyId
+    const systemMessage = { role: 'system', content: getSystemPrompt(companyId) };
+    const messages = [systemMessage, ...conversation];
 
-    /* ---------- Skapa session ---------- */
-    if (!conversations[sessionId]) {
-      conversations[sessionId] = {
-        messages: [],
-        lastActive: Date.now(),
-      };
-    }
-
-    conversations[sessionId].lastActive = Date.now();
-
-    /* ---------- System prompt ---------- */
-    let systemPrompt =
-      "Du är en professionell, vänlig och hjälpsam AI-kundtjänst.";
-
-    if (companyId === "demo") {
-      systemPrompt =
-        "Du är kundtjänst för Demo AB. Du svarar vänligt, tydligt och på svenska.";
-    }
-
-    if (companyId === "law") {
-      systemPrompt =
-        "Du är en juridisk rådgivare. Du svarar formellt, försiktigt och tydligt. Du ger inga definitiva juridiska råd utan informerar pedagogiskt.";
-    }
-
-    if (companyId === "tech") {
-      systemPrompt =
-        "Du är teknisk support. Du svarar tekniskt, strukturerat och steg-för-steg.";
-    }
-
-    if (companyId === "cleaning") {
-      systemPrompt =
-        "Du är kundtjänst för ett städföretag. Du svarar trevligt, enkelt och kundorienterat.";
-    }
-
-    /* ---------- Bygg meddelanden ---------- */
-    const messages = [
-      { role: "system", content: systemPrompt },
-      ...conversations[sessionId].messages,
-      { role: "user", content: message },
-    ];
-
-    /* ---------- OpenAI ---------- */
+    // Använd hela konversationen inklusive systemprompt som skickades från klienten
     const response = await openai.chat.completions.create({
-      model: "gpt-4.1-mini",
-      messages,
+      model: "gpt-4o-mini",
+      messages: messages, // Hela chatten som kontext med systemprompt
     });
 
-    const aiReply = response.choices[0].message.content;
+    const reply = sanitizeHtml(response.choices[0].message.content, { allowedTags: [], allowedAttributes: {} });
 
-    /* ---------- Spara i minnet ---------- */
-    conversations[sessionId].messages.push(
-      { role: "user", content: message },
-      { role: "assistant", content: aiReply }
-    );
-
-    if (
-      conversations[sessionId].messages.length >
-      MAX_MESSAGES_PER_SESSION
-    ) {
-      conversations[sessionId].messages.splice(0, 2);
-    }
-
-    /* ---------- Skicka svar ---------- */
-    res.json({ reply: aiReply });
-  } catch (err) {
-    console.error("AI-fel:", err);
-    res.status(500).json({
-      reply: "Tekniskt fel. Försök igen om en stund.",
+    res.json({
+      reply: reply
     });
+  } catch (error) {
+    console.error("AI-fel:", error);
+    res.status(500).json({ error: "Fel vid AI-anrop" });
   }
 });
 
-/* =========================
-   Rensa gamla sessioner
-========================= */
-setInterval(() => {
-  const now = Date.now();
-  for (const id in conversations) {
-    if (now - conversations[id].lastActive > SESSION_TTL) {
-      delete conversations[id];
-    }
-  }
-}, 5 * 60 * 1000);
-
-/* =========================
-   Start server
-========================= */
-app.listen(PORT, () => {
-  console.log(`Servern körs på http://localhost:${PORT}`);
-});
+app.listen(3000, () => {
+  console.log("Servern körs på http://localhost:3000")
+})
