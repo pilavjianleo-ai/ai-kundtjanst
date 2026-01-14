@@ -124,6 +124,7 @@ const kbSchema = new mongoose.Schema({
   content: { type: String, required: true },
   chunks: [{ type: String }],
   embeddings: [{ type: [Number] }],
+  embeddingOk: { type: Boolean, default: false },
   createdBy: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
   createdAt: { type: Date, default: Date.now },
 });
@@ -155,6 +156,38 @@ function dot(a, b) {
   let s = 0;
   for (let i = 0; i < Math.min(a.length, b.length); i++) s += a[i] * b[i];
   return s;
+}
+
+/**
+ * ✅ Safe embedding: appen fungerar även om OpenAI är slut/429/billing
+ */
+async function safeEmbed(text) {
+  try {
+    const emb = await openai.embeddings.create({
+      model: "text-embedding-3-small",
+      input: text,
+    });
+    return { ok: true, vector: emb.data[0].embedding };
+  } catch (e) {
+    const msg = e?.message || "Embedding error";
+    console.error("⚠️ Embedding failed:", msg);
+    return { ok: false, error: msg };
+  }
+}
+
+/**
+ * ✅ Tries to embed list of chunks. If any chunk fails -> stop and return embeddingOk=false
+ */
+async function embedChunks(chunks) {
+  const embeddings = [];
+  for (const c of chunks) {
+    const r = await safeEmbed(c);
+    if (!r.ok) {
+      return { embeddingOk: false, embeddings: [] };
+    }
+    embeddings.push(r.vector);
+  }
+  return { embeddingOk: true, embeddings };
 }
 
 function getSystemPrompt(companyId) {
@@ -197,6 +230,55 @@ const upload = multer({
   storage: multer.memoryStorage(),
   limits: { fileSize: 10 * 1024 * 1024 },
 });
+
+// --------------------
+// ✅ URL extraction helper (Readability + fallback)
+// --------------------
+function extractTextFromHtml(url, html) {
+  // 1) Readability (best for articles)
+  try {
+    const dom = new JSDOM(html, { url });
+    const reader = new Readability(dom.window.document);
+    const article = reader.parse();
+
+    if (article?.textContent && article.textContent.trim().length > 200) {
+      return sanitize(article.textContent).replace(/\s+/g, " ").trim();
+    }
+  } catch {
+    // ignore
+  }
+
+  // 2) Cheerio fallback
+  try {
+    const $ = cheerio.load(html);
+    $("script, style, nav, footer, header, noscript, svg, iframe").remove();
+
+    const candidates = [
+      $("main").text(),
+      $("article").text(),
+      $('[role="main"]').text(),
+      $("#content").text(),
+      $(".content").text(),
+      $("body").text(),
+    ];
+
+    let raw = candidates.find((t) => t && t.trim().length > 0) || "";
+    raw = sanitize(raw).replace(/\s+/g, " ").trim();
+
+    // meta fallback
+    if (!raw || raw.length < 250) {
+      const title = $("title").text() || "";
+      const desc = $('meta[name="description"]').attr("content") || "";
+      const og = $('meta[property="og:description"]').attr("content") || "";
+      const combo = sanitize(`${title}\n${desc}\n${og}`).replace(/\s+/g, " ").trim();
+      if (combo.length > raw.length) raw = combo;
+    }
+
+    return raw;
+  } catch {
+    return "";
+  }
+}
 
 // --------------------
 // ✅ Health
@@ -254,7 +336,7 @@ app.post("/login", async (req, res) => {
 });
 
 // --------------------
-// ✅ KB Upload TEXT
+// ✅ KB Upload TEXT (works without embeddings)
 // --------------------
 app.post("/kb/upload-text", authenticate, async (req, res) => {
   try {
@@ -264,23 +346,27 @@ app.post("/kb/upload-text", authenticate, async (req, res) => {
     const clean = sanitize(content);
     const chunks = chunkText(clean);
 
-    const embeddings = [];
-    for (const c of chunks) {
-      const emb = await openai.embeddings.create({ model: "text-embedding-3-small", input: c });
-      embeddings.push(emb.data[0].embedding);
-    }
+    const { embeddingOk, embeddings } = await embedChunks(chunks);
 
     const item = await new KnowledgeItem({
       companyId,
       title: title || "Text upload",
       sourceType: "text",
+      sourceRef: "",
       content: clean,
       chunks,
-      embeddings,
+      embeddings: embeddingOk ? embeddings : [],
+      embeddingOk,
       createdBy: req.user.id,
     }).save();
 
-    return res.json({ message: "Text sparad", id: item._id });
+    return res.json({
+      message: embeddingOk
+        ? "✅ Text sparad (med embeddings)"
+        : "✅ Text sparad (utan embeddings pga quota/billing)",
+      id: item._id,
+      embeddingOk,
+    });
   } catch (e) {
     console.error("KB text error:", e?.message || e);
     return res.status(500).json({ error: "Kunde inte spara text" });
@@ -288,56 +374,49 @@ app.post("/kb/upload-text", authenticate, async (req, res) => {
 });
 
 // --------------------
-// ✅ URL extraction helper (Readability + fallback)
+// ✅ KB Upload PDF (works without embeddings)
 // --------------------
-function extractTextFromHtml(url, html) {
-  // 1) Readability (best for articles)
+app.post("/kb/upload-pdf", authenticate, upload.single("pdf"), async (req, res) => {
   try {
-    const dom = new JSDOM(html, { url });
-    const reader = new Readability(dom.window.document);
-    const article = reader.parse();
+    const companyId = req.body?.companyId;
+    if (!companyId) return res.status(400).json({ error: "companyId krävs" });
+    if (!req.file) return res.status(400).json({ error: "Ingen PDF uppladdad" });
 
-    if (article?.textContent && article.textContent.trim().length > 200) {
-      return sanitize(article.textContent).replace(/\s+/g, " ").trim();
-    }
-  } catch {
-    // ignore
+    const data = await pdfParse(req.file.buffer);
+    const clean = sanitize(data.text || "").replace(/\s+/g, " ").trim();
+    if (!clean) return res.status(400).json({ error: "Kunde inte läsa text från PDF" });
+
+    const chunks = chunkText(clean);
+
+    const { embeddingOk, embeddings } = await embedChunks(chunks);
+
+    const item = await new KnowledgeItem({
+      companyId,
+      title: `PDF: ${req.file.originalname}`,
+      sourceType: "pdf",
+      sourceRef: req.file.originalname,
+      content: clean,
+      chunks,
+      embeddings: embeddingOk ? embeddings : [],
+      embeddingOk,
+      createdBy: req.user.id,
+    }).save();
+
+    return res.json({
+      message: embeddingOk
+        ? "✅ PDF sparad (med embeddings)"
+        : "✅ PDF sparad (utan embeddings pga quota/billing)",
+      id: item._id,
+      embeddingOk,
+    });
+  } catch (e) {
+    console.error("KB pdf error:", e?.message || e);
+    return res.status(500).json({ error: "Kunde inte spara PDF" });
   }
-
-  // 2) Cheerio fallback
-  try {
-    const $ = cheerio.load(html);
-    $("script, style, nav, footer, header, noscript, svg, iframe").remove();
-
-    const candidates = [
-      $("main").text(),
-      $("article").text(),
-      $('[role="main"]').text(),
-      $("#content").text(),
-      $(".content").text(),
-      $("body").text(),
-    ];
-
-    let raw = candidates.find((t) => t && t.trim().length > 0) || "";
-    raw = sanitize(raw).replace(/\s+/g, " ").trim();
-
-    // meta fallback
-    if (!raw || raw.length < 250) {
-      const title = $("title").text() || "";
-      const desc = $('meta[name="description"]').attr("content") || "";
-      const og = $('meta[property="og:description"]').attr("content") || "";
-      const combo = sanitize(`${title}\n${desc}\n${og}`).replace(/\s+/g, " ").trim();
-      if (combo.length > raw.length) raw = combo;
-    }
-
-    return raw;
-  } catch {
-    return "";
-  }
-}
+});
 
 // --------------------
-// ✅ KB Upload URL (Readability + debug)
+// ✅ KB Upload URL (works without embeddings)
 // --------------------
 app.post("/kb/upload-url", authenticate, async (req, res) => {
   try {
@@ -354,33 +433,31 @@ app.post("/kb/upload-url", authenticate, async (req, res) => {
         Accept: "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
         "Accept-Language": "sv-SE,sv;q=0.9,en;q=0.8",
       },
-      validateStatus: () => true
+      validateStatus: () => true,
     });
 
     const status = resp.status;
     const contentType = resp.headers?.["content-type"] || "";
     const len = typeof resp.data === "string" ? resp.data.length : 0;
 
-    // ✅ blocked/bad status
     if (status >= 400) {
       return res.status(400).json({
         error: `Kunde inte hämta URL (HTTP ${status}). Sidan kan blockera bots.`,
-        debug: { status, contentType, length: len }
+        debug: { status, contentType, length: len },
       });
     }
 
-    // ✅ not HTML
     if (!contentType.includes("text/html")) {
       return res.status(400).json({
         error: `URL är inte HTML (content-type: ${contentType}).`,
-        debug: { status, contentType, length: len }
+        debug: { status, contentType, length: len },
       });
     }
 
     if (typeof resp.data !== "string") {
       return res.status(400).json({
         error: "Kunde inte läsa HTML från URL (fel format).",
-        debug: { status, contentType }
+        debug: { status, contentType },
       });
     }
 
@@ -392,17 +469,13 @@ app.post("/kb/upload-url", authenticate, async (req, res) => {
       return res.status(400).json({
         error:
           "Ingen läsbar text hittades. Sidan kan vara dynamisk (React/SPA) eller blockerar automatiska hämtningar.",
-        debug: { status, contentType, htmlLength: html.length, extractedLength: raw.length }
+        debug: { status, contentType, htmlLength: html.length, extractedLength: raw.length },
       });
     }
 
     const chunks = chunkText(raw);
 
-    const embeddings = [];
-    for (const c of chunks) {
-      const emb = await openai.embeddings.create({ model: "text-embedding-3-small", input: c });
-      embeddings.push(emb.data[0].embedding);
-    }
+    const { embeddingOk, embeddings } = await embedChunks(chunks);
 
     const item = await new KnowledgeItem({
       companyId,
@@ -411,59 +484,24 @@ app.post("/kb/upload-url", authenticate, async (req, res) => {
       sourceRef: url,
       content: raw,
       chunks,
-      embeddings,
+      embeddings: embeddingOk ? embeddings : [],
+      embeddingOk,
       createdBy: req.user.id,
     }).save();
 
     return res.json({
-      message: "✅ URL sparad i KB",
+      message: embeddingOk
+        ? "✅ URL sparad i KB (med embeddings)"
+        : "✅ URL sparad i KB (utan embeddings pga quota/billing)",
       id: item._id,
-      chars: raw.length
+      chars: raw.length,
+      embeddingOk,
     });
   } catch (e) {
     console.error("❌ KB upload-url crash:", e?.message || e);
     return res.status(500).json({
-      error: `Serverfel vid URL-upload: ${e?.message || "okänt fel"}`
+      error: `Serverfel vid URL-upload: ${e?.message || "okänt fel"}`,
     });
-  }
-});
-
-// --------------------
-// ✅ KB Upload PDF
-// --------------------
-app.post("/kb/upload-pdf", authenticate, upload.single("pdf"), async (req, res) => {
-  try {
-    const companyId = req.body?.companyId;
-    if (!companyId) return res.status(400).json({ error: "companyId krävs" });
-    if (!req.file) return res.status(400).json({ error: "Ingen PDF uppladdad" });
-
-    const data = await pdfParse(req.file.buffer);
-    const clean = sanitize(data.text || "").replace(/\s+/g, " ").trim();
-    if (!clean) return res.status(400).json({ error: "Kunde inte läsa text från PDF" });
-
-    const chunks = chunkText(clean);
-
-    const embeddings = [];
-    for (const c of chunks) {
-      const emb = await openai.embeddings.create({ model: "text-embedding-3-small", input: c });
-      embeddings.push(emb.data[0].embedding);
-    }
-
-    const item = await new KnowledgeItem({
-      companyId,
-      title: `PDF: ${req.file.originalname}`,
-      sourceType: "pdf",
-      sourceRef: req.file.originalname,
-      content: clean,
-      chunks,
-      embeddings,
-      createdBy: req.user.id,
-    }).save();
-
-    return res.json({ message: "PDF sparad", id: item._id });
-  } catch (e) {
-    console.error("KB pdf error:", e?.message || e);
-    return res.status(500).json({ error: "Kunde inte spara PDF" });
   }
 });
 
@@ -471,36 +509,45 @@ app.post("/kb/upload-pdf", authenticate, upload.single("pdf"), async (req, res) 
 // ✅ KB List/Delete
 // --------------------
 app.get("/kb/list/:companyId", authenticate, async (req, res) => {
-  const items = await KnowledgeItem.find({
-    companyId: req.params.companyId,
-    createdBy: req.user.id,
-  })
-    .select("_id title sourceType sourceRef createdAt")
-    .sort({ createdAt: -1 });
+  try {
+    const items = await KnowledgeItem.find({
+      companyId: req.params.companyId,
+      createdBy: req.user.id,
+    })
+      .select("_id title sourceType sourceRef createdAt embeddingOk")
+      .sort({ createdAt: -1 });
 
-  return res.json(items);
+    return res.json(items);
+  } catch (e) {
+    console.error("KB list error:", e?.message || e);
+    return res.status(500).json({ error: "Kunde inte hämta KB" });
+  }
 });
 
 app.delete("/kb/item/:id", authenticate, async (req, res) => {
-  const item = await KnowledgeItem.findOne({ _id: req.params.id, createdBy: req.user.id });
-  if (!item) return res.status(404).json({ error: "Hittade inte item" });
-  await KnowledgeItem.deleteOne({ _id: req.params.id });
-  return res.json({ message: "Borttaget" });
+  try {
+    const item = await KnowledgeItem.findOne({ _id: req.params.id, createdBy: req.user.id });
+    if (!item) return res.status(404).json({ error: "Hittade inte item" });
+    await KnowledgeItem.deleteOne({ _id: req.params.id });
+    return res.json({ message: "Borttaget" });
+  } catch (e) {
+    console.error("KB delete error:", e?.message || e);
+    return res.status(500).json({ error: "Kunde inte ta bort" });
+  }
 });
 
 // --------------------
-// ✅ RAG retrieval
+// ✅ RAG retrieval (only uses docs with embeddings)
 // --------------------
 async function retrieveContext(companyId, query) {
-  const count = await KnowledgeItem.countDocuments({ companyId });
-  if (count === 0) return "";
+  const items = await KnowledgeItem.find({ companyId, embeddingOk: true }).lean();
+  if (!items.length) return "";
 
-  const qEmb = await openai.embeddings.create({ model: "text-embedding-3-small", input: query });
-  const q = qEmb.data[0].embedding;
+  const qEmb = await safeEmbed(query);
+  if (!qEmb.ok) return ""; // no quota -> no RAG
+  const q = qEmb.vector;
 
-  const items = await KnowledgeItem.find({ companyId }).lean();
   const scored = [];
-
   for (const item of items) {
     const ch = item.chunks || [];
     const embs = item.embeddings || [];
@@ -516,7 +563,7 @@ async function retrieveContext(companyId, query) {
 }
 
 // --------------------
-// ✅ CHAT
+// ✅ CHAT (works even without RAG)
 // --------------------
 app.post("/chat", authenticate, async (req, res) => {
   try {
@@ -587,12 +634,40 @@ app.post("/chat", authenticate, async (req, res) => {
 // ✅ HISTORY
 // --------------------
 app.get("/history/:companyId", authenticate, async (req, res) => {
-  const chat = await Chat.findOne({ userId: req.user.id, companyId: req.params.companyId });
-  return res.json(chat ? chat.messages : []);
+  try {
+    const chat = await Chat.findOne({ userId: req.user.id, companyId: req.params.companyId });
+    return res.json(chat ? chat.messages : []);
+  } catch (e) {
+    console.error("History error:", e?.message || e);
+    return res.status(500).json({ error: "Kunde inte hämta historik" });
+  }
 });
 
 // --------------------
-// ✅ Admin export all (om du är admin)
+// ✅ Export: user
+// --------------------
+app.get("/export/knowledgebase", authenticate, async (req, res) => {
+  const chats = await Chat.find({ userId: req.user.id }).lean();
+  const kb = await KnowledgeItem.find({ createdBy: req.user.id }).lean();
+  const feedback = await Feedback.find({ userId: req.user.id }).lean();
+  const training = await TrainingExample.find({ userId: req.user.id }).lean();
+
+  const payload = {
+    exportedAt: new Date().toISOString(),
+    userId: req.user.id,
+    chats,
+    knowledgeBase: kb,
+    feedback,
+    trainingData: training,
+  };
+
+  res.setHeader("Content-Type", "application/json");
+  res.setHeader("Content-Disposition", `attachment; filename="my_export_${Date.now()}.json"`);
+  res.send(JSON.stringify(payload, null, 2));
+});
+
+// --------------------
+// ✅ Admin export all
 // --------------------
 app.get("/admin/export/all", authenticate, requireAdmin, async (req, res) => {
   const users = await User.find({}).select("_id username role createdAt").lean();
@@ -607,7 +682,23 @@ app.get("/admin/export/all", authenticate, requireAdmin, async (req, res) => {
 });
 
 // --------------------
-// ✅ 404
+// ✅ FEEDBACK
+// --------------------
+app.post("/feedback", authenticate, async (req, res) => {
+  try {
+    const { type, companyId } = req.body || {};
+    if (!type || !companyId) return res.status(400).json({ error: "type eller companyId saknas" });
+
+    await new Feedback({ userId: req.user.id, type, companyId }).save();
+    return res.json({ message: "Tack!" });
+  } catch (e) {
+    console.error("Feedback error:", e?.message || e);
+    return res.status(500).json({ error: "Feedback error" });
+  }
+});
+
+// --------------------
+// ✅ 404 JSON
 // --------------------
 app.use((req, res) => res.status(404).json({ error: `Route not found: ${req.method} ${req.originalUrl}` }));
 
