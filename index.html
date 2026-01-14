@@ -4,146 +4,190 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>AI Kundtjänst</title>
-
   <link rel="stylesheet" href="style.css" />
   <script src="https://kit.fontawesome.com/a2d9d5b5f5.js" crossorigin="anonymous"></script>
 </head>
 
 <body data-theme="dark">
-  <div class="container">
+  <div class="app">
 
-    <!-- TOPBAR -->
-    <div class="topbar">
-      <div class="brand">
-        <div class="brandTitle" id="title">AI Kundtjänst</div>
-        <div class="brandSub" id="subtitle"></div>
-      </div>
-
-      <div class="toolbar">
-        <div class="toolbarGroup">
-          <label class="label">Kategori</label>
-          <select id="companySelect" class="select">
-            <option value="demo">Demo AB</option>
-            <option value="law">Juridik</option>
-            <option value="tech">Teknisk support</option>
-            <option value="cleaning">Städservice</option>
-          </select>
-        </div>
-
-        <!-- KB button (only admin) -->
-        <button id="kbOpenBtn" class="btn secondary" style="display:none;">
-          <i class="fas fa-database"></i>
-          Kunskapsdatabas
-        </button>
-
-        <button id="themeToggle" class="btn ghost" title="Växla tema">
-          <i class="fas fa-moon"></i>
-          Tema
-        </button>
-
-        <button id="clearChat" class="btn ghost" title="Rensa chatten">
-          <i class="fas fa-trash"></i>
-          Rensa
-        </button>
-
-        <button id="exportChat" class="btn ghost" title="Exportera chat">
-          <i class="fas fa-download"></i>
-          Export
-        </button>
-
-        <button id="logoutBtn" class="btn danger" style="display:none;">
-          <i class="fas fa-sign-out-alt"></i>
-          Logga ut
-        </button>
-      </div>
-    </div>
-
-    <!-- AUTH -->
-    <div id="auth" class="card">
-      <h3>Logga in / Registrera</h3>
-      <input id="username" type="text" placeholder="Användarnamn" autocomplete="username" />
-      <input id="password" type="password" placeholder="Lösenord" autocomplete="current-password" />
-
-      <div class="row">
-        <button id="loginBtn" class="btn primary">Logga in</button>
-        <button id="registerBtn" class="btn secondary">Registrera</button>
-      </div>
-
-      <p id="authMessage" class="msgtext"></p>
-    </div>
-
-    <!-- CHAT -->
-    <div id="chat" class="card" style="display:none;">
-      <div id="messages" class="messages"></div>
-
-      <div class="inputBar">
-        <input id="messageInput" type="text" placeholder="Skriv ditt meddelande..." />
-        <button id="sendBtn" class="btn primary">
-          <i class="fas fa-paper-plane"></i>
-          Skicka
-        </button>
-      </div>
-
-      <div id="ragBadge" class="ragBadge" style="display:none;"></div>
-    </div>
-
-    <!-- ✅ KB MODAL -->
-    <div id="kbModal" class="modal" style="display:none;">
-      <div class="modalBackdrop" id="kbCloseBackdrop"></div>
-
-      <div class="modalCard">
-        <div class="modalHeader">
+    <!-- AUTH SCREEN -->
+    <section id="authScreen" class="authScreen">
+      <div class="authCard">
+        <div class="authBrand">
+          <div class="logo">AI</div>
           <div>
-            <h3 id="kbTitle" style="margin:0;">Kunskapsdatabas</h3>
-            <div class="smallMuted" id="kbSub">Hantera källor för vald kategori</div>
-          </div>
-
-          <div class="modalHeaderActions">
-            <button id="kbReloadBtn" class="btn ghost">
-              <i class="fas fa-sync"></i> Uppdatera
-            </button>
-            <button id="kbCloseBtn" class="btn danger">
-              <i class="fas fa-times"></i> Stäng
-            </button>
+            <h1>AI Kundtjänst</h1>
+            <p>Logga in för att fortsätta</p>
           </div>
         </div>
 
-        <div class="kbGrid">
-          <div class="kbBox">
-            <h4>URL</h4>
-            <input id="kbUrlInput" placeholder="https://..." />
-            <button id="kbUploadUrlBtn" class="btn primary">Ladda upp URL</button>
-          </div>
+        <div class="authInputs">
+          <label>Användarnamn</label>
+          <input id="username" type="text" placeholder="ex: pilav" autocomplete="username" />
 
-          <div class="kbBox">
-            <h4>Text</h4>
-            <textarea id="kbTextInput" rows="5" placeholder="Klistra in text..."></textarea>
-            <button id="kbUploadTextBtn" class="btn primary">Ladda upp Text</button>
-          </div>
+          <label>Lösenord</label>
+          <input id="password" type="password" placeholder="••••••••" autocomplete="current-password" />
 
-          <div class="kbBox">
-            <h4>PDF</h4>
-            <input id="kbPdfInput" type="file" accept="application/pdf" />
-            <button id="kbUploadPdfBtn" class="btn primary">Ladda upp PDF</button>
-          </div>
-        </div>
+          <div id="authMessage" class="authMessage"></div>
 
-        <div class="kbFooter">
-          <div id="kbMsg" class="kbMsg"></div>
-          <div class="kbExportRow">
-            <button id="kbExportCategoryBtn" class="btn secondary">
-              <i class="fas fa-file-export"></i> Exportera kategori
+          <div class="authButtons">
+            <button id="loginBtn" class="btn primary">
+              <i class="fas fa-right-to-bracket"></i> Logga in
             </button>
-            <button id="kbExportAllBtn" class="btn danger">
-              <i class="fas fa-shield-alt"></i> Export ALLT (admin)
+            <button id="registerBtn" class="btn ghost">
+              <i class="fas fa-user-plus"></i> Registrera
             </button>
           </div>
-        </div>
 
-        <h4 style="margin-top:12px;">Källor i kategori</h4>
-        <div id="kbList" class="kbList"></div>
+          <div class="authHint">
+            <i class="fas fa-shield"></i>
+            Din data sparas säkert per konto.
+          </div>
+        </div>
       </div>
-    </div>
+    </section>
+
+    <!-- MAIN APP -->
+    <section id="mainApp" class="mainApp" style="display:none;">
+
+      <!-- SIDEBAR -->
+      <aside class="sidebar">
+        <div class="sidebarTop">
+          <div class="sideBrand">
+            <div class="logo small">AI</div>
+            <div>
+              <div class="sideTitle">Kundtjänst</div>
+              <div class="sideSub" id="sideSub">Online</div>
+            </div>
+          </div>
+
+          <div class="sideBlock">
+            <div class="sideLabel">Kategori</div>
+            <select id="companySelect" class="select">
+              <option value="demo">Demo AB</option>
+              <option value="law">Juridik</option>
+              <option value="tech">Teknisk support</option>
+              <option value="cleaning">Städservice</option>
+            </select>
+          </div>
+
+          <div class="sideNav">
+            <button id="navChat" class="navItem active">
+              <i class="fas fa-comments"></i> Chatt
+            </button>
+
+            <button id="navKb" class="navItem" style="display:none;">
+              <i class="fas fa-database"></i> Kunskapsdatabas
+              <span class="chip">Admin</span>
+            </button>
+          </div>
+        </div>
+
+        <div class="sidebarBottom">
+          <button id="themeToggle" class="btn ghost full">
+            <i class="fas fa-moon"></i> Växla tema
+          </button>
+
+          <button id="logoutBtn" class="btn danger full">
+            <i class="fas fa-sign-out-alt"></i> Logga ut
+          </button>
+
+          <div class="tiny">
+            <span>Byggd för Render + MongoDB</span>
+          </div>
+        </div>
+      </aside>
+
+      <!-- CONTENT -->
+      <main class="content">
+
+        <!-- TOPBAR -->
+        <div class="topbar">
+          <div class="titleBlock">
+            <div class="title" id="title">AI Kundtjänst</div>
+            <div class="subtitle" id="subtitle"></div>
+          </div>
+
+          <div class="actions">
+            <button id="clearChat" class="btn ghost">
+              <i class="fas fa-trash"></i> Rensa
+            </button>
+
+            <button id="exportChat" class="btn ghost">
+              <i class="fas fa-download"></i> Export
+            </button>
+          </div>
+        </div>
+
+        <!-- CHAT VIEW -->
+        <section id="chatView" class="view">
+          <div class="chatCard">
+            <div id="messages" class="messages"></div>
+
+            <div class="composer">
+              <div class="composerBox">
+                <input id="messageInput" type="text" placeholder="Skriv ditt meddelande..." />
+                <button id="sendBtn" class="btn primary">
+                  <i class="fas fa-paper-plane"></i> Skicka
+                </button>
+              </div>
+              <div id="ragBadge" class="ragBadge" style="display:none;"></div>
+            </div>
+          </div>
+        </section>
+
+        <!-- KB VIEW (ADMIN) -->
+        <section id="kbView" class="view" style="display:none;">
+          <div class="kbCard">
+            <div class="kbHeader">
+              <div>
+                <h2 id="kbTitle">Kunskapsdatabas</h2>
+                <p class="muted">Ladda upp PDF / Text / URL för vald kategori</p>
+              </div>
+
+              <div class="kbHeaderActions">
+                <button id="kbReloadBtn" class="btn ghost">
+                  <i class="fas fa-sync"></i> Uppdatera
+                </button>
+                <button id="kbExportCategoryBtn" class="btn ghost">
+                  <i class="fas fa-file-export"></i> Exportera kategori
+                </button>
+                <button id="kbExportAllBtn" class="btn danger">
+                  <i class="fas fa-shield-alt"></i> Export ALLT
+                </button>
+              </div>
+            </div>
+
+            <div class="kbGrid">
+              <div class="kbBox">
+                <div class="kbBoxTitle"><i class="fas fa-link"></i> URL</div>
+                <input id="kbUrlInput" placeholder="https://..." />
+                <button id="kbUploadUrlBtn" class="btn primary full">Ladda upp URL</button>
+              </div>
+
+              <div class="kbBox">
+                <div class="kbBoxTitle"><i class="fas fa-align-left"></i> Text</div>
+                <textarea id="kbTextInput" rows="6" placeholder="Klistra in text..."></textarea>
+                <button id="kbUploadTextBtn" class="btn primary full">Ladda upp text</button>
+              </div>
+
+              <div class="kbBox">
+                <div class="kbBoxTitle"><i class="fas fa-file-pdf"></i> PDF</div>
+                <input id="kbPdfInput" type="file" accept="application/pdf" />
+                <button id="kbUploadPdfBtn" class="btn primary full">Ladda upp PDF</button>
+              </div>
+            </div>
+
+            <div id="kbMsg" class="kbMsg"></div>
+
+            <h3 style="margin-top:18px;">Källor i kategori</h3>
+            <div id="kbList" class="kbList"></div>
+          </div>
+        </section>
+
+      </main>
+    </section>
 
   </div>
 

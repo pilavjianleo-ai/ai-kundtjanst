@@ -30,6 +30,8 @@ let companyId = getCompanyIdFromURL();
 let token = localStorage.getItem("token");
 let userRole = localStorage.getItem("role") || null;
 
+function el(id) { return document.getElementById(id); }
+
 function escapeHtml(str) {
   return String(str || "")
     .replaceAll("&", "&amp;")
@@ -40,13 +42,25 @@ function escapeHtml(str) {
 }
 
 function setSubtitle(text) {
-  const el = document.getElementById("subtitle");
-  if (!el) return;
-  el.textContent = text || "";
+  const s = el("subtitle");
+  if (s) s.textContent = text || "";
+}
+
+function setView(view) {
+  const chatView = el("chatView");
+  const kbView = el("kbView");
+  const navChat = el("navChat");
+  const navKb = el("navKb");
+
+  if (chatView) chatView.style.display = view === "chat" ? "flex" : "none";
+  if (kbView) kbView.style.display = view === "kb" ? "flex" : "none";
+
+  if (navChat) navChat.classList.toggle("active", view === "chat");
+  if (navKb) navKb.classList.toggle("active", view === "kb");
 }
 
 function updateTitle() {
-  const titleEl = document.getElementById("title");
+  const titleEl = el("title");
   if (!titleEl) return;
 
   const map = {
@@ -56,127 +70,112 @@ function updateTitle() {
     demo: "AI Kundtjänst – Demo AB",
   };
 
-  titleEl.innerText = map[companyId] || map.demo;
+  titleEl.textContent = map[companyId] || map.demo;
 }
 
 function setLoggedInUI(isLoggedIn) {
-  const auth = document.getElementById("auth");
-  const chat = document.getElementById("chat");
-  const logoutBtn = document.getElementById("logoutBtn");
+  const auth = el("authScreen");
+  const app = el("mainApp");
 
-  if (auth) auth.style.display = isLoggedIn ? "none" : "block";
-  if (chat) chat.style.display = isLoggedIn ? "block" : "none";
-  if (logoutBtn) logoutBtn.style.display = isLoggedIn ? "inline-flex" : "none";
+  if (auth) auth.style.display = isLoggedIn ? "none" : "grid";
+  if (app) app.style.display = isLoggedIn ? "grid" : "none";
 }
 
-function showTypingIndicator() {
-  const messagesDiv = document.getElementById("messages");
-  if (!messagesDiv) return;
+function showTyping() {
+  const messages = el("messages");
+  if (!messages) return;
 
   const existing = document.getElementById("typing");
   if (existing) existing.remove();
 
-  const typing = document.createElement("div");
-  typing.id = "typing";
-  typing.className = "msg ai";
-  typing.innerHTML = `
+  const wrap = document.createElement("div");
+  wrap.className = "msg";
+  wrap.id = "typing";
+  wrap.innerHTML = `
     <div class="avatar"><i class="fas fa-robot"></i></div>
-    <div class="content">AI skriver…</div>
+    <div class="bubble ai">AI skriver…</div>
   `;
-  messagesDiv.appendChild(typing);
-  messagesDiv.scrollTop = messagesDiv.scrollHeight;
+  messages.appendChild(wrap);
+  messages.scrollTop = messages.scrollHeight;
 }
 
-function removeTypingIndicator() {
-  const typing = document.getElementById("typing");
-  if (typing) typing.remove();
+function removeTyping() {
+  const t = document.getElementById("typing");
+  if (t) t.remove();
 }
 
-function showRagBadge(text, isGood) {
-  const badge = document.getElementById("ragBadge");
+function showRagBadge(text, good) {
+  const badge = el("ragBadge");
   if (!badge) return;
-
   if (!text) {
     badge.style.display = "none";
     badge.innerHTML = "";
     return;
   }
-
   badge.style.display = "flex";
-  badge.innerHTML = `
-    <span class="dot ${isGood ? "good" : "warn"}"></span>
-    <span>${escapeHtml(text)}</span>
-  `;
+  badge.innerHTML = `<span class="dot ${good ? "good" : "warn"}"></span><span>${escapeHtml(text)}</span>`;
 }
 
-function copyToClipboard(text) {
-  navigator.clipboard.writeText(text).then(() => {
-    setSubtitle("✅ Kopierat!");
-    setTimeout(() => setSubtitle(""), 1200);
-  });
+function addUserMessage(text) {
+  const messages = el("messages");
+  if (!messages) return;
+  messages.innerHTML += `
+    <div class="msg user">
+      <div class="avatar"><i class="fas fa-user"></i></div>
+      <div class="bubble user">${escapeHtml(text)}</div>
+    </div>`;
+  messages.scrollTop = messages.scrollHeight;
 }
 
-function renderMessages(messages) {
-  const messagesDiv = document.getElementById("messages");
-  if (!messagesDiv) return;
-
-  messagesDiv.innerHTML = "";
-
-  for (const msg of messages) {
-    if (msg.role === "user") {
-      messagesDiv.innerHTML += `
-        <div class="msg user">
-          <div class="avatar"><i class="fas fa-user"></i></div>
-          <div class="content">${escapeHtml(msg.content)}</div>
-        </div>`;
-    } else if (msg.role === "assistant") {
-      const safeCopy = String(msg.content || "").replace(/'/g, "\\'");
-      messagesDiv.innerHTML += `
-        <div class="msg ai">
-          <div class="avatar"><i class="fas fa-robot"></i></div>
-          <div class="content">${escapeHtml(msg.content)}</div>
-
-          <div class="feedback">
-            <button class="miniBtn" onclick="giveFeedback('positive')"><i class="fas fa-thumbs-up"></i></button>
-            <button class="miniBtn" onclick="giveFeedback('negative')"><i class="fas fa-thumbs-down"></i></button>
-            <button class="miniBtn" onclick="copyToClipboard('${safeCopy}')"><i class="fas fa-copy"></i></button>
-          </div>
-        </div>`;
-    }
-  }
-
-  messagesDiv.scrollTop = messagesDiv.scrollHeight;
+function addAiMessage(text) {
+  const messages = el("messages");
+  if (!messages) return;
+  const safeCopy = String(text || "").replace(/'/g, "\\'");
+  messages.innerHTML += `
+    <div class="msg">
+      <div class="avatar"><i class="fas fa-robot"></i></div>
+      <div>
+        <div class="bubble ai">${escapeHtml(text)}</div>
+        <div class="bubbleActions">
+          <button class="miniBtn" onclick="giveFeedback('positive')"><i class="fas fa-thumbs-up"></i></button>
+          <button class="miniBtn" onclick="giveFeedback('negative')"><i class="fas fa-thumbs-down"></i></button>
+          <button class="miniBtn" onclick="copyToClipboard('${safeCopy}')"><i class="fas fa-copy"></i></button>
+        </div>
+      </div>
+    </div>`;
+  messages.scrollTop = messages.scrollHeight;
 }
 
 async function loadHistory() {
   if (!token) return;
+
+  const messages = el("messages");
+  if (messages) messages.innerHTML = "";
 
   const res = await fetch(`${API_HISTORY}/${companyId}`, {
     headers: { Authorization: `Bearer ${token}` },
   });
 
   if (!res.ok) return;
-  const messages = await res.json();
-  renderMessages(messages);
+
+  const data = await res.json();
+
+  for (const m of data) {
+    if (m.role === "user") addUserMessage(m.content);
+    if (m.role === "assistant") addAiMessage(m.content);
+  }
 }
 
 async function sendMessage() {
-  const input = document.getElementById("messageInput");
-  const messagesDiv = document.getElementById("messages");
-  if (!input || !messagesDiv) return;
+  const input = el("messageInput");
+  if (!input) return;
 
   const text = input.value.trim();
   if (!text) return;
 
-  messagesDiv.innerHTML += `
-    <div class="msg user">
-      <div class="avatar"><i class="fas fa-user"></i></div>
-      <div class="content">${escapeHtml(text)}</div>
-    </div>`;
-  messagesDiv.scrollTop = messagesDiv.scrollHeight;
   input.value = "";
-
-  showTypingIndicator();
+  addUserMessage(text);
+  showTyping();
   showRagBadge("", false);
 
   try {
@@ -188,7 +187,7 @@ async function sendMessage() {
     const conversation = history.map((m) => ({ role: m.role, content: m.content }));
     conversation.push({ role: "user", content: text });
 
-    const response = await fetch(API_CHAT, {
+    const res = await fetch(API_CHAT, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -197,107 +196,77 @@ async function sendMessage() {
       body: JSON.stringify({ companyId, conversation }),
     });
 
-    const data = await response.json();
-    removeTypingIndicator();
+    const data = await res.json();
+    removeTyping();
 
-    if (!response.ok) {
-      messagesDiv.innerHTML += `
-        <div class="msg ai">
-          <div class="avatar"><i class="fas fa-robot"></i></div>
-          <div class="content">Serverfel: ${escapeHtml(data.error || "okänt fel")}</div>
-        </div>`;
+    if (!res.ok) {
+      addAiMessage(`Serverfel: ${data.error || "okänt fel"}`);
       return;
     }
 
-    if (data.reply) {
-      const safeReply = String(data.reply || "").replace(/'/g, "\\'");
-      messagesDiv.innerHTML += `
-        <div class="msg ai">
-          <div class="avatar"><i class="fas fa-robot"></i></div>
-          <div class="content">${escapeHtml(data.reply)}</div>
-
-          <div class="feedback">
-            <button class="miniBtn" onclick="giveFeedback('positive')"><i class="fas fa-thumbs-up"></i></button>
-            <button class="miniBtn" onclick="giveFeedback('negative')"><i class="fas fa-thumbs-down"></i></button>
-            <button class="miniBtn" onclick="copyToClipboard('${safeReply}')"><i class="fas fa-copy"></i></button>
-          </div>
-        </div>`;
-      messagesDiv.scrollTop = messagesDiv.scrollHeight;
-    }
-
+    addAiMessage(data.reply || "Inget svar.");
     if (data.ragUsed === true) showRagBadge("RAG användes ✅ (kunskapsdatabas)", true);
     else showRagBadge("", false);
 
   } catch (err) {
-    console.error("Chat-fel:", err);
-    removeTypingIndicator();
-    messagesDiv.innerHTML += `
-      <div class="msg ai">
-        <div class="avatar"><i class="fas fa-robot"></i></div>
-        <div class="content">AI: Tekniskt fel.</div>
-      </div>`;
+    console.error(err);
+    removeTyping();
+    addAiMessage("Tekniskt fel. Försök igen.");
   }
 }
 
 async function giveFeedback(type) {
   if (!token) return;
-
   await fetch(API_FEEDBACK, {
     method: "POST",
     headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
     body: JSON.stringify({ type, companyId }),
   });
-
   setSubtitle(`✅ Feedback skickad (${type})`);
   setTimeout(() => setSubtitle(""), 1200);
 }
 
+function copyToClipboard(text) {
+  navigator.clipboard.writeText(text).then(() => {
+    setSubtitle("✅ Kopierat!");
+    setTimeout(() => setSubtitle(""), 1200);
+  });
+}
+
 async function exportChat() {
   if (!token) return;
-
   const res = await fetch(`${API_HISTORY}/${companyId}`, {
     headers: { Authorization: `Bearer ${token}` },
   });
-  const messages = res.ok ? await res.json() : [];
+  const data = res.ok ? await res.json() : [];
 
-  let text = `Chatt-historik (${companyId})\n\n`;
-  for (const m of messages) {
+  let out = `Chatt-historik (${companyId})\n\n`;
+  for (const m of data) {
     const t = m.timestamp ? new Date(m.timestamp).toLocaleString() : "";
-    if (m.role === "user") text += `[${t}] Du: ${m.content}\n`;
-    if (m.role === "assistant") text += `[${t}] AI: ${m.content}\n`;
+    if (m.role === "user") out += `[${t}] Du: ${m.content}\n`;
+    if (m.role === "assistant") out += `[${t}] AI: ${m.content}\n`;
   }
 
-  const blob = new Blob([text], { type: "text/plain" });
+  const blob = new Blob([out], { type: "text/plain" });
   const url = URL.createObjectURL(blob);
-
   const a = document.createElement("a");
   a.href = url;
   a.download = `chat_${companyId}_${new Date().toISOString().split("T")[0]}.txt`;
   a.click();
-
   URL.revokeObjectURL(url);
 }
 
 function clearChat() {
-  const messagesDiv = document.getElementById("messages");
-  if (messagesDiv) messagesDiv.innerHTML = "";
-  showRagBadge("", false);
+  const messages = el("messages");
+  if (messages) messages.innerHTML = "";
   setSubtitle("🗑️ Rensad (endast UI)");
   setTimeout(() => setSubtitle(""), 1200);
 }
 
 function toggleTheme() {
   const body = document.body;
-  const icon = document.querySelector("#themeToggle i");
   const current = body.getAttribute("data-theme") || "dark";
-
-  if (current === "dark") {
-    body.setAttribute("data-theme", "light");
-    if (icon) icon.className = "fas fa-sun";
-  } else {
-    body.setAttribute("data-theme", "dark");
-    if (icon) icon.className = "fas fa-moon";
-  }
+  body.setAttribute("data-theme", current === "dark" ? "light" : "dark");
 }
 
 function logout() {
@@ -305,73 +274,30 @@ function logout() {
   localStorage.removeItem("role");
   token = null;
   userRole = null;
-
   setLoggedInUI(false);
-  setKbButtonVisible(false);
-  closeKbModal();
-
-  const messagesDiv = document.getElementById("messages");
-  if (messagesDiv) messagesDiv.innerHTML = "";
-
-  setSubtitle("✅ Utloggad");
-  setTimeout(() => setSubtitle(""), 1200);
 }
 
 /*************************************************
- * ✅ CATEGORY DROPDOWN
+ * ✅ ADMIN: KB VIEW
  *************************************************/
-async function handleCompanyChange(newCompanyId) {
-  companyId = newCompanyId;
-  setCompanyIdInURL(companyId);
-
-  updateTitle();
-  showRagBadge("", false);
-
-  if (token) {
-    await loadHistory();
-    if (userRole === "admin") await loadKbList();
-  }
-
-  setSubtitle(`✅ Bytte kategori: ${companyId}`);
-  setTimeout(() => setSubtitle(""), 1000);
-}
-
-/*************************************************
- * ✅ KB MODAL (Admin only)
- *************************************************/
-function setKbButtonVisible(show) {
-  const btn = document.getElementById("kbOpenBtn");
-  if (btn) btn.style.display = show ? "inline-flex" : "none";
-}
-
-function openKbModal() {
-  const modal = document.getElementById("kbModal");
-  if (modal) modal.style.display = "block";
-  updateKbTitle();
-  loadKbList();
-}
-
-function closeKbModal() {
-  const modal = document.getElementById("kbModal");
-  if (modal) modal.style.display = "none";
+function setAdminNavVisible(isAdmin) {
+  const navKb = el("navKb");
+  if (navKb) navKb.style.display = isAdmin ? "flex" : "none";
 }
 
 function updateKbTitle() {
-  const title = document.getElementById("kbTitle");
-  const sub = document.getElementById("kbSub");
-  if (title) title.textContent = `Kunskapsdatabas (kategori: ${companyId})`;
-  if (sub) sub.textContent = `Du jobbar just nu med ${companyId}`;
+  const t = el("kbTitle");
+  if (t) t.textContent = `Kunskapsdatabas (${companyId})`;
 }
 
 async function loadKbList() {
   if (!token || userRole !== "admin") return;
 
-  const kbList = document.getElementById("kbList");
-  const kbMsg = document.getElementById("kbMsg");
-  if (!kbList) return;
+  const list = el("kbList");
+  const msg = el("kbMsg");
 
-  kbList.innerHTML = `<div class="kbEmpty">Laddar…</div>`;
-  if (kbMsg) kbMsg.textContent = "";
+  if (list) list.innerHTML = "Laddar…";
+  if (msg) msg.textContent = "";
 
   const res = await fetch(`${API_KB_LIST}/${companyId}`, {
     headers: { Authorization: `Bearer ${token}` },
@@ -380,26 +306,24 @@ async function loadKbList() {
   const data = await res.json();
 
   if (!res.ok) {
-    kbList.innerHTML = `<div class="kbEmpty">❌ ${escapeHtml(data.error || "Kunde inte ladda KB")}</div>`;
+    if (list) list.innerHTML = `❌ ${escapeHtml(data.error || "fel")}`;
     return;
   }
 
   if (!data.length) {
-    kbList.innerHTML = `<div class="kbEmpty">Inga källor i denna kategori ännu.</div>`;
+    if (list) list.innerHTML = `<div class="muted">Inga källor i denna kategori ännu.</div>`;
     return;
   }
 
-  kbList.innerHTML = "";
+  if (list) list.innerHTML = "";
 
   for (const it of data) {
-    kbList.innerHTML += `
+    list.innerHTML += `
       <div class="kbItem">
         <div class="kbItemTop">
           <div>
             <div class="kbItemTitle">${escapeHtml(it.title || "Untitled")}</div>
-            <div class="kbMeta">
-              Typ: ${escapeHtml(it.sourceType)} • ${it.embeddingOk ? "✅ RAG-ready" : "⚠️ Ingen embedding"}
-            </div>
+            <div class="kbMeta">Typ: ${escapeHtml(it.sourceType)} • ${it.embeddingOk ? "✅ RAG-ready" : "⚠️ Ingen embedding"}</div>
           </div>
           <button class="btn danger small" onclick="deleteKbItem('${it._id}')">Ta bort</button>
         </div>
@@ -407,27 +331,29 @@ async function loadKbList() {
     `;
   }
 
-  if (kbMsg) kbMsg.textContent = `✅ ${data.length} källor laddade`;
+  if (msg) msg.textContent = `✅ ${data.length} källor laddade`;
 }
 
 async function deleteKbItem(id) {
   if (!token || userRole !== "admin") return;
+
   await fetch(`${API_KB_DELETE}/${id}`, {
     method: "DELETE",
     headers: { Authorization: `Bearer ${token}` },
   });
+
   await loadKbList();
 }
 
 async function uploadKbUrl() {
   if (!token || userRole !== "admin") return;
 
-  const input = document.getElementById("kbUrlInput");
-  const kbMsg = document.getElementById("kbMsg");
+  const input = el("kbUrlInput");
+  const msg = el("kbMsg");
   const url = input?.value?.trim();
   if (!url) return;
 
-  kbMsg.textContent = "⏳ Hämtar URL…";
+  if (msg) msg.textContent = "⏳ Hämtar URL…";
 
   const res = await fetch(API_KB_URL, {
     method: "POST",
@@ -438,24 +364,24 @@ async function uploadKbUrl() {
   const data = await res.json();
 
   if (!res.ok) {
-    kbMsg.textContent = `❌ ${data.error || "Fel vid URL-upload"}`;
+    if (msg) msg.textContent = `❌ ${data.error || "Fel vid URL-upload"}`;
     return;
   }
 
-  kbMsg.textContent = `✅ ${data.message}`;
-  input.value = "";
+  if (msg) msg.textContent = `✅ ${data.message}`;
+  if (input) input.value = "";
   await loadKbList();
 }
 
 async function uploadKbText() {
   if (!token || userRole !== "admin") return;
 
-  const input = document.getElementById("kbTextInput");
-  const kbMsg = document.getElementById("kbMsg");
+  const input = el("kbTextInput");
+  const msg = el("kbMsg");
   const content = input?.value?.trim();
   if (!content) return;
 
-  kbMsg.textContent = "⏳ Laddar upp text…";
+  if (msg) msg.textContent = "⏳ Laddar upp text…";
 
   const res = await fetch(API_KB_TEXT, {
     method: "POST",
@@ -466,23 +392,23 @@ async function uploadKbText() {
   const data = await res.json();
 
   if (!res.ok) {
-    kbMsg.textContent = `❌ ${data.error || "Fel vid text-upload"}`;
+    if (msg) msg.textContent = `❌ ${data.error || "Fel vid text-upload"}`;
     return;
   }
 
-  kbMsg.textContent = `✅ ${data.message}`;
-  input.value = "";
+  if (msg) msg.textContent = `✅ ${data.message}`;
+  if (input) input.value = "";
   await loadKbList();
 }
 
 async function uploadKbPdf() {
   if (!token || userRole !== "admin") return;
 
-  const fileInput = document.getElementById("kbPdfInput");
-  const kbMsg = document.getElementById("kbMsg");
+  const fileInput = el("kbPdfInput");
+  const msg = el("kbMsg");
   if (!fileInput || !fileInput.files?.length) return;
 
-  kbMsg.textContent = "⏳ Laddar upp PDF…";
+  if (msg) msg.textContent = "⏳ Laddar upp PDF…";
 
   const form = new FormData();
   form.append("pdf", fileInput.files[0]);
@@ -497,11 +423,11 @@ async function uploadKbPdf() {
   const data = await res.json();
 
   if (!res.ok) {
-    kbMsg.textContent = `❌ ${data.error || "Fel vid PDF-upload"}`;
+    if (msg) msg.textContent = `❌ ${data.error || "Fel vid PDF-upload"}`;
     return;
   }
 
-  kbMsg.textContent = `✅ ${data.message}`;
+  if (msg) msg.textContent = `✅ ${data.message}`;
   fileInput.value = "";
   await loadKbList();
 }
@@ -513,73 +439,16 @@ function exportCategoryKB() {
 
 function exportAllAdmin() {
   if (!token || userRole !== "admin") return;
-  const ok = confirm("Vill du exportera ALLT? (admin)");
-  if (!ok) return;
+  if (!confirm("Vill du exportera ALLT?")) return;
   window.location.href = API_EXPORT_ALL;
 }
 
 /*************************************************
- * ✅ INIT
+ * ✅ AUTH
  *************************************************/
-document.addEventListener("DOMContentLoaded", async () => {
-  companyId = getCompanyIdFromURL();
-  updateTitle();
-  setLoggedInUI(!!token);
-
-  const dropdown = document.getElementById("companySelect");
-  if (dropdown) {
-    dropdown.value = companyId;
-    dropdown.addEventListener("change", (e) => handleCompanyChange(e.target.value));
-  }
-
-  document.getElementById("sendBtn")?.addEventListener("click", sendMessage);
-  document.getElementById("messageInput")?.addEventListener("keydown", (e) => {
-    if (e.key === "Enter") {
-      e.preventDefault();
-      sendMessage();
-    }
-  });
-
-  document.getElementById("themeToggle")?.addEventListener("click", toggleTheme);
-  document.getElementById("clearChat")?.addEventListener("click", clearChat);
-  document.getElementById("exportChat")?.addEventListener("click", exportChat);
-  document.getElementById("logoutBtn")?.addEventListener("click", logout);
-
-  document.getElementById("loginBtn")?.addEventListener("click", handleLogin);
-  document.getElementById("registerBtn")?.addEventListener("click", handleRegister);
-
-  // KB Modal events
-  document.getElementById("kbOpenBtn")?.addEventListener("click", openKbModal);
-  document.getElementById("kbCloseBtn")?.addEventListener("click", closeKbModal);
-  document.getElementById("kbCloseBackdrop")?.addEventListener("click", closeKbModal);
-
-  document.getElementById("kbReloadBtn")?.addEventListener("click", loadKbList);
-  document.getElementById("kbUploadUrlBtn")?.addEventListener("click", uploadKbUrl);
-  document.getElementById("kbUploadTextBtn")?.addEventListener("click", uploadKbText);
-  document.getElementById("kbUploadPdfBtn")?.addEventListener("click", uploadKbPdf);
-
-  document.getElementById("kbExportCategoryBtn")?.addEventListener("click", exportCategoryKB);
-  document.getElementById("kbExportAllBtn")?.addEventListener("click", exportAllAdmin);
-
-  // If already logged in: show chat + admin features
-  if (token) {
-    setLoggedInUI(true);
-    await loadHistory();
-
-    // ✅ show KB button only if admin
-    if (userRole === "admin") {
-      setKbButtonVisible(true);
-    } else {
-      setKbButtonVisible(false);
-    }
-  } else {
-    setKbButtonVisible(false);
-  }
-});
-
 async function handleLogin() {
-  const username = document.getElementById("username")?.value;
-  const password = document.getElementById("password")?.value;
+  const username = el("username")?.value;
+  const password = el("password")?.value;
 
   const res = await fetch(API_LOGIN, {
     method: "POST",
@@ -588,24 +457,126 @@ async function handleLogin() {
   });
 
   const data = await res.json();
-  const msg = document.getElementById("authMessage");
+  const msg = el("authMessage");
 
-  if (data.token) {
-    localStorage.setItem("token", data.token);
-    token = data.token;
+  if (!res.ok) {
+    if (msg) msg.textContent = data.error || "Fel vid login.";
+    return;
+  }
 
-    userRole = data.user?.role || "user";
-    localStorage.setItem("role", userRole);
+  localStorage.setItem("token", data.token);
+  token = data.token;
 
+  userRole = data.user?.role || "user";
+  localStorage.setItem("role", userRole);
+
+  setLoggedInUI(true);
+
+  updateTitle();
+  await loadHistory();
+  setView("chat");
+
+  setAdminNavVisible(userRole === "admin");
+  if (userRole === "admin") {
+    updateKbTitle();
+    await loadKbList();
+  }
+
+  setSubtitle("✅ Inloggad");
+  setTimeout(() => setSubtitle(""), 1200);
+}
+
+async function handleRegister() {
+  const username = el("username")?.value;
+  const password = el("password")?.value;
+
+  const res = await fetch(API_REGISTER, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ username, password }),
+  });
+
+  const data = await res.json();
+  const msg = el("authMessage");
+
+  if (!res.ok) {
+    if (msg) msg.textContent = data.error || "Registrering misslyckades.";
+    return;
+  }
+
+  if (msg) msg.textContent = "✅ Registrering lyckades! Logga in nu.";
+}
+
+/*************************************************
+ * ✅ INIT
+ *************************************************/
+document.addEventListener("DOMContentLoaded", async () => {
+  companyId = getCompanyIdFromURL();
+  updateTitle();
+
+  setLoggedInUI(!!token);
+
+  // UI binds
+  el("loginBtn")?.addEventListener("click", handleLogin);
+  el("registerBtn")?.addEventListener("click", handleRegister);
+
+  el("sendBtn")?.addEventListener("click", sendMessage);
+  el("messageInput")?.addEventListener("keydown", (e) => {
+    if (e.key === "Enter") {
+      e.preventDefault();
+      sendMessage();
+    }
+  });
+
+  el("clearChat")?.addEventListener("click", clearChat);
+  el("exportChat")?.addEventListener("click", exportChat);
+  el("themeToggle")?.addEventListener("click", toggleTheme);
+  el("logoutBtn")?.addEventListener("click", logout);
+
+  // Category change
+  el("companySelect")?.addEventListener("change", async (e) => {
+    companyId = e.target.value;
+    setCompanyIdInURL(companyId);
+    updateTitle();
+    updateKbTitle();
+
+    if (token) {
+      await loadHistory();
+      if (userRole === "admin") await loadKbList();
+    }
+
+    setSubtitle(`✅ Bytte kategori: ${companyId}`);
+    setTimeout(() => setSubtitle(""), 1000);
+  });
+
+  // Navigation
+  el("navChat")?.addEventListener("click", () => setView("chat"));
+  el("navKb")?.addEventListener("click", () => {
+    setView("kb");
+    updateKbTitle();
+    loadKbList();
+  });
+
+  // KB actions
+  el("kbReloadBtn")?.addEventListener("click", loadKbList);
+  el("kbUploadUrlBtn")?.addEventListener("click", uploadKbUrl);
+  el("kbUploadTextBtn")?.addEventListener("click", uploadKbText);
+  el("kbUploadPdfBtn")?.addEventListener("click", uploadKbPdf);
+  el("kbExportCategoryBtn")?.addEventListener("click", exportCategoryKB);
+  el("kbExportAllBtn")?.addEventListener("click", exportAllAdmin);
+
+  // If already logged in
+  if (token) {
     setLoggedInUI(true);
     await loadHistory();
 
-    if (userRole === "admin") setKbButtonVisible(true);
-    else setKbButtonVisible(false);
-
-    setSubtitle("✅ Inloggad");
-    setTimeout(() => setSubtitle(""), 1200);
-  } else {
-    if (msg) msg.textContent = data.error || "Fel vid login.";
+    // if role persisted
+    setAdminNavVisible(userRole === "admin");
+    if (userRole === "admin") {
+      updateKbTitle();
+      await loadKbList();
+    } else {
+      setView("chat");
+    }
   }
-}
+});
