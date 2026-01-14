@@ -219,12 +219,21 @@ async function sendMessage() {
 }
 
 /*************************************************
- * Feedback-funktion
+ * Feedback-funktion (uppdaterad för att skicka till servern)
  *************************************************/
-function giveFeedback(type) {
-  // Här kan du skicka feedback till servern eller bara logga
-  console.log(`Feedback: ${type} för session ${sessionId}`);
-  alert(`Tack för feedback! (${type})`);
+async function giveFeedback(type) {
+  try {
+    const feedbackURL = API_URL.replace('/chat', '/feedback');
+    await fetch(feedbackURL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ type, sessionId, companyId })
+    });
+    alert(`Tack för feedback! (${type})`);
+  } catch (error) {
+    console.error('Feedback-fel:', error);
+    alert('Kunde inte skicka feedback. Försök igen senare.');
+  }
 }
 
 /*************************************************
