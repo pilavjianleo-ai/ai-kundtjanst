@@ -1,84 +1,120 @@
-require("dotenv").config()
-const express = require("express")
-const OpenAI = require("openai")
-const cors = require("cors")
-const rateLimit = require("express-rate-limit")
-const sanitizeHtml = require("sanitize-html")
+require("dotenv").config();
 
-const app = express()
-app.use(express.json())
-app.use(cors()) // Tillåt cross-origin requests
+const express = require("express");
+const OpenAI = require("openai");
+const cors = require("cors");
+const rateLimit = require("express-rate-limit");
+const sanitizeHtml = require("sanitize-html");
+const mongoose = require("mongoose");
+const bcrypt = require("bcryptjs");
+const jwt = require("jsonwebtoken");
+const path = require("path");
 
-// Rate limiting för att förhindra missbruk
-const limiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 minuter
-  max: 100, // Max 100 requests per IP
-  message: "För många requests, försök igen senare."
-})
-app.use("/chat", limiter)
+const app = express();
 
-const path = require("path")
-app.use(express.static(__dirname))
+// Parsers
+app.use(express.json());
+app.use(cors());
 
-const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY
-})
+// Serve static files (index.html, script.js, style.css)
+app.use(express.static(__dirname));
 
-// Funktion för att hämta systemprompt baserat på companyId
-function getSystemPrompt(companyId) {
-  switch (companyId) {
-    case 'law':
-      return "Du är en AI-assistent för juridiska frågor. Ge råd baserat på allmän svensk lag, men rekommendera alltid att konsultera en professionell jurist för specifika fall. Var hjälpsam, korrekt och tydlig."
-    case 'tech':
-      return "Du är en AI-assistent för tekniska frågor inom IT och programmering. Förklara begrepp enkelt, ge kodexempel när möjligt och fokusera på bästa praxis. Var pedagogisk och uppmuntrande."
-    case 'cleaning':
-      return "Du är en AI-assistent för städ- och rengöringsfrågor. Ge praktiska råd om rengöringstekniker, produkter och säkerhet. Var vänlig och användbar för både hem och professionella miljöer."
-    default:
-      return "Du är en allmän AI-assistent. Ge hjälpsamma och korrekta svar på frågor."
+/* =====================
+   ✅ ENV CHECK
+===================== */
+const mongoUri = process.env.MONGO_URI || process.env.MONGODB_URI;
+
+console.log("✅ ENV CHECK:");
+console.log("MONGO_URI:", process.env.MONGO_URI ? "OK" : "SAKNAS");
+console.log("MONGODB_URI:", process.env.MONGODB_URI ? "OK" : "SAKNAS");
+console.log("JWT_SECRET:", process.env.JWT_SECRET ? "OK" : "SAKNAS");
+console.log("OPENAI_API_KEY:", process.env.OPENAI_API_KEY ? "OK" : "SAKNAS");
+
+/* =====================
+   ✅ MongoDB
+===================== */
+mongoose.set("strictQuery", true);
+
+if (!mongoUri) {
+  console.error("❌ MongoDB URI saknas! Lägg till MONGO_URI i .env eller i Render Environment.");
+} else {
+  mongoose
+    .connect(mongoUri)
+    .then(() => console.log("✅ MongoDB ansluten"))
+    .catch((err) => console.error("❌ MongoDB-fel:", err.message));
+}
+
+/* =====================
+   ✅ Models
+===================== */
+const userSchema = new mongoose.Schema({
+  username: { type: String, unique: true, required: true },
+  password: { type: String, required: true },
+  createdAt: { type: Date, default: Date.now },
+});
+const User = mongoose.model("User", userSchema);
+
+const chatSchema = new mongoose.Schema({
+  userId: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true },
+  companyId: { type: String, required: true },
+  messages: [
+    {
+      role: String,
+      content: String,
+      timestamp: { type: Date, default: Date.now },
+    },
+  ],
+  createdAt: { type: Date, default: Date.now },
+});
+const Chat = mongoose.model("Chat", chatSchema);
+
+const feedbackSchema = new mongoose.Schema({
+  userId: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
+  type: { type: String, required: true },
+  companyId: { type: String, required: true },
+  createdAt: { type: Date, default: Date.now },
+});
+const Feedback = mongoose.model("Feedback", feedbackSchema);
+
+/* =====================
+   ✅ OpenAI
+===================== */
+const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+
+/* =====================
+   ✅ Middleware: Auth
+===================== */
+function authenticate(req, res, next) {
+  const token = req.header("Authorization")?.replace("Bearer ", "");
+  if (!token) return res.status(401).json({ error: "Ingen token" });
+
+  try {
+    req.user = jwt.verify(token, process.env.JWT_SECRET);
+    next();
+  } catch {
+    return res.status(401).json({ error: "Ogiltig token" });
   }
 }
 
-app.get("/", (req, res) => {
-  res.send("AI Kundtjänst körs")
-})
-
-app.get("/favicon.ico", (req, res) => {
-  res.status(204).end(); // Hantera favicon utan fel
-})
-
-app.post("/chat", async (req, res) => {
-  try {
-    const { companyId, conversation } = req.body;
-
-    if (!companyId) {
-      return res.status(400).json({ error: "companyId saknas" });
-    }
-
-    if (!conversation || !Array.isArray(conversation)) {
-      return res.status(400).json({ error: "Konversation saknas" });
-    }
-
-    // Lägg till systemprompt baserat på companyId
-    const systemMessage = { role: 'system', content: getSystemPrompt(companyId) };
-    const messages = [systemMessage, ...conversation];
-
-    // Använd hela konversationen inklusive systemprompt som skickades från klienten
-    const response = await openai.chat.completions.create({
-      model: "gpt-4o-mini",
-      messages: messages, // Hela chatten som kontext med systemprompt
-    });
-
-    const reply = sanitizeHtml(response.choices[0].message.content, { allowedTags: [], allowedAttributes: {} });
-
-    res.json({
-      reply: reply
-    });
-  } catch (error) {
-    console.error("AI-fel:", error);
-    res.status(500).json({ error: "Fel vid AI-anrop" });
-  }
+/* =====================
+   ✅ Rate limiting
+===================== */
+const limiterChat = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 100,
+  message: "För många requests. Försök igen senare.",
 });
 
-app.listen(3000, () => {
-  console.log("Servern körs på http://localhost:3000")
-})
+const limiterAuth = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 30,
+  message: "För många försök. Vänta en stund.",
+});
+
+app.use("/chat", limiterChat);
+app.use("/login", limiterAuth);
+app.use("/register", limiterAuth);
+
+/* =====================
+   ✅ Systemprompt
+=====================

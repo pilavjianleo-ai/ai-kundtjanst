@@ -8,44 +8,71 @@ const API_LOGIN = `${API_BASE}/login`;
 const API_REGISTER = `${API_BASE}/register`;
 const API_HISTORY = `${API_BASE}/history`;
 const API_FEEDBACK = `${API_BASE}/feedback`;
+const API_EXPORT_KB = `${API_BASE}/export/knowledgebase`;
 
 /*************************************************
- * ✅ companyId från URL (?company=law / tech / cleaning)
+ * ✅ State
  *************************************************/
-const urlParams = new URLSearchParams(window.location.search);
-let companyId = urlParams.get("company") || "demo";
-
-/*************************************************
- * ✅ Auth
- *************************************************/
+let companyId = "demo";
 let token = localStorage.getItem("token");
+let usernameSaved = localStorage.getItem("username") || "";
+
+/*************************************************
+ * ✅ Safe JSON fetch helper
+ * Fixar "Unexpected token <" genom att läsa text först.
+ *************************************************/
+async function fetchJson(url, options = {}) {
+  const res = await fetch(url, options);
+  const text = await res.text();
+
+  let data = null;
+  try {
+    data = JSON.parse(text);
+  } catch {
+    // if server returned HTML etc
+    throw new Error(`Servern svarade inte med JSON.\nURL: ${url}\nStatus: ${res.status}\nBody: ${text.slice(0, 120)}...`);
+  }
+
+  if (!res.ok) {
+    const message = data?.error || `HTTP ${res.status}`;
+    throw new Error(message);
+  }
+
+  return data;
+}
 
 /*************************************************
  * ✅ UI helpers
  *************************************************/
-function updateTitle() {
-  const titleEl = document.querySelector("h2");
-  const label = document.getElementById("companyLabel");
-
-  const map = {
-    law: "AI Kundtjänst – Juridik",
-    tech: "AI Kundtjänst – Teknisk support",
-    cleaning: "AI Kundtjänst – Städservice",
-    demo: "AI Kundtjänst – Demo AB",
-  };
-
-  if (titleEl) titleEl.innerText = map[companyId] || map.demo;
-  if (label) label.innerText = companyId;
-}
-
 function setLoggedInUI(isLoggedIn) {
   const auth = document.getElementById("auth");
   const chat = document.getElementById("chat");
   const logoutBtn = document.getElementById("logoutBtn");
+  const userLabel = document.getElementById("userLabel");
 
   if (auth) auth.style.display = isLoggedIn ? "none" : "block";
   if (chat) chat.style.display = isLoggedIn ? "block" : "none";
   if (logoutBtn) logoutBtn.style.display = isLoggedIn ? "inline-flex" : "none";
+
+  if (userLabel) {
+    userLabel.style.display = isLoggedIn ? "block" : "none";
+    userLabel.textContent = isLoggedIn ? `Inloggad som: ${usernameSaved}` : "";
+  }
+}
+
+function updateTitle() {
+  const titleEl = document.getElementById("pageTitle");
+  const selectEl = document.getElementById("companySelect");
+
+  const map = {
+    demo: "AI Kundtjänst – Demo AB",
+    tech: "AI Kundtjänst – Teknisk support",
+    law: "AI Kundtjänst – Juridik",
+    cleaning: "AI Kundtjänst – Städservice",
+  };
+
+  if (titleEl) titleEl.innerText = map[companyId] || map.demo;
+  if (selectEl) selectEl.value = companyId;
 }
 
 function showTypingIndicator() {
@@ -110,17 +137,15 @@ function renderMessages(messages) {
 }
 
 /*************************************************
- * ✅ Fetch history
+ * ✅ Load history
  *************************************************/
 async function loadHistory() {
   if (!token) return;
 
-  const res = await fetch(`${API_HISTORY}/${companyId}`, {
+  const messages = await fetchJson(`${API_HISTORY}/${companyId}`, {
     headers: { Authorization: `Bearer ${token}` },
   });
 
-  if (!res.ok) return;
-  const messages = await res.json();
   renderMessages(messages);
 }
 
@@ -135,7 +160,7 @@ async function sendMessage() {
   const text = input.value.trim();
   if (!text) return;
 
-  // show user immediately in UI
+  // show user immediately
   messagesDiv.innerHTML += `
     <div class="msg user">
       <div class="avatar"><i class="fas fa-user"></i></div>
@@ -147,16 +172,14 @@ async function sendMessage() {
   showTypingIndicator();
 
   try {
-    // load existing conversation from DB
-    const resHistory = await fetch(`${API_HISTORY}/${companyId}`, {
+    const history = await fetchJson(`${API_HISTORY}/${companyId}`, {
       headers: { Authorization: `Bearer ${token}` },
     });
-    const history = resHistory.ok ? await resHistory.json() : [];
 
     const conversation = history.map((m) => ({ role: m.role, content: m.content }));
     conversation.push({ role: "user", content: text });
 
-    const response = await fetch(API_CHAT, {
+    const data = await fetchJson(API_CHAT, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -165,7 +188,6 @@ async function sendMessage() {
       body: JSON.stringify({ companyId, conversation }),
     });
 
-    const data = await response.json();
     removeTypingIndicator();
 
     if (data.reply) {
@@ -181,20 +203,14 @@ async function sendMessage() {
           </div>
         </div>`;
       messagesDiv.scrollTop = messagesDiv.scrollHeight;
-    } else {
-      messagesDiv.innerHTML += `
-        <div class="msg ai">
-          <div class="avatar"><i class="fas fa-robot"></i></div>
-          <div class="content">AI: Något gick fel.</div>
-        </div>`;
     }
   } catch (err) {
-    console.error("Chat-fel:", err);
+    console.error(err);
     removeTypingIndicator();
     messagesDiv.innerHTML += `
       <div class="msg ai">
         <div class="avatar"><i class="fas fa-robot"></i></div>
-        <div class="content">AI: Tekniskt fel.</div>
+        <div class="content">Fel: ${err.message}</div>
       </div>`;
   }
 }
@@ -205,25 +221,31 @@ async function sendMessage() {
 async function giveFeedback(type) {
   if (!token) return;
 
-  await fetch(API_FEEDBACK, {
-    method: "POST",
-    headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-    body: JSON.stringify({ type, companyId }),
-  });
+  try {
+    await fetchJson(API_FEEDBACK, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify({ type, companyId }),
+    });
 
-  alert(`Tack för feedback! (${type})`);
+    alert(`Tack för feedback! (${type})`);
+  } catch (err) {
+    alert("Feedback gick inte att skicka: " + err.message);
+  }
 }
 
 /*************************************************
- * ✅ Export chat
+ * ✅ Export chat (TXT)
  *************************************************/
 async function exportChat() {
   if (!token) return;
 
-  const res = await fetch(`${API_HISTORY}/${companyId}`, {
+  const messages = await fetchJson(`${API_HISTORY}/${companyId}`, {
     headers: { Authorization: `Bearer ${token}` },
   });
-  const messages = await res.json();
 
   let text = `Chatt-historik (${companyId})\n\n`;
   for (const m of messages) {
@@ -244,6 +266,36 @@ async function exportChat() {
 }
 
 /*************************************************
+ * ✅ Export knowledge base (JSON)
+ *************************************************/
+async function downloadKnowledgeBase() {
+  if (!token) return;
+
+  try {
+    const res = await fetch(API_EXPORT_KB, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+
+    if (!res.ok) {
+      const text = await res.text();
+      throw new Error(`Export misslyckades (${res.status}) - ${text.slice(0, 80)}...`);
+    }
+
+    const blob = await res.blob();
+    const url = URL.createObjectURL(blob);
+
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `knowledge_base_${new Date().toISOString().split("T")[0]}.json`;
+    a.click();
+
+    URL.revokeObjectURL(url);
+  } catch (err) {
+    alert("Kunde inte ladda ner: " + err.message);
+  }
+}
+
+/*************************************************
  * ✅ Theme toggle
  *************************************************/
 function toggleTheme() {
@@ -256,30 +308,26 @@ function toggleTheme() {
 
   body.dataset.theme = next;
   localStorage.setItem("theme", next);
-
   icon.className = next === "dark" ? "fas fa-moon" : "fas fa-sun";
 }
 
 /*************************************************
- * ✅ Clear chat (UI + DB)
+ * ✅ Clear chat
  *************************************************/
 async function clearChat() {
   if (!token) return;
   const ok = confirm("Vill du rensa chatthistoriken för denna kategori?");
   if (!ok) return;
 
-  // UI
-  const messagesDiv = document.getElementById("messages");
-  if (messagesDiv) messagesDiv.innerHTML = "";
+  document.getElementById("messages").innerHTML = "";
 
-  // DB (kräver backend route)
   try {
-    await fetch(`${API_HISTORY}/${companyId}`, {
+    await fetchJson(`${API_HISTORY}/${companyId}`, {
       method: "DELETE",
       headers: { Authorization: `Bearer ${token}` },
     });
-  } catch (e) {
-    console.warn("Kunde inte rensa DB (endpoints saknas?)", e);
+  } catch (err) {
+    alert("Kunde inte rensa DB: " + err.message);
   }
 }
 
@@ -287,8 +335,6 @@ async function clearChat() {
  * ✅ Refresh category
  *************************************************/
 async function refreshCategory() {
-  const newParams = new URLSearchParams(window.location.search);
-  companyId = newParams.get("company") || "demo";
   updateTitle();
   if (token) await loadHistory();
 }
@@ -298,72 +344,93 @@ async function refreshCategory() {
  *************************************************/
 function logout() {
   localStorage.removeItem("token");
+  localStorage.removeItem("username");
   token = null;
+  usernameSaved = "";
   setLoggedInUI(false);
-
-  const messagesDiv = document.getElementById("messages");
-  if (messagesDiv) messagesDiv.innerHTML = "";
+  document.getElementById("messages").innerHTML = "";
 }
 
 /*************************************************
  * ✅ Auth actions
  *************************************************/
 async function handleLogin() {
-  const username = document.getElementById("username")?.value;
-  const password = document.getElementById("password")?.value;
-
-  const res = await fetch(API_LOGIN, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ username, password }),
-  });
-
-  const data = await res.json();
+  const username = document.getElementById("username")?.value || "";
+  const password = document.getElementById("password")?.value || "";
   const msg = document.getElementById("authMessage");
 
-  if (data.token) {
+  try {
+    const data = await fetchJson(API_LOGIN, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ username, password }),
+    });
+
     localStorage.setItem("token", data.token);
+    localStorage.setItem("username", username);
+
     token = data.token;
+    usernameSaved = username;
 
     setLoggedInUI(true);
     updateTitle();
     await loadHistory();
-  } else {
-    if (msg) msg.textContent = data.error || "Fel vid login.";
+  } catch (err) {
+    if (msg) msg.textContent = err.message;
   }
 }
 
 async function handleRegister() {
-  const username = document.getElementById("username")?.value;
-  const password = document.getElementById("password")?.value;
-
-  const res = await fetch(API_REGISTER, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ username, password }),
-  });
-
-  const data = await res.json();
+  const username = document.getElementById("username")?.value || "";
+  const password = document.getElementById("password")?.value || "";
   const msg = document.getElementById("authMessage");
-  if (msg) msg.textContent = data.message || data.error || "Ok";
+
+  try {
+    const data = await fetchJson(API_REGISTER, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ username, password }),
+    });
+    if (msg) msg.textContent = data.message || "OK";
+  } catch (err) {
+    if (msg) msg.textContent = err.message;
+  }
+}
+
+/*************************************************
+ * ✅ Category dropdown change
+ *************************************************/
+async function onCompanyChange() {
+  const selectEl = document.getElementById("companySelect");
+  if (!selectEl) return;
+
+  companyId = selectEl.value;
+  updateTitle();
+
+  if (token) await loadHistory();
 }
 
 /*************************************************
  * ✅ Init
  *************************************************/
 document.addEventListener("DOMContentLoaded", async () => {
-  // restore theme
   const savedTheme = localStorage.getItem("theme");
   if (savedTheme) document.body.dataset.theme = savedTheme;
+
+  const selectEl = document.getElementById("companySelect");
+  if (selectEl) {
+    companyId = selectEl.value || "demo";
+    selectEl.addEventListener("change", onCompanyChange);
+  }
 
   updateTitle();
   setLoggedInUI(!!token);
 
-  // events
   document.getElementById("sendBtn")?.addEventListener("click", sendMessage);
   document.getElementById("exportChat")?.addEventListener("click", exportChat);
-  document.getElementById("logoutBtn")?.addEventListener("click", logout);
+  document.getElementById("exportKnowledgeBtn")?.addEventListener("click", downloadKnowledgeBase);
 
+  document.getElementById("logoutBtn")?.addEventListener("click", logout);
   document.getElementById("themeToggle")?.addEventListener("click", toggleTheme);
   document.getElementById("clearChat")?.addEventListener("click", clearChat);
   document.getElementById("refreshCategory")?.addEventListener("click", refreshCategory);
@@ -378,6 +445,5 @@ document.addEventListener("DOMContentLoaded", async () => {
     }
   });
 
-  // load messages if logged in
   if (token) await loadHistory();
 });

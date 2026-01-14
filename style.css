@@ -34,7 +34,7 @@ body {
 }
 
 .container {
-  max-width: 900px;
+  max-width: 950px;
   margin: 30px auto;
   padding: 20px;
 }
@@ -58,6 +58,12 @@ h2, h3 {
   margin: 0;
 }
 
+.smallMuted {
+  margin: 6px 0 0 0;
+  color: var(--muted);
+  font-size: 14px;
+}
+
 input {
   width: 100%;
   padding: 12px;
@@ -71,6 +77,16 @@ input {
 body[data-theme="light"] input {
   background: rgba(17,24,39,0.03);
 }
+
+.select {
+  background: transparent;
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  padding: 7px 10px;
+  outline: none;
+}
+.select option { color: #111; }
 
 .messages {
   height: 420px;
@@ -144,6 +160,7 @@ body[data-theme="light"] input {
 
 .row {
   display: flex;
+  flex-wrap: wrap;
   gap: 10px;
   margin-top: 12px;
 }
@@ -173,13 +190,8 @@ body[data-theme="light"] input {
   cursor: pointer;
 }
 
-.iconBtn:hover {
-  background: rgba(255,255,255,0.06);
-}
-
-.dangerBtn:hover {
-  background: rgba(239,68,68,0.15);
-}
+.iconBtn:hover { background: rgba(255,255,255,0.06); }
+.dangerBtn:hover { background: rgba(239,68,68,0.15); }
 
 .msgtext {
   margin-top: 10px;
