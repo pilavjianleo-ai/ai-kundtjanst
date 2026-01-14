@@ -25,7 +25,7 @@ let token = localStorage.getItem("token");
  *************************************************/
 function updateTitle() {
   const titleEl = document.querySelector("h2");
-  if (!titleEl) return;
+  const label = document.getElementById("companyLabel");
 
   const map = {
     law: "AI Kundtjänst – Juridik",
@@ -34,7 +34,8 @@ function updateTitle() {
     demo: "AI Kundtjänst – Demo AB",
   };
 
-  titleEl.innerText = map[companyId] || map.demo;
+  if (titleEl) titleEl.innerText = map[companyId] || map.demo;
+  if (label) label.innerText = companyId;
 }
 
 function setLoggedInUI(isLoggedIn) {
@@ -134,7 +135,7 @@ async function sendMessage() {
   const text = input.value.trim();
   if (!text) return;
 
-  // show user in UI immediately
+  // show user immediately in UI
   messagesDiv.innerHTML += `
     <div class="msg user">
       <div class="avatar"><i class="fas fa-user"></i></div>
@@ -146,14 +147,14 @@ async function sendMessage() {
   showTypingIndicator();
 
   try {
-    // load existing conversation
+    // load existing conversation from DB
     const resHistory = await fetch(`${API_HISTORY}/${companyId}`, {
       headers: { Authorization: `Bearer ${token}` },
     });
     const history = resHistory.ok ? await resHistory.json() : [];
 
     const conversation = history.map((m) => ({ role: m.role, content: m.content }));
-    conversation.push({ role: "user", content: text }); // ✅ critical fix
+    conversation.push({ role: "user", content: text });
 
     const response = await fetch(API_CHAT, {
       method: "POST",
@@ -203,6 +204,7 @@ async function sendMessage() {
  *************************************************/
 async function giveFeedback(type) {
   if (!token) return;
+
   await fetch(API_FEEDBACK, {
     method: "POST",
     headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
@@ -242,28 +244,65 @@ async function exportChat() {
 }
 
 /*************************************************
+ * ✅ Theme toggle
+ *************************************************/
+function toggleTheme() {
+  const body = document.body;
+  const icon = document.querySelector("#themeToggle i");
+  if (!body || !icon) return;
+
+  const current = body.dataset.theme || "dark";
+  const next = current === "dark" ? "light" : "dark";
+
+  body.dataset.theme = next;
+  localStorage.setItem("theme", next);
+
+  icon.className = next === "dark" ? "fas fa-moon" : "fas fa-sun";
+}
+
+/*************************************************
+ * ✅ Clear chat (UI + DB)
+ *************************************************/
+async function clearChat() {
+  if (!token) return;
+  const ok = confirm("Vill du rensa chatthistoriken för denna kategori?");
+  if (!ok) return;
+
+  // UI
+  const messagesDiv = document.getElementById("messages");
+  if (messagesDiv) messagesDiv.innerHTML = "";
+
+  // DB (kräver backend route)
+  try {
+    await fetch(`${API_HISTORY}/${companyId}`, {
+      method: "DELETE",
+      headers: { Authorization: `Bearer ${token}` },
+    });
+  } catch (e) {
+    console.warn("Kunde inte rensa DB (endpoints saknas?)", e);
+  }
+}
+
+/*************************************************
+ * ✅ Refresh category
+ *************************************************/
+async function refreshCategory() {
+  const newParams = new URLSearchParams(window.location.search);
+  companyId = newParams.get("company") || "demo";
+  updateTitle();
+  if (token) await loadHistory();
+}
+
+/*************************************************
  * ✅ Logout
  *************************************************/
 function logout() {
   localStorage.removeItem("token");
   token = null;
   setLoggedInUI(false);
+
   const messagesDiv = document.getElementById("messages");
   if (messagesDiv) messagesDiv.innerHTML = "";
-}
-
-/*************************************************
- * ✅ Category change
- *************************************************/
-async function updateCategory() {
-  const newParams = new URLSearchParams(window.location.search);
-  const newCompanyId = newParams.get("company") || "demo";
-
-  if (newCompanyId !== companyId) {
-    companyId = newCompanyId;
-    updateTitle();
-    if (token) await loadHistory();
-  }
 }
 
 /*************************************************
@@ -285,7 +324,9 @@ async function handleLogin() {
   if (data.token) {
     localStorage.setItem("token", data.token);
     token = data.token;
+
     setLoggedInUI(true);
+    updateTitle();
     await loadHistory();
   } else {
     if (msg) msg.textContent = data.error || "Fel vid login.";
@@ -311,6 +352,10 @@ async function handleRegister() {
  * ✅ Init
  *************************************************/
 document.addEventListener("DOMContentLoaded", async () => {
+  // restore theme
+  const savedTheme = localStorage.getItem("theme");
+  if (savedTheme) document.body.dataset.theme = savedTheme;
+
   updateTitle();
   setLoggedInUI(!!token);
 
@@ -318,6 +363,10 @@ document.addEventListener("DOMContentLoaded", async () => {
   document.getElementById("sendBtn")?.addEventListener("click", sendMessage);
   document.getElementById("exportChat")?.addEventListener("click", exportChat);
   document.getElementById("logoutBtn")?.addEventListener("click", logout);
+
+  document.getElementById("themeToggle")?.addEventListener("click", toggleTheme);
+  document.getElementById("clearChat")?.addEventListener("click", clearChat);
+  document.getElementById("refreshCategory")?.addEventListener("click", refreshCategory);
 
   document.getElementById("loginBtn")?.addEventListener("click", handleLogin);
   document.getElementById("registerBtn")?.addEventListener("click", handleRegister);
@@ -328,9 +377,6 @@ document.addEventListener("DOMContentLoaded", async () => {
       sendMessage();
     }
   });
-
-  window.addEventListener("popstate", updateCategory);
-  window.addEventListener("hashchange", updateCategory);
 
   // load messages if logged in
   if (token) await loadHistory();
