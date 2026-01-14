@@ -1,84 +1,75 @@
-/*************************************************
- * ✅ API endpoints
- *************************************************/
 const API_BASE = window.location.hostname === "localhost" ? "http://localhost:3000" : "";
 
-const API_CHAT = `${API_BASE}/chat`;
 const API_LOGIN = `${API_BASE}/login`;
 const API_REGISTER = `${API_BASE}/register`;
+const API_CHAT = `${API_BASE}/chat`;
 const API_HISTORY = `${API_BASE}/history`;
 const API_FEEDBACK = `${API_BASE}/feedback`;
-const API_EXPORT_KB = `${API_BASE}/export/knowledgebase`;
 
-/*************************************************
- * ✅ State
- *************************************************/
-let companyId = "demo";
+const API_EXPORT_ALL = `${API_BASE}/export/knowledgebase`;
+const API_EXPORT_CATEGORY = (companyId) => `${API_BASE}/export/knowledgebase/${companyId}`;
+const API_ADMIN_EXPORT_ALL = `${API_BASE}/admin/export/all`;
+
+const API_KB_TEXT = `${API_BASE}/kb/upload-text`;
+const API_KB_URL = `${API_BASE}/kb/upload-url`;
+const API_KB_PDF = `${API_BASE}/kb/upload-pdf`;
+const API_KB_LIST = (companyId) => `${API_BASE}/kb/list/${companyId}`;
+const API_KB_DELETE = (id) => `${API_BASE}/kb/item/${id}`;
+
 let token = localStorage.getItem("token");
-let usernameSaved = localStorage.getItem("username") || "";
+let user = JSON.parse(localStorage.getItem("user") || "null");
+let companyId = "demo";
 
-/*************************************************
- * ✅ Safe JSON fetch helper
- * Fixar "Unexpected token <" genom att läsa text först.
- *************************************************/
+// safe JSON helper
 async function fetchJson(url, options = {}) {
   const res = await fetch(url, options);
   const text = await res.text();
-
-  let data = null;
+  let data;
   try {
     data = JSON.parse(text);
   } catch {
-    // if server returned HTML etc
-    throw new Error(`Servern svarade inte med JSON.\nURL: ${url}\nStatus: ${res.status}\nBody: ${text.slice(0, 120)}...`);
+    throw new Error(`Servern svarade inte med JSON.\nStatus: ${res.status}\nBody: ${text.slice(0, 120)}...`);
   }
-
-  if (!res.ok) {
-    const message = data?.error || `HTTP ${res.status}`;
-    throw new Error(message);
-  }
-
+  if (!res.ok) throw new Error(data?.error || `HTTP ${res.status}`);
   return data;
 }
 
-/*************************************************
- * ✅ UI helpers
- *************************************************/
 function setLoggedInUI(isLoggedIn) {
-  const auth = document.getElementById("auth");
-  const chat = document.getElementById("chat");
-  const logoutBtn = document.getElementById("logoutBtn");
-  const userLabel = document.getElementById("userLabel");
+  document.getElementById("auth").style.display = isLoggedIn ? "none" : "block";
+  document.getElementById("chat").style.display = isLoggedIn ? "block" : "none";
+  document.getElementById("logoutBtn").style.display = isLoggedIn ? "inline-flex" : "none";
 
-  if (auth) auth.style.display = isLoggedIn ? "none" : "block";
-  if (chat) chat.style.display = isLoggedIn ? "block" : "none";
-  if (logoutBtn) logoutBtn.style.display = isLoggedIn ? "inline-flex" : "none";
+  const label = document.getElementById("userLabel");
+  if (isLoggedIn && user) {
+    label.style.display = "block";
+    label.textContent = `Inloggad som: ${user.username} (${user.role})`;
+  } else {
+    label.style.display = "none";
+    label.textContent = "";
+  }
 
-  if (userLabel) {
-    userLabel.style.display = isLoggedIn ? "block" : "none";
-    userLabel.textContent = isLoggedIn ? `Inloggad som: ${usernameSaved}` : "";
+  const adminPanel = document.getElementById("adminPanel");
+  if (adminPanel) {
+    adminPanel.style.display = isLoggedIn && user?.role === "admin" ? "block" : "none";
   }
 }
 
 function updateTitle() {
   const titleEl = document.getElementById("pageTitle");
-  const selectEl = document.getElementById("companySelect");
-
   const map = {
     demo: "AI Kundtjänst – Demo AB",
     tech: "AI Kundtjänst – Teknisk support",
     law: "AI Kundtjänst – Juridik",
     cleaning: "AI Kundtjänst – Städservice",
   };
+  titleEl.textContent = map[companyId] || map.demo;
 
-  if (titleEl) titleEl.innerText = map[companyId] || map.demo;
+  const selectEl = document.getElementById("companySelect");
   if (selectEl) selectEl.value = companyId;
 }
 
 function showTypingIndicator() {
   const messagesDiv = document.getElementById("messages");
-  if (!messagesDiv) return;
-
   const existing = document.getElementById("typing");
   if (existing) existing.remove();
 
@@ -102,13 +93,8 @@ function copyToClipboard(text) {
   navigator.clipboard.writeText(text).then(() => alert("Text kopierad!"));
 }
 
-/*************************************************
- * ✅ Render messages
- *************************************************/
 function renderMessages(messages) {
   const messagesDiv = document.getElementById("messages");
-  if (!messagesDiv) return;
-
   messagesDiv.innerHTML = "";
 
   for (const msg of messages) {
@@ -136,31 +122,20 @@ function renderMessages(messages) {
   messagesDiv.scrollTop = messagesDiv.scrollHeight;
 }
 
-/*************************************************
- * ✅ Load history
- *************************************************/
 async function loadHistory() {
   if (!token) return;
-
   const messages = await fetchJson(`${API_HISTORY}/${companyId}`, {
     headers: { Authorization: `Bearer ${token}` },
   });
-
   renderMessages(messages);
 }
 
-/*************************************************
- * ✅ Send message
- *************************************************/
 async function sendMessage() {
   const input = document.getElementById("messageInput");
   const messagesDiv = document.getElementById("messages");
-  if (!input || !messagesDiv) return;
-
   const text = input.value.trim();
   if (!text) return;
 
-  // show user immediately
   messagesDiv.innerHTML += `
     <div class="msg user">
       <div class="avatar"><i class="fas fa-user"></i></div>
@@ -190,23 +165,20 @@ async function sendMessage() {
 
     removeTypingIndicator();
 
-    if (data.reply) {
-      const safeReply = String(data.reply || "").replace(/'/g, "\\'");
-      messagesDiv.innerHTML += `
-        <div class="msg ai">
-          <div class="avatar"><i class="fas fa-robot"></i></div>
-          <div class="content">${data.reply}</div>
-          <div class="feedback">
-            <button onclick="giveFeedback('positive')"><i class="fas fa-thumbs-up"></i></button>
-            <button onclick="giveFeedback('negative')"><i class="fas fa-thumbs-down"></i></button>
-            <button onclick="copyToClipboard('${safeReply}')"><i class="fas fa-copy"></i></button>
-          </div>
-        </div>`;
-      messagesDiv.scrollTop = messagesDiv.scrollHeight;
-    }
+    messagesDiv.innerHTML += `
+      <div class="msg ai">
+        <div class="avatar"><i class="fas fa-robot"></i></div>
+        <div class="content">${data.reply}</div>
+        <div class="feedback">
+          <button onclick="giveFeedback('positive')"><i class="fas fa-thumbs-up"></i></button>
+          <button onclick="giveFeedback('negative')"><i class="fas fa-thumbs-down"></i></button>
+          <button onclick="copyToClipboard('${String(data.reply).replace(/'/g, "\\'")}')"><i class="fas fa-copy"></i></button>
+        </div>
+      </div>`;
+    messagesDiv.scrollTop = messagesDiv.scrollHeight;
   } catch (err) {
-    console.error(err);
     removeTypingIndicator();
+    console.error(err);
     messagesDiv.innerHTML += `
       <div class="msg ai">
         <div class="avatar"><i class="fas fa-robot"></i></div>
@@ -215,12 +187,8 @@ async function sendMessage() {
   }
 }
 
-/*************************************************
- * ✅ Feedback
- *************************************************/
 async function giveFeedback(type) {
   if (!token) return;
-
   try {
     await fetchJson(API_FEEDBACK, {
       method: "POST",
@@ -230,133 +198,210 @@ async function giveFeedback(type) {
       },
       body: JSON.stringify({ type, companyId }),
     });
-
     alert(`Tack för feedback! (${type})`);
   } catch (err) {
-    alert("Feedback gick inte att skicka: " + err.message);
+    alert("Feedback misslyckades: " + err.message);
   }
 }
 
-/*************************************************
- * ✅ Export chat (TXT)
- *************************************************/
-async function exportChat() {
-  if (!token) return;
-
-  const messages = await fetchJson(`${API_HISTORY}/${companyId}`, {
-    headers: { Authorization: `Bearer ${token}` },
-  });
-
-  let text = `Chatt-historik (${companyId})\n\n`;
-  for (const m of messages) {
-    const t = m.timestamp ? new Date(m.timestamp).toLocaleString() : "";
-    if (m.role === "user") text += `[${t}] Du: ${m.content}\n`;
-    if (m.role === "assistant") text += `[${t}] AI: ${m.content}\n`;
-  }
-
-  const blob = new Blob([text], { type: "text/plain" });
-  const url = URL.createObjectURL(blob);
-
-  const a = document.createElement("a");
-  a.href = url;
-  a.download = `chat_${companyId}_${new Date().toISOString().split("T")[0]}.txt`;
-  a.click();
-
-  URL.revokeObjectURL(url);
-}
-
-/*************************************************
- * ✅ Export knowledge base (JSON)
- *************************************************/
-async function downloadKnowledgeBase() {
-  if (!token) return;
-
-  try {
-    const res = await fetch(API_EXPORT_KB, {
-      headers: { Authorization: `Bearer ${token}` },
-    });
-
-    if (!res.ok) {
-      const text = await res.text();
-      throw new Error(`Export misslyckades (${res.status}) - ${text.slice(0, 80)}...`);
-    }
-
-    const blob = await res.blob();
-    const url = URL.createObjectURL(blob);
-
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `knowledge_base_${new Date().toISOString().split("T")[0]}.json`;
-    a.click();
-
-    URL.revokeObjectURL(url);
-  } catch (err) {
-    alert("Kunde inte ladda ner: " + err.message);
-  }
-}
-
-/*************************************************
- * ✅ Theme toggle
- *************************************************/
 function toggleTheme() {
   const body = document.body;
   const icon = document.querySelector("#themeToggle i");
-  if (!body || !icon) return;
-
   const current = body.dataset.theme || "dark";
   const next = current === "dark" ? "light" : "dark";
-
   body.dataset.theme = next;
   localStorage.setItem("theme", next);
-  icon.className = next === "dark" ? "fas fa-moon" : "fas fa-sun";
+  if (icon) icon.className = next === "dark" ? "fas fa-moon" : "fas fa-sun";
 }
 
-/*************************************************
- * ✅ Clear chat
- *************************************************/
 async function clearChat() {
-  if (!token) return;
   const ok = confirm("Vill du rensa chatthistoriken för denna kategori?");
   if (!ok) return;
 
   document.getElementById("messages").innerHTML = "";
 
+  await fetchJson(`${API_HISTORY}/${companyId}`, {
+    method: "DELETE",
+    headers: { Authorization: `Bearer ${token}` },
+  });
+}
+
+async function refreshCategory() {
+  updateTitle();
+  await loadHistory();
+}
+
+async function exportAll() {
+  const res = await fetch(API_EXPORT_ALL, { headers: { Authorization: `Bearer ${token}` } });
+  const blob = await res.blob();
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = `my_export_all_${new Date().toISOString().split("T")[0]}.json`;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+async function exportCategory() {
+  const res = await fetch(API_EXPORT_CATEGORY(companyId), { headers: { Authorization: `Bearer ${token}` } });
+  const blob = await res.blob();
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = `my_export_${companyId}_${new Date().toISOString().split("T")[0]}.json`;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+async function refreshKbList() {
+  if (!token) return;
+  const list = document.getElementById("kbList");
+  if (!list) return;
+
+  list.innerHTML = "Laddar KB...";
+
   try {
-    await fetchJson(`${API_HISTORY}/${companyId}`, {
-      method: "DELETE",
+    const items = await fetchJson(API_KB_LIST(companyId), {
       headers: { Authorization: `Bearer ${token}` },
     });
+
+    if (!items.length) {
+      list.innerHTML = `<p class="smallMuted">Ingen kunskap sparad för denna kategori ännu.</p>`;
+      return;
+    }
+
+    list.innerHTML = items
+      .map((i) => {
+        const when = new Date(i.createdAt).toLocaleString();
+        const src = i.sourceRef ? ` • ${i.sourceRef}` : "";
+        return `
+          <div class="kbItem">
+            <div class="kbMeta">
+              <b>${i.title}</b>
+              <span class="smallMuted">${i.sourceType.toUpperCase()} • ${when}${src}</span>
+            </div>
+            <button class="btn danger" onclick="deleteKbItem('${i._id}')">
+              <i class="fas fa-trash"></i>
+            </button>
+          </div>`;
+      })
+      .join("");
   } catch (err) {
-    alert("Kunde inte rensa DB: " + err.message);
+    list.innerHTML = `<p class="smallMuted">KB fel: ${err.message}</p>`;
   }
 }
 
-/*************************************************
- * ✅ Refresh category
- *************************************************/
-async function refreshCategory() {
-  updateTitle();
-  if (token) await loadHistory();
+async function deleteKbItem(id) {
+  const ok = confirm("Vill du ta bort detta från kunskapsdatabasen?");
+  if (!ok) return;
+
+  try {
+    await fetchJson(API_KB_DELETE(id), {
+      method: "DELETE",
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    await refreshKbList();
+  } catch (err) {
+    alert("Kunde inte ta bort: " + err.message);
+  }
 }
 
-/*************************************************
- * ✅ Logout
- *************************************************/
-function logout() {
-  localStorage.removeItem("token");
-  localStorage.removeItem("username");
-  token = null;
-  usernameSaved = "";
-  setLoggedInUI(false);
-  document.getElementById("messages").innerHTML = "";
+async function uploadText() {
+  const title = document.getElementById("kbTitle").value.trim();
+  const content = document.getElementById("kbText").value.trim();
+  if (!content) return alert("Klistra in text först.");
+
+  try {
+    await fetchJson(API_KB_TEXT, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify({ companyId, title, content }),
+    });
+
+    document.getElementById("kbText").value = "";
+    alert("✅ Text uppladdad!");
+    await refreshKbList();
+  } catch (err) {
+    alert("Fel: " + err.message);
+  }
 }
 
-/*************************************************
- * ✅ Auth actions
- *************************************************/
+async function uploadUrl() {
+  const url = document.getElementById("kbUrl").value.trim();
+  if (!url) return alert("Skriv en URL först.");
+
+  try {
+    await fetchJson(API_KB_URL, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify({ companyId, url }),
+    });
+
+    document.getElementById("kbUrl").value = "";
+    alert("✅ URL uppladdad!");
+    await refreshKbList();
+  } catch (err) {
+    alert("Fel: " + err.message);
+  }
+}
+
+async function uploadPdf() {
+  const fileInput = document.getElementById("kbPdf");
+  if (!fileInput.files || !fileInput.files[0]) return alert("Välj en PDF först.");
+
+  const form = new FormData();
+  form.append("companyId", companyId);
+  form.append("pdf", fileInput.files[0]);
+
+  try {
+    const res = await fetch(API_KB_PDF, {
+      method: "POST",
+      headers: { Authorization: `Bearer ${token}` },
+      body: form,
+    });
+
+    const text = await res.text();
+    let data;
+    try {
+      data = JSON.parse(text);
+    } catch {
+      throw new Error("Servern svarade inte med JSON.");
+    }
+
+    if (!res.ok) throw new Error(data.error || "Fel vid PDF upload");
+
+    fileInput.value = "";
+    alert("✅ PDF uppladdad!");
+    await refreshKbList();
+  } catch (err) {
+    alert("Fel: " + err.message);
+  }
+}
+
+async function adminExportAll() {
+  try {
+    const res = await fetch(API_ADMIN_EXPORT_ALL, { headers: { Authorization: `Bearer ${token}` } });
+    const blob = await res.blob();
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `ADMIN_EXPORT_ALL_${new Date().toISOString().split("T")[0]}.json`;
+    a.click();
+    URL.revokeObjectURL(url);
+  } catch (err) {
+    alert("Admin export fail: " + err.message);
+  }
+}
+
 async function handleLogin() {
-  const username = document.getElementById("username")?.value || "";
-  const password = document.getElementById("password")?.value || "";
+  const username = document.getElementById("username").value.trim();
+  const password = document.getElementById("password").value.trim();
   const msg = document.getElementById("authMessage");
 
   try {
@@ -366,23 +411,24 @@ async function handleLogin() {
       body: JSON.stringify({ username, password }),
     });
 
-    localStorage.setItem("token", data.token);
-    localStorage.setItem("username", username);
-
     token = data.token;
-    usernameSaved = username;
+    user = data.user;
 
+    localStorage.setItem("token", token);
+    localStorage.setItem("user", JSON.stringify(user));
+
+    msg.textContent = "";
     setLoggedInUI(true);
     updateTitle();
     await loadHistory();
   } catch (err) {
-    if (msg) msg.textContent = err.message;
+    msg.textContent = err.message;
   }
 }
 
 async function handleRegister() {
-  const username = document.getElementById("username")?.value || "";
-  const password = document.getElementById("password")?.value || "";
+  const username = document.getElementById("username").value.trim();
+  const password = document.getElementById("password").value.trim();
   const msg = document.getElementById("authMessage");
 
   try {
@@ -391,59 +437,69 @@ async function handleRegister() {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ username, password }),
     });
-    if (msg) msg.textContent = data.message || "OK";
+    msg.textContent = data.message || "OK";
   } catch (err) {
-    if (msg) msg.textContent = err.message;
+    msg.textContent = err.message;
   }
 }
 
-/*************************************************
- * ✅ Category dropdown change
- *************************************************/
-async function onCompanyChange() {
-  const selectEl = document.getElementById("companySelect");
-  if (!selectEl) return;
-
-  companyId = selectEl.value;
-  updateTitle();
-
-  if (token) await loadHistory();
+function logout() {
+  localStorage.removeItem("token");
+  localStorage.removeItem("user");
+  token = null;
+  user = null;
+  setLoggedInUI(false);
+  document.getElementById("messages").innerHTML = "";
 }
 
-/*************************************************
- * ✅ Init
- *************************************************/
 document.addEventListener("DOMContentLoaded", async () => {
-  const savedTheme = localStorage.getItem("theme");
-  if (savedTheme) document.body.dataset.theme = savedTheme;
-
-  const selectEl = document.getElementById("companySelect");
-  if (selectEl) {
-    companyId = selectEl.value || "demo";
-    selectEl.addEventListener("change", onCompanyChange);
-  }
+  const theme = localStorage.getItem("theme");
+  if (theme) document.body.dataset.theme = theme;
 
   updateTitle();
   setLoggedInUI(!!token);
 
-  document.getElementById("sendBtn")?.addEventListener("click", sendMessage);
-  document.getElementById("exportChat")?.addEventListener("click", exportChat);
-  document.getElementById("exportKnowledgeBtn")?.addEventListener("click", downloadKnowledgeBase);
+  document.getElementById("companySelect").addEventListener("change", async (e) => {
+    companyId = e.target.value;
+    updateTitle();
+    if (token) await loadHistory();
+  });
 
-  document.getElementById("logoutBtn")?.addEventListener("click", logout);
-  document.getElementById("themeToggle")?.addEventListener("click", toggleTheme);
-  document.getElementById("clearChat")?.addEventListener("click", clearChat);
-  document.getElementById("refreshCategory")?.addEventListener("click", refreshCategory);
+  document.getElementById("loginBtn").addEventListener("click", handleLogin);
+  document.getElementById("registerBtn").addEventListener("click", handleRegister);
+  document.getElementById("logoutBtn").addEventListener("click", logout);
 
-  document.getElementById("loginBtn")?.addEventListener("click", handleLogin);
-  document.getElementById("registerBtn")?.addEventListener("click", handleRegister);
-
-  document.getElementById("messageInput")?.addEventListener("keydown", (e) => {
+  document.getElementById("sendBtn").addEventListener("click", sendMessage);
+  document.getElementById("messageInput").addEventListener("keydown", (e) => {
     if (e.key === "Enter") {
       e.preventDefault();
       sendMessage();
     }
   });
+
+  document.getElementById("themeToggle").addEventListener("click", toggleTheme);
+  document.getElementById("clearChat").addEventListener("click", clearChat);
+  document.getElementById("refreshCategory").addEventListener("click", refreshCategory);
+
+  document.getElementById("exportAllBtn").addEventListener("click", exportAll);
+  document.getElementById("exportCategoryBtn").addEventListener("click", exportCategory);
+
+  // ✅ Toggle KB section (hidden by default)
+  document.getElementById("toggleKbBtn")?.addEventListener("click", async () => {
+    const sec = document.getElementById("kbSection");
+    if (!sec) return;
+    const open = sec.style.display !== "none";
+    sec.style.display = open ? "none" : "block";
+    if (!open && token) await refreshKbList();
+  });
+
+  document.getElementById("uploadTextBtn")?.addEventListener("click", uploadText);
+  document.getElementById("uploadUrlBtn")?.addEventListener("click", uploadUrl);
+  document.getElementById("uploadPdfBtn")?.addEventListener("click", uploadPdf);
+  document.getElementById("refreshKbBtn")?.addEventListener("click", refreshKbList);
+  document.getElementById("downloadKbBtn")?.addEventListener("click", exportCategory);
+
+  document.getElementById("adminExportAllBtn")?.addEventListener("click", adminExportAll);
 
   if (token) await loadHistory();
 });
