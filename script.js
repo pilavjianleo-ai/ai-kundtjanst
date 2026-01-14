@@ -20,12 +20,19 @@ const API_EXPORT_KB_CATEGORY = `${API_BASE}/export/kb`;
 const API_EXPORT_ALL = `${API_BASE}/admin/export/all`;
 
 /*************************************************
- * ✅ companyId from URL
+ * ✅ Category helpers
  *************************************************/
 function getCompanyIdFromURL() {
   const params = new URLSearchParams(window.location.search);
   return params.get("company") || "demo";
 }
+
+function setCompanyIdInURL(newCompanyId) {
+  const url = new URL(window.location.href);
+  url.searchParams.set("company", newCompanyId);
+  window.history.pushState({}, "", url.toString());
+}
+
 let companyId = getCompanyIdFromURL();
 
 /*************************************************
@@ -109,7 +116,7 @@ function showRagBadge(text, isGood) {
     return;
   }
 
-  badge.style.display = "block";
+  badge.style.display = "flex";
   badge.innerHTML = `
     <span class="dot ${isGood ? "good" : "warn"}"></span>
     <span>${escapeHtml(text)}</span>
@@ -184,7 +191,6 @@ async function sendMessage() {
   const text = input.value.trim();
   if (!text) return;
 
-  // Render user message immediately
   messagesDiv.innerHTML += `
     <div class="msg user">
       <div class="avatar"><i class="fas fa-user"></i></div>
@@ -197,13 +203,11 @@ async function sendMessage() {
   showRagBadge("", false);
 
   try {
-    // get history
     const resHistory = await fetch(`${API_HISTORY}/${companyId}`, {
       headers: { Authorization: `Bearer ${token}` },
     });
     const history = resHistory.ok ? await resHistory.json() : [];
 
-    // build conversation + new user text
     const conversation = history.map((m) => ({ role: m.role, content: m.content }));
     conversation.push({ role: "user", content: text });
 
@@ -244,7 +248,6 @@ async function sendMessage() {
       messagesDiv.scrollTop = messagesDiv.scrollHeight;
     }
 
-    // ✅ Only show badge when ragUsed true
     if (data.ragUsed === true) {
       showRagBadge("RAG användes ✅ (kunskapsdatabas)", true);
     } else {
@@ -355,24 +358,38 @@ function logout() {
 }
 
 /*************************************************
- * ✅ Category refresh
+ * ✅ Category switching (from dropdown)
  *************************************************/
-async function refreshCategory() {
-  const newCompanyId = getCompanyIdFromURL();
+async function handleCompanyChange(newCompanyId) {
+  if (!newCompanyId) return;
+
   companyId = newCompanyId;
+  setCompanyIdInURL(companyId);
+
   updateTitle();
   showRagBadge("", false);
 
   if (token) {
     await loadHistory();
+
     if (userRole === "admin") {
       ensureKbPanel();
       updateKbTitle();
       await loadKbList();
     }
   }
-  setSubtitle("🔄 Kategori uppdaterad");
+
+  setSubtitle(`✅ Bytte kategori till: ${companyId}`);
   setTimeout(() => setSubtitle(""), 1200);
+}
+
+/*************************************************
+ * ✅ Manual refresh
+ *************************************************/
+async function refreshCategory() {
+  const dropdown = document.getElementById("companySelect");
+  const currentSelected = dropdown?.value || getCompanyIdFromURL();
+  await handleCompanyChange(currentSelected);
 }
 
 /*************************************************
@@ -671,12 +688,21 @@ async function exportAllAdmin() {
  * ✅ INIT
  *************************************************/
 document.addEventListener("DOMContentLoaded", async () => {
-  // initial category
+  // init category
   companyId = getCompanyIdFromURL();
   updateTitle();
   setLoggedInUI(!!token);
 
-  // Buttons
+  // dropdown sync
+  const dropdown = document.getElementById("companySelect");
+  if (dropdown) {
+    dropdown.value = companyId;
+    dropdown.addEventListener("change", async (e) => {
+      await handleCompanyChange(e.target.value);
+    });
+  }
+
+  // buttons
   document.getElementById("sendBtn")?.addEventListener("click", sendMessage);
   document.getElementById("messageInput")?.addEventListener("keydown", (e) => {
     if (e.key === "Enter") {
@@ -694,7 +720,7 @@ document.addEventListener("DOMContentLoaded", async () => {
   document.getElementById("loginBtn")?.addEventListener("click", handleLogin);
   document.getElementById("registerBtn")?.addEventListener("click", handleRegister);
 
-  // if logged in, load history
+  // load history if logged in
   if (token) {
     setLoggedInUI(true);
     await loadHistory();
