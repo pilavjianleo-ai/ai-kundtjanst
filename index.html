@@ -11,7 +11,7 @@
 <body data-theme="dark">
   <div class="app">
 
-    <!-- AUTH SCREEN -->
+    <!-- AUTH -->
     <section id="authScreen" class="authScreen">
       <div class="authCard">
         <div class="authBrand">
@@ -42,7 +42,7 @@
 
           <div class="authHint">
             <i class="fas fa-shield"></i>
-            Din data sparas säkert per konto.
+            Din data sparas per konto.
           </div>
         </div>
       </div>
@@ -58,7 +58,7 @@
             <div class="logo small">AI</div>
             <div>
               <div class="sideTitle">Kundtjänst</div>
-              <div class="sideSub" id="sideSub">Online</div>
+              <div class="sideSub">Tickets + AI</div>
             </div>
           </div>
 
@@ -73,7 +73,11 @@
           </div>
 
           <div class="sideNav">
-            <button id="navChat" class="navItem active">
+            <button id="navTickets" class="navItem active">
+              <i class="fas fa-ticket"></i> Ärenden
+            </button>
+
+            <button id="navChat" class="navItem">
               <i class="fas fa-comments"></i> Chatt
             </button>
 
@@ -93,9 +97,7 @@
             <i class="fas fa-sign-out-alt"></i> Logga ut
           </button>
 
-          <div class="tiny">
-            <span>Byggd för Render + MongoDB</span>
-          </div>
+          <div class="tiny">AI Kundtjänst • Render</div>
         </div>
       </aside>
 
@@ -120,8 +122,36 @@
           </div>
         </div>
 
+        <!-- TICKETS VIEW -->
+        <section id="ticketsView" class="view">
+          <div class="ticketsCard">
+            <div class="ticketsHeader">
+              <div>
+                <h2>Ärenden</h2>
+                <p class="muted">Klicka ett ärende för att öppna chatten</p>
+              </div>
+
+              <button id="ticketsReloadBtn" class="btn ghost">
+                <i class="fas fa-sync"></i> Uppdatera
+              </button>
+            </div>
+
+            <div class="ticketsGrid">
+              <div class="ticketsCol">
+                <h3>Mina ärenden</h3>
+                <div id="ticketsMine" class="ticketsList"></div>
+              </div>
+
+              <div class="ticketsCol" id="ticketsAdminBox" style="display:none;">
+                <h3>Alla ärenden (Admin)</h3>
+                <div id="ticketsAdmin" class="ticketsList"></div>
+              </div>
+            </div>
+          </div>
+        </section>
+
         <!-- CHAT VIEW -->
-        <section id="chatView" class="view">
+        <section id="chatView" class="view" style="display:none;">
           <div class="chatCard">
             <div id="messages" class="messages"></div>
 
@@ -133,6 +163,18 @@
                 </button>
               </div>
               <div id="ragBadge" class="ragBadge" style="display:none;"></div>
+
+              <!-- ✅ Agent takeover (admin) -->
+              <div id="agentPanel" class="agentPanel" style="display:none;">
+                <div class="agentTitle"><i class="fas fa-headset"></i> Agent takeover</div>
+                <div class="agentRow">
+                  <input id="agentInput" placeholder="Svara som agent..." />
+                  <button id="agentSendBtn" class="btn danger">
+                    <i class="fas fa-paper-plane"></i> Skicka
+                  </button>
+                </div>
+                <div class="mutedTiny">Tip: agent-svar hamnar i ärendet som “agent”.</div>
+              </div>
             </div>
           </div>
         </section>
@@ -143,7 +185,7 @@
             <div class="kbHeader">
               <div>
                 <h2 id="kbTitle">Kunskapsdatabas</h2>
-                <p class="muted">Ladda upp PDF / Text / URL för vald kategori</p>
+                <p class="muted">Ladda upp Text/URL. PDF kommer i nästa version.</p>
               </div>
 
               <div class="kbHeaderActions">
@@ -163,19 +205,13 @@
               <div class="kbBox">
                 <div class="kbBoxTitle"><i class="fas fa-link"></i> URL</div>
                 <input id="kbUrlInput" placeholder="https://..." />
-                <button id="kbUploadUrlBtn" class="btn primary full">Ladda upp URL</button>
+                <button id="kbUploadUrlBtn" class="btn primary full">Spara URL</button>
               </div>
 
               <div class="kbBox">
                 <div class="kbBoxTitle"><i class="fas fa-align-left"></i> Text</div>
                 <textarea id="kbTextInput" rows="6" placeholder="Klistra in text..."></textarea>
                 <button id="kbUploadTextBtn" class="btn primary full">Ladda upp text</button>
-              </div>
-
-              <div class="kbBox">
-                <div class="kbBoxTitle"><i class="fas fa-file-pdf"></i> PDF</div>
-                <input id="kbPdfInput" type="file" accept="application/pdf" />
-                <button id="kbUploadPdfBtn" class="btn primary full">Ladda upp PDF</button>
               </div>
             </div>
 
@@ -188,7 +224,6 @@
 
       </main>
     </section>
-
   </div>
 
   <script src="script.js"></script>

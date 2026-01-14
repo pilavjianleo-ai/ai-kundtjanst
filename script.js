@@ -4,16 +4,28 @@ const API_CHAT = `${API_BASE}/chat`;
 const API_LOGIN = `${API_BASE}/login`;
 const API_REGISTER = `${API_BASE}/register`;
 const API_HISTORY = `${API_BASE}/history`;
-const API_FEEDBACK = `${API_BASE}/feedback`;
+
+const API_TICKETS = `${API_BASE}/tickets`;
+const API_ADMIN_TICKETS = `${API_BASE}/admin/tickets`;
 
 const API_KB_TEXT = `${API_BASE}/kb/upload-text`;
 const API_KB_URL = `${API_BASE}/kb/upload-url`;
-const API_KB_PDF = `${API_BASE}/kb/upload-pdf`;
 const API_KB_LIST = `${API_BASE}/kb/list`;
 const API_KB_DELETE = `${API_BASE}/kb/item`;
 
 const API_EXPORT_KB_CATEGORY = `${API_BASE}/export/kb`;
 const API_EXPORT_ALL = `${API_BASE}/admin/export/all`;
+
+function el(id) { return document.getElementById(id); }
+
+function escapeHtml(str) {
+  return String(str || "")
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("'", "&#039;");
+}
 
 function getCompanyIdFromURL() {
   const params = new URLSearchParams(window.location.search);
@@ -30,15 +42,27 @@ let companyId = getCompanyIdFromURL();
 let token = localStorage.getItem("token");
 let userRole = localStorage.getItem("role") || null;
 
-function el(id) { return document.getElementById(id); }
+// ✅ Current selected ticket
+let currentTicketId = null;
 
-function escapeHtml(str) {
-  return String(str || "")
-    .replaceAll("&", "&amp;")
-    .replaceAll("<", "&lt;")
-    .replaceAll(">", "&gt;")
-    .replaceAll('"', "&quot;")
-    .replaceAll("'", "&#039;");
+// ---------------- UI ----------------
+function setLoggedInUI(isLoggedIn) {
+  const auth = el("authScreen");
+  const app = el("mainApp");
+  if (auth) auth.style.display = isLoggedIn ? "none" : "grid";
+  if (app) app.style.display = isLoggedIn ? "grid" : "none";
+}
+
+function updateTitle() {
+  const titleEl = el("title");
+  if (!titleEl) return;
+  const map = {
+    law: "AI Kundtjänst – Juridik",
+    tech: "AI Kundtjänst – Teknisk support",
+    cleaning: "AI Kundtjänst – Städservice",
+    demo: "AI Kundtjänst – Demo AB",
+  };
+  titleEl.textContent = map[companyId] || map.demo;
 }
 
 function setSubtitle(text) {
@@ -49,36 +73,38 @@ function setSubtitle(text) {
 function setView(view) {
   const chatView = el("chatView");
   const kbView = el("kbView");
+  const ticketsView = el("ticketsView");
+
   const navChat = el("navChat");
   const navKb = el("navKb");
+  const navTickets = el("navTickets");
 
   if (chatView) chatView.style.display = view === "chat" ? "flex" : "none";
   if (kbView) kbView.style.display = view === "kb" ? "flex" : "none";
+  if (ticketsView) ticketsView.style.display = view === "tickets" ? "flex" : "none";
 
   if (navChat) navChat.classList.toggle("active", view === "chat");
   if (navKb) navKb.classList.toggle("active", view === "kb");
+  if (navTickets) navTickets.classList.toggle("active", view === "tickets");
 }
 
-function updateTitle() {
-  const titleEl = el("title");
-  if (!titleEl) return;
-
-  const map = {
-    law: "AI Kundtjänst – Juridik",
-    tech: "AI Kundtjänst – Teknisk support",
-    cleaning: "AI Kundtjänst – Städservice",
-    demo: "AI Kundtjänst – Demo AB",
-  };
-
-  titleEl.textContent = map[companyId] || map.demo;
+function setAdminNavVisible(isAdmin) {
+  const navKb = el("navKb");
+  const navTicketsAdmin = el("ticketsAdminBox");
+  if (navKb) navKb.style.display = isAdmin ? "flex" : "none";
+  if (navTicketsAdmin) navTicketsAdmin.style.display = isAdmin ? "block" : "none";
 }
 
-function setLoggedInUI(isLoggedIn) {
-  const auth = el("authScreen");
-  const app = el("mainApp");
-
-  if (auth) auth.style.display = isLoggedIn ? "none" : "grid";
-  if (app) app.style.display = isLoggedIn ? "grid" : "none";
+function showRagBadge(text, good) {
+  const badge = el("ragBadge");
+  if (!badge) return;
+  if (!text) {
+    badge.style.display = "none";
+    badge.innerHTML = "";
+    return;
+  }
+  badge.style.display = "flex";
+  badge.innerHTML = `<span class="dot ${good ? "good" : "warn"}"></span><span>${escapeHtml(text)}</span>`;
 }
 
 function showTyping() {
@@ -104,18 +130,6 @@ function removeTyping() {
   if (t) t.remove();
 }
 
-function showRagBadge(text, good) {
-  const badge = el("ragBadge");
-  if (!badge) return;
-  if (!text) {
-    badge.style.display = "none";
-    badge.innerHTML = "";
-    return;
-  }
-  badge.style.display = "flex";
-  badge.innerHTML = `<span class="dot ${good ? "good" : "warn"}"></span><span>${escapeHtml(text)}</span>`;
-}
-
 function addUserMessage(text) {
   const messages = el("messages");
   if (!messages) return;
@@ -127,18 +141,26 @@ function addUserMessage(text) {
   messages.scrollTop = messages.scrollHeight;
 }
 
-function addAiMessage(text) {
+function addAiMessage(text, sources = []) {
   const messages = el("messages");
   if (!messages) return;
+
   const safeCopy = String(text || "").replace(/'/g, "\\'");
+
+  const sourcesHtml = sources?.length
+    ? `<div class="sources">
+         <div class="sourcesTitle">Källor:</div>
+         ${sources.map(s => `<div class="sourceItem">• ${escapeHtml(s.title || s.sourceRef || "Källa")}</div>`).join("")}
+       </div>`
+    : "";
+
   messages.innerHTML += `
     <div class="msg">
       <div class="avatar"><i class="fas fa-robot"></i></div>
       <div>
         <div class="bubble ai">${escapeHtml(text)}</div>
+        ${sourcesHtml}
         <div class="bubbleActions">
-          <button class="miniBtn" onclick="giveFeedback('positive')"><i class="fas fa-thumbs-up"></i></button>
-          <button class="miniBtn" onclick="giveFeedback('negative')"><i class="fas fa-thumbs-down"></i></button>
           <button class="miniBtn" onclick="copyToClipboard('${safeCopy}')"><i class="fas fa-copy"></i></button>
         </div>
       </div>
@@ -146,27 +168,154 @@ function addAiMessage(text) {
   messages.scrollTop = messages.scrollHeight;
 }
 
-async function loadHistory() {
-  if (!token) return;
+function addAgentMessage(text) {
+  const messages = el("messages");
+  if (!messages) return;
 
+  messages.innerHTML += `
+    <div class="msg">
+      <div class="avatar"><i class="fas fa-headset"></i></div>
+      <div>
+        <div class="bubble ai"><b>Agent:</b> ${escapeHtml(text)}</div>
+      </div>
+    </div>`;
+  messages.scrollTop = messages.scrollHeight;
+}
+
+function copyToClipboard(text) {
+  navigator.clipboard.writeText(text).then(() => {
+    setSubtitle("✅ Kopierat!");
+    setTimeout(() => setSubtitle(""), 1200);
+  });
+}
+
+// ---------------- Tickets ----------------
+function renderTicketItem(t, isAdminList = false) {
+  const title = t.title || "(utan titel)";
+  const status = t.status || "open";
+  const prio = t.priority || "normal";
+  const time = t.lastActivityAt ? new Date(t.lastActivityAt).toLocaleString() : "";
+
+  const who = isAdminList ? `<span class="mutedTiny">User: ${t.userId}</span>` : "";
+
+  return `
+    <button class="ticketItem" onclick="openTicket('${t._id}', ${isAdminList ? "true" : "false"})">
+      <div class="ticketTop">
+        <div class="ticketTitle">${escapeHtml(title)}</div>
+        <div class="ticketBadges">
+          <span class="pill ${status}">${escapeHtml(status)}</span>
+          <span class="pill prio-${prio}">${escapeHtml(prio)}</span>
+        </div>
+      </div>
+      <div class="ticketMeta">${escapeHtml(time)} ${who}</div>
+    </button>
+  `;
+}
+
+async function loadMyTickets() {
+  if (!token) return;
+  const box = el("ticketsMine");
+  if (!box) return;
+
+  box.innerHTML = `<div class="muted">Laddar…</div>`;
+
+  const res = await fetch(API_TICKETS, { headers: { Authorization: `Bearer ${token}` } });
+  const data = await res.json();
+
+  if (!res.ok) {
+    box.innerHTML = `<div class="muted">❌ ${escapeHtml(data.error || "kunde inte ladda")}</div>`;
+    return;
+  }
+
+  if (!data.length) {
+    box.innerHTML = `<div class="muted">Inga ärenden ännu. Starta chatten så skapas ett automatiskt.</div>`;
+    return;
+  }
+
+  box.innerHTML = data.map(t => renderTicketItem(t, false)).join("");
+}
+
+async function loadAdminTickets() {
+  if (!token || userRole !== "admin") return;
+
+  const box = el("ticketsAdmin");
+  if (!box) return;
+
+  box.innerHTML = `<div class="muted">Laddar…</div>`;
+
+  const res = await fetch(API_ADMIN_TICKETS, { headers: { Authorization: `Bearer ${token}` } });
+  const data = await res.json();
+
+  if (!res.ok) {
+    box.innerHTML = `<div class="muted">❌ ${escapeHtml(data.error || "kunde inte ladda")}</div>`;
+    return;
+  }
+
+  if (!data.length) {
+    box.innerHTML = `<div class="muted">Inga ärenden hittades.</div>`;
+    return;
+  }
+
+  box.innerHTML = data.map(t => renderTicketItem(t, true)).join("");
+}
+
+async function openTicket(ticketId, isAdminTicket) {
+  currentTicketId = ticketId;
+  setView("chat");
+  el("messages").innerHTML = "";
+
+  const endpoint = isAdminTicket ? `${API_ADMIN_TICKETS}/${ticketId}` : `${API_TICKETS}/${ticketId}`;
+  const res = await fetch(endpoint, { headers: { Authorization: `Bearer ${token}` } });
+  const t = await res.json();
+
+  if (!res.ok) {
+    addAiMessage(`Kunde inte öppna ticket: ${t.error || "okänt fel"}`);
+    return;
+  }
+
+  companyId = t.companyId || companyId;
+  const companySelect = el("companySelect");
+  if (companySelect) companySelect.value = companyId;
+  updateTitle();
+
+  setSubtitle(`Ärende: ${t.title || t._id} • Status: ${t.status}`);
+  setTimeout(() => setSubtitle(""), 2500);
+
+  for (const m of t.messages || []) {
+    if (m.role === "user") addUserMessage(m.content);
+    else if (m.role === "assistant") addAiMessage(m.content);
+    else if (m.role === "agent") addAgentMessage(m.content);
+  }
+
+  // Admin agent panel
+  const agentPanel = el("agentPanel");
+  if (agentPanel) agentPanel.style.display = userRole === "admin" ? "block" : "none";
+}
+
+async function refreshTicketLists() {
+  await loadMyTickets();
+  if (userRole === "admin") await loadAdminTickets();
+}
+
+// ---------------- Chat ----------------
+async function loadHistoryFallback() {
+  if (!token) return;
   const messages = el("messages");
   if (messages) messages.innerHTML = "";
 
-  const res = await fetch(`${API_HISTORY}/${companyId}`, {
-    headers: { Authorization: `Bearer ${token}` },
-  });
-
+  const res = await fetch(`${API_HISTORY}/${companyId}`, { headers: { Authorization: `Bearer ${token}` } });
   if (!res.ok) return;
-
   const data = await res.json();
-
   for (const m of data) {
     if (m.role === "user") addUserMessage(m.content);
     if (m.role === "assistant") addAiMessage(m.content);
+    if (m.role === "agent") addAgentMessage(m.content);
   }
 }
 
 async function sendMessage() {
+  if (!token) return;
+
   const input = el("messageInput");
   if (!input) return;
 
@@ -179,13 +328,9 @@ async function sendMessage() {
   showRagBadge("", false);
 
   try {
-    const resHistory = await fetch(`${API_HISTORY}/${companyId}`, {
-      headers: { Authorization: `Bearer ${token}` },
-    });
-    const history = resHistory.ok ? await resHistory.json() : [];
-
-    const conversation = history.map((m) => ({ role: m.role, content: m.content }));
-    conversation.push({ role: "user", content: text });
+    // if no ticket selected, we still use server ticket auto-ensure
+    // but we can keep local context minimal
+    const conversation = [{ role: "user", content: text }];
 
     const res = await fetch(API_CHAT, {
       method: "POST",
@@ -193,7 +338,11 @@ async function sendMessage() {
         "Content-Type": "application/json",
         Authorization: `Bearer ${token}`,
       },
-      body: JSON.stringify({ companyId, conversation }),
+      body: JSON.stringify({
+        companyId,
+        conversation,
+        ticketId: currentTicketId, // ✅ binds to ticket if selected
+      }),
     });
 
     const data = await res.json();
@@ -204,10 +353,14 @@ async function sendMessage() {
       return;
     }
 
-    addAiMessage(data.reply || "Inget svar.");
+    if (data.ticketId) currentTicketId = data.ticketId;
+
+    addAiMessage(data.reply || "Inget svar.", data.sources || []);
+
     if (data.ragUsed === true) showRagBadge("RAG användes ✅ (kunskapsdatabas)", true);
     else showRagBadge("", false);
 
+    await refreshTicketLists();
   } catch (err) {
     console.error(err);
     removeTyping();
@@ -215,76 +368,41 @@ async function sendMessage() {
   }
 }
 
-async function giveFeedback(type) {
-  if (!token) return;
-  await fetch(API_FEEDBACK, {
-    method: "POST",
-    headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-    body: JSON.stringify({ type, companyId }),
-  });
-  setSubtitle(`✅ Feedback skickad (${type})`);
-  setTimeout(() => setSubtitle(""), 1200);
-}
-
-function copyToClipboard(text) {
-  navigator.clipboard.writeText(text).then(() => {
-    setSubtitle("✅ Kopierat!");
-    setTimeout(() => setSubtitle(""), 1200);
-  });
-}
-
-async function exportChat() {
-  if (!token) return;
-  const res = await fetch(`${API_HISTORY}/${companyId}`, {
-    headers: { Authorization: `Bearer ${token}` },
-  });
-  const data = res.ok ? await res.json() : [];
-
-  let out = `Chatt-historik (${companyId})\n\n`;
-  for (const m of data) {
-    const t = m.timestamp ? new Date(m.timestamp).toLocaleString() : "";
-    if (m.role === "user") out += `[${t}] Du: ${m.content}\n`;
-    if (m.role === "assistant") out += `[${t}] AI: ${m.content}\n`;
+// ---------------- Admin Agent takeover ----------------
+async function agentReply() {
+  if (!token || userRole !== "admin") return;
+  if (!currentTicketId) {
+    setSubtitle("⚠️ Öppna ett ärende först");
+    setTimeout(() => setSubtitle(""), 1500);
+    return;
   }
 
-  const blob = new Blob([out], { type: "text/plain" });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement("a");
-  a.href = url;
-  a.download = `chat_${companyId}_${new Date().toISOString().split("T")[0]}.txt`;
-  a.click();
-  URL.revokeObjectURL(url);
+  const input = el("agentInput");
+  const text = input?.value?.trim();
+  if (!text) return;
+
+  input.value = "";
+
+  const res = await fetch(`${API_ADMIN_TICKETS}/${currentTicketId}/agent-reply`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${token}`,
+    },
+    body: JSON.stringify({ content: text }),
+  });
+
+  const data = await res.json();
+  if (!res.ok) {
+    addAiMessage(`Agent-fel: ${data.error || "okänt fel"}`);
+    return;
+  }
+
+  addAgentMessage(text);
+  await refreshTicketLists();
 }
 
-function clearChat() {
-  const messages = el("messages");
-  if (messages) messages.innerHTML = "";
-  setSubtitle("🗑️ Rensad (endast UI)");
-  setTimeout(() => setSubtitle(""), 1200);
-}
-
-function toggleTheme() {
-  const body = document.body;
-  const current = body.getAttribute("data-theme") || "dark";
-  body.setAttribute("data-theme", current === "dark" ? "light" : "dark");
-}
-
-function logout() {
-  localStorage.removeItem("token");
-  localStorage.removeItem("role");
-  token = null;
-  userRole = null;
-  setLoggedInUI(false);
-}
-
-/*************************************************
- * ✅ ADMIN: KB VIEW
- *************************************************/
-function setAdminNavVisible(isAdmin) {
-  const navKb = el("navKb");
-  if (navKb) navKb.style.display = isAdmin ? "flex" : "none";
-}
-
+// ---------------- KB (Admin) ----------------
 function updateKbTitle() {
   const t = el("kbTitle");
   if (t) t.textContent = `Kunskapsdatabas (${companyId})`;
@@ -296,7 +414,7 @@ async function loadKbList() {
   const list = el("kbList");
   const msg = el("kbMsg");
 
-  if (list) list.innerHTML = "Laddar…";
+  if (list) list.innerHTML = `<div class="muted">Laddar…</div>`;
   if (msg) msg.textContent = "";
 
   const res = await fetch(`${API_KB_LIST}/${companyId}`, {
@@ -306,7 +424,7 @@ async function loadKbList() {
   const data = await res.json();
 
   if (!res.ok) {
-    if (list) list.innerHTML = `❌ ${escapeHtml(data.error || "fel")}`;
+    if (list) list.innerHTML = `<div class="muted">❌ ${escapeHtml(data.error || "fel")}</div>`;
     return;
   }
 
@@ -323,7 +441,7 @@ async function loadKbList() {
         <div class="kbItemTop">
           <div>
             <div class="kbItemTitle">${escapeHtml(it.title || "Untitled")}</div>
-            <div class="kbMeta">Typ: ${escapeHtml(it.sourceType)} • ${it.embeddingOk ? "✅ RAG-ready" : "⚠️ Ingen embedding"}</div>
+            <div class="kbMeta">Typ: ${escapeHtml(it.sourceType)} • ${it.embeddingOk ? "✅ RAG-ready" : "⚠️ Begränsad"}</div>
           </div>
           <button class="btn danger small" onclick="deleteKbItem('${it._id}')">Ta bort</button>
         </div>
@@ -353,7 +471,7 @@ async function uploadKbUrl() {
   const url = input?.value?.trim();
   if (!url) return;
 
-  if (msg) msg.textContent = "⏳ Hämtar URL…";
+  if (msg) msg.textContent = "⏳ Sparar URL…";
 
   const res = await fetch(API_KB_URL, {
     method: "POST",
@@ -401,37 +519,6 @@ async function uploadKbText() {
   await loadKbList();
 }
 
-async function uploadKbPdf() {
-  if (!token || userRole !== "admin") return;
-
-  const fileInput = el("kbPdfInput");
-  const msg = el("kbMsg");
-  if (!fileInput || !fileInput.files?.length) return;
-
-  if (msg) msg.textContent = "⏳ Laddar upp PDF…";
-
-  const form = new FormData();
-  form.append("pdf", fileInput.files[0]);
-  form.append("companyId", companyId);
-
-  const res = await fetch(API_KB_PDF, {
-    method: "POST",
-    headers: { Authorization: `Bearer ${token}` },
-    body: form,
-  });
-
-  const data = await res.json();
-
-  if (!res.ok) {
-    if (msg) msg.textContent = `❌ ${data.error || "Fel vid PDF-upload"}`;
-    return;
-  }
-
-  if (msg) msg.textContent = `✅ ${data.message}`;
-  fileInput.value = "";
-  await loadKbList();
-}
-
 function exportCategoryKB() {
   if (!token || userRole !== "admin") return;
   window.location.href = `${API_EXPORT_KB_CATEGORY}/${companyId}`;
@@ -443,12 +530,37 @@ function exportAllAdmin() {
   window.location.href = API_EXPORT_ALL;
 }
 
+// ---------------- Misc ----------------
+function clearChat() {
+  const messages = el("messages");
+  if (messages) messages.innerHTML = "";
+  showRagBadge("", false);
+  setSubtitle("🗑️ Rensad (endast UI)");
+  setTimeout(() => setSubtitle(""), 1200);
+}
+
+function toggleTheme() {
+  const body = document.body;
+  const current = body.getAttribute("data-theme") || "dark";
+  body.setAttribute("data-theme", current === "dark" ? "light" : "dark");
+}
+
+function logout() {
+  localStorage.removeItem("token");
+  localStorage.removeItem("role");
+  token = null;
+  userRole = null;
+  currentTicketId = null;
+  setLoggedInUI(false);
+}
+
 /*************************************************
  * ✅ AUTH
  *************************************************/
 async function handleLogin() {
   const username = el("username")?.value;
   const password = el("password")?.value;
+  const msg = el("authMessage");
 
   const res = await fetch(API_LOGIN, {
     method: "POST",
@@ -457,7 +569,6 @@ async function handleLogin() {
   });
 
   const data = await res.json();
-  const msg = el("authMessage");
 
   if (!res.ok) {
     if (msg) msg.textContent = data.error || "Fel vid login.";
@@ -471,16 +582,12 @@ async function handleLogin() {
   localStorage.setItem("role", userRole);
 
   setLoggedInUI(true);
-
+  setView("tickets");
   updateTitle();
-  await loadHistory();
-  setView("chat");
 
   setAdminNavVisible(userRole === "admin");
-  if (userRole === "admin") {
-    updateKbTitle();
-    await loadKbList();
-  }
+
+  await refreshTicketLists();
 
   setSubtitle("✅ Inloggad");
   setTimeout(() => setSubtitle(""), 1200);
@@ -489,6 +596,7 @@ async function handleLogin() {
 async function handleRegister() {
   const username = el("username")?.value;
   const password = el("password")?.value;
+  const msg = el("authMessage");
 
   const res = await fetch(API_REGISTER, {
     method: "POST",
@@ -497,7 +605,6 @@ async function handleRegister() {
   });
 
   const data = await res.json();
-  const msg = el("authMessage");
 
   if (!res.ok) {
     if (msg) msg.textContent = data.error || "Registrering misslyckades.";
@@ -515,6 +622,7 @@ document.addEventListener("DOMContentLoaded", async () => {
   updateTitle();
 
   setLoggedInUI(!!token);
+  setAdminNavVisible(userRole === "admin");
 
   // UI binds
   el("loginBtn")?.addEventListener("click", handleLogin);
@@ -529,7 +637,11 @@ document.addEventListener("DOMContentLoaded", async () => {
   });
 
   el("clearChat")?.addEventListener("click", clearChat);
-  el("exportChat")?.addEventListener("click", exportChat);
+  el("exportChat")?.addEventListener("click", () => {
+    // Export current ticket view not implemented in this version
+    exportChatSimple();
+  });
+
   el("themeToggle")?.addEventListener("click", toggleTheme);
   el("logoutBtn")?.addEventListener("click", logout);
 
@@ -539,44 +651,61 @@ document.addEventListener("DOMContentLoaded", async () => {
     setCompanyIdInURL(companyId);
     updateTitle();
     updateKbTitle();
-
-    if (token) {
-      await loadHistory();
-      if (userRole === "admin") await loadKbList();
-    }
-
+    currentTicketId = null;
+    await refreshTicketLists();
     setSubtitle(`✅ Bytte kategori: ${companyId}`);
     setTimeout(() => setSubtitle(""), 1000);
   });
 
-  // Navigation
-  el("navChat")?.addEventListener("click", () => setView("chat"));
-  el("navKb")?.addEventListener("click", () => {
-    setView("kb");
-    updateKbTitle();
-    loadKbList();
+  // Nav
+  el("navChat")?.addEventListener("click", async () => {
+    setView("chat");
+    if (!currentTicketId) await loadHistoryFallback();
   });
 
-  // KB actions
+  el("navTickets")?.addEventListener("click", async () => {
+    setView("tickets");
+    await refreshTicketLists();
+  });
+
+  el("navKb")?.addEventListener("click", async () => {
+    setView("kb");
+    updateKbTitle();
+    await loadKbList();
+  });
+
+  // Tickets refresh
+  el("ticketsReloadBtn")?.addEventListener("click", refreshTicketLists);
+
+  // Agent takeover
+  el("agentSendBtn")?.addEventListener("click", agentReply);
+
+  // KB
   el("kbReloadBtn")?.addEventListener("click", loadKbList);
   el("kbUploadUrlBtn")?.addEventListener("click", uploadKbUrl);
   el("kbUploadTextBtn")?.addEventListener("click", uploadKbText);
-  el("kbUploadPdfBtn")?.addEventListener("click", uploadKbPdf);
   el("kbExportCategoryBtn")?.addEventListener("click", exportCategoryKB);
   el("kbExportAllBtn")?.addEventListener("click", exportAllAdmin);
 
-  // If already logged in
+  // Already logged in
   if (token) {
     setLoggedInUI(true);
-    await loadHistory();
-
-    // if role persisted
-    setAdminNavVisible(userRole === "admin");
-    if (userRole === "admin") {
-      updateKbTitle();
-      await loadKbList();
-    } else {
-      setView("chat");
-    }
+    setView("tickets");
+    await refreshTicketLists();
   }
 });
+
+function exportChatSimple() {
+  const messages = el("messages");
+  if (!messages) return;
+
+  const text = messages.innerText || "";
+  const blob = new Blob([text], { type: "text/plain" });
+  const url = URL.createObjectURL(blob);
+
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = `chat_${companyId}_${new Date().toISOString().split("T")[0]}.txt`;
+  a.click();
+  URL.revokeObjectURL(url);
+}
