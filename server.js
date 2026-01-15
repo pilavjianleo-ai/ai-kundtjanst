@@ -340,7 +340,7 @@ app.post("/chat", authenticate, async (req, res) => {
 
     const systemMessage = {
       role: "system",
-,
+
       content:
         getSystemPrompt(companyId) +
         (rag.used
