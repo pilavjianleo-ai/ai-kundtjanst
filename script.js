@@ -103,7 +103,7 @@ function formatDate(d) {
 }
 
 /*************************************************
- * ✅ Safe fetchJson (fix HTML response issue)
+ * ✅ Safe fetchJson
  *************************************************/
 async function fetchJson(url, opts = {}) {
   const res = await fetch(url, opts);
@@ -111,7 +111,7 @@ async function fetchJson(url, opts = {}) {
   const contentType = res.headers.get("content-type") || "";
   if (!contentType.includes("application/json")) {
     const raw = await res.text();
-    throw new Error(`API returnerade HTML istället för JSON. URL: ${url}\nStatus: ${res.status}\n${raw.slice(0, 140)}`);
+    throw new Error(`API returnerade HTML istället för JSON.\nURL: ${url}\nStatus: ${res.status}\n${raw.slice(0, 140)}`);
   }
 
   const data = await res.json();
@@ -124,7 +124,7 @@ async function fetchJson(url, opts = {}) {
 }
 
 /*************************************************
- * ✅ Debug panel
+ * ✅ Debug
  *************************************************/
 function refreshDebug() {
   setText($("dbgApi"), API_BASE || "(same-origin)");
@@ -181,13 +181,23 @@ function applyCompanyToUI() {
 }
 
 /*************************************************
- * ✅ Theme
+ * ✅ Theme (med persist)
  *************************************************/
+function applySavedTheme() {
+  const saved = localStorage.getItem("theme");
+  if (saved === "light" || saved === "dark") {
+    document.body.setAttribute("data-theme", saved);
+    const icon = $("themeToggle")?.querySelector("i");
+    if (icon) icon.className = saved === "dark" ? "fa-solid fa-moon" : "fa-solid fa-sun";
+  }
+}
+
 function toggleTheme() {
   const body = document.body;
   const current = body.getAttribute("data-theme") || "dark";
   const next = current === "dark" ? "light" : "dark";
   body.setAttribute("data-theme", next);
+  localStorage.setItem("theme", next);
 
   const icon = $("themeToggle")?.querySelector("i");
   if (icon) icon.className = next === "dark" ? "fa-solid fa-moon" : "fa-solid fa-sun";
@@ -210,10 +220,11 @@ function applyAuthUI() {
 
   if (!isLogged) {
     openView("auth");
+    setActiveMenu("chat");
+
     setText(roleBadge, "Inte inloggad");
     show(logoutBtn, false);
 
-    // Hide menu items when logged out
     show(chatBtn, false);
     show(myTicketsBtn, false);
     show(settingsBtn, false);
@@ -482,7 +493,7 @@ function setCompanyFromSelect(value) {
 }
 
 /*************************************************
- * ✅ Feedback (ALL users)
+ * ✅ Feedback
  *************************************************/
 async function sendFeedback(type) {
   try {
@@ -503,7 +514,7 @@ async function sendFeedback(type) {
 }
 
 /*************************************************
- * ✅ My Tickets (User)
+ * ✅ My Tickets
  *************************************************/
 async function loadMyTickets() {
   const list = $("myTicketsList");
@@ -585,7 +596,7 @@ async function loadMyTicketDetails(id) {
 }
 
 /*************************************************
- * ✅ Polling (live notifiering vid agent-svar)
+ * ✅ Polling
  *************************************************/
 async function pollMyTickets() {
   if (!token || !currentUser) return;
@@ -654,9 +665,7 @@ async function pollAdminInbox() {
     const catSelect = $("categorySelect");
     if (catSelect) {
       catSelect.classList.remove("categoryNotif");
-      if (categoryNotifMap[catSelect.value]) {
-        catSelect.classList.add("categoryNotif");
-      }
+      if (categoryNotifMap[catSelect.value]) catSelect.classList.add("categoryNotif");
     }
 
   } catch {
@@ -766,11 +775,14 @@ async function inboxLoadTicketDetails(id) {
       `;
     }).join("");
 
-    const notes = (t.internalNotes || []).slice(-30).map((n) => `
-      <div class="noteItem">
-        <div class="noteMeta">${escapeHtml(formatDate(n.createdAt))}</div>
-        <div class="noteText">${escapeHtml(n.content)}</div>
-        <div style="margin-top:8px;">
+    const notes = (t.internalNotes || []).slice(-25).map((n) => `
+      <div class="ticketMsg">
+        <div class="ticketMsgHead">
+          <b>Intern note</b>
+          <span>${escapeHtml(formatDate(n.createdAt))}</span>
+        </div>
+        <div class="ticketMsgBody">${escapeHtml(n.content)}</div>
+        <div class="row" style="margin-top:8px;">
           <button class="btn danger small" data-note-del="${n._id}">
             <i class="fa-solid fa-trash"></i> Ta bort
           </button>
@@ -788,24 +800,9 @@ async function inboxLoadTicketDetails(id) {
       ${html || `<div class="muted small">Inga meddelanden.</div>`}
 
       <div class="divider"></div>
-
-      <div class="noteBox">
-        <b class="muted small">Interna notes (syns ej för kund)</b>
-        <div style="margin-top:8px;" class="row gap">
-          <input id="internalNoteText" class="input" placeholder="Skriv intern notering..." />
-          <button id="saveInternalNoteBtn2" class="btn secondary small">
-            <i class="fa-solid fa-plus"></i> Lägg till
-          </button>
-        </div>
-        <div style="margin-top:8px;">
-          <button id="clearInternalNotesBtn2" class="btn danger small">
-            <i class="fa-solid fa-trash"></i> Ta bort alla
-          </button>
-        </div>
-
-        <div style="margin-top:10px;" id="notesList">
-          ${notes || `<div class="muted small">Inga notes.</div>`}
-        </div>
+      <b class="muted small">Interna notes (syns ej för kund)</b>
+      <div style="margin-top:8px;">
+        ${notes || `<div class="muted small">Inga notes.</div>`}
       </div>
     `;
 
@@ -819,10 +816,6 @@ async function inboxLoadTicketDetails(id) {
         await deleteOneInternalNote(noteId);
       });
     });
-
-    // bind add/clear
-    $("saveInternalNoteBtn2")?.addEventListener("click", inboxSaveInternalNote);
-    $("clearInternalNotesBtn2")?.addEventListener("click", clearAllInternalNotes);
 
   } catch (e) {
     console.error(e);
@@ -1002,7 +995,7 @@ async function inboxDeleteTicket() {
 
     setAlert(msgEl, "Ticket borttagen ✅");
     inboxSelectedTicketId = null;
-    $("ticketDetails").innerHTML = `<div class="muted small">Välj en ticket.</div>`;
+    if ($("ticketDetails")) $("ticketDetails").innerHTML = `<div class="muted small">Välj en ticket.</div>`;
     await inboxLoadTickets();
   } catch (e) {
     setAlert(msgEl, e.message || "Serverfel vid borttagning", true);
@@ -1058,6 +1051,7 @@ async function adminLoadUsers() {
       headers: { Authorization: `Bearer ${token}` }
     });
 
+    // Fill assign dropdown with agent/admin
     const assignSel = $("assignUserSelect");
     if (assignSel) {
       assignSel.innerHTML = `<option value="">Välj agent...</option>`;
@@ -1161,7 +1155,7 @@ async function adminDeleteUser(userId) {
 }
 
 /*************************************************
- * ✅ Settings (change username/password)
+ * ✅ Settings
  *************************************************/
 async function changeUsername() {
   setAlert($("settingsMsg"), "");
@@ -1203,7 +1197,7 @@ async function changePassword() {
 }
 
 /*************************************************
- * ✅ Forgot/Reset UI
+ * ✅ Forgot/Reset
  *************************************************/
 function getResetTokenFromUrl() {
   const p = new URLSearchParams(window.location.search);
@@ -1324,10 +1318,12 @@ function logout() {
 }
 
 /*************************************************
- * ✅ Init
+ * ✅ Init (allt binds stabilt)
  *************************************************/
 async function init() {
-  // apply company from URL
+  applySavedTheme();
+
+  // company from URL
   const params = new URLSearchParams(window.location.search);
   const c = params.get("company");
   if (c) companyId = c;
@@ -1347,8 +1343,16 @@ async function init() {
   if (token) currentUser = await fetchMe();
   applyAuthUI();
 
+  // categories dropdown always
   await loadCategories();
   applyCompanyToUI();
+
+  // Debug toggle
+  $("toggleDebugBtn")?.addEventListener("click", () => {
+    const p = $("debugPanel");
+    if (!p) return;
+    p.style.display = p.style.display === "none" ? "" : "none";
+  });
 
   // EVENTS - Auth
   $("loginBtn")?.addEventListener("click", login);
@@ -1392,6 +1396,13 @@ async function init() {
     await adminLoadUsers();
   });
 
+  $("openAdminView")?.addEventListener("click", async () => {
+    setActiveMenu("admin");
+    openView("admin");
+    // din adminView har users list - vi laddar den direkt här
+    await adminLoadUsers();
+  });
+
   $("openSettingsView")?.addEventListener("click", () => {
     setActiveMenu("settings");
     openView("settings");
@@ -1422,6 +1433,8 @@ async function init() {
 
   // Inbox actions
   $("inboxRefreshBtn")?.addEventListener("click", inboxLoadTickets);
+
+  // ✅ Solve/Remove solved (ENDAST i inbox, dina IDs finns där nu)
   $("solveAllBtn")?.addEventListener("click", solveAllTickets);
   $("removeSolvedBtn")?.addEventListener("click", removeAllSolvedTickets);
 
@@ -1446,6 +1459,7 @@ async function init() {
   $("changeUsernameBtn")?.addEventListener("click", changeUsername);
   $("changePasswordBtn")?.addEventListener("click", changePassword);
 
+  // If logged in: start polling
   if (token && currentUser) startPolling();
 }
 

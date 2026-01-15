@@ -109,7 +109,10 @@ body{
 }
 
 .menuBtn.active{
-    
+  border-color: rgba(76,125,255,0.35);
+  background: rgba(76,125,255,0.12);
+}
+
 .menuBtn.hasNotif{
   border-color: rgba(255,176,32,0.45);
   box-shadow: 0 0 0 2px rgba(255,176,32,0.12);

@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>AI Kundtjänst</title>
 
-  <!-- Font Awesome (stabil CDN istället för kit som gav 403) -->
+  <!-- ✅ Font Awesome (stabil CDN istället för kit som gav 403) -->
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
 
   <link rel="stylesheet" href="style.css" />
@@ -32,18 +32,19 @@
         </select>
       </div>
 
+      <!-- ✅ Meny (döljs automatiskt när utloggad av script.js) -->
       <nav class="menu">
-        <button id="openChatView" class="menuBtn active">
+        <button id="openChatView" class="menuBtn active" style="display:none;">
           <i class="fa-solid fa-comments"></i> Chat
         </button>
 
-        <button id="openMyTicketsView" class="menuBtn">
+        <button id="openMyTicketsView" class="menuBtn" style="display:none;">
           <i class="fa-solid fa-ticket"></i> Mina ärenden
         </button>
 
         <button id="openInboxView" class="menuBtn adminOnly" style="display:none;">
           <i class="fa-solid fa-inbox"></i> Inbox (Agent)
-           <span id="inboxNotifDot" class="notifDot" style="display:none;"></span>
+          <span id="inboxNotifDot" class="notifDot" style="display:none;"></span>
         </button>
 
         <button id="openAdminView" class="menuBtn adminOnly" style="display:none;">
@@ -174,34 +175,16 @@
             <div class="subtitle" id="chatSubtitle">Ställ en fråga så hjälper jag dig direkt.</div>
           </div>
 
+          <!-- ✅ FIX: Chat-actions ENDAST chat-knappar (ingen inbox refresh / solve / remove här!) -->
           <div class="topbarActions">
-
-            <button id="inboxRefreshBtn" class="btn ghost">
-
-<button id="solveAllBtn" class="btn ghost">
-  <i class="fa-solid fa-check-double"></i> Solve ALL
-</button>
-
-<button id="removeSolvedBtn" class="btn danger">
-  <i class="fa-solid fa-trash"></i> Remove solved
-</button>
-
-    <i class="fa-solid fa-rotate"></i> Uppdatera
-  </button>
-
-  <button id="solveAllBtn" class="btn ghost">
-    <i class="fa-solid fa-check-double"></i> Solve ALL
-  </button>
-
-  <button id="removeSolvedBtn" class="btn danger">
-    <i class="fa-solid fa-trash"></i> Remove solved
-
             <button id="newTicketBtn" class="btn ghost">
               <i class="fa-solid fa-circle-plus"></i> Nytt ärende
             </button>
+
             <button id="clearChatBtn" class="btn ghost">
               <i class="fa-solid fa-trash"></i> Rensa
             </button>
+
             <button id="exportChatBtn" class="btn ghost">
               <i class="fa-solid fa-download"></i> Export
             </button>
@@ -266,9 +249,18 @@
             <div class="subtitle muted">Hantera inkomna ärenden (agent/admin).</div>
           </div>
 
-          <div class="topbarActions">
+          <!-- ✅ FIX: Solve ALL + Remove solved ligger här och endast här -->
+          <div class="topbarActions" style="flex-wrap:wrap;">
             <button id="inboxRefreshBtn" class="btn ghost">
               <i class="fa-solid fa-rotate"></i> Uppdatera
+            </button>
+
+            <button id="solveAllBtn" class="btn secondary">
+              <i class="fa-solid fa-check-double"></i> Solve ALL
+            </button>
+
+            <button id="removeSolvedBtn" class="btn danger">
+              <i class="fa-solid fa-trash"></i> Remove solved
             </button>
           </div>
         </div>
@@ -289,10 +281,6 @@
 
               <select id="inboxCategoryFilter" class="input smallInput">
                 <option value="">Alla kategorier</option>
-                <option value="demo">demo</option>
-                <option value="law">law</option>
-                <option value="tech">tech</option>
-                <option value="cleaning">cleaning</option>
               </select>
 
               <input id="inboxSearchInput" class="input smallInput" placeholder="Sök title/ID/kategori..." />
@@ -345,9 +333,8 @@
             </button>
 
             <button id="clearInternalNotesBtn" class="btn danger full" style="margin-top:10px;">
-  <i class="fa-solid fa-trash"></i> Ta bort alla notes
-</button>
-
+              <i class="fa-solid fa-trash"></i> Ta bort alla notes
+            </button>
 
             <div class="divider"></div>
 
@@ -419,9 +406,6 @@
               <div style="margin-left:auto; display:flex; gap:10px;">
                 <select id="kbCategorySelect" class="input smallInput">
                   <option value="demo">demo</option>
-                  <option value="law">law</option>
-                  <option value="tech">tech</option>
-                  <option value="cleaning">cleaning</option>
                 </select>
                 <button id="kbRefreshBtn" class="btn ghost small">
                   <i class="fa-solid fa-rotate"></i> Uppdatera
