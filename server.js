@@ -713,6 +713,30 @@ app.post("/admin/tickets/cleanup-solved", authenticate, requireAdmin, async (req
   }
 });
 
+// ✅ ADMIN: Solve ALL tickets (open/pending -> solved)
+app.post("/admin/tickets/solve-all", authenticate, requireAdmin, async (req, res) => {
+  try {
+    const r = await Ticket.updateMany(
+      { status: { $in: ["open", "pending"] } },
+      { $set: { status: "solved", lastActivityAt: new Date() } }
+    );
+    return res.json({ message: `Solve ALL ✅ Uppdaterade ${r.modifiedCount} tickets.` });
+  } catch (e) {
+    return res.status(500).json({ error: "Serverfel vid Solve ALL" });
+  }
+});
+
+// ✅ ADMIN: Remove ALL solved tickets
+app.post("/admin/tickets/remove-solved", authenticate, requireAdmin, async (req, res) => {
+  try {
+    const r = await Ticket.deleteMany({ status: "solved" });
+    return res.json({ message: `Remove solved ✅ Tog bort ${r.deletedCount} solved tickets.` });
+  } catch (e) {
+    return res.status(500).json({ error: "Serverfel vid Remove solved" });
+  }
+});
+
+
 /* =====================
    ✅ ADMIN: Users + roles (user/agent/admin)
 ===================== */

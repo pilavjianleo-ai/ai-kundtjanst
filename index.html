@@ -43,6 +43,7 @@
 
         <button id="openInboxView" class="menuBtn adminOnly" style="display:none;">
           <i class="fa-solid fa-inbox"></i> Inbox (Agent)
+           <span id="inboxNotifDot" class="notifDot" style="display:none;"></span>
         </button>
 
         <button id="openAdminView" class="menuBtn adminOnly" style="display:none;">
@@ -174,6 +175,18 @@
           </div>
 
           <div class="topbarActions">
+
+            <button id="inboxRefreshBtn" class="btn ghost">
+    <i class="fa-solid fa-rotate"></i> Uppdatera
+  </button>
+
+  <button id="solveAllBtn" class="btn ghost">
+    <i class="fa-solid fa-check-double"></i> Solve ALL
+  </button>
+
+  <button id="removeSolvedBtn" class="btn danger">
+    <i class="fa-solid fa-trash"></i> Remove solved
+
             <button id="newTicketBtn" class="btn ghost">
               <i class="fa-solid fa-circle-plus"></i> Nytt ärende
             </button>
@@ -321,6 +334,11 @@
             <button id="saveInternalNoteBtn" class="btn secondary full">
               <i class="fa-solid fa-note-sticky"></i> Spara note
             </button>
+
+            <button id="clearInternalNotesBtn" class="btn danger full" style="margin-top:10px;">
+  <i class="fa-solid fa-trash"></i> Ta bort alla notes
+</button>
+
 
             <div class="divider"></div>
 

@@ -109,6 +109,26 @@ body{
 }
 
 .menuBtn.active{
+    
+.menuBtn.hasNotif{
+  border-color: rgba(255,176,32,0.45);
+  box-shadow: 0 0 0 2px rgba(255,176,32,0.12);
+}
+
+.notifDot{
+  width: 8px;
+  height: 8px;
+  border-radius: 999px;
+  background: var(--warn);
+  display: inline-block;
+  margin-left: auto;
+}
+
+.categoryNotif{
+  outline: 2px solid rgba(255,176,32,0.35);
+  border-radius: 10px;
+}
+    
   border-color: rgba(76,125,255,0.35);
   background: rgba(76,125,255,0.12);
 }
@@ -204,10 +224,73 @@ label{
 }
 
 @media (max-width: 900px){
-  .sidebar{ display:none; }
-  .main{ padding:12px; }
-  .grid2{ grid-template-columns:1fr; }
+  .app{
+    flex-direction: column;
+  }
+
+  .sidebar{
+    width: 100%;
+    display: flex;
+    position: sticky;
+    top: 0;
+    z-index: 50;
+
+    flex-direction: row;
+    align-items: center;
+    gap: 10px;
+
+    padding: 10px;
+    border-right: none;
+    border-bottom: 1px solid var(--border);
+    overflow-x: auto;
+  }
+
+  .brand{
+    min-width: 210px;
+    flex-shrink: 0;
+  }
+
+  .sidebarBlock{
+    min-width: 220px;
+    flex-shrink: 0;
+  }
+
+  .menu{
+    flex-direction: row;
+    gap: 8px;
+    flex-shrink: 0;
+  }
+
+  .menuBtn{
+    white-space: nowrap;
+  }
+
+  .sidebarFooter{
+    flex-direction: row;
+    gap: 8px;
+    margin-top: 0;
+    margin-left: auto;
+    flex-shrink: 0;
+  }
+
+  .main{
+    padding: 12px;
+  }
+
+  .messages{
+    height: 60vh;
+  }
+
+  .grid2{
+    grid-template-columns: 1fr;
+  }
+
+  /* Inbox split på mobil */
+  .split{
+    grid-template-columns: 1fr;
+  }
 }
+
 
 .btn{
   border:1px solid var(--border);

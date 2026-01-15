@@ -29,9 +29,13 @@ const API = {
   ADMIN_TICKET_REPLY: (id) => `${API_BASE}/admin/tickets/${id}/agent-reply`,
   ADMIN_TICKET_PRIORITY: (id) => `${API_BASE}/admin/tickets/${id}/priority`,
   ADMIN_TICKET_NOTE: (id) => `${API_BASE}/admin/tickets/${id}/internal-note`,
+  ADMIN_TICKET_NOTE_DELETE: (ticketId, noteId) => `${API_BASE}/admin/tickets/${ticketId}/internal-note/${noteId}`,
+ADMIN_TICKET_NOTES_CLEAR: (ticketId) => `${API_BASE}/admin/tickets/${ticketId}/internal-notes`,
   ADMIN_TICKET_ASSIGN: (id) => `${API_BASE}/admin/tickets/${id}/assign`,
   ADMIN_TICKET_DELETE: (id) => `${API_BASE}/admin/tickets/${id}`,
   ADMIN_TICKETS_CLEANUP_SOLVED: `${API_BASE}/admin/tickets/cleanup-solved`,
+ADMIN_TICKETS_SOLVE_ALL: `${API_BASE}/admin/tickets/solve-all`,
+ADMIN_TICKETS_REMOVE_SOLVED: `${API_BASE}/admin/tickets/remove-solved`,
 
   ADMIN_EXPORT_ALL: `${API_BASE}/admin/export/all`,
   ADMIN_EXPORT_TRAINING: `${API_BASE}/admin/export/training`,
@@ -55,6 +59,8 @@ let inboxSelectedTicketId = null;
 let mySelectedTicketId = null;
 
 let pollInterval = null;
+let lastAdminTicketSnapshot = {};
+let categoryNotifMap = {}; // { companyId: true/false }
 
 /*************************************************
  * ✅ DOM helpers
@@ -473,6 +479,7 @@ async function sendMessage() {
  * ✅ Category change
  *************************************************/
 function setCompanyFromSelect(value) {
+  $("categorySelect")?.classList.remove("categoryNotif");
   companyId = value || "demo";
   applyCompanyToUI();
 
@@ -591,6 +598,58 @@ async function loadMyTicketDetails(id) {
 let lastMyTicketSnapshot = {};
 
 async function pollMyTickets() {
+
+  async function pollAdminInbox() {
+  if (!token || !currentUser) return;
+  const isAdminOrAgent = ["admin", "agent"].includes(currentUser.role);
+  if (!isAdminOrAgent) return;
+
+  try {
+    const tickets = await fetchJson(API.ADMIN_TICKETS, {
+      headers: { Authorization: `Bearer ${token}` }
+    });
+
+    // Reset map
+    categoryNotifMap = {};
+
+    let hasNew = false;
+
+    tickets.forEach((t) => {
+      const nowTs = new Date(t.lastActivityAt).getTime();
+      const prev = lastAdminTicketSnapshot[t._id];
+
+      if (prev && nowTs > prev) {
+        hasNew = true;
+        categoryNotifMap[t.companyId] = true;
+      }
+      lastAdminTicketSnapshot[t._id] = nowTs;
+    });
+
+    // Inbox highlight + dot
+    const inboxBtn = $("openInboxView");
+    const dot = $("inboxNotifDot");
+
+    if (hasNew) {
+      inboxBtn?.classList.add("hasNotif");
+      if (dot) dot.style.display = "";
+    }
+
+    // Category dropdown highlight
+    const catSelect = $("categorySelect");
+    if (catSelect) {
+      // remove any highlight
+      catSelect.classList.remove("categoryNotif");
+
+      if (categoryNotifMap[catSelect.value]) {
+        catSelect.classList.add("categoryNotif");
+      }
+    }
+
+  } catch (e) {
+    // ignore
+  }
+}
+
   if (!token || !currentUser) return;
 
   try {
@@ -627,8 +686,12 @@ async function pollMyTickets() {
 
 function startPolling() {
   stopPolling();
-  pollInterval = setInterval(pollMyTickets, 8000);
+  pollInterval = setInterval(async () => {
+    await pollMyTickets();
+    await pollAdminInbox();
+  }, 8000);
 }
+
 
 function stopPolling() {
   if (pollInterval) clearInterval(pollInterval);
@@ -638,6 +701,49 @@ function stopPolling() {
 /*************************************************
  * ✅ Inbox (Agent/Admin)
  *************************************************/
+
+async function deleteOneInternalNote(noteId) {
+  const msgEl = $("inboxTicketMsg");
+  setAlert(msgEl, "");
+
+  if (!inboxSelectedTicketId) return setAlert(msgEl, "Välj en ticket först.", true);
+
+  try {
+    await fetchJson(API.ADMIN_TICKET_NOTE_DELETE(inboxSelectedTicketId, noteId), {
+      method: "DELETE",
+      headers: { Authorization: `Bearer ${token}` }
+    });
+
+    setAlert(msgEl, "Notering borttagen ✅");
+    await inboxLoadTicketDetails(inboxSelectedTicketId);
+  } catch (e) {
+    setAlert(msgEl, e.message || "Fel vid borttagning", true);
+  }
+}
+
+async function clearAllInternalNotes() {
+  const msgEl = $("inboxTicketMsg");
+  setAlert(msgEl, "");
+
+  if (!inboxSelectedTicketId) return setAlert(msgEl, "Välj en ticket först.", true);
+
+  const ok = confirm("Ta bort ALLA interna notes på denna ticket?");
+  if (!ok) return;
+
+  try {
+    await fetchJson(API.ADMIN_TICKET_NOTES_CLEAR(inboxSelectedTicketId), {
+      method: "DELETE",
+      headers: { Authorization: `Bearer ${token}` }
+    });
+
+    setAlert(msgEl, "Alla notes borttagna ✅");
+    await inboxLoadTicketDetails(inboxSelectedTicketId);
+  } catch (e) {
+    setAlert(msgEl, e.message || "Fel vid rensning", true);
+  }
+}
+
+
 async function inboxLoadTickets() {
   const list = $("inboxTicketsList");
   const msg = $("inboxMsg");
@@ -727,14 +833,20 @@ async function inboxLoadTicketDetails(id) {
     }).join("");
 
     const notes = (t.internalNotes || []).slice(-20).map((n) => {
-      return `<div class="ticketMsg">
-        <div class="ticketMsgHead">
-          <b>Intern note</b>
-          <span>${escapeHtml(formatDate(n.createdAt))}</span>
-        </div>
-        <div class="ticketMsgBody">${escapeHtml(n.content)}</div>
-      </div>`;
-    }).join("");
+  return `<div class="ticketMsg">
+    <div class="ticketMsgHead">
+      <b>Intern note</b>
+      <span>${escapeHtml(formatDate(n.createdAt))}</span>
+    </div>
+    <div class="ticketMsgBody">${escapeHtml(n.content)}</div>
+    <div class="row" style="margin-top:8px;">
+      <button class="btn danger small" onclick="deleteOneInternalNote('${n._id}')">
+        <i class="fa-solid fa-trash"></i> Ta bort
+      </button>
+    </div>
+  </div>`;
+}).join("");
+
 
     details.innerHTML = `
       <div class="muted small">
@@ -1279,6 +1391,39 @@ function trainingExport() {
   window.open(`${API.ADMIN_EXPORT_TRAINING}?companyId=${encodeURIComponent(companyId)}`, "_blank");
 }
 async function cleanupSolvedTickets() {
+
+async function solveAllTickets() {
+  const ok = confirm("Vill du markera ALLA tickets som SOLVED?");
+  if (!ok) return;
+
+  try {
+    const data = await fetchJson(API.ADMIN_TICKETS_SOLVE_ALL, {
+      method: "POST",
+      headers: { Authorization: `Bearer ${token}` }
+    });
+    alert(data.message || "Alla tickets solved ✅");
+    await inboxLoadTickets();
+  } catch (e) {
+    alert(e.message || "Fel vid Solve ALL");
+  }
+}
+
+async function removeAllSolvedTickets() {
+  const ok = confirm("Vill du TA BORT alla solved tickets? (kan inte ångras)");
+  if (!ok) return;
+
+  try {
+    const data = await fetchJson(API.ADMIN_TICKETS_REMOVE_SOLVED, {
+      method: "POST",
+      headers: { Authorization: `Bearer ${token}` }
+    });
+    alert(data.message || "Alla solved borttagna ✅");
+    await inboxLoadTickets();
+  } catch (e) {
+    alert(e.message || "Fel vid Remove solved");
+  }
+}
+  
   try {
     const data = await fetchJson(API.ADMIN_TICKETS_CLEANUP_SOLVED, {
       method: "POST",
@@ -1537,11 +1682,16 @@ async function init() {
   });
 
   $("openInboxView")?.addEventListener("click", async () => {
-    setActiveMenu("inbox");
-    openView("inbox");
-    await inboxLoadTickets();
-    await adminLoadUsers(); // to fill assign dropdown
-  });
+  // reset notif
+  $("openInboxView")?.classList.remove("hasNotif");
+  if ($("inboxNotifDot")) $("inboxNotifDot").style.display = "none";
+
+  setActiveMenu("inbox");
+  openView("inbox");
+  await inboxLoadTickets();
+  await adminLoadUsers();
+});
+
 
   $("openAdminView")?.addEventListener("click", async () => {
     setActiveMenu("admin");
@@ -1581,6 +1731,8 @@ async function init() {
 
   // Inbox actions
   $("inboxRefreshBtn")?.addEventListener("click", inboxLoadTickets);
+  $("solveAllBtn")?.addEventListener("click", solveAllTickets);
+$("removeSolvedBtn")?.addEventListener("click", removeAllSolvedTickets);
   $("inboxStatusFilter")?.addEventListener("change", inboxLoadTickets);
   $("inboxCategoryFilter")?.addEventListener("change", inboxLoadTickets);
   $("inboxSearchInput")?.addEventListener("input", inboxLoadTickets);
@@ -1591,6 +1743,7 @@ async function init() {
   $("sendAgentReplyInboxBtn")?.addEventListener("click", inboxSendAgentReply);
   $("setPriorityBtn")?.addEventListener("click", inboxSetPriority);
   $("saveInternalNoteBtn")?.addEventListener("click", inboxSaveInternalNote);
+  $("clearInternalNotesBtn")?.addEventListener("click", clearAllInternalNotes);
   $("assignTicketBtn")?.addEventListener("click", inboxAssignTicket);
   $("deleteTicketBtn")?.addEventListener("click", inboxDeleteTicket);
 
