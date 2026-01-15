@@ -439,6 +439,16 @@ async function inboxLoadTickets() {
   </div>
 `;
 
+// ✅ Disable role button for self OR other admins (locked)
+if (isSelf || isAdmin) {
+  const btn = div.querySelector('[data-action="toggleRole"]');
+  if (btn) {
+    btn.disabled = true;
+    btn.style.opacity = "0.6";
+    btn.style.cursor = "not-allowed";
+  }
+}
+
 // ✅ Safety: don't allow delete button for admins
 if (isAdmin) {
   div.querySelector('[data-action="deleteUser"]')?.remove();
@@ -882,17 +892,17 @@ async function adminLoadUsers() {
       div.className = "listItem";
 
       const isAdmin = u.role === "admin";
-
+const isSelf = String(u._id) === String(currentUser?.id);
       div.innerHTML = `
         <div class="listItemTitle">
           ${escapeHtml(u.username)}
           <span class="pill ${isAdmin ? "admin" : ""}">${escapeHtml(u.role)}</span>
         </div>
         <div class="row" style="margin-top:10px;">
-  <button class="btn secondary small" data-action="toggleRole">
-    <i class="fa-solid fa-user-gear"></i>
-    ${isAdmin ? "Ta bort admin" : "Gör admin"}
-  </button>
+ <button class="btn secondary small" data-action="toggleRole">
+  <i class="fa-solid fa-user-gear"></i>
+  ${isSelf ? "Din roll" : (isAdmin ? "Admin (låst)" : "Gör admin")}
+</button>
 
   <button class="btn danger small" data-action="deleteUser">
     <i class="fa-solid fa-trash"></i>
@@ -902,10 +912,13 @@ async function adminLoadUsers() {
       `;
 
       div.querySelector('[data-action="toggleRole"]')?.addEventListener("click", async () => {
-        const newRole = isAdmin ? "user" : "admin";
-        await adminSetUserRole(u._id, newRole);
-        await adminLoadUsers();
-      });
+  // extra safety
+  if (isSelf || isAdmin) return;
+
+  const newRole = "admin";
+  await adminSetUserRole(u._id, newRole);
+  await adminLoadUsers();
+});
 
       div.querySelector('[data-action="deleteUser"]')?.addEventListener("click", async () => {
   const ok = confirm(`Vill du verkligen ta bort användaren "${u.username}"? Detta tar även bort deras tickets.`);
