@@ -379,6 +379,7 @@ function setCompanyFromSelect(value) {
 async function inboxLoadTickets() {
   const list = $("inboxTicketsList");
   const msg = $("inboxMsg");
+
   setAlert(msg, "");
   if (list) list.innerHTML = "";
 
@@ -395,23 +396,14 @@ async function inboxLoadTickets() {
       headers: { Authorization: `Bearer ${token}` }
     });
 
-    // ✅ robust parse
-    const raw = await res.text();
-    let data = [];
-    try {
-      data = raw ? JSON.parse(raw) : [];
-    } catch {
-      console.error("Inbox non-json:", raw);
-      setAlert(msg, `Inbox fel: ej JSON (status ${res.status})`, true);
-      return;
-    }
+    const data = await res.json();
 
     if (!res.ok) {
-      setAlert(msg, `Inbox fel ${res.status}: ${data?.error || "Okänt fel"}`, true);
+      setAlert(msg, data?.error || "Kunde inte hämta inbox", true);
       return;
     }
 
-    // ✅ filter on frontend
+    // ✅ filter search
     let filtered = data;
     if (q) {
       filtered = data.filter((t) => {
@@ -423,30 +415,26 @@ async function inboxLoadTickets() {
     }
 
     if (!filtered.length) {
-      list.innerHTML = `<div class="muted small">Inga tickets hittades.</div>`;
+      if (list) list.innerHTML = `<div class="muted small">Inga tickets hittades.</div>`;
       return;
     }
 
     filtered.forEach((t) => {
-      const status = String(t.status || "open").toLowerCase();
-const priority = String(t.priority || "normal").toLowerCase();
+      const div = document.createElement("div");
+      div.className = `ticketItem ${inboxSelectedTicketId === t._id ? "selected" : ""}`;
 
-div.innerHTML = `
-  <div class="listItemTitle">
-    <div>${escapeHtml(t.title || "Inget ämne")}</div>
+      const statusText = String(t.status || "open");
+      const priorityText = String(t.priority || "normal");
 
-    <div class="row" style="gap:6px; justify-content:flex-end;">
-     <span class="pill ${status}">${escapeHtml(status)}</span>
-<span class="pill">${escapeHtml(priority)}</span>
-    </div>
-  </div>
-
-  <div class="listItemMeta">
-    Kategori: ${escapeHtml(t.companyId || "-")} •
-Senast: ${escapeHtml(formatDate(t.lastActivityAt || t.createdAt))}
-  </div>
-  </div>
-`;
+      div.innerHTML = `
+        <div class="listItemTitle">${escapeHtml(t.title || "Inget ämne")}</div>
+        <div class="listItemMeta">
+          Kategori: ${escapeHtml(t.companyId || "-")} •
+          Status: <b>${escapeHtml(statusText)}</b> •
+          Prio: <b>${escapeHtml(priorityText)}</b><br/>
+          Senast: ${escapeHtml(formatDate(t.lastActivityAt || t.createdAt))}
+        </div>
+      `;
 
       div.addEventListener("click", async () => {
         inboxSelectedTicketId = t._id;
@@ -506,7 +494,7 @@ async function inboxLoadTicketDetails(ticketId) {
       <div class="ticketInfo">
         <div><b>ID:</b> ${escapeHtml(data._id)}</div>
         <div><b>Kategori:</b> ${escapeHtml(data.companyId)}</div>
-        <div><b>Status:</b> ${escapeHtml(data.status)}</div>
+        <div><b>Status:</b> <span class="pill ${String(data.status || "open").toLowerCase()}">${escapeHtml(data.status)}</span></div>
         <div><b>Prioritet:</b> ${escapeHtml(data.priority || "normal")}</div>
         <div><b>Senast:</b> ${escapeHtml(formatDate(data.lastActivityAt))}</div>
       </div>
