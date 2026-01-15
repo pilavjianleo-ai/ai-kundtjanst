@@ -9,16 +9,20 @@ const API = {
   REGISTER: `${API_BASE}/register`,
   CHAT: `${API_BASE}/chat`,
   TICKETS: `${API_BASE}/tickets`,
+
   ADMIN_USERS: `${API_BASE}/admin/users`,
   ADMIN_USER_ROLE: (id) => `${API_BASE}/admin/users/${id}/role`,
+  ADMIN_DELETE_USER: (id) => `${API_BASE}/admin/users/${id}`,
+
   ADMIN_TICKETS: `${API_BASE}/admin/tickets`,
   ADMIN_TICKET: (id) => `${API_BASE}/admin/tickets/${id}`,
   ADMIN_TICKET_STATUS: (id) => `${API_BASE}/admin/tickets/${id}/status`,
   ADMIN_TICKET_REPLY: (id) => `${API_BASE}/admin/tickets/${id}/agent-reply`,
   ADMIN_TICKET_PRIORITY: (id) => `${API_BASE}/admin/tickets/${id}/priority`,
-  ADMIN_DELETE_USER: (id) => `${API_BASE}/admin/users/${id}`,
+
   ADMIN_EXPORT_ALL: `${API_BASE}/admin/export/all`,
   ADMIN_EXPORT_TRAINING: `${API_BASE}/admin/export/training`,
+
   KB_LIST: (companyId) => `${API_BASE}/kb/list/${companyId}`,
   KB_TEXT: `${API_BASE}/kb/upload-text`,
   KB_URL: `${API_BASE}/kb/upload-url`,
@@ -157,7 +161,6 @@ function applyAuthUI() {
     setText(roleBadge, `${currentUser.username} • ${currentUser.role.toUpperCase()}`);
     show(logoutBtn, true);
 
-    // Admin menu visible only if admin
     const isAdmin = currentUser.role === "admin";
     show(inboxBtn, isAdmin);
     show(adminBtn, isAdmin);
@@ -182,8 +185,7 @@ async function fetchMe() {
     return null;
   }
 
-  const me = await res.json();
-  return me;
+  return await res.json();
 }
 
 /*************************************************
@@ -280,7 +282,7 @@ function clearChat() {
 }
 
 /*************************************************
- * ✅ Conversation builder (simple)
+ * ✅ Conversation builder
  *************************************************/
 function gatherConversationFromUI() {
   const messagesDiv = $("messages");
@@ -315,7 +317,6 @@ async function sendMessage() {
 
   addMessage("user", text);
   input.value = "";
-
   showTyping();
 
   try {
@@ -336,19 +337,6 @@ async function sendMessage() {
     });
 
     const data = await res.json();
-
-    // ✅ Frontend search filter
-const q = ($("inboxSearchInput")?.value || "").trim().toLowerCase();
-let filtered = data;
-
-if (q) {
-  filtered = data.filter((t) => {
-    const a = String(t.title || "").toLowerCase();
-    const b = String(t.companyId || "").toLowerCase();
-    const c = String(t._id || "").toLowerCase();
-    return a.includes(q) || b.includes(q) || c.includes(q);
-  });
-}
     hideTyping();
 
     if (!res.ok) {
@@ -360,7 +348,11 @@ if (q) {
     lastRagUsed = !!data.ragUsed;
     refreshDebug();
 
-    addMessage("assistant", data.reply || "Inget svar.", data.ragUsed ? "Svar baserat på kunskapsdatabas (RAG)" : "");
+    addMessage(
+      "assistant",
+      data.reply || "Inget svar.",
+      data.ragUsed ? "Svar baserat på kunskapsdatabas (RAG)" : ""
+    );
   } catch (e) {
     hideTyping();
     addMessage("assistant", "Tekniskt fel. Försök igen.");
@@ -375,7 +367,6 @@ function setCompanyFromSelect(value) {
   companyId = value || "demo";
   applyCompanyToUI();
 
-  // Create fresh ticket per category so context changes properly
   ticketId = null;
   clearChat();
   addMessage("assistant", `Du bytte kategori till "${companyId}". Vad vill du fråga?`);
@@ -383,7 +374,7 @@ function setCompanyFromSelect(value) {
 }
 
 /*************************************************
- * ✅ Inbox (Admin)
+ * ✅ Inbox (Admin) — FIXAD
  *************************************************/
 async function inboxLoadTickets() {
   const list = $("inboxTicketsList");
@@ -393,6 +384,7 @@ async function inboxLoadTickets() {
 
   const status = $("inboxStatusFilter")?.value || "";
   const cat = $("inboxCategoryFilter")?.value || "";
+  const q = ($("inboxSearchInput")?.value || "").trim().toLowerCase();
 
   const params = new URLSearchParams();
   if (status) params.set("status", status);
@@ -403,10 +395,31 @@ async function inboxLoadTickets() {
       headers: { Authorization: `Bearer ${token}` }
     });
 
-    const data = await res.json();
-    if (!res.ok) {
-      setAlert(msg, data?.error || "Kunde inte hämta inbox", true);
+    // ✅ robust parse
+    const raw = await res.text();
+    let data = [];
+    try {
+      data = raw ? JSON.parse(raw) : [];
+    } catch {
+      console.error("Inbox non-json:", raw);
+      setAlert(msg, `Inbox fel: ej JSON (status ${res.status})`, true);
       return;
+    }
+
+    if (!res.ok) {
+      setAlert(msg, `Inbox fel ${res.status}: ${data?.error || "Okänt fel"}`, true);
+      return;
+    }
+
+    // ✅ filter on frontend
+    let filtered = data;
+    if (q) {
+      filtered = data.filter((t) => {
+        const a = String(t.title || "").toLowerCase();
+        const b = String(t.companyId || "").toLowerCase();
+        const c = String(t._id || "").toLowerCase();
+        return a.includes(q) || b.includes(q) || c.includes(q);
+      });
     }
 
     if (!filtered.length) {
@@ -415,46 +428,25 @@ async function inboxLoadTickets() {
     }
 
     filtered.forEach((t) => {
-      const div = document.createElement("div");
-      div.className = `ticketItem ${inboxSelectedTicketId === t._id ? "selected" : ""}`;
+      const status = String(t.status || "open").toLowerCase();
+const priority = String(t.priority || "normal").toLowerCase();
 
-     div.innerHTML = `
+div.innerHTML = `
   <div class="listItemTitle">
-    ${escapeHtml(u.username)}
-    <span class="pill ${isAdmin ? "admin" : ""}">${escapeHtml(u.role)}</span>
+    <div>${escapeHtml(t.title || "Inget ämne")}</div>
+
+    <div class="row" style="gap:6px; justify-content:flex-end;">
+     <span class="pill ${status}">${escapeHtml(status)}</span>
+<span class="pill">${escapeHtml(priority)}</span>
+    </div>
   </div>
 
-  <div class="listItemMeta">ID: ${escapeHtml(u._id || u.id || "-")}</div>
-
-  <div class="row" style="margin-top:10px;">
-    <button class="btn secondary small" data-action="toggleRole">
-      <i class="fa-solid fa-user-gear"></i>
-      ${isAdmin ? "Ta bort admin" : "Gör admin"}
-    </button>
-
-    <button class="btn danger small" data-action="deleteUser">
-      <i class="fa-solid fa-trash"></i>
-      Ta bort
-    </button>
+  <div class="listItemMeta">
+    Kategori: ${escapeHtml(t.companyId || "-")} •
+Senast: ${escapeHtml(formatDate(t.lastActivityAt || t.createdAt))}
+  </div>
   </div>
 `;
-
-// ✅ Disable role button for self OR other admins (locked)
-if (isSelf || isAdmin) {
-  const btn = div.querySelector('[data-action="toggleRole"]');
-  if (btn) {
-    btn.disabled = true;
-    btn.style.opacity = "0.6";
-    btn.style.cursor = "not-allowed";
-  }
-}
-
-// ✅ Safety: don't allow delete button for admins
-if (isAdmin) {
-  div.querySelector('[data-action="deleteUser"]')?.remove();
-}
-
-
 
       div.addEventListener("click", async () => {
         inboxSelectedTicketId = t._id;
@@ -464,8 +456,10 @@ if (isAdmin) {
 
       list.appendChild(div);
     });
+
   } catch (e) {
-    setAlert(msg, "Serverfel vid inbox", true);
+    console.error("Inbox error:", e);
+    setAlert(msg, "Serverfel vid inbox (kolla Console / Network)", true);
   }
 }
 
@@ -481,6 +475,7 @@ async function inboxLoadTicketDetails(ticketId) {
     const res = await fetch(API.ADMIN_TICKET(ticketId), {
       headers: { Authorization: `Bearer ${token}` }
     });
+
     const data = await res.json();
 
     if (!res.ok) {
@@ -512,6 +507,7 @@ async function inboxLoadTicketDetails(ticketId) {
         <div><b>ID:</b> ${escapeHtml(data._id)}</div>
         <div><b>Kategori:</b> ${escapeHtml(data.companyId)}</div>
         <div><b>Status:</b> ${escapeHtml(data.status)}</div>
+        <div><b>Prioritet:</b> ${escapeHtml(data.priority || "normal")}</div>
         <div><b>Senast:</b> ${escapeHtml(formatDate(data.lastActivityAt))}</div>
       </div>
       <div class="divider"></div>
@@ -589,7 +585,6 @@ async function inboxSetPriority() {
     setAlert(msg, "Serverfel vid prioritet", true);
   }
 }
-
 
 async function inboxSendAgentReply() {
   const msgEl = $("inboxTicketMsg");
@@ -815,7 +810,6 @@ function kbExport() {
 }
 
 function trainingExport() {
-  // optionally add ?companyId=demo etc
   const cat = kbActiveCategory();
   window.open(`${API.ADMIN_EXPORT_TRAINING}?companyId=${encodeURIComponent(cat)}`, "_blank");
 }
@@ -825,18 +819,8 @@ function adminExportAll() {
 }
 
 /*************************************************
- * ✅ KB Tabs
+ * ✅ ADMIN: Delete user
  *************************************************/
-function activateKbTab(tabId) {
-  document.querySelectorAll(".tabBtn").forEach((b) => b.classList.remove("active"));
-  document.querySelectorAll(".tabPanel").forEach((p) => (p.style.display = "none"));
-
-  document.querySelectorAll(`.tabBtn[data-tab="${tabId}"]`).forEach((b) => b.classList.add("active"));
-  const panel = document.getElementById(tabId);
-  if (panel) panel.style.display = "";
-}
-
-// ✅ ADMIN: Delete user
 async function adminDeleteUser(userId) {
   const msgEl = $("adminUsersMsg");
   setAlert(msgEl, "");
@@ -861,9 +845,8 @@ async function adminDeleteUser(userId) {
   }
 }
 
-
 /*************************************************
- * ✅ Admin: Users list + role toggle
+ * ✅ Admin: Users list
  *************************************************/
 async function adminLoadUsers() {
   const msgEl = $("adminUsersMsg");
@@ -892,46 +875,49 @@ async function adminLoadUsers() {
       div.className = "listItem";
 
       const isAdmin = u.role === "admin";
-const isSelf = String(u._id) === String(currentUser?.id);
+      const isSelf = String(u._id) === String(currentUser?.id);
+
       div.innerHTML = `
         <div class="listItemTitle">
           ${escapeHtml(u.username)}
           <span class="pill ${isAdmin ? "admin" : ""}">${escapeHtml(u.role)}</span>
         </div>
-        <div class="row" style="margin-top:10px;">
- <button class="btn secondary small" data-action="toggleRole">
-  <i class="fa-solid fa-user-gear"></i>
-  ${isSelf ? "Din roll" : (isAdmin ? "Admin (låst)" : "Gör admin")}
-</button>
+        <div class="listItemMeta">ID: ${escapeHtml(u._id || "-")}</div>
 
-  <button class="btn danger small" data-action="deleteUser">
-    <i class="fa-solid fa-trash"></i>
-    Ta bort
-  </button>
-</div>
+        <div class="row" style="margin-top:10px;">
+          <button class="btn secondary small" data-action="toggleRole" ${isSelf || isAdmin ? "disabled" : ""}>
+            <i class="fa-solid fa-user-gear"></i>
+            ${isSelf ? "Din roll" : (isAdmin ? "Admin (låst)" : "Gör admin")}
+          </button>
+
+          ${isAdmin ? "" : `
+            <button class="btn danger small" data-action="deleteUser">
+              <i class="fa-solid fa-trash"></i>
+              Ta bort
+            </button>
+          `}
+        </div>
       `;
 
       div.querySelector('[data-action="toggleRole"]')?.addEventListener("click", async () => {
-  // extra safety
-  if (isSelf || isAdmin) return;
-
-  const newRole = "admin";
-  await adminSetUserRole(u._id, newRole);
-  await adminLoadUsers();
-});
+        if (isSelf || isAdmin) return;
+        await adminSetUserRole(u._id, "admin");
+        await adminLoadUsers();
+      });
 
       div.querySelector('[data-action="deleteUser"]')?.addEventListener("click", async () => {
-  const ok = confirm(`Vill du verkligen ta bort användaren "${u.username}"? Detta tar även bort deras tickets.`);
-  if (!ok) return;
+        const ok = confirm(`Vill du verkligen ta bort användaren "${u.username}"? Detta tar även bort deras tickets.`);
+        if (!ok) return;
 
-  await adminDeleteUser(u._id);
-  await adminLoadUsers();
-});
+        await adminDeleteUser(u._id);
+        await adminLoadUsers();
+      });
 
       list.appendChild(div);
     });
   } catch (e) {
-    setAlert(msgEl, "Serverfel vid users-lista", true);
+    console.error("Admin users error:", e);
+    setAlert(msgEl, "Serverfel vid användarlista", true);
   }
 }
 
@@ -959,30 +945,6 @@ async function adminSetUserRole(userId, role) {
   } catch {
     setAlert(msgEl, "Serverfel vid roll-ändring", true);
   }
-
-async function adminDeleteUser(userId) {
-  const msgEl = $("adminUsersMsg");
-  setAlert(msgEl, "");
-
-  try {
-    const res = await fetch(API.ADMIN_DELETE_USER(userId), {
-      method: "DELETE",
-      headers: { Authorization: `Bearer ${token}` }
-    });
-
-    const data = await res.json();
-    if (!res.ok) {
-      setAlert(msgEl, data?.error || "Kunde inte ta bort user", true);
-      return;
-    }
-
-    setAlert(msgEl, data.message || "User borttagen ✅");
-  } catch {
-    setAlert(msgEl, "Serverfel vid borttagning", true);
-  }
-}
-
-
 }
 
 /*************************************************
@@ -1078,14 +1040,12 @@ async function init() {
   applyCompanyToUI();
   refreshDebug();
 
-  // If token exists, fetch /me
   if (token) {
     currentUser = await fetchMe();
   }
 
   applyAuthUI();
 
-  // EVENTS
   $("themeToggle")?.addEventListener("click", toggleTheme);
   $("logoutBtn")?.addEventListener("click", logout);
 
@@ -1112,13 +1072,13 @@ async function init() {
     p.style.display = p.style.display === "none" ? "" : "none";
   });
 
-  // view switches
   $("openChatView")?.addEventListener("click", () => {
     setActiveMenu("chat");
     openView("chat");
   });
 
   $("openInboxView")?.addEventListener("click", async () => {
+    if (!token) return alert("Du måste vara inloggad");
     setActiveMenu("inbox");
     openView("inbox");
     await inboxLoadTickets();
@@ -1131,19 +1091,18 @@ async function init() {
     await adminLoadUsers();
   });
 
-  // Inbox actions
   $("inboxRefreshBtn")?.addEventListener("click", inboxLoadTickets);
   $("inboxStatusFilter")?.addEventListener("change", inboxLoadTickets);
   $("inboxCategoryFilter")?.addEventListener("change", inboxLoadTickets);
   $("inboxSearchInput")?.addEventListener("input", inboxLoadTickets);
+
   $("setStatusOpen")?.addEventListener("click", () => inboxSetStatus("open"));
   $("setStatusPending")?.addEventListener("click", () => inboxSetStatus("pending"));
   $("setStatusSolved")?.addEventListener("click", () => inboxSetStatus("solved"));
+
   $("sendAgentReplyInboxBtn")?.addEventListener("click", inboxSendAgentReply);
   $("setPriorityBtn")?.addEventListener("click", inboxSetPriority);
 
-
-  // KB tabs
   document.querySelectorAll(".tabBtn").forEach((btn) => {
     btn.addEventListener("click", () => activateKbTab(btn.dataset.tab));
   });
@@ -1160,11 +1119,22 @@ async function init() {
   $("adminUsersRefreshBtn")?.addEventListener("click", adminLoadUsers);
   $("adminExportAllBtn")?.addEventListener("click", adminExportAll);
 
-  // If logged in show welcome message
   if (token && currentUser) {
     clearChat();
     addMessage("assistant", "Välkommen tillbaka! Vad kan jag hjälpa dig med?");
   }
+}
+
+/*************************************************
+ * ✅ KB tabs helper (required by init)
+ *************************************************/
+function activateKbTab(tabId) {
+  document.querySelectorAll(".tabBtn").forEach((b) => b.classList.remove("active"));
+  document.querySelectorAll(".tabPanel").forEach((p) => (p.style.display = "none"));
+
+  document.querySelectorAll(`.tabBtn[data-tab="${tabId}"]`).forEach((b) => b.classList.add("active"));
+  const panel = document.getElementById(tabId);
+  if (panel) panel.style.display = "";
 }
 
 document.addEventListener("DOMContentLoaded", init);

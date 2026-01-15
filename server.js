@@ -37,10 +37,15 @@ if (!mongoUri) console.error("❌ MongoDB URI saknas! Lägg till MONGO_URI i Ren
    ✅ MongoDB
 ===================== */
 mongoose.set("strictQuery", true);
+
 mongoose
   .connect(mongoUri)
   .then(() => console.log("✅ MongoDB ansluten"))
   .catch((err) => console.error("❌ MongoDB-fel:", err.message));
+
+mongoose.connection.on("error", (err) => {
+  console.error("❌ MongoDB runtime error:", err);
+});
 
 /* =====================
    ✅ Models
@@ -171,7 +176,10 @@ async function ragSearch(companyId, query, topK = 4) {
 
   if (!scored.length || scored[0].score < 0.20) return { used: false, context: "", sources: [] };
 
-  const context = scored.map((s, i) => `KÄLLA ${i + 1}: ${s.c.title || s.c.sourceRef}\n${s.c.content}`).join("\n\n");
+  const context = scored
+    .map((s, i) => `KÄLLA ${i + 1}: ${s.c.title || s.c.sourceRef}\n${s.c.content}`)
+    .join("\n\n");
+
   const sources = scored.map(s => ({
     title: s.c.title || s.c.sourceRef || "KB",
     sourceType: s.c.sourceType,
@@ -204,6 +212,11 @@ async function ensureTicket(userId, companyId) {
    ✅ URL + PDF extraction
 ===================== */
 async function fetchUrlText(url) {
+  // Node 20+ har global fetch
+  if (typeof fetch !== "function") {
+    throw new Error("Fetch saknas i Node. Uppgradera Node till 20.x på Render.");
+  }
+
   const res = await fetch(url, {
     headers: {
       "User-Agent": "Mozilla/5.0 (AI Kundtjanst Bot)",
@@ -327,6 +340,7 @@ app.post("/chat", authenticate, async (req, res) => {
 
     const systemMessage = {
       role: "system",
+,
       content:
         getSystemPrompt(companyId) +
         (rag.used
@@ -362,24 +376,22 @@ app.get("/tickets", authenticate, async (req, res) => {
   return res.json(tickets);
 });
 
-app.get("/tickets/:ticketId", authenticate, async (req, res) => {
-  const t = await Ticket.findOne({ _id: req.params.ticketId, userId: req.user.id });
-  if (!t) return res.status(404).json({ error: "Ticket hittades inte" });
-  return res.json(t);
-});
-
 /* =====================
-   ✅ ADMIN: Tickets inbox + status + takeover
+   ✅ ADMIN: Tickets inbox
 ===================== */
 app.get("/admin/tickets", authenticate, requireAdmin, async (req, res) => {
-  const { status, companyId } = req.query || {};
+  try {
+    const { status, companyId } = req.query || {};
+    const query = {};
+    if (status) query.status = status;
+    if (companyId) query.companyId = companyId;
 
-  const query = {};
-  if (status) query.status = status;
-  if (companyId) query.companyId = companyId;
-
-  const tickets = await Ticket.find(query).sort({ lastActivityAt: -1 }).limit(300);
-  return res.json(tickets);
+    const tickets = await Ticket.find(query).sort({ lastActivityAt: -1 }).limit(300);
+    return res.json(tickets);
+  } catch (e) {
+    console.error("❌ /admin/tickets error:", e?.message || e);
+    return res.status(500).json({ error: "Serverfel vid hämtning av inbox" });
+  }
 });
 
 app.get("/admin/tickets/:ticketId", authenticate, requireAdmin, async (req, res) => {
@@ -404,7 +416,6 @@ app.post("/admin/tickets/:ticketId/status", authenticate, requireAdmin, async (r
   return res.json({ message: "Status uppdaterad", ticket: t });
 });
 
-// ✅ ADMIN: Set priority (low | normal | high)
 app.post("/admin/tickets/:ticketId/priority", authenticate, requireAdmin, async (req, res) => {
   try {
     const { priority } = req.body || {};
@@ -426,8 +437,6 @@ app.post("/admin/tickets/:ticketId/priority", authenticate, requireAdmin, async 
   }
 });
 
-
-
 app.post("/admin/tickets/:ticketId/agent-reply", authenticate, requireAdmin, async (req, res) => {
   const { content } = req.body || {};
   if (!content) return res.status(400).json({ error: "content saknas" });
@@ -444,7 +453,7 @@ app.post("/admin/tickets/:ticketId/agent-reply", authenticate, requireAdmin, asy
 });
 
 /* =====================
-   ✅ ADMIN: Users + set role
+   ✅ ADMIN: Users + role
 ===================== */
 app.get("/admin/users", authenticate, requireAdmin, async (req, res) => {
   const users = await User.find({}).select("-password").sort({ createdAt: -1 }).limit(1000);
@@ -464,12 +473,9 @@ app.post("/admin/users/:userId/role", authenticate, requireAdmin, async (req, re
   return res.json({ message: "Roll uppdaterad", user: { id: u._id, username: u.username, role: u.role } });
 });
 
-// ✅ ADMIN: Delete user (and their tickets/feedback)
 app.delete("/admin/users/:userId", authenticate, requireAdmin, async (req, res) => {
   try {
     const targetId = req.params.userId;
-
-    // stoppa att admin råkar ta bort sig själv
     if (String(targetId) === String(req.user.id)) {
       return res.status(400).json({ error: "Du kan inte ta bort dig själv." });
     }
@@ -505,7 +511,6 @@ app.post("/kb/upload-text", authenticate, requireAdmin, async (req, res) => {
     if (!chunks.length) return res.status(400).json({ error: "Ingen text att spara" });
 
     let okCount = 0;
-
     for (let i = 0; i < chunks.length; i++) {
       const emb = await createEmbedding(chunks[i]);
       const embeddingOk = !!emb;
@@ -538,7 +543,6 @@ app.post("/kb/upload-url", authenticate, requireAdmin, async (req, res) => {
     const chunks = chunkText(text);
 
     let okCount = 0;
-
     for (let i = 0; i < chunks.length; i++) {
       const emb = await createEmbedding(chunks[i]);
       const embeddingOk = !!emb;
@@ -571,7 +575,6 @@ app.post("/kb/upload-pdf", authenticate, requireAdmin, async (req, res) => {
     const chunks = chunkText(text);
 
     let okCount = 0;
-
     for (let i = 0; i < chunks.length; i++) {
       const emb = await createEmbedding(chunks[i]);
       const embeddingOk = !!emb;
@@ -603,7 +606,7 @@ app.get("/export/kb/:companyId", authenticate, requireAdmin, async (req, res) =>
 });
 
 /* =====================
-   ✅ TRAINING EXPORT (Q/A from tickets)
+   ✅ TRAINING EXPORT
 ===================== */
 app.get("/admin/export/training", authenticate, requireAdmin, async (req, res) => {
   const { companyId } = req.query || {};
