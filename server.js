@@ -14,6 +14,8 @@ const cheerio = require("cheerio");
 const pdfParse = require("pdf-parse");
 
 const app = express();
+
+// ✅ Render / reverse proxy
 app.set("trust proxy", 1);
 
 app.use(express.json({ limit: "18mb" }));
@@ -37,7 +39,6 @@ if (!mongoUri) console.error("❌ MongoDB URI saknas! Lägg till MONGO_URI i Ren
    ✅ MongoDB
 ===================== */
 mongoose.set("strictQuery", true);
-
 mongoose
   .connect(mongoUri)
   .then(() => console.log("✅ MongoDB ansluten"))
@@ -140,7 +141,9 @@ function dot(a, b) {
   for (let i = 0; i < Math.min(a.length, b.length); i++) s += a[i] * b[i];
   return s;
 }
-function norm(a) { return Math.sqrt(dot(a, a)); }
+function norm(a) {
+  return Math.sqrt(dot(a, a));
+}
 function cosineSim(a, b) {
   const na = norm(a);
   const nb = norm(b);
@@ -157,7 +160,7 @@ async function createEmbedding(text) {
     return r.data?.[0]?.embedding || null;
   } catch (e) {
     console.error("❌ Embedding error:", e?.message || e);
-    return null;
+    return null; // ✅ fail-safe
   }
 }
 
@@ -169,8 +172,8 @@ async function ragSearch(companyId, query, topK = 4) {
   if (!chunks.length) return { used: false, context: "", sources: [] };
 
   const scored = chunks
-    .filter(c => c.embedding?.length)
-    .map(c => ({ score: cosineSim(qEmbed, c.embedding), c }))
+    .filter((c) => c.embedding?.length)
+    .map((c) => ({ score: cosineSim(qEmbed, c.embedding), c }))
     .sort((a, b) => b.score - a.score)
     .slice(0, topK);
 
@@ -180,7 +183,7 @@ async function ragSearch(companyId, query, topK = 4) {
     .map((s, i) => `KÄLLA ${i + 1}: ${s.c.title || s.c.sourceRef}\n${s.c.content}`)
     .join("\n\n");
 
-  const sources = scored.map(s => ({
+  const sources = scored.map((s) => ({
     title: s.c.title || s.c.sourceRef || "KB",
     sourceType: s.c.sourceType,
     sourceRef: s.c.sourceRef
@@ -192,19 +195,18 @@ async function ragSearch(companyId, query, topK = 4) {
 function getSystemPrompt(companyId) {
   switch (companyId) {
     case "law":
-      return "Du är en AI-kundtjänst för juridiska frågor på svenska. Ge allmänna råd men inte juridisk rådgivning. Svara tydligt och professionellt.";
+      return "Du är en AI-kundtjänst för juridiska frågor på svenska. Ge allmän vägledning och var tydlig med att detta inte är juridisk rådgivning.";
     case "tech":
-      return "Du är en AI-kundtjänst för teknisk support inom IT och programmering på svenska. Felsök steg-för-steg och ge konkreta lösningar.";
+      return "Du är en AI-kundtjänst för teknisk support inom IT och programmering. Felsök steg-för-steg och var konkret.";
     case "cleaning":
-      return "Du är en AI-kundtjänst för städservice på svenska. Hjälp med bokningar, priser, rutiner och tips.";
+      return "Du är en AI-kundtjänst för städservice. Hjälp med frågor om tjänster, upplägg och rutiner.";
     default:
-      return "Du är en professionell och vänlig AI-kundtjänst på svenska.";
+      return "Du är en professionell, vänlig AI-kundtjänst på svenska.";
   }
 }
 
 async function ensureTicket(userId, companyId) {
-  let t = await Ticket.findOne({ userId, companyId, status: { $ne: "solved" } }).sort({ lastActivityAt: -1 });
-  if (!t) t = await new Ticket({ userId, companyId, messages: [] }).save();
+  const t = await new Ticket({ userId, companyId, messages: [] }).save();
   return t;
 }
 
@@ -212,30 +214,25 @@ async function ensureTicket(userId, companyId) {
    ✅ URL + PDF extraction
 ===================== */
 async function fetchUrlText(url) {
-  // Node 20+ har global fetch
-  if (typeof fetch !== "function") {
-    throw new Error("Fetch saknas i Node. Uppgradera Node till 20.x på Render.");
-  }
-
   const res = await fetch(url, {
     headers: {
       "User-Agent": "Mozilla/5.0 (AI Kundtjanst Bot)",
-      "Accept": "text/html,application/xhtml+xml"
+      Accept: "text/html,application/xhtml+xml"
     }
   });
 
   if (!res.ok) throw new Error(`Kunde inte hämta URL. Status: ${res.status}`);
   const html = await res.text();
-  const $ = cheerio.load(html);
 
+  const $ = cheerio.load(html);
   $("script, style, nav, footer, header, aside").remove();
+
   const main = $("main").text() || $("article").text() || $("body").text();
   const text = cleanText(main);
 
   if (!text || text.length < 200) {
     throw new Error("Ingen tillräcklig text kunde extraheras från URL.");
   }
-
   return text;
 }
 
@@ -309,7 +306,7 @@ app.post("/login", async (req, res) => {
 });
 
 /* =====================
-   ✅ CHAT (with ticket + RAG)
+   ✅ CHAT
 ===================== */
 app.post("/chat", authenticate, async (req, res) => {
   try {
@@ -340,12 +337,9 @@ app.post("/chat", authenticate, async (req, res) => {
 
     const systemMessage = {
       role: "system",
-
       content:
         getSystemPrompt(companyId) +
-        (rag.used
-          ? `\n\nIntern kunskapsdatabas (om relevant):\n${rag.context}\n\nSvara tydligt och konkret.`
-          : "")
+        (rag.used ? `\n\nIntern kunskapsdatabas:\n${rag.context}\n\nSvara tydligt och konkret.` : "")
     };
 
     const messages = [systemMessage, ...conversation];
@@ -361,7 +355,12 @@ app.post("/chat", authenticate, async (req, res) => {
     ticket.lastActivityAt = new Date();
     await ticket.save();
 
-    return res.json({ reply, ticketId: ticket._id, ragUsed: rag.used, sources: rag.sources });
+    return res.json({
+      reply,
+      ticketId: ticket._id,
+      ragUsed: rag.used,
+      sources: rag.sources
+    });
   } catch (e) {
     console.error("❌ Chat error:", e?.message || e);
     return res.status(500).json({ error: "Serverfel vid chat" });
@@ -369,15 +368,7 @@ app.post("/chat", authenticate, async (req, res) => {
 });
 
 /* =====================
-   ✅ USER tickets
-===================== */
-app.get("/tickets", authenticate, async (req, res) => {
-  const tickets = await Ticket.find({ userId: req.user.id }).sort({ lastActivityAt: -1 }).limit(50);
-  return res.json(tickets);
-});
-
-/* =====================
-   ✅ ADMIN: Tickets inbox
+   ✅ ADMIN: Tickets inbox (with username)
 ===================== */
 app.get("/admin/tickets", authenticate, requireAdmin, async (req, res) => {
   try {
@@ -386,11 +377,21 @@ app.get("/admin/tickets", authenticate, requireAdmin, async (req, res) => {
     if (status) query.status = status;
     if (companyId) query.companyId = companyId;
 
-    const tickets = await Ticket.find(query).sort({ lastActivityAt: -1 }).limit(300);
-    return res.json(tickets);
+    const tickets = await Ticket.find(query).sort({ lastActivityAt: -1 }).limit(300).lean();
+
+    const userIds = [...new Set(tickets.map((t) => String(t.userId)))];
+    const users = await User.find({ _id: { $in: userIds } }).select("username").lean();
+    const map = new Map(users.map((u) => [String(u._id), u.username]));
+
+    const output = tickets.map((t) => ({
+      ...t,
+      username: map.get(String(t.userId)) || "okänd"
+    }));
+
+    return res.json(output);
   } catch (e) {
-    console.error("❌ /admin/tickets error:", e?.message || e);
-    return res.status(500).json({ error: "Serverfel vid hämtning av inbox" });
+    console.error("❌ /admin/tickets error:", e);
+    return res.status(500).json({ error: "Serverfel vid inbox" });
   }
 });
 
@@ -413,28 +414,23 @@ app.post("/admin/tickets/:ticketId/status", authenticate, requireAdmin, async (r
   t.lastActivityAt = new Date();
   await t.save();
 
-  return res.json({ message: "Status uppdaterad", ticket: t });
+  return res.json({ message: "Status uppdaterad ✅", ticket: t });
 });
 
 app.post("/admin/tickets/:ticketId/priority", authenticate, requireAdmin, async (req, res) => {
-  try {
-    const { priority } = req.body || {};
-    if (!["low", "normal", "high"].includes(priority)) {
-      return res.status(400).json({ error: "Ogiltig prioritet" });
-    }
-
-    const t = await Ticket.findById(req.params.ticketId);
-    if (!t) return res.status(404).json({ error: "Ticket hittades inte" });
-
-    t.priority = priority;
-    t.lastActivityAt = new Date();
-    await t.save();
-
-    return res.json({ message: "Prioritet uppdaterad ✅", ticket: t });
-  } catch (e) {
-    console.error("❌ Priority error:", e?.message || e);
-    return res.status(500).json({ error: "Serverfel vid prioritet" });
+  const { priority } = req.body || {};
+  if (!["low", "normal", "high"].includes(priority)) {
+    return res.status(400).json({ error: "Ogiltig prioritet" });
   }
+
+  const t = await Ticket.findById(req.params.ticketId);
+  if (!t) return res.status(404).json({ error: "Ticket hittades inte" });
+
+  t.priority = priority;
+  t.lastActivityAt = new Date();
+  await t.save();
+
+  return res.json({ message: "Prioritet sparad ✅", ticket: t });
 });
 
 app.post("/admin/tickets/:ticketId/agent-reply", authenticate, requireAdmin, async (req, res) => {
@@ -449,11 +445,81 @@ app.post("/admin/tickets/:ticketId/agent-reply", authenticate, requireAdmin, asy
   t.lastActivityAt = new Date();
   await t.save();
 
-  return res.json({ message: "Agent-svar sparat", ticket: t });
+  return res.json({ message: "Agent-svar skickat ✅", ticket: t });
 });
 
 /* =====================
-   ✅ ADMIN: Users + role
+   ✅ ADMIN: DASHBOARD ✅
+===================== */
+app.get("/admin/dashboard", authenticate, requireAdmin, async (req, res) => {
+  try {
+    const [
+      usersCount,
+      ticketsCount,
+      openCount,
+      pendingCount,
+      solvedCount,
+      kbCount
+    ] = await Promise.all([
+      User.countDocuments({}),
+      Ticket.countDocuments({}),
+      Ticket.countDocuments({ status: "open" }),
+      Ticket.countDocuments({ status: "pending" }),
+      Ticket.countDocuments({ status: "solved" }),
+      KBChunk.countDocuments({})
+    ]);
+
+    // Tickets per kategori
+    const byCompanyAgg = await Ticket.aggregate([
+      { $group: { _id: "$companyId", count: { $sum: 1 } } },
+      { $sort: { count: -1 } }
+    ]);
+
+    const byCompany = byCompanyAgg.map((x) => ({
+      companyId: x._id,
+      count: x.count
+    }));
+
+    // Senaste tickets (10)
+    const latestTicketsRaw = await Ticket.find({})
+      .sort({ lastActivityAt: -1 })
+      .limit(10)
+      .lean();
+
+    const latestUserIds = [...new Set(latestTicketsRaw.map((t) => String(t.userId)))];
+    const latestUsers = await User.find({ _id: { $in: latestUserIds } }).select("username").lean();
+    const map = new Map(latestUsers.map((u) => [String(u._id), u.username]));
+
+    const latestTickets = latestTicketsRaw.map((t) => ({
+      _id: t._id,
+      title: t.title || "Inget ämne",
+      companyId: t.companyId,
+      status: t.status,
+      priority: t.priority,
+      lastActivityAt: t.lastActivityAt,
+      username: map.get(String(t.userId)) || "okänd"
+    }));
+
+    return res.json({
+      counts: {
+        users: usersCount,
+        tickets: ticketsCount,
+        open: openCount,
+        pending: pendingCount,
+        solved: solvedCount,
+        kbChunks: kbCount
+      },
+      byCompany,
+      latestTickets
+    });
+  } catch (e) {
+    console.error("❌ Dashboard error:", e);
+    return res.status(500).json({ error: "Serverfel vid dashboard" });
+  }
+});
+
+/* =====================
+   ✅ ADMIN: Users + role + delete
 ===================== */
 app.get("/admin/users", authenticate, requireAdmin, async (req, res) => {
   const users = await User.find({}).select("-password").sort({ createdAt: -1 }).limit(1000);
@@ -464,24 +530,35 @@ app.post("/admin/users/:userId/role", authenticate, requireAdmin, async (req, re
   const { role } = req.body || {};
   if (!["user", "admin"].includes(role)) return res.status(400).json({ error: "Ogiltig roll" });
 
-  const u = await User.findById(req.params.userId);
+  const targetId = req.params.userId;
+
+  if (String(targetId) === String(req.user.id)) {
+    return res.status(400).json({ error: "Du kan inte ändra din egen roll här." });
+  }
+
+  const u = await User.findById(targetId);
   if (!u) return res.status(404).json({ error: "User hittades inte" });
 
   u.role = role;
   await u.save();
 
-  return res.json({ message: "Roll uppdaterad", user: { id: u._id, username: u.username, role: u.role } });
+  return res.json({ message: "Roll uppdaterad ✅", user: { id: u._id, username: u.username, role: u.role } });
 });
 
 app.delete("/admin/users/:userId", authenticate, requireAdmin, async (req, res) => {
   try {
     const targetId = req.params.userId;
+
     if (String(targetId) === String(req.user.id)) {
       return res.status(400).json({ error: "Du kan inte ta bort dig själv." });
     }
 
     const u = await User.findById(targetId);
     if (!u) return res.status(404).json({ error: "User hittades inte" });
+
+    if (u.role === "admin") {
+      return res.status(400).json({ error: "Du kan inte ta bort en admin-användare." });
+    }
 
     await Ticket.deleteMany({ userId: targetId });
     await Feedback.deleteMany({ userId: targetId });
@@ -495,7 +572,7 @@ app.delete("/admin/users/:userId", authenticate, requireAdmin, async (req, res) 
 });
 
 /* =====================
-   ✅ ADMIN: KB Upload / List / Export
+   ✅ ADMIN: KB upload/list/export
 ===================== */
 app.get("/kb/list/:companyId", authenticate, requireAdmin, async (req, res) => {
   const items = await KBChunk.find({ companyId: req.params.companyId }).sort({ createdAt: -1 }).limit(400);
@@ -511,6 +588,7 @@ app.post("/kb/upload-text", authenticate, requireAdmin, async (req, res) => {
     if (!chunks.length) return res.status(400).json({ error: "Ingen text att spara" });
 
     let okCount = 0;
+
     for (let i = 0; i < chunks.length; i++) {
       const emb = await createEmbedding(chunks[i]);
       const embeddingOk = !!emb;
@@ -543,6 +621,7 @@ app.post("/kb/upload-url", authenticate, requireAdmin, async (req, res) => {
     const chunks = chunkText(text);
 
     let okCount = 0;
+
     for (let i = 0; i < chunks.length; i++) {
       const emb = await createEmbedding(chunks[i]);
       const embeddingOk = !!emb;
@@ -575,6 +654,7 @@ app.post("/kb/upload-pdf", authenticate, requireAdmin, async (req, res) => {
     const chunks = chunkText(text);
 
     let okCount = 0;
+
     for (let i = 0; i < chunks.length; i++) {
       const emb = await createEmbedding(chunks[i]);
       const embeddingOk = !!emb;
@@ -605,12 +685,8 @@ app.get("/export/kb/:companyId", authenticate, requireAdmin, async (req, res) =>
   return res.send(JSON.stringify(items, null, 2));
 });
 
-/* =====================
-   ✅ TRAINING EXPORT
-===================== */
 app.get("/admin/export/training", authenticate, requireAdmin, async (req, res) => {
   const { companyId } = req.query || {};
-
   const query = {};
   if (companyId) query.companyId = companyId;
 
@@ -640,9 +716,6 @@ app.get("/admin/export/training", authenticate, requireAdmin, async (req, res) =
   return res.send(JSON.stringify({ exportedAt: new Date().toISOString(), rows }, null, 2));
 });
 
-/* =====================
-   ✅ ADMIN EXPORT ALL
-===================== */
 app.get("/admin/export/all", authenticate, requireAdmin, async (req, res) => {
   const users = await User.find({}).select("-password");
   const tickets = await Ticket.find({});

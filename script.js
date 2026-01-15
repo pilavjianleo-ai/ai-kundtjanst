@@ -4,25 +4,21 @@
 const API_BASE = window.location.hostname === "localhost" ? "http://localhost:3000" : "";
 
 const API = {
+  ADMIN_DASHBOARD: `${API_BASE}/admin/dashboard`,
   ME: `${API_BASE}/me`,
   LOGIN: `${API_BASE}/login`,
   REGISTER: `${API_BASE}/register`,
   CHAT: `${API_BASE}/chat`,
-  TICKETS: `${API_BASE}/tickets`,
-
   ADMIN_USERS: `${API_BASE}/admin/users`,
   ADMIN_USER_ROLE: (id) => `${API_BASE}/admin/users/${id}/role`,
   ADMIN_DELETE_USER: (id) => `${API_BASE}/admin/users/${id}`,
-
   ADMIN_TICKETS: `${API_BASE}/admin/tickets`,
   ADMIN_TICKET: (id) => `${API_BASE}/admin/tickets/${id}`,
   ADMIN_TICKET_STATUS: (id) => `${API_BASE}/admin/tickets/${id}/status`,
   ADMIN_TICKET_REPLY: (id) => `${API_BASE}/admin/tickets/${id}/agent-reply`,
   ADMIN_TICKET_PRIORITY: (id) => `${API_BASE}/admin/tickets/${id}/priority`,
-
   ADMIN_EXPORT_ALL: `${API_BASE}/admin/export/all`,
   ADMIN_EXPORT_TRAINING: `${API_BASE}/admin/export/training`,
-
   KB_LIST: (companyId) => `${API_BASE}/kb/list/${companyId}`,
   KB_TEXT: `${API_BASE}/kb/upload-text`,
   KB_URL: `${API_BASE}/kb/upload-url`,
@@ -32,6 +28,7 @@ const API = {
 
 let token = localStorage.getItem("token") || null;
 let currentUser = null; // {id, username, role}
+
 let companyId = "demo";
 let ticketId = null;
 let lastRagUsed = null;
@@ -64,7 +61,8 @@ function escapeHtml(s) {
   return String(s || "")
     .replaceAll("&", "&amp;")
     .replaceAll("<", "&lt;")
-    .replaceAll(">", "&gt;");
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;");
 }
 
 function formatDate(d) {
@@ -92,7 +90,6 @@ function applyCompanyToUI() {
   const t = titleForCompany(companyId);
   setText($("chatTitle"), t.title);
   setText($("chatSubtitle"), t.sub);
-
   if ($("categorySelect")) $("categorySelect").value = companyId;
 }
 
@@ -204,7 +201,7 @@ function addMessage(role, content, meta = "") {
 
   wrapper.innerHTML = `
     <div class="avatar"><i class="fa-solid ${icon}"></i></div>
-    <div>
+    <div class="msgBody">
       <div class="bubble">${safe}</div>
       ${meta ? `<div class="msgMeta">${escapeHtml(meta)}</div>` : ""}
       ${!isUser ? `
@@ -240,7 +237,7 @@ function showTyping() {
   wrapper.className = "msg ai";
   wrapper.innerHTML = `
     <div class="avatar"><i class="fa-solid fa-robot"></i></div>
-    <div><div class="bubble">AI skriver…</div></div>
+    <div class="msgBody"><div class="bubble">AI skriver…</div></div>
   `;
 
   messagesDiv.appendChild(wrapper);
@@ -253,12 +250,36 @@ function hideTyping() {
 }
 
 /*************************************************
- * ✅ Ticket utilities
+ * ✅ Chat utilities
  *************************************************/
+function clearChat() {
+  if ($("messages")) $("messages").innerHTML = "";
+}
+
+function gatherConversationFromUI() {
+  const messagesDiv = $("messages");
+  if (!messagesDiv) return [];
+
+  const all = [];
+  const nodes = messagesDiv.querySelectorAll(".msg");
+
+  nodes.forEach((node) => {
+    const isUser = node.classList.contains("user");
+    const bubble = node.querySelector(".bubble");
+    if (!bubble) return;
+
+    const content = bubble.innerText.trim();
+    if (!content || content === "AI skriver…") return;
+    all.push({ role: isUser ? "user" : "assistant", content });
+  });
+
+  return all.slice(-12);
+}
+
 async function startNewTicket() {
   ticketId = null;
-  $("messages").innerHTML = "";
-  addMessage("assistant", "Nytt ärende skapat ✅ Vad kan jag hjälpa dig med?");
+  clearChat();
+  addMessage("assistant", "Nytt ärende ✅ Vad kan jag hjälpa dig med?");
   refreshDebug();
 }
 
@@ -277,34 +298,6 @@ async function exportChat() {
   URL.revokeObjectURL(url);
 }
 
-function clearChat() {
-  if ($("messages")) $("messages").innerHTML = "";
-}
-
-/*************************************************
- * ✅ Conversation builder
- *************************************************/
-function gatherConversationFromUI() {
-  const messagesDiv = $("messages");
-  if (!messagesDiv) return [];
-
-  const all = [];
-  const nodes = messagesDiv.querySelectorAll(".msg");
-
-  nodes.forEach((node) => {
-    const isUser = node.classList.contains("user");
-    const bubble = node.querySelector(".bubble");
-    if (!bubble) return;
-
-    const content = bubble.innerText.trim();
-    if (!content || content === "AI skriver…") return;
-
-    all.push({ role: isUser ? "user" : "assistant", content });
-  });
-
-  return all.slice(-12);
-}
-
 /*************************************************
  * ✅ Send message
  *************************************************/
@@ -317,6 +310,7 @@ async function sendMessage() {
 
   addMessage("user", text);
   input.value = "";
+
   showTyping();
 
   try {
@@ -348,11 +342,7 @@ async function sendMessage() {
     lastRagUsed = !!data.ragUsed;
     refreshDebug();
 
-    addMessage(
-      "assistant",
-      data.reply || "Inget svar.",
-      data.ragUsed ? "Svar baserat på kunskapsdatabas (RAG)" : ""
-    );
+    addMessage("assistant", data.reply || "Inget svar.", data.ragUsed ? "Svar baserat på kunskapsdatabas (RAG)" : "");
   } catch (e) {
     hideTyping();
     addMessage("assistant", "Tekniskt fel. Försök igen.");
@@ -361,12 +351,13 @@ async function sendMessage() {
 }
 
 /*************************************************
- * ✅ Category select
+ * ✅ Category select (new ticket per category)
  *************************************************/
 function setCompanyFromSelect(value) {
   companyId = value || "demo";
   applyCompanyToUI();
 
+  // ✅ hard reset context per category
   ticketId = null;
   clearChat();
   addMessage("assistant", `Du bytte kategori till "${companyId}". Vad vill du fråga?`);
@@ -374,8 +365,21 @@ function setCompanyFromSelect(value) {
 }
 
 /*************************************************
- * ✅ Inbox (Admin) — FIXAD
+ * ✅ Inbox (Admin) — FIXED + optimized
  *************************************************/
+function pillClassStatus(s) {
+  const v = String(s || "open").toLowerCase();
+  if (v === "solved") return "pill solved";
+  if (v === "pending") return "pill pending";
+  return "pill open";
+}
+function pillClassPriority(p) {
+  const v = String(p || "normal").toLowerCase();
+  if (v === "high") return "pill high";
+  if (v === "low") return "pill low";
+  return "pill normal";
+}
+
 async function inboxLoadTickets() {
   const list = $("inboxTicketsList");
   const msg = $("inboxMsg");
@@ -403,14 +407,14 @@ async function inboxLoadTickets() {
       return;
     }
 
-    // ✅ filter search
     let filtered = data;
     if (q) {
       filtered = data.filter((t) => {
         const a = String(t.title || "").toLowerCase();
         const b = String(t.companyId || "").toLowerCase();
         const c = String(t._id || "").toLowerCase();
-        return a.includes(q) || b.includes(q) || c.includes(q);
+        const u = String(t.username || "").toLowerCase();
+        return a.includes(q) || b.includes(q) || c.includes(q) || u.includes(q);
       });
     }
 
@@ -425,14 +429,21 @@ async function inboxLoadTickets() {
 
       const statusText = String(t.status || "open");
       const priorityText = String(t.priority || "normal");
+      const username = t.username || "okänd";
 
       div.innerHTML = `
-        <div class="listItemTitle">${escapeHtml(t.title || "Inget ämne")}</div>
-        <div class="listItemMeta">
-          Kategori: ${escapeHtml(t.companyId || "-")} •
-          Status: <b>${escapeHtml(statusText)}</b> •
-          Prio: <b>${escapeHtml(priorityText)}</b><br/>
-          Senast: ${escapeHtml(formatDate(t.lastActivityAt || t.createdAt))}
+        <div class="ticketTop">
+          <div class="ticketTitle">${escapeHtml(t.title || "Inget ämne")}</div>
+          <div class="ticketPills">
+            <span class="${pillClassStatus(statusText)}">${escapeHtml(statusText)}</span>
+            <span class="${pillClassPriority(priorityText)}">${escapeHtml(priorityText)}</span>
+          </div>
+        </div>
+
+        <div class="ticketMeta">
+          <span><i class="fa-solid fa-user"></i> ${escapeHtml(username)}</span>
+          <span><i class="fa-solid fa-tag"></i> ${escapeHtml(t.companyId || "-")}</span>
+          <span class="muted">• ${escapeHtml(formatDate(t.lastActivityAt || t.createdAt))}</span>
         </div>
       `;
 
@@ -444,14 +455,13 @@ async function inboxLoadTickets() {
 
       list.appendChild(div);
     });
-
   } catch (e) {
     console.error("Inbox error:", e);
     setAlert(msg, "Serverfel vid inbox (kolla Console / Network)", true);
   }
 }
 
-async function inboxLoadTicketDetails(ticketId) {
+async function inboxLoadTicketDetails(id) {
   const details = $("ticketDetails");
   const msg = $("inboxTicketMsg");
   setAlert(msg, "");
@@ -460,10 +470,9 @@ async function inboxLoadTicketDetails(ticketId) {
   details.innerHTML = `<div class="muted small">Laddar ticket...</div>`;
 
   try {
-    const res = await fetch(API.ADMIN_TICKET(ticketId), {
+    const res = await fetch(API.ADMIN_TICKET(id), {
       headers: { Authorization: `Bearer ${token}` }
     });
-
     const data = await res.json();
 
     if (!res.ok) {
@@ -473,35 +482,33 @@ async function inboxLoadTicketDetails(ticketId) {
     }
 
     const msgs = data.messages || [];
-    const html = msgs
-      .slice(-50)
-      .map((m) => {
-        const roleLabel =
-          m.role === "user" ? "Kund" : (m.role === "agent" ? "Agent" : "AI");
-        return `
-          <div class="ticketMsg ${m.role}">
-            <div class="ticketMsgHead">
-              <b>${roleLabel}</b>
-              <span>${escapeHtml(formatDate(m.timestamp))}</span>
-            </div>
-            <div class="ticketMsgBody">${escapeHtml(m.content)}</div>
+    const html = msgs.slice(-80).map((m) => {
+      const roleLabel = m.role === "user" ? "Kund" : (m.role === "agent" ? "Agent" : "AI");
+      return `
+        <div class="ticketMsg ${escapeHtml(m.role)}">
+          <div class="ticketMsgHead">
+            <b>${roleLabel}</b>
+            <span class="muted">${escapeHtml(formatDate(m.timestamp))}</span>
           </div>
-        `;
-      })
-      .join("");
+          <div class="ticketMsgBody">${escapeHtml(m.content)}</div>
+        </div>
+      `;
+    }).join("");
 
     details.innerHTML = `
       <div class="ticketInfo">
         <div><b>ID:</b> ${escapeHtml(data._id)}</div>
         <div><b>Kategori:</b> ${escapeHtml(data.companyId)}</div>
-        <div><b>Status:</b> <span class="pill ${String(data.status || "open").toLowerCase()}">${escapeHtml(data.status)}</span></div>
-        <div><b>Prioritet:</b> ${escapeHtml(data.priority || "normal")}</div>
+        <div><b>Status:</b> ${escapeHtml(data.status)}</div>
+        <div><b>Prioritet:</b> ${escapeHtml(data.priority)}</div>
         <div><b>Senast:</b> ${escapeHtml(formatDate(data.lastActivityAt))}</div>
       </div>
       <div class="divider"></div>
       <div class="ticketMsgs">${html}</div>
     `;
+
   } catch (e) {
+    console.error("Ticket error:", e);
     details.innerHTML = `<div class="muted small">Serverfel vid ticket.</div>`;
   }
 }
@@ -615,7 +622,135 @@ async function inboxSendAgentReply() {
 }
 
 /*************************************************
- * ✅ Admin: KB Manager
+ * ✅ Admin: Users list + role toggle + delete
+ *************************************************/
+async function adminDeleteUser(userId) {
+  const msgEl = $("adminUsersMsg");
+  setAlert(msgEl, "");
+
+  try {
+    const res = await fetch(API.ADMIN_DELETE_USER(userId), {
+      method: "DELETE",
+      headers: { Authorization: `Bearer ${token}` }
+    });
+
+    const data = await res.json();
+    if (!res.ok) {
+      setAlert(msgEl, data?.error || "Kunde inte ta bort user", true);
+      return;
+    }
+
+    setAlert(msgEl, data.message || "User borttagen ✅");
+  } catch (err) {
+    console.error("Delete user error:", err);
+    setAlert(msgEl, "Serverfel vid borttagning", true);
+  }
+}
+
+async function adminSetUserRole(userId, role) {
+  const msgEl = $("adminUsersMsg");
+  setAlert(msgEl, "");
+
+  try {
+    const res = await fetch(API.ADMIN_USER_ROLE(userId), {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`
+      },
+      body: JSON.stringify({ role })
+    });
+
+    const data = await res.json();
+    if (!res.ok) {
+      setAlert(msgEl, data?.error || "Kunde inte ändra roll", true);
+      return;
+    }
+
+    setAlert(msgEl, `Roll uppdaterad: ${data.user.username} → ${data.user.role}`);
+  } catch {
+    setAlert(msgEl, "Serverfel vid roll-ändring", true);
+  }
+}
+
+async function adminLoadUsers() {
+  const msgEl = $("adminUsersMsg");
+  const list = $("adminUsersList");
+  setAlert(msgEl, "");
+  if (list) list.innerHTML = "";
+
+  try {
+    const res = await fetch(API.ADMIN_USERS, {
+      headers: { Authorization: `Bearer ${token}` }
+    });
+
+    const data = await res.json();
+
+    if (!res.ok) {
+      setAlert(msgEl, data?.error || "Kunde inte hämta users", true);
+      return;
+    }
+
+    if (!data.length) {
+      setAlert(msgEl, "Inga users hittades.");
+      return;
+    }
+
+    data.forEach((u) => {
+      const div = document.createElement("div");
+      div.className = "listItem";
+
+      const isAdmin = u.role === "admin";
+      const isSelf = String(u._id) === String(currentUser?.id);
+
+      div.innerHTML = `
+        <div class="listItemTitle">
+          ${escapeHtml(u.username)}
+          <span class="pill ${isAdmin ? "admin" : ""}">${escapeHtml(u.role)}</span>
+        </div>
+
+        <div class="listItemMeta">ID: ${escapeHtml(u._id)}</div>
+
+        <div class="row" style="margin-top:10px;">
+          <button class="btn secondary small" data-action="toggleRole" ${isSelf || isAdmin ? "disabled" : ""}>
+            <i class="fa-solid fa-user-gear"></i>
+            ${isSelf ? "Din roll" : (isAdmin ? "Admin (låst)" : "Gör admin")}
+          </button>
+
+          ${isAdmin ? "" : `
+            <button class="btn danger small" data-action="deleteUser" ${isSelf ? "disabled" : ""}>
+              <i class="fa-solid fa-trash"></i>
+              Ta bort
+            </button>
+          `}
+        </div>
+      `;
+
+      // ✅ make admin
+      div.querySelector('[data-action="toggleRole"]')?.addEventListener("click", async () => {
+        if (isSelf || isAdmin) return;
+        await adminSetUserRole(u._id, "admin");
+        await adminLoadUsers();
+      });
+
+      // ✅ delete
+      div.querySelector('[data-action="deleteUser"]')?.addEventListener("click", async () => {
+        const ok = confirm(`Vill du verkligen ta bort användaren "${u.username}"?\nDetta tar även bort deras tickets.`);
+        if (!ok) return;
+        await adminDeleteUser(u._id);
+        await adminLoadUsers();
+      });
+
+      list.appendChild(div);
+    });
+  } catch (e) {
+    console.error("adminLoadUsers error:", e);
+    setAlert(msgEl, "Serverfel vid users", true);
+  }
+}
+
+/*************************************************
+ * ✅ Admin: KB Manager (simple)
  *************************************************/
 function kbActiveCategory() {
   return $("kbCategorySelect")?.value || "demo";
@@ -651,7 +786,7 @@ async function kbRefreshList() {
     data.slice(0, 25).forEach((item) => {
       const div = document.createElement("div");
       div.className = "kbItem";
-      const preview = (item.content || "").slice(0, 160);
+      const preview = (item.content || "").slice(0, 180);
 
       div.innerHTML = `
         <div class="kbItemTop">
@@ -807,135 +942,6 @@ function adminExportAll() {
 }
 
 /*************************************************
- * ✅ ADMIN: Delete user
- *************************************************/
-async function adminDeleteUser(userId) {
-  const msgEl = $("adminUsersMsg");
-  setAlert(msgEl, "");
-
-  try {
-    const res = await fetch(API.ADMIN_DELETE_USER(userId), {
-      method: "DELETE",
-      headers: { Authorization: `Bearer ${token}` }
-    });
-
-    const data = await res.json();
-
-    if (!res.ok) {
-      setAlert(msgEl, data?.error || "Kunde inte ta bort user", true);
-      return;
-    }
-
-    setAlert(msgEl, data.message || "User borttagen ✅");
-  } catch (err) {
-    console.error("Delete user error:", err);
-    setAlert(msgEl, "Serverfel vid borttagning", true);
-  }
-}
-
-/*************************************************
- * ✅ Admin: Users list
- *************************************************/
-async function adminLoadUsers() {
-  const msgEl = $("adminUsersMsg");
-  const list = $("adminUsersList");
-  setAlert(msgEl, "");
-  if (list) list.innerHTML = "";
-
-  try {
-    const res = await fetch(API.ADMIN_USERS, {
-      headers: { Authorization: `Bearer ${token}` }
-    });
-    const data = await res.json();
-
-    if (!res.ok) {
-      setAlert(msgEl, data?.error || "Kunde inte hämta users", true);
-      return;
-    }
-
-    if (!data.length) {
-      setAlert(msgEl, "Inga users hittades.");
-      return;
-    }
-
-    data.forEach((u) => {
-      const div = document.createElement("div");
-      div.className = "listItem";
-
-      const isAdmin = u.role === "admin";
-      const isSelf = String(u._id) === String(currentUser?.id);
-
-      div.innerHTML = `
-        <div class="listItemTitle">
-          ${escapeHtml(u.username)}
-          <span class="pill ${isAdmin ? "admin" : ""}">${escapeHtml(u.role)}</span>
-        </div>
-        <div class="listItemMeta">ID: ${escapeHtml(u._id || "-")}</div>
-
-        <div class="row" style="margin-top:10px;">
-          <button class="btn secondary small" data-action="toggleRole" ${isSelf || isAdmin ? "disabled" : ""}>
-            <i class="fa-solid fa-user-gear"></i>
-            ${isSelf ? "Din roll" : (isAdmin ? "Admin (låst)" : "Gör admin")}
-          </button>
-
-          ${isAdmin ? "" : `
-            <button class="btn danger small" data-action="deleteUser">
-              <i class="fa-solid fa-trash"></i>
-              Ta bort
-            </button>
-          `}
-        </div>
-      `;
-
-      div.querySelector('[data-action="toggleRole"]')?.addEventListener("click", async () => {
-        if (isSelf || isAdmin) return;
-        await adminSetUserRole(u._id, "admin");
-        await adminLoadUsers();
-      });
-
-      div.querySelector('[data-action="deleteUser"]')?.addEventListener("click", async () => {
-        const ok = confirm(`Vill du verkligen ta bort användaren "${u.username}"? Detta tar även bort deras tickets.`);
-        if (!ok) return;
-
-        await adminDeleteUser(u._id);
-        await adminLoadUsers();
-      });
-
-      list.appendChild(div);
-    });
-  } catch (e) {
-    console.error("Admin users error:", e);
-    setAlert(msgEl, "Serverfel vid användarlista", true);
-  }
-}
-
-async function adminSetUserRole(userId, role) {
-  const msgEl = $("adminUsersMsg");
-  setAlert(msgEl, "");
-
-  try {
-    const res = await fetch(API.ADMIN_USER_ROLE(userId), {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${token}`
-      },
-      body: JSON.stringify({ role })
-    });
-
-    const data = await res.json();
-    if (!res.ok) {
-      setAlert(msgEl, data?.error || "Kunde inte ändra roll", true);
-      return;
-    }
-
-    setAlert(msgEl, `Roll uppdaterad: ${data.user.username} → ${data.user.role}`);
-  } catch {
-    setAlert(msgEl, "Serverfel vid roll-ändring", true);
-  }
-}
-
-/*************************************************
  * ✅ Login / Register / Logout
  *************************************************/
 async function login() {
@@ -969,6 +975,7 @@ async function login() {
     applyAuthUI();
 
     applyCompanyToUI();
+    ticketId = null;
     clearChat();
     addMessage("assistant", "Välkommen! Vad kan jag hjälpa dig med?");
   } catch (e) {
@@ -1015,7 +1022,257 @@ function logout() {
 
   clearChat();
   applyAuthUI();
+}/*************************************************
+ * ✅ Admin Dashboard
+ *************************************************/
+function setDashMsg(msg, isErr = false) {
+  setAlert($("dashMsg"), msg, isErr);
 }
+
+function companyLabel(id) {
+  const map = {
+    demo: "Demo AB",
+    law: "Juridik",
+    tech: "Teknik",
+    cleaning: "Städservice"
+  };
+  return map[id] || id;
+}
+
+async function adminLoadDashboard() {
+  setDashMsg("");
+
+  const cards = {
+    users: $("dashUsers"),
+    tickets: $("dashTickets"),
+    open: $("dashOpen"),
+    pending: $("dashPending"),
+    solved: $("dashSolved"),
+    kb: $("dashKb")
+  };
+
+  const list = $("dashLatestTickets");
+  const bars = $("dashCompanyBars");
+
+  if (list) list.innerHTML = "";
+  if (bars) bars.innerHTML = "";
+
+  try {
+    const res = await fetch(API.ADMIN_DASHBOARD, {
+      headers: { Authorization: `Bearer ${token}` }
+    });
+
+    const data = await res.json();
+
+    if (!res.ok) {
+      setDashMsg(data?.error || "Kunde inte ladda dashboard", true);
+      return;
+    }
+
+    // cards
+    if (cards.users) cards.users.textContent = data.counts.users ?? "-";
+    if (cards.tickets) cards.tickets.textContent = data.counts.tickets ?? "-";
+    if (cards.open) cards.open.textContent = data.counts.open ?? "-";
+    if (cards.pending) cards.pending.textContent = data.counts.pending ?? "-";
+    if (cards.solved) cards.solved.textContent = data.counts.solved ?? "-";
+    if (cards.kb) cards.kb.textContent = data.counts.kbChunks ?? "-";
+
+    // bars
+    const total = Math.max(
+      1,
+      ...(data.byCompany || []).map((x) => Number(x.count || 0))
+    );
+
+    (data.byCompany || []).slice(0, 8).forEach((x) => {
+      const row = document.createElement("div");
+      row.className = "barRow";
+
+      const pct = Math.round((Number(x.count || 0) / total) * 100);
+
+      row.innerHTML = `
+        <div class="barLabel">${escapeHtml(companyLabel(x.companyId))}</div>
+        <div class="barTrack">
+          <div class="barFill" style="width:${pct}%"></div>
+        </div>
+        <div class="barValue">${escapeHtml(String(x.count || 0))}</div>
+      `;
+
+      bars.appendChild(row);
+    });
+
+    // latest tickets
+    if (!(data.latestTickets || []).length) {
+      list.innerHTML = `<div class="muted small">Inga tickets än.</div>`;
+      return;
+    }
+
+    data.latestTickets.forEach((t) => {
+      const div = document.createElement("div");
+      div.className = "dashTicket";
+
+      div.innerHTML = `
+        <div class="dashTicketTop">
+          <div class="dashTicketTitle">${escapeHtml(t.title || "Inget ämne")}</div>
+          <div class="dashTicketPills">
+            <span class="pill ${String(t.status || "open")}">${escapeHtml(t.status)}</span>
+            <span class="pill ${String(t.priority || "normal")}">${escapeHtml(t.priority)}</span>
+          </div>
+        </div>
+        <div class="dashTicketMeta">
+          <span><i class="fa-solid fa-user"></i> ${escapeHtml(t.username || "okänd")}</span>
+          <span><i class="fa-solid fa-tag"></i> ${escapeHtml(companyLabel(t.companyId))}</span>
+          <span class="muted">• ${escapeHtml(formatDate(t.lastActivityAt))}</span>
+        </div>
+        <div class="row" style="margin-top:10px;">
+          <button class="btn secondary small" data-open-ticket="${escapeHtml(String(t._id))}">
+            <i class="fa-solid fa-arrow-right"></i> Öppna i Inbox
+          </button>
+        </div>
+      `;
+
+      div.querySelector("[data-open-ticket]")?.addEventListener("click", async () => {
+        setActiveMenu("inbox");
+        openView("inbox");
+        inboxSelectedTicketId = t._id;
+        await inboxLoadTickets();
+        await inboxLoadTicketDetails(t._id);
+      });
+
+      list.appendChild(div);
+    });
+
+  } catch (e) {
+    console.error("Dashboard error:", e);
+    setDashMsg("Serverfel vid dashboard", true);
+  }
+}
+
+
+/*************************************************
+ * ✅ Admin Dashboard
+ *************************************************/
+function setDashMsg(msg, isErr = false) {
+  setAlert($("dashMsg"), msg, isErr);
+}
+
+function companyLabel(id) {
+  const map = {
+    demo: "Demo AB",
+    law: "Juridik",
+    tech: "Teknik",
+    cleaning: "Städservice"
+  };
+  return map[id] || id;
+}
+
+async function adminLoadDashboard() {
+  setDashMsg("");
+
+  const cards = {
+    users: $("dashUsers"),
+    tickets: $("dashTickets"),
+    open: $("dashOpen"),
+    pending: $("dashPending"),
+    solved: $("dashSolved"),
+    kb: $("dashKb")
+  };
+
+  const list = $("dashLatestTickets");
+  const bars = $("dashCompanyBars");
+
+  if (list) list.innerHTML = "";
+  if (bars) bars.innerHTML = "";
+
+  try {
+    const res = await fetch(API.ADMIN_DASHBOARD, {
+      headers: { Authorization: `Bearer ${token}` }
+    });
+
+    const data = await res.json();
+
+    if (!res.ok) {
+      setDashMsg(data?.error || "Kunde inte ladda dashboard", true);
+      return;
+    }
+
+    // cards
+    if (cards.users) cards.users.textContent = data.counts.users ?? "-";
+    if (cards.tickets) cards.tickets.textContent = data.counts.tickets ?? "-";
+    if (cards.open) cards.open.textContent = data.counts.open ?? "-";
+    if (cards.pending) cards.pending.textContent = data.counts.pending ?? "-";
+    if (cards.solved) cards.solved.textContent = data.counts.solved ?? "-";
+    if (cards.kb) cards.kb.textContent = data.counts.kbChunks ?? "-";
+
+    // bars
+    const total = Math.max(
+      1,
+      ...(data.byCompany || []).map((x) => Number(x.count || 0))
+    );
+
+    (data.byCompany || []).slice(0, 8).forEach((x) => {
+      const row = document.createElement("div");
+      row.className = "barRow";
+
+      const pct = Math.round((Number(x.count || 0) / total) * 100);
+
+      row.innerHTML = `
+        <div class="barLabel">${escapeHtml(companyLabel(x.companyId))}</div>
+        <div class="barTrack">
+          <div class="barFill" style="width:${pct}%"></div>
+        </div>
+        <div class="barValue">${escapeHtml(String(x.count || 0))}</div>
+      `;
+
+      bars.appendChild(row);
+    });
+
+    // latest tickets
+    if (!(data.latestTickets || []).length) {
+      list.innerHTML = `<div class="muted small">Inga tickets än.</div>`;
+      return;
+    }
+
+    data.latestTickets.forEach((t) => {
+      const div = document.createElement("div");
+      div.className = "dashTicket";
+
+      div.innerHTML = `
+        <div class="dashTicketTop">
+          <div class="dashTicketTitle">${escapeHtml(t.title || "Inget ämne")}</div>
+          <div class="dashTicketPills">
+            <span class="pill ${String(t.status || "open")}">${escapeHtml(t.status)}</span>
+            <span class="pill ${String(t.priority || "normal")}">${escapeHtml(t.priority)}</span>
+          </div>
+        </div>
+        <div class="dashTicketMeta">
+          <span><i class="fa-solid fa-user"></i> ${escapeHtml(t.username || "okänd")}</span>
+          <span><i class="fa-solid fa-tag"></i> ${escapeHtml(companyLabel(t.companyId))}</span>
+          <span class="muted">• ${escapeHtml(formatDate(t.lastActivityAt))}</span>
+        </div>
+        <div class="row" style="margin-top:10px;">
+          <button class="btn secondary small" data-open-ticket="${escapeHtml(String(t._id))}">
+            <i class="fa-solid fa-arrow-right"></i> Öppna i Inbox
+          </button>
+        </div>
+      `;
+
+      div.querySelector("[data-open-ticket]")?.addEventListener("click", async () => {
+        setActiveMenu("inbox");
+        openView("inbox");
+        inboxSelectedTicketId = t._id;
+        await inboxLoadTickets();
+        await inboxLoadTicketDetails(t._id);
+      });
+
+      list.appendChild(div);
+    });
+
+  } catch (e) {
+    console.error("Dashboard error:", e);
+    setDashMsg("Serverfel vid dashboard", true);
+  }
+}
+
 
 /*************************************************
  * ✅ Init
@@ -1028,11 +1285,10 @@ async function init() {
   applyCompanyToUI();
   refreshDebug();
 
-  if (token) {
-    currentUser = await fetchMe();
-  }
-
+  if (token) currentUser = await fetchMe();
   applyAuthUI();
+
+  $("dashRefreshBtn")?.addEventListener("click", adminLoadDashboard);
 
   $("themeToggle")?.addEventListener("click", toggleTheme);
   $("logoutBtn")?.addEventListener("click", logout);
@@ -1066,18 +1322,20 @@ async function init() {
   });
 
   $("openInboxView")?.addEventListener("click", async () => {
-    if (!token) return alert("Du måste vara inloggad");
     setActiveMenu("inbox");
     openView("inbox");
     await inboxLoadTickets();
   });
 
-  $("openAdminView")?.addEventListener("click", async () => {
-    setActiveMenu("admin");
-    openView("admin");
-    await kbRefreshList();
-    await adminLoadUsers();
-  });
+ $("openAdminView")?.addEventListener("click", async () => {
+  setActiveMenu("admin");
+  openView("admin");
+
+  await adminLoadDashboard(); // ✅ NY
+  await kbRefreshList();
+  await adminLoadUsers();
+});
+
 
   $("inboxRefreshBtn")?.addEventListener("click", inboxLoadTickets);
   $("inboxStatusFilter")?.addEventListener("change", inboxLoadTickets);
@@ -1090,10 +1348,6 @@ async function init() {
 
   $("sendAgentReplyInboxBtn")?.addEventListener("click", inboxSendAgentReply);
   $("setPriorityBtn")?.addEventListener("click", inboxSetPriority);
-
-  document.querySelectorAll(".tabBtn").forEach((btn) => {
-    btn.addEventListener("click", () => activateKbTab(btn.dataset.tab));
-  });
 
   $("kbRefreshBtn")?.addEventListener("click", kbRefreshList);
   $("kbExportBtn")?.addEventListener("click", kbExport);
@@ -1111,18 +1365,6 @@ async function init() {
     clearChat();
     addMessage("assistant", "Välkommen tillbaka! Vad kan jag hjälpa dig med?");
   }
-}
-
-/*************************************************
- * ✅ KB tabs helper (required by init)
- *************************************************/
-function activateKbTab(tabId) {
-  document.querySelectorAll(".tabBtn").forEach((b) => b.classList.remove("active"));
-  document.querySelectorAll(".tabPanel").forEach((p) => (p.style.display = "none"));
-
-  document.querySelectorAll(`.tabBtn[data-tab="${tabId}"]`).forEach((b) => b.classList.add("active"));
-  const panel = document.getElementById(tabId);
-  if (panel) panel.style.display = "";
 }
 
 document.addEventListener("DOMContentLoaded", init);
