@@ -141,11 +141,7 @@ async function ensureDefaultCategories() {
   ];
 
   for (const c of defaults) {
-    await Category.updateOne(
-      { key: c.key },
-      { $setOnInsert: c },
-      { upsert: true }
-    );
+    await Category.updateOne({ key: c.key }, { $setOnInsert: c }, { upsert: true });
   }
   console.log("✅ Default categories säkerställda");
 }
@@ -266,10 +262,7 @@ async function fetchUrlText(url) {
   const main = $("main").text() || $("article").text() || $("body").text();
   const text = cleanText(main);
 
-  if (!text || text.length < 200) {
-    throw new Error("Ingen tillräcklig text kunde extraheras från URL.");
-  }
-
+  if (!text || text.length < 200) throw new Error("Ingen tillräcklig text kunde extraheras från URL.");
   return text;
 }
 
@@ -322,10 +315,7 @@ function createTransport() {
     host: process.env.SMTP_HOST,
     port: Number(process.env.SMTP_PORT || 587),
     secure: String(process.env.SMTP_SECURE || "false") === "true",
-    auth: {
-      user: process.env.SMTP_USER,
-      pass: process.env.SMTP_PASS
-    }
+    auth: { user: process.env.SMTP_USER, pass: process.env.SMTP_PASS }
   });
 }
 
@@ -370,7 +360,7 @@ app.post("/login", async (req, res) => {
 });
 
 /* =====================
-   ✅ Change username (logged in)
+   ✅ Change username/password (logged in)
 ===================== */
 app.post("/auth/change-username", authenticate, async (req, res) => {
   try {
@@ -387,14 +377,11 @@ app.post("/auth/change-username", authenticate, async (req, res) => {
     await u.save();
 
     return res.json({ message: "Användarnamn uppdaterat ✅" });
-  } catch (e) {
+  } catch {
     return res.status(500).json({ error: "Serverfel vid byte av användarnamn" });
   }
 });
 
-/* =====================
-   ✅ Change password (logged in)
-===================== */
 app.post("/auth/change-password", authenticate, async (req, res) => {
   try {
     const { currentPassword, newPassword } = req.body || {};
@@ -416,7 +403,7 @@ app.post("/auth/change-password", authenticate, async (req, res) => {
 });
 
 /* =====================
-   ✅ Forgot password (email reset)
+   ✅ Forgot/Reset password
 ===================== */
 app.post("/auth/forgot-password", async (req, res) => {
   try {
@@ -424,21 +411,15 @@ app.post("/auth/forgot-password", async (req, res) => {
     if (!email) return res.status(400).json({ error: "Email krävs" });
 
     const u = await User.findOne({ email });
-    if (!u) {
-      // säkerhet: säg aldrig om email finns
-      return res.json({ message: "Om email finns så skickas en länk ✅" });
-    }
+    if (!u) return res.json({ message: "Om email finns så skickas en länk ✅" });
 
-    if (!smtpReady()) {
-      console.error("❌ SMTP saknas i ENV");
-      return res.status(500).json({ error: "SMTP är inte konfigurerat i Render ENV" });
-    }
+    if (!smtpReady()) return res.status(500).json({ error: "SMTP är inte konfigurerat i Render ENV" });
 
     const resetToken = crypto.randomBytes(32).toString("hex");
     const resetTokenHash = crypto.createHash("sha256").update(resetToken).digest("hex");
 
     u.resetTokenHash = resetTokenHash;
-    u.resetTokenExpiresAt = new Date(Date.now() + 1000 * 60 * 30); // 30 min
+    u.resetTokenExpiresAt = new Date(Date.now() + 1000 * 60 * 30);
     await u.save();
 
     const resetLink = `${process.env.APP_URL}/?resetToken=${resetToken}`;
@@ -465,9 +446,6 @@ app.post("/auth/forgot-password", async (req, res) => {
   }
 });
 
-/* =====================
-   ✅ Reset password (token)
-===================== */
 app.post("/auth/reset-password", async (req, res) => {
   try {
     const { resetToken, newPassword } = req.body || {};
@@ -495,19 +473,14 @@ app.post("/auth/reset-password", async (req, res) => {
 });
 
 /* =====================
-   ✅ Feedback (ALL users)
+   ✅ Feedback
 ===================== */
 app.post("/feedback", authenticate, async (req, res) => {
   try {
     const { type, companyId } = req.body || {};
     if (!type) return res.status(400).json({ error: "type saknas" });
 
-    await new Feedback({
-      userId: req.user.id,
-      type,
-      companyId: companyId || "demo"
-    }).save();
-
+    await new Feedback({ userId: req.user.id, type, companyId: companyId || "demo" }).save();
     return res.json({ message: "Feedback sparad ✅" });
   } catch {
     return res.status(500).json({ error: "Serverfel vid feedback" });
@@ -515,7 +488,7 @@ app.post("/feedback", authenticate, async (req, res) => {
 });
 
 /* =====================
-   ✅ Public Categories (for dropdown for ALL users)
+   ✅ Categories (dropdown for ALL users)
 ===================== */
 app.get("/categories", async (req, res) => {
   try {
@@ -527,14 +500,12 @@ app.get("/categories", async (req, res) => {
 });
 
 /* =====================
-   ✅ CHAT (with ticket + RAG)
+   ✅ CHAT (ticket + RAG)
 ===================== */
 app.post("/chat", authenticate, async (req, res) => {
   try {
     const { companyId, conversation, ticketId } = req.body || {};
-    if (!companyId || !Array.isArray(conversation)) {
-      return res.status(400).json({ error: "companyId eller konversation saknas" });
-    }
+    if (!companyId || !Array.isArray(conversation)) return res.status(400).json({ error: "companyId eller konversation saknas" });
 
     let ticket;
     if (ticketId) {
@@ -589,7 +560,7 @@ app.post("/chat", authenticate, async (req, res) => {
 });
 
 /* =====================
-   ✅ USER: My tickets (for "Mina ärenden")
+   ✅ USER: My tickets
 ===================== */
 app.get("/my/tickets", authenticate, async (req, res) => {
   const tickets = await Ticket.find({ userId: req.user.id }).sort({ lastActivityAt: -1 }).limit(100);
@@ -603,7 +574,7 @@ app.get("/my/tickets/:ticketId", authenticate, async (req, res) => {
 });
 
 /* =====================
-   ✅ ADMIN/AGENT: Inbox (tickets)
+   ✅ ADMIN/AGENT: Inbox
 ===================== */
 app.get("/admin/tickets", authenticate, requireAgentOrAdmin, async (req, res) => {
   try {
@@ -635,6 +606,7 @@ app.post("/admin/tickets/:ticketId/status", authenticate, requireAgentOrAdmin, a
   t.status = status;
   t.lastActivityAt = new Date();
   await t.save();
+
   return res.json({ message: "Status uppdaterad ✅", ticket: t });
 });
 
@@ -648,6 +620,7 @@ app.post("/admin/tickets/:ticketId/priority", authenticate, requireAgentOrAdmin,
   t.priority = priority;
   t.lastActivityAt = new Date();
   await t.save();
+
   return res.json({ message: "Prioritet uppdaterad ✅", ticket: t });
 });
 
@@ -666,19 +639,90 @@ app.post("/admin/tickets/:ticketId/agent-reply", authenticate, requireAgentOrAdm
   return res.json({ message: "Agent-svar sparat ✅", ticket: t });
 });
 
+/* =====================
+   ✅ Internal notes (add/delete)
+===================== */
 app.post("/admin/tickets/:ticketId/internal-note", authenticate, requireAgentOrAdmin, async (req, res) => {
-  const { content } = req.body || {};
-  if (!content) return res.status(400).json({ error: "Notering saknas" });
+  try {
+    const { content } = req.body || {};
+    if (!content) return res.status(400).json({ error: "Notering saknas" });
 
-  const t = await Ticket.findById(req.params.ticketId);
-  if (!t) return res.status(404).json({ error: "Ticket hittades inte" });
+    const t = await Ticket.findById(req.params.ticketId);
+    if (!t) return res.status(404).json({ error: "Ticket hittades inte" });
 
-  t.internalNotes.push({ createdBy: req.user.id, content: cleanText(content) });
-  await t.save();
+    t.internalNotes.push({ createdBy: req.user.id, content: cleanText(content) });
+    t.lastActivityAt = new Date();
+    await t.save();
 
-  return res.json({ message: "Intern notering sparad ✅" });
+    return res.json({ message: "Intern notering sparad ✅", ticket: t });
+  } catch {
+    return res.status(500).json({ error: "Serverfel vid intern notering" });
+  }
 });
 
+app.delete("/admin/tickets/:ticketId/internal-note/:noteId", authenticate, requireAdmin, async (req, res) => {
+  try {
+    const { ticketId, noteId } = req.params;
+
+    const t = await Ticket.findById(ticketId);
+    if (!t) return res.status(404).json({ error: "Ticket hittades inte" });
+
+    t.internalNotes = (t.internalNotes || []).filter(n => String(n._id) !== String(noteId));
+    t.lastActivityAt = new Date();
+    await t.save();
+
+    return res.json({ message: "Notering borttagen ✅", ticket: t });
+  } catch {
+    return res.status(500).json({ error: "Serverfel vid borttagning av note" });
+  }
+});
+
+app.delete("/admin/tickets/:ticketId/internal-notes", authenticate, requireAdmin, async (req, res) => {
+  try {
+    const { ticketId } = req.params;
+
+    const t = await Ticket.findById(ticketId);
+    if (!t) return res.status(404).json({ error: "Ticket hittades inte" });
+
+    t.internalNotes = [];
+    t.lastActivityAt = new Date();
+    await t.save();
+
+    return res.json({ message: "Alla noteringar borttagna ✅", ticket: t });
+  } catch {
+    return res.status(500).json({ error: "Serverfel vid rensning av notes" });
+  }
+});
+
+/* =====================
+   ✅ Solve all / Remove solved
+===================== */
+app.post("/admin/tickets/solve-all", authenticate, requireAdmin, async (req, res) => {
+  try {
+    const r = await Ticket.updateMany(
+      { status: { $in: ["open", "pending"] } },
+      { $set: { status: "solved", lastActivityAt: new Date() } }
+    );
+    return res.json({ message: `Solve ALL ✅ Uppdaterade ${r.modifiedCount} tickets.` });
+  } catch (e) {
+    console.error("❌ Solve ALL error:", e?.message || e);
+    return res.status(500).json({ error: "Serverfel vid Solve ALL" });
+  }
+});
+
+app.post("/admin/tickets/remove-solved", authenticate, requireAdmin, async (req, res) => {
+  try {
+    const r = await Ticket.deleteMany({ status: "solved" });
+    return res.json({ message: `Remove solved ✅ Tog bort ${r.deletedCount} tickets.` });
+  } catch (e) {
+    console.error("❌ Remove solved error:", e?.message || e);
+    return res.status(500).json({ error: "Serverfel vid Remove solved" });
+  }
+});
+
+/* =====================
+   ✅ Assign ticket + delete ticket
+===================== */
 app.post("/admin/tickets/:ticketId/assign", authenticate, requireAgentOrAdmin, async (req, res) => {
   const { userId } = req.body || {};
   if (!userId) return res.status(400).json({ error: "userId saknas" });
@@ -687,9 +731,10 @@ app.post("/admin/tickets/:ticketId/assign", authenticate, requireAgentOrAdmin, a
   if (!t) return res.status(404).json({ error: "Ticket hittades inte" });
 
   t.assignedToUserId = userId;
+  t.lastActivityAt = new Date();
   await t.save();
 
-  return res.json({ message: "Ticket assignad ✅" });
+  return res.json({ message: "Ticket assignad ✅", ticket: t });
 });
 
 app.delete("/admin/tickets/:ticketId", authenticate, requireAgentOrAdmin, async (req, res) => {
@@ -703,39 +748,6 @@ app.delete("/admin/tickets/:ticketId", authenticate, requireAgentOrAdmin, async 
     return res.status(500).json({ error: "Serverfel vid borttagning av ticket" });
   }
 });
-
-app.post("/admin/tickets/cleanup-solved", authenticate, requireAdmin, async (req, res) => {
-  try {
-    const r = await Ticket.deleteMany({ status: "solved" });
-    return res.json({ message: `Rensade solved ✅ (${r.deletedCount} st)` });
-  } catch {
-    return res.status(500).json({ error: "Serverfel vid cleanup" });
-  }
-});
-
-// ✅ ADMIN: Solve ALL tickets (open/pending -> solved)
-app.post("/admin/tickets/solve-all", authenticate, requireAdmin, async (req, res) => {
-  try {
-    const r = await Ticket.updateMany(
-      { status: { $in: ["open", "pending"] } },
-      { $set: { status: "solved", lastActivityAt: new Date() } }
-    );
-    return res.json({ message: `Solve ALL ✅ Uppdaterade ${r.modifiedCount} tickets.` });
-  } catch (e) {
-    return res.status(500).json({ error: "Serverfel vid Solve ALL" });
-  }
-});
-
-// ✅ ADMIN: Remove ALL solved tickets
-app.post("/admin/tickets/remove-solved", authenticate, requireAdmin, async (req, res) => {
-  try {
-    const r = await Ticket.deleteMany({ status: "solved" });
-    return res.json({ message: `Remove solved ✅ Tog bort ${r.deletedCount} solved tickets.` });
-  } catch (e) {
-    return res.status(500).json({ error: "Serverfel vid Remove solved" });
-  }
-});
-
 
 /* =====================
    ✅ ADMIN: Users + roles (user/agent/admin)
@@ -758,16 +770,13 @@ app.post("/admin/users/:userId/role", authenticate, requireAdmin, async (req, re
     const u = await User.findById(targetId);
     if (!u) return res.status(404).json({ error: "User hittades inte" });
 
-    // allow removing admin from others, but not yourself
-    if (String(u._id) === String(me._id)) {
-      return res.status(400).json({ error: "Du kan inte ändra din egen roll." });
-    }
+    if (String(u._id) === String(me._id)) return res.status(400).json({ error: "Du kan inte ändra din egen roll." });
 
     u.role = role;
     await u.save();
 
     return res.json({ message: "Roll uppdaterad ✅", user: { id: u._id, username: u.username, role: u.role } });
-  } catch (e) {
+  } catch {
     return res.status(500).json({ error: "Serverfel vid roll-ändring" });
   }
 });
@@ -776,9 +785,7 @@ app.delete("/admin/users/:userId", authenticate, requireAdmin, async (req, res) 
   try {
     const targetId = req.params.userId;
 
-    if (String(targetId) === String(req.user.id)) {
-      return res.status(400).json({ error: "Du kan inte ta bort dig själv." });
-    }
+    if (String(targetId) === String(req.user.id)) return res.status(400).json({ error: "Du kan inte ta bort dig själv." });
 
     const u = await User.findById(targetId);
     if (!u) return res.status(404).json({ error: "User hittades inte" });
@@ -788,7 +795,7 @@ app.delete("/admin/users/:userId", authenticate, requireAdmin, async (req, res) 
     await User.deleteOne({ _id: targetId });
 
     return res.json({ message: `Användaren ${u.username} togs bort ✅` });
-  } catch (e) {
+  } catch {
     return res.status(500).json({ error: "Serverfel vid borttagning" });
   }
 });
@@ -835,7 +842,6 @@ app.put("/admin/categories/:key", authenticate, requireAdmin, async (req, res) =
 app.delete("/admin/categories/:key", authenticate, requireAdmin, async (req, res) => {
   try {
     const key = req.params.key;
-
     if (["demo", "law", "tech", "cleaning"].includes(key)) {
       return res.status(400).json({ error: "Default-kategorier kan inte tas bort" });
     }
@@ -1011,7 +1017,25 @@ app.get("/admin/export/all", authenticate, requireAdmin, async (req, res) => {
 });
 
 /* =====================
+   ✅ JSON 404 for API routes
+===================== */
+app.use((req, res, next) => {
+  if (
+    req.path.startsWith("/admin") ||
+    req.path.startsWith("/auth") ||
+    req.path.startsWith("/kb") ||
+    req.path.startsWith("/chat") ||
+    req.path.startsWith("/my") ||
+    req.path.startsWith("/feedback")
+  ) {
+    return res.status(404).json({ error: "API route hittades inte" });
+  }
+  next();
+});
+
+/* =====================
    ✅ Start
 ===================== */
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => console.log(`✅ Servern körs på http://localhost:${PORT}`));
+console.log("✅ server.js reached end of file without crashing");
