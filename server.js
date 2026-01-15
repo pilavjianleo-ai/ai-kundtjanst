@@ -404,6 +404,30 @@ app.post("/admin/tickets/:ticketId/status", authenticate, requireAdmin, async (r
   return res.json({ message: "Status uppdaterad", ticket: t });
 });
 
+// ✅ ADMIN: Set priority (low | normal | high)
+app.post("/admin/tickets/:ticketId/priority", authenticate, requireAdmin, async (req, res) => {
+  try {
+    const { priority } = req.body || {};
+    if (!["low", "normal", "high"].includes(priority)) {
+      return res.status(400).json({ error: "Ogiltig prioritet" });
+    }
+
+    const t = await Ticket.findById(req.params.ticketId);
+    if (!t) return res.status(404).json({ error: "Ticket hittades inte" });
+
+    t.priority = priority;
+    t.lastActivityAt = new Date();
+    await t.save();
+
+    return res.json({ message: "Prioritet uppdaterad ✅", ticket: t });
+  } catch (e) {
+    console.error("❌ Priority error:", e?.message || e);
+    return res.status(500).json({ error: "Serverfel vid prioritet" });
+  }
+});
+
+
+
 app.post("/admin/tickets/:ticketId/agent-reply", authenticate, requireAdmin, async (req, res) => {
   const { content } = req.body || {};
   if (!content) return res.status(400).json({ error: "content saknas" });
@@ -438,6 +462,30 @@ app.post("/admin/users/:userId/role", authenticate, requireAdmin, async (req, re
   await u.save();
 
   return res.json({ message: "Roll uppdaterad", user: { id: u._id, username: u.username, role: u.role } });
+});
+
+// ✅ ADMIN: Delete user (and their tickets/feedback)
+app.delete("/admin/users/:userId", authenticate, requireAdmin, async (req, res) => {
+  try {
+    const targetId = req.params.userId;
+
+    // stoppa att admin råkar ta bort sig själv
+    if (String(targetId) === String(req.user.id)) {
+      return res.status(400).json({ error: "Du kan inte ta bort dig själv." });
+    }
+
+    const u = await User.findById(targetId);
+    if (!u) return res.status(404).json({ error: "User hittades inte" });
+
+    await Ticket.deleteMany({ userId: targetId });
+    await Feedback.deleteMany({ userId: targetId });
+    await User.deleteOne({ _id: targetId });
+
+    return res.json({ message: `Användaren ${u.username} togs bort ✅` });
+  } catch (e) {
+    console.error("❌ Delete user error:", e?.message || e);
+    return res.status(500).json({ error: "Serverfel vid borttagning" });
+  }
 });
 
 /* =====================

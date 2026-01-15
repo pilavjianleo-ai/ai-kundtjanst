@@ -15,6 +15,8 @@ const API = {
   ADMIN_TICKET: (id) => `${API_BASE}/admin/tickets/${id}`,
   ADMIN_TICKET_STATUS: (id) => `${API_BASE}/admin/tickets/${id}/status`,
   ADMIN_TICKET_REPLY: (id) => `${API_BASE}/admin/tickets/${id}/agent-reply`,
+  ADMIN_TICKET_PRIORITY: (id) => `${API_BASE}/admin/tickets/${id}/priority`,
+  ADMIN_DELETE_USER: (id) => `${API_BASE}/admin/users/${id}`,
   ADMIN_EXPORT_ALL: `${API_BASE}/admin/export/all`,
   ADMIN_EXPORT_TRAINING: `${API_BASE}/admin/export/training`,
   KB_LIST: (companyId) => `${API_BASE}/kb/list/${companyId}`,
@@ -334,6 +336,19 @@ async function sendMessage() {
     });
 
     const data = await res.json();
+
+    // ✅ Frontend search filter
+const q = ($("inboxSearchInput")?.value || "").trim().toLowerCase();
+let filtered = data;
+
+if (q) {
+  filtered = data.filter((t) => {
+    const a = String(t.title || "").toLowerCase();
+    const b = String(t.companyId || "").toLowerCase();
+    const c = String(t._id || "").toLowerCase();
+    return a.includes(q) || b.includes(q) || c.includes(q);
+  });
+}
     hideTyping();
 
     if (!res.ok) {
@@ -394,12 +409,12 @@ async function inboxLoadTickets() {
       return;
     }
 
-    if (!data.length) {
+    if (!filtered.length) {
       list.innerHTML = `<div class="muted small">Inga tickets hittades.</div>`;
       return;
     }
 
-    data.forEach((t) => {
+    filtered.forEach((t) => {
       const div = document.createElement("div");
       div.className = `ticketItem ${inboxSelectedTicketId === t._id ? "selected" : ""}`;
 
@@ -512,6 +527,42 @@ async function inboxSetStatus(status) {
     setAlert(msg, "Serverfel vid status", true);
   }
 }
+
+async function inboxSetPriority() {
+  const msg = $("inboxTicketMsg");
+  setAlert(msg, "");
+
+  if (!inboxSelectedTicketId) {
+    setAlert(msg, "Välj en ticket först.", true);
+    return;
+  }
+
+  const priority = $("ticketPrioritySelect")?.value || "normal";
+
+  try {
+    const res = await fetch(API.ADMIN_TICKET_PRIORITY(inboxSelectedTicketId), {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`
+      },
+      body: JSON.stringify({ priority })
+    });
+
+    const data = await res.json();
+    if (!res.ok) {
+      setAlert(msg, data?.error || "Kunde inte spara prioritet", true);
+      return;
+    }
+
+    setAlert(msg, "Prioritet sparad ✅");
+    await inboxLoadTicketDetails(inboxSelectedTicketId);
+    await inboxLoadTickets();
+  } catch (e) {
+    setAlert(msg, "Serverfel vid prioritet", true);
+  }
+}
+
 
 async function inboxSendAgentReply() {
   const msgEl = $("inboxTicketMsg");
@@ -794,13 +845,17 @@ async function adminLoadUsers() {
           ${escapeHtml(u.username)}
           <span class="pill ${isAdmin ? "admin" : ""}">${escapeHtml(u.role)}</span>
         </div>
-        <div class="listItemMeta">ID: ${escapeHtml(u._id || u.id || "-")}</div>
         <div class="row" style="margin-top:10px;">
-          <button class="btn secondary small" data-action="toggleRole">
-            <i class="fa-solid fa-user-gear"></i>
-            ${isAdmin ? "Ta bort admin" : "Gör admin"}
-          </button>
-        </div>
+  <button class="btn secondary small" data-action="toggleRole">
+    <i class="fa-solid fa-user-gear"></i>
+    ${isAdmin ? "Ta bort admin" : "Gör admin"}
+  </button>
+
+  <button class="btn danger small" data-action="deleteUser">
+    <i class="fa-solid fa-trash"></i>
+    Ta bort
+  </button>
+</div>
       `;
 
       div.querySelector('[data-action="toggleRole"]')?.addEventListener("click", async () => {
@@ -808,6 +863,14 @@ async function adminLoadUsers() {
         await adminSetUserRole(u._id, newRole);
         await adminLoadUsers();
       });
+
+      div.querySelector('[data-action="deleteUser"]')?.addEventListener("click", async () => {
+  const ok = confirm(`Vill du verkligen ta bort användaren "${u.username}"? Detta tar även bort deras tickets.`);
+  if (!ok) return;
+
+  await adminDeleteUser(u._id);
+  await adminLoadUsers();
+});
 
       list.appendChild(div);
     });
@@ -840,6 +903,30 @@ async function adminSetUserRole(userId, role) {
   } catch {
     setAlert(msgEl, "Serverfel vid roll-ändring", true);
   }
+
+async function adminDeleteUser(userId) {
+  const msgEl = $("adminUsersMsg");
+  setAlert(msgEl, "");
+
+  try {
+    const res = await fetch(API.ADMIN_DELETE_USER(userId), {
+      method: "DELETE",
+      headers: { Authorization: `Bearer ${token}` }
+    });
+
+    const data = await res.json();
+    if (!res.ok) {
+      setAlert(msgEl, data?.error || "Kunde inte ta bort user", true);
+      return;
+    }
+
+    setAlert(msgEl, data.message || "User borttagen ✅");
+  } catch {
+    setAlert(msgEl, "Serverfel vid borttagning", true);
+  }
+}
+
+
 }
 
 /*************************************************
@@ -992,11 +1079,13 @@ async function init() {
   $("inboxRefreshBtn")?.addEventListener("click", inboxLoadTickets);
   $("inboxStatusFilter")?.addEventListener("change", inboxLoadTickets);
   $("inboxCategoryFilter")?.addEventListener("change", inboxLoadTickets);
-
+  $("inboxSearchInput")?.addEventListener("input", inboxLoadTickets);
   $("setStatusOpen")?.addEventListener("click", () => inboxSetStatus("open"));
   $("setStatusPending")?.addEventListener("click", () => inboxSetStatus("pending"));
   $("setStatusSolved")?.addEventListener("click", () => inboxSetStatus("solved"));
   $("sendAgentReplyInboxBtn")?.addEventListener("click", inboxSendAgentReply);
+  $("setPriorityBtn")?.addEventListener("click", inboxSetPriority);
+
 
   // KB tabs
   document.querySelectorAll(".tabBtn").forEach((btn) => {
