@@ -14,8 +14,6 @@ const cheerio = require("cheerio");
 const pdfParse = require("pdf-parse");
 
 const app = express();
-
-// ✅ Render / reverse proxy
 app.set("trust proxy", 1);
 
 app.use(express.json({ limit: "18mb" }));
@@ -44,17 +42,16 @@ mongoose
   .then(() => console.log("✅ MongoDB ansluten"))
   .catch((err) => console.error("❌ MongoDB-fel:", err.message));
 
-mongoose.connection.on("error", (err) => {
-  console.error("❌ MongoDB runtime error:", err);
-});
+mongoose.connection.on("error", (err) => console.error("❌ MongoDB runtime error:", err));
 
 /* =====================
    ✅ Models
 ===================== */
+// roles: user | agent | admin
 const userSchema = new mongoose.Schema({
   username: { type: String, unique: true, required: true },
   password: { type: String, required: true },
-  role: { type: String, default: "user" }, // user | admin
+  role: { type: String, default: "user" },
   createdAt: { type: Date, default: Date.now }
 });
 const User = mongoose.model("User", userSchema);
@@ -71,7 +68,16 @@ const ticketSchema = new mongoose.Schema({
   status: { type: String, default: "open" }, // open | pending | solved
   priority: { type: String, default: "normal" }, // low | normal | high
   title: { type: String, default: "" },
+
+  assignedTo: { type: mongoose.Schema.Types.ObjectId, ref: "User", default: null }, // agent/admin
+  agentNotes: { type: String, default: "" }, // internal notes
+
   messages: [messageSchema],
+
+  // SLA tracking
+  slaDueAt: { type: Date, default: null },     // deadline for reply
+  firstResponseAt: { type: Date, default: null },
+
   lastActivityAt: { type: Date, default: Date.now },
   createdAt: { type: Date, default: Date.now }
 });
@@ -195,18 +201,30 @@ async function ragSearch(companyId, query, topK = 4) {
 function getSystemPrompt(companyId) {
   switch (companyId) {
     case "law":
-      return "Du är en AI-kundtjänst för juridiska frågor på svenska. Ge allmän vägledning och var tydlig med att detta inte är juridisk rådgivning.";
+      return "Du är en AI-kundtjänst för juridiska frågor på svenska. Ge allmän vägledning och var tydlig att detta inte är juridisk rådgivning.";
     case "tech":
-      return "Du är en AI-kundtjänst för teknisk support inom IT och programmering. Felsök steg-för-steg och var konkret.";
+      return "Du är en AI-kundtjänst för teknisk support inom IT/programmering. Felsök steg-för-steg och var konkret.";
     case "cleaning":
       return "Du är en AI-kundtjänst för städservice. Hjälp med frågor om tjänster, upplägg och rutiner.";
     default:
-      return "Du är en professionell, vänlig AI-kundtjänst på svenska.";
+      return "Du är en professionell och vänlig AI-kundtjänst på svenska. Svara kort, tydligt och hjälpsamt.";
   }
 }
 
-async function ensureTicket(userId, companyId) {
-  const t = await new Ticket({ userId, companyId, messages: [] }).save();
+function slaMinutesForPriority(priority) {
+  if (priority === "high") return 15;
+  if (priority === "low") return 120;
+  return 45;
+}
+
+async function createNewTicket(userId, companyId) {
+  const t = new Ticket({ userId, companyId, messages: [] });
+
+  // SLA due date based on default priority
+  const mins = slaMinutesForPriority(t.priority);
+  t.slaDueAt = new Date(Date.now() + mins * 60 * 1000);
+
+  await t.save();
   return t;
 }
 
@@ -223,16 +241,14 @@ async function fetchUrlText(url) {
 
   if (!res.ok) throw new Error(`Kunde inte hämta URL. Status: ${res.status}`);
   const html = await res.text();
-
   const $ = cheerio.load(html);
+
   $("script, style, nav, footer, header, aside").remove();
 
   const main = $("main").text() || $("article").text() || $("body").text();
   const text = cleanText(main);
 
-  if (!text || text.length < 200) {
-    throw new Error("Ingen tillräcklig text kunde extraheras från URL.");
-  }
+  if (!text || text.length < 200) throw new Error("Ingen tillräcklig text kunde extraheras från URL.");
   return text;
 }
 
@@ -259,9 +275,17 @@ const authenticate = (req, res, next) => {
   }
 };
 
+const requireAgent = async (req, res, next) => {
+  const u = await User.findById(req.user?.id);
+  if (!u || !["agent", "admin"].includes(u.role)) return res.status(403).json({ error: "Agent eller Admin krävs" });
+  req.dbUser = u;
+  next();
+};
+
 const requireAdmin = async (req, res, next) => {
-  const dbUser = await User.findById(req.user?.id);
-  if (!dbUser || dbUser.role !== "admin") return res.status(403).json({ error: "Admin krävs" });
+  const u = await User.findById(req.user?.id);
+  if (!u || u.role !== "admin") return res.status(403).json({ error: "Admin krävs" });
+  req.dbUser = u;
   next();
 };
 
@@ -320,7 +344,7 @@ app.post("/chat", authenticate, async (req, res) => {
       ticket = await Ticket.findOne({ _id: ticketId, userId: req.user.id });
       if (!ticket) return res.status(404).json({ error: "Ticket hittades inte" });
     } else {
-      ticket = await ensureTicket(req.user.id, companyId);
+      ticket = await createNewTicket(req.user.id, companyId);
     }
 
     const lastUser = conversation[conversation.length - 1];
@@ -352,6 +376,11 @@ app.post("/chat", authenticate, async (req, res) => {
     const reply = cleanText(response.choices?.[0]?.message?.content || "Inget svar från AI.");
 
     ticket.messages.push({ role: "assistant", content: reply, timestamp: new Date() });
+
+    if (!ticket.firstResponseAt) {
+      ticket.firstResponseAt = new Date();
+    }
+
     ticket.lastActivityAt = new Date();
     await ticket.save();
 
@@ -368,16 +397,29 @@ app.post("/chat", authenticate, async (req, res) => {
 });
 
 /* =====================
-   ✅ ADMIN: Tickets inbox (with username)
+   ✅ USER tickets
 ===================== */
-app.get("/admin/tickets", authenticate, requireAdmin, async (req, res) => {
+app.get("/tickets", authenticate, async (req, res) => {
+  const tickets = await Ticket.find({ userId: req.user.id }).sort({ lastActivityAt: -1 }).limit(50);
+  return res.json(tickets);
+});
+
+/* =====================
+   ✅ AGENT/ADMIN Inbox
+===================== */
+app.get("/admin/tickets", authenticate, requireAgent, async (req, res) => {
   try {
-    const { status, companyId } = req.query || {};
+    const { status, companyId, assigned } = req.query || {};
     const query = {};
+
     if (status) query.status = status;
     if (companyId) query.companyId = companyId;
 
-    const tickets = await Ticket.find(query).sort({ lastActivityAt: -1 }).limit(300).lean();
+    // assigned = "me" | "unassigned"
+    if (assigned === "me") query.assignedTo = req.user.id;
+    if (assigned === "unassigned") query.assignedTo = null;
+
+    const tickets = await Ticket.find(query).sort({ lastActivityAt: -1 }).limit(400).lean();
 
     const userIds = [...new Set(tickets.map((t) => String(t.userId)))];
     const users = await User.find({ _id: { $in: userIds } }).select("username").lean();
@@ -395,17 +437,23 @@ app.get("/admin/tickets", authenticate, requireAdmin, async (req, res) => {
   }
 });
 
-app.get("/admin/tickets/:ticketId", authenticate, requireAdmin, async (req, res) => {
-  const t = await Ticket.findById(req.params.ticketId);
+app.get("/admin/tickets/:ticketId", authenticate, requireAgent, async (req, res) => {
+  const t = await Ticket.findById(req.params.ticketId).lean();
   if (!t) return res.status(404).json({ error: "Ticket hittades inte" });
-  return res.json(t);
+
+  const customer = await User.findById(t.userId).select("username").lean();
+  const assigned = t.assignedTo ? await User.findById(t.assignedTo).select("username").lean() : null;
+
+  return res.json({
+    ...t,
+    customerUsername: customer?.username || "okänd",
+    assignedUsername: assigned?.username || ""
+  });
 });
 
-app.post("/admin/tickets/:ticketId/status", authenticate, requireAdmin, async (req, res) => {
+app.post("/admin/tickets/:ticketId/status", authenticate, requireAgent, async (req, res) => {
   const { status } = req.body || {};
-  if (!["open", "pending", "solved"].includes(status)) {
-    return res.status(400).json({ error: "Ogiltig status" });
-  }
+  if (!["open", "pending", "solved"].includes(status)) return res.status(400).json({ error: "Ogiltig status" });
 
   const t = await Ticket.findById(req.params.ticketId);
   if (!t) return res.status(404).json({ error: "Ticket hittades inte" });
@@ -417,23 +465,26 @@ app.post("/admin/tickets/:ticketId/status", authenticate, requireAdmin, async (r
   return res.json({ message: "Status uppdaterad ✅", ticket: t });
 });
 
-app.post("/admin/tickets/:ticketId/priority", authenticate, requireAdmin, async (req, res) => {
+app.post("/admin/tickets/:ticketId/priority", authenticate, requireAgent, async (req, res) => {
   const { priority } = req.body || {};
-  if (!["low", "normal", "high"].includes(priority)) {
-    return res.status(400).json({ error: "Ogiltig prioritet" });
-  }
+  if (!["low", "normal", "high"].includes(priority)) return res.status(400).json({ error: "Ogiltig prioritet" });
 
   const t = await Ticket.findById(req.params.ticketId);
   if (!t) return res.status(404).json({ error: "Ticket hittades inte" });
 
   t.priority = priority;
+
+  // refresh SLA due date when priority changes
+  const mins = slaMinutesForPriority(priority);
+  t.slaDueAt = new Date(Date.now() + mins * 60 * 1000);
+
   t.lastActivityAt = new Date();
   await t.save();
 
   return res.json({ message: "Prioritet sparad ✅", ticket: t });
 });
 
-app.post("/admin/tickets/:ticketId/agent-reply", authenticate, requireAdmin, async (req, res) => {
+app.post("/admin/tickets/:ticketId/agent-reply", authenticate, requireAgent, async (req, res) => {
   const { content } = req.body || {};
   if (!content) return res.status(400).json({ error: "content saknas" });
 
@@ -448,8 +499,41 @@ app.post("/admin/tickets/:ticketId/agent-reply", authenticate, requireAdmin, asy
   return res.json({ message: "Agent-svar skickat ✅", ticket: t });
 });
 
+// ✅ Assign ticket to agent/admin
+app.post("/admin/tickets/:ticketId/assign", authenticate, requireAgent, async (req, res) => {
+  const { userId } = req.body || {}; // null = unassign
+  const t = await Ticket.findById(req.params.ticketId);
+  if (!t) return res.status(404).json({ error: "Ticket hittades inte" });
+
+  if (userId) {
+    const u = await User.findById(userId);
+    if (!u || !["agent", "admin"].includes(u.role)) return res.status(400).json({ error: "Kan bara assigna agent/admin" });
+    t.assignedTo = u._id;
+  } else {
+    t.assignedTo = null;
+  }
+
+  t.lastActivityAt = new Date();
+  await t.save();
+
+  return res.json({ message: "Assignment sparad ✅", ticket: t });
+});
+
+// ✅ Agent notes (internal)
+app.post("/admin/tickets/:ticketId/notes", authenticate, requireAgent, async (req, res) => {
+  const { notes } = req.body || {};
+  const t = await Ticket.findById(req.params.ticketId);
+  if (!t) return res.status(404).json({ error: "Ticket hittades inte" });
+
+  t.agentNotes = cleanText(notes || "");
+  t.lastActivityAt = new Date();
+  await t.save();
+
+  return res.json({ message: "Notes sparade ✅", ticket: t });
+});
+
 /* =====================
-   ✅ ADMIN: DASHBOARD ✅
+   ✅ ADMIN: Dashboard
 ===================== */
 app.get("/admin/dashboard", authenticate, requireAdmin, async (req, res) => {
   try {
@@ -469,23 +553,14 @@ app.get("/admin/dashboard", authenticate, requireAdmin, async (req, res) => {
       KBChunk.countDocuments({})
     ]);
 
-    // Tickets per kategori
     const byCompanyAgg = await Ticket.aggregate([
       { $group: { _id: "$companyId", count: { $sum: 1 } } },
       { $sort: { count: -1 } }
     ]);
 
-    const byCompany = byCompanyAgg.map((x) => ({
-      companyId: x._id,
-      count: x.count
-    }));
+    const byCompany = byCompanyAgg.map((x) => ({ companyId: x._id, count: x.count }));
 
-    // Senaste tickets (10)
-    const latestTicketsRaw = await Ticket.find({})
-      .sort({ lastActivityAt: -1 })
-      .limit(10)
-      .lean();
-
+    const latestTicketsRaw = await Ticket.find({}).sort({ lastActivityAt: -1 }).limit(12).lean();
     const latestUserIds = [...new Set(latestTicketsRaw.map((t) => String(t.userId)))];
     const latestUsers = await User.find({ _id: { $in: latestUserIds } }).select("username").lean();
     const map = new Map(latestUsers.map((u) => [String(u._id), u.username]));
@@ -500,6 +575,12 @@ app.get("/admin/dashboard", authenticate, requireAdmin, async (req, res) => {
       username: map.get(String(t.userId)) || "okänd"
     }));
 
+    // SLA overdue
+    const overdueCount = await Ticket.countDocuments({
+      status: { $in: ["open", "pending"] },
+      slaDueAt: { $ne: null, $lt: new Date() }
+    });
+
     return res.json({
       counts: {
         users: usersCount,
@@ -507,7 +588,8 @@ app.get("/admin/dashboard", authenticate, requireAdmin, async (req, res) => {
         open: openCount,
         pending: pendingCount,
         solved: solvedCount,
-        kbChunks: kbCount
+        kbChunks: kbCount,
+        slaOverdue: overdueCount
       },
       byCompany,
       latestTickets
@@ -519,16 +601,16 @@ app.get("/admin/dashboard", authenticate, requireAdmin, async (req, res) => {
 });
 
 /* =====================
-   ✅ ADMIN: Users + role + delete
+   ✅ ADMIN: Users/roles/delete
 ===================== */
 app.get("/admin/users", authenticate, requireAdmin, async (req, res) => {
-  const users = await User.find({}).select("-password").sort({ createdAt: -1 }).limit(1000);
+  const users = await User.find({}).select("-password").sort({ createdAt: -1 }).limit(2000);
   return res.json(users);
 });
 
 app.post("/admin/users/:userId/role", authenticate, requireAdmin, async (req, res) => {
   const { role } = req.body || {};
-  if (!["user", "admin"].includes(role)) return res.status(400).json({ error: "Ogiltig roll" });
+  if (!["user", "agent", "admin"].includes(role)) return res.status(400).json({ error: "Ogiltig roll" });
 
   const targetId = req.params.userId;
 
@@ -572,11 +654,21 @@ app.delete("/admin/users/:userId", authenticate, requireAdmin, async (req, res) 
 });
 
 /* =====================
-   ✅ ADMIN: KB upload/list/export
+   ✅ KB
 ===================== */
 app.get("/kb/list/:companyId", authenticate, requireAdmin, async (req, res) => {
-  const items = await KBChunk.find({ companyId: req.params.companyId }).sort({ createdAt: -1 }).limit(400);
+  const items = await KBChunk.find({ companyId: req.params.companyId }).sort({ createdAt: -1 }).limit(500);
   return res.json(items);
+});
+
+app.delete("/kb/delete/:chunkId", authenticate, requireAdmin, async (req, res) => {
+  await KBChunk.deleteOne({ _id: req.params.chunkId });
+  return res.json({ message: "KB-rad borttagen ✅" });
+});
+
+app.delete("/kb/clear/:companyId", authenticate, requireAdmin, async (req, res) => {
+  await KBChunk.deleteMany({ companyId: req.params.companyId });
+  return res.json({ message: `KB rensad för ${req.params.companyId} ✅` });
 });
 
 app.post("/kb/upload-text", authenticate, requireAdmin, async (req, res) => {
@@ -621,7 +713,6 @@ app.post("/kb/upload-url", authenticate, requireAdmin, async (req, res) => {
     const chunks = chunkText(text);
 
     let okCount = 0;
-
     for (let i = 0; i < chunks.length; i++) {
       const emb = await createEmbedding(chunks[i]);
       const embeddingOk = !!emb;
@@ -654,7 +745,6 @@ app.post("/kb/upload-pdf", authenticate, requireAdmin, async (req, res) => {
     const chunks = chunkText(text);
 
     let okCount = 0;
-
     for (let i = 0; i < chunks.length; i++) {
       const emb = await createEmbedding(chunks[i]);
       const embeddingOk = !!emb;
@@ -685,37 +775,9 @@ app.get("/export/kb/:companyId", authenticate, requireAdmin, async (req, res) =>
   return res.send(JSON.stringify(items, null, 2));
 });
 
-app.get("/admin/export/training", authenticate, requireAdmin, async (req, res) => {
-  const { companyId } = req.query || {};
-  const query = {};
-  if (companyId) query.companyId = companyId;
-
-  const tickets = await Ticket.find(query).sort({ createdAt: -1 }).limit(2000);
-
-  const rows = [];
-  for (const t of tickets) {
-    const msgs = t.messages || [];
-    for (let i = 0; i < msgs.length - 1; i++) {
-      const a = msgs[i];
-      const b = msgs[i + 1];
-      if (a.role === "user" && (b.role === "assistant" || b.role === "agent")) {
-        rows.push({
-          companyId: t.companyId,
-          ticketId: String(t._id),
-          question: a.content,
-          answer: b.content,
-          answeredBy: b.role,
-          timestamp: b.timestamp
-        });
-      }
-    }
-  }
-
-  res.setHeader("Content-Type", "application/json");
-  res.setHeader("Content-Disposition", `attachment; filename="training_export${companyId ? "_" + companyId : ""}.json"`);
-  return res.send(JSON.stringify({ exportedAt: new Date().toISOString(), rows }, null, 2));
-});
-
+/* =====================
+   ✅ Export
+===================== */
 app.get("/admin/export/all", authenticate, requireAdmin, async (req, res) => {
   const users = await User.find({}).select("-password");
   const tickets = await Ticket.find({});
