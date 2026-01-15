@@ -809,6 +809,32 @@ function activateKbTab(tabId) {
   if (panel) panel.style.display = "";
 }
 
+// ✅ ADMIN: Delete user
+async function adminDeleteUser(userId) {
+  const msgEl = $("adminUsersMsg");
+  setAlert(msgEl, "");
+
+  try {
+    const res = await fetch(API.ADMIN_DELETE_USER(userId), {
+      method: "DELETE",
+      headers: { Authorization: `Bearer ${token}` }
+    });
+
+    const data = await res.json();
+
+    if (!res.ok) {
+      setAlert(msgEl, data?.error || "Kunde inte ta bort user", true);
+      return;
+    }
+
+    setAlert(msgEl, data.message || "User borttagen ✅");
+  } catch (err) {
+    console.error("Delete user error:", err);
+    setAlert(msgEl, "Serverfel vid borttagning", true);
+  }
+}
+
+
 /*************************************************
  * ✅ Admin: Users list + role toggle
  *************************************************/
