@@ -5,14 +5,13 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>AI Kundtjänst</title>
 
-  <!-- ✅ Font Awesome (stabil CDN istället för kit som gav 403) -->
+  <!-- Font Awesome CDN -->
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
 
   <link rel="stylesheet" href="style.css" />
 </head>
 
 <body data-theme="dark">
-
   <div class="app">
 
     <!-- SIDEBAR -->
@@ -28,44 +27,43 @@
       <div class="sidebarBlock">
         <div class="label">AI Kategori</div>
         <select id="categorySelect" class="input">
-          <option value="demo">Demo</option>
+          <option value="demo">demo</option>
         </select>
       </div>
 
-      <!-- ✅ Meny (döljs automatiskt när utloggad av script.js) -->
       <nav class="menu">
-        <button id="openChatView" class="menuBtn active" style="display:none;">
+        <button id="openChatView" class="menuBtn active" type="button">
           <i class="fa-solid fa-comments"></i> Chat
         </button>
 
-        <button id="openMyTicketsView" class="menuBtn" style="display:none;">
+        <button id="openMyTicketsView" class="menuBtn" type="button">
           <i class="fa-solid fa-ticket"></i> Mina ärenden
         </button>
 
-        <button id="openInboxView" class="menuBtn adminOnly" style="display:none;">
+        <button id="openInboxView" class="menuBtn adminOnly" style="display:none;" type="button">
           <i class="fa-solid fa-inbox"></i> Inbox (Agent)
           <span id="inboxNotifDot" class="notifDot" style="display:none;"></span>
         </button>
 
-        <button id="openAdminView" class="menuBtn adminOnly" style="display:none;">
+        <button id="openAdminView" class="menuBtn adminOnly" style="display:none;" type="button">
           <i class="fa-solid fa-shield-halved"></i> Admin
         </button>
 
-        <button id="openSettingsView" class="menuBtn" style="display:none;">
+        <button id="openSettingsView" class="menuBtn" style="display:none;" type="button">
           <i class="fa-solid fa-gear"></i> Inställningar
         </button>
       </nav>
 
       <div class="sidebarFooter">
-        <button id="themeToggle" class="btn ghost full">
+        <button id="themeToggle" class="btn ghost full" type="button">
           <i class="fa-solid fa-moon"></i> Tema
         </button>
 
-        <button id="logoutBtn" class="btn danger full" style="display:none;">
+        <button id="logoutBtn" class="btn danger full" style="display:none;" type="button">
           <i class="fa-solid fa-right-from-bracket"></i> Logga ut
         </button>
 
-        <button id="toggleDebugBtn" class="btn ghost full">
+        <button id="toggleDebugBtn" class="btn ghost full" type="button">
           <i class="fa-solid fa-bug"></i> Debug
         </button>
       </div>
@@ -109,16 +107,16 @@
           </div>
 
           <div class="row gap">
-            <button id="loginBtn" class="btn primary">
+            <button id="loginBtn" class="btn primary" type="button">
               <i class="fa-solid fa-right-to-bracket"></i> Logga in
             </button>
-            <button id="registerBtn" class="btn secondary">
+            <button id="registerBtn" class="btn secondary" type="button">
               <i class="fa-solid fa-user-plus"></i> Registrera
             </button>
           </div>
 
           <div class="row gap" style="margin-top:10px;">
-            <button id="openForgotBtn" class="btn ghost">
+            <button id="openForgotBtn" class="btn ghost" type="button">
               <i class="fa-solid fa-key"></i> Glömt lösenord?
             </button>
           </div>
@@ -126,19 +124,19 @@
           <div id="authMessage" class="alert error" style="display:none;"></div>
         </div>
 
-        <!-- FORGOT PASSWORD FORM -->
+        <!-- FORGOT PASSWORD -->
         <div id="forgotCard" class="card authCard" style="display:none;">
           <h2>Återställ lösenord</h2>
-          <p class="muted">Skriv din email så skickar vi en återställningslänk.</p>
+          <p class="muted">Skriv din email så skickas en återställningslänk.</p>
 
           <label>Email</label>
           <input id="forgotEmail" class="input" placeholder="email@exempel.se" />
 
           <div class="row gap">
-            <button id="sendForgotBtn" class="btn primary">
+            <button id="sendForgotBtn" class="btn primary" type="button">
               <i class="fa-solid fa-paper-plane"></i> Skicka länk
             </button>
-            <button id="closeForgotBtn" class="btn ghost">
+            <button id="closeForgotBtn" class="btn ghost" type="button">
               Avbryt
             </button>
           </div>
@@ -146,7 +144,7 @@
           <div id="forgotMsg" class="alert" style="display:none;"></div>
         </div>
 
-        <!-- RESET PASSWORD FORM (AUTO SHOW if ?resetToken=) -->
+        <!-- RESET PASSWORD -->
         <div id="resetCard" class="card authCard" style="display:none;">
           <h2>Välj nytt lösenord</h2>
           <p class="muted">Skriv ett nytt lösenord och spara.</p>
@@ -159,7 +157,7 @@
             </button>
           </div>
 
-          <button id="resetSaveBtn" class="btn primary full" style="margin-top:10px;">
+          <button id="resetSaveBtn" class="btn primary full" style="margin-top:10px;" type="button">
             <i class="fa-solid fa-floppy-disk"></i> Spara nytt lösenord
           </button>
 
@@ -175,17 +173,14 @@
             <div class="subtitle" id="chatSubtitle">Ställ en fråga så hjälper jag dig direkt.</div>
           </div>
 
-          <!-- ✅ FIX: Chat-actions ENDAST chat-knappar (ingen inbox refresh / solve / remove här!) -->
           <div class="topbarActions">
-            <button id="newTicketBtn" class="btn ghost">
+            <button id="newTicketBtn" class="btn ghost" type="button">
               <i class="fa-solid fa-circle-plus"></i> Nytt ärende
             </button>
-
-            <button id="clearChatBtn" class="btn ghost">
+            <button id="clearChatBtn" class="btn ghost" type="button">
               <i class="fa-solid fa-trash"></i> Rensa
             </button>
-
-            <button id="exportChatBtn" class="btn ghost">
+            <button id="exportChatBtn" class="btn ghost" type="button">
               <i class="fa-solid fa-download"></i> Export
             </button>
           </div>
@@ -195,14 +190,18 @@
 
         <div class="composer">
           <input id="messageInput" class="input" placeholder="Skriv ditt meddelande..." />
-          <button id="sendBtn" class="btn primary round">
+          <button id="sendBtn" class="btn primary round" type="button">
             <i class="fa-solid fa-paper-plane"></i>
           </button>
         </div>
 
         <div class="feedbackRow">
-          <button id="fbUp" class="btn ghost small"><i class="fa-solid fa-thumbs-up"></i> Bra</button>
-          <button id="fbDown" class="btn ghost small"><i class="fa-solid fa-thumbs-down"></i> Dåligt</button>
+          <button id="fbUp" class="btn ghost small" type="button">
+            <i class="fa-solid fa-thumbs-up"></i> Bra
+          </button>
+          <button id="fbDown" class="btn ghost small" type="button">
+            <i class="fa-solid fa-thumbs-down"></i> Dåligt
+          </button>
           <span id="fbMsg" class="muted small"></span>
         </div>
       </section>
@@ -212,10 +211,10 @@
         <div class="topbar">
           <div>
             <div class="title">Mina ärenden</div>
-            <div class="subtitle muted">Se dina tickets och status. Uppdateras automatiskt.</div>
+            <div class="subtitle muted">Se dina tickets och status.</div>
           </div>
           <div class="topbarActions">
-            <button id="myTicketsRefreshBtn" class="btn ghost">
+            <button id="myTicketsRefreshBtn" class="btn ghost" type="button">
               <i class="fa-solid fa-rotate"></i> Uppdatera
             </button>
           </div>
@@ -249,17 +248,17 @@
             <div class="subtitle muted">Hantera inkomna ärenden (agent/admin).</div>
           </div>
 
-          <!-- ✅ FIX: Solve ALL + Remove solved ligger här och endast här -->
-          <div class="topbarActions" style="flex-wrap:wrap;">
-            <button id="inboxRefreshBtn" class="btn ghost">
+          <div class="topbarActions">
+            <button id="inboxRefreshBtn" class="btn ghost" type="button">
               <i class="fa-solid fa-rotate"></i> Uppdatera
             </button>
 
-            <button id="solveAllBtn" class="btn secondary">
+            <!-- ✅ Bulk actions i rätt flik -->
+            <button id="solveAllBtn" class="btn secondary" type="button">
               <i class="fa-solid fa-check-double"></i> Solve ALL
             </button>
 
-            <button id="removeSolvedBtn" class="btn danger">
+            <button id="removeSolvedBtn" class="btn danger" type="button">
               <i class="fa-solid fa-trash"></i> Remove solved
             </button>
           </div>
@@ -298,16 +297,17 @@
             <div id="inboxTicketMsg" class="alert error" style="display:none;"></div>
 
             <div class="row gap">
-              <button id="setStatusOpen" class="btn ghost small">Open</button>
-              <button id="setStatusPending" class="btn ghost small">Pending</button>
-              <button id="setStatusSolved" class="btn ghost small">Solved</button>
+              <button id="setStatusOpen" class="btn ghost small" type="button">Open</button>
+              <button id="setStatusPending" class="btn ghost small" type="button">Pending</button>
+              <button id="setStatusSolved" class="btn ghost small" type="button">Solved</button>
 
               <select id="ticketPrioritySelect" class="input smallInput" style="margin-left:auto;">
                 <option value="low">Low</option>
                 <option value="normal" selected>Normal</option>
                 <option value="high">High</option>
               </select>
-              <button id="setPriorityBtn" class="btn ghost small">
+
+              <button id="setPriorityBtn" class="btn ghost small" type="button">
                 <i class="fa-solid fa-flag"></i> Prioritet
               </button>
             </div>
@@ -320,7 +320,7 @@
 
             <label>Agent-svar (syns för kunden)</label>
             <textarea id="agentReplyTextInbox" class="input textarea" placeholder="Skriv ett svar..."></textarea>
-            <button id="sendAgentReplyInboxBtn" class="btn primary full">
+            <button id="sendAgentReplyInboxBtn" class="btn primary full" type="button">
               <i class="fa-solid fa-reply"></i> Skicka svar
             </button>
 
@@ -328,11 +328,11 @@
 
             <label>Intern notering (syns ej för kunden)</label>
             <textarea id="internalNoteText" class="input textarea" placeholder="Intern note..."></textarea>
-            <button id="saveInternalNoteBtn" class="btn secondary full">
+            <button id="saveInternalNoteBtn" class="btn secondary full" type="button">
               <i class="fa-solid fa-note-sticky"></i> Spara note
             </button>
 
-            <button id="clearInternalNotesBtn" class="btn danger full" style="margin-top:10px;">
+            <button id="clearInternalNotesBtn" class="btn danger full" style="margin-top:10px;" type="button">
               <i class="fa-solid fa-trash"></i> Ta bort alla notes
             </button>
 
@@ -343,14 +343,14 @@
               <select id="assignUserSelect" class="input">
                 <option value="">Välj agent...</option>
               </select>
-              <button id="assignTicketBtn" class="btn ghost">
+              <button id="assignTicketBtn" class="btn ghost" type="button">
                 <i class="fa-solid fa-user-check"></i> Assign
               </button>
             </div>
 
             <div class="divider"></div>
 
-            <button id="deleteTicketBtn" class="btn danger full">
+            <button id="deleteTicketBtn" class="btn danger full" type="button">
               <i class="fa-solid fa-trash"></i> Ta bort ticket
             </button>
           </div>
@@ -365,22 +365,19 @@
             <div class="subtitle muted">Hantera users, export, KB och kategorier.</div>
           </div>
           <div class="topbarActions">
-            <button id="adminExportAllBtn" class="btn ghost">
+            <button id="adminExportAllBtn" class="btn ghost" type="button">
               <i class="fa-solid fa-file-export"></i> Export All
             </button>
-            <button id="trainingExportBtn" class="btn ghost">
+            <button id="trainingExportBtn" class="btn ghost" type="button">
               <i class="fa-solid fa-brain"></i> Training Export
-            </button>
-            <button id="cleanupSolvedBtn" class="btn danger">
-              <i class="fa-solid fa-broom"></i> Rensa solved
             </button>
           </div>
         </div>
 
         <div class="tabs">
-          <button class="tabBtn active" data-tab="tabUsers">Users</button>
-          <button class="tabBtn" data-tab="tabKB">Knowledge Base</button>
-          <button class="tabBtn" data-tab="tabCats">Kategorier</button>
+          <button class="tabBtn active" data-tab="tabUsers" type="button">Users</button>
+          <button class="tabBtn" data-tab="tabKB" type="button">Knowledge Base</button>
+          <button class="tabBtn" data-tab="tabCats" type="button">Kategorier</button>
         </div>
 
         <!-- Users -->
@@ -388,7 +385,7 @@
           <div class="panel">
             <div class="panelHead">
               <b>Användare</b>
-              <button id="adminUsersRefreshBtn" class="btn ghost small" style="margin-left:auto;">
+              <button id="adminUsersRefreshBtn" class="btn ghost small" style="margin-left:auto;" type="button">
                 <i class="fa-solid fa-rotate"></i> Uppdatera
               </button>
             </div>
@@ -403,14 +400,14 @@
           <div class="panel">
             <div class="panelHead">
               <b>KB Manager</b>
-              <div style="margin-left:auto; display:flex; gap:10px;">
+              <div style="margin-left:auto; display:flex; gap:10px; flex-wrap:wrap;">
                 <select id="kbCategorySelect" class="input smallInput">
                   <option value="demo">demo</option>
                 </select>
-                <button id="kbRefreshBtn" class="btn ghost small">
+                <button id="kbRefreshBtn" class="btn ghost small" type="button">
                   <i class="fa-solid fa-rotate"></i> Uppdatera
                 </button>
-                <button id="kbExportBtn" class="btn ghost small">
+                <button id="kbExportBtn" class="btn ghost small" type="button">
                   <i class="fa-solid fa-download"></i> Export KB
                 </button>
               </div>
@@ -423,19 +420,19 @@
                 <b>Upload text</b>
                 <input id="kbTextTitle" class="input" placeholder="Titel" />
                 <textarea id="kbTextContent" class="input textarea" placeholder="Klistra in text..."></textarea>
-                <button id="kbUploadTextBtn" class="btn primary full">Ladda upp text</button>
+                <button id="kbUploadTextBtn" class="btn primary full" type="button">Ladda upp text</button>
               </div>
 
               <div class="panel soft">
                 <b>Upload URL</b>
                 <input id="kbUrlInput" class="input" placeholder="https://..." />
-                <button id="kbUploadUrlBtn" class="btn primary full">Ladda upp URL</button>
+                <button id="kbUploadUrlBtn" class="btn primary full" type="button">Ladda upp URL</button>
               </div>
 
               <div class="panel soft">
                 <b>Upload PDF</b>
                 <input id="kbPdfFile" type="file" class="input" accept="application/pdf" />
-                <button id="kbUploadPdfBtn" class="btn primary full">Ladda upp PDF</button>
+                <button id="kbUploadPdfBtn" class="btn primary full" type="button">Ladda upp PDF</button>
               </div>
             </div>
 
@@ -450,7 +447,7 @@
           <div class="panel">
             <div class="panelHead">
               <b>Kategori Manager</b>
-              <button id="catsRefreshBtn" class="btn ghost small" style="margin-left:auto;">
+              <button id="catsRefreshBtn" class="btn ghost small" style="margin-left:auto;" type="button">
                 <i class="fa-solid fa-rotate"></i> Uppdatera
               </button>
             </div>
@@ -463,7 +460,7 @@
                 <input id="newCatKey" class="input" placeholder="key (ex: ecommerce)" />
                 <input id="newCatName" class="input" placeholder="Namn (ex: E-handel)" />
                 <textarea id="newCatPrompt" class="input textarea" placeholder="System prompt..."></textarea>
-                <button id="createCatBtn" class="btn primary full">Skapa</button>
+                <button id="createCatBtn" class="btn primary full" type="button">Skapa</button>
               </div>
 
               <div class="panel soft">
@@ -471,6 +468,7 @@
                 <div id="catsList" class="list"></div>
               </div>
             </div>
+
           </div>
         </div>
 
@@ -492,7 +490,7 @@
             <div>
               <label>Byt användarnamn</label>
               <input id="newUsernameInput" class="input" placeholder="Nytt användarnamn" />
-              <button id="changeUsernameBtn" class="btn secondary full" style="margin-top:10px;">
+              <button id="changeUsernameBtn" class="btn secondary full" style="margin-top:10px;" type="button">
                 <i class="fa-solid fa-user-pen"></i> Byt användarnamn
               </button>
             </div>
@@ -501,7 +499,7 @@
               <label>Byt lösenord</label>
               <input id="currentPassInput" type="password" class="input" placeholder="Nuvarande lösenord" />
               <input id="newPassInput" type="password" class="input" placeholder="Nytt lösenord" style="margin-top:10px;" />
-              <button id="changePasswordBtn" class="btn secondary full" style="margin-top:10px;">
+              <button id="changePasswordBtn" class="btn secondary full" style="margin-top:10px;" type="button">
                 <i class="fa-solid fa-lock"></i> Byt lösenord
               </button>
             </div>
