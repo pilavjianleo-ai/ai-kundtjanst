@@ -54,6 +54,11 @@
             Chatt
           </button>
 
+          <button id="openInboxView" class="menuBtn" style="display:none;">
+            <i class="fa-solid fa-inbox"></i>
+            Inbox
+          </button>
+
           <button id="openAdminView" class="menuBtn" style="display:none;">
             <i class="fa-solid fa-user-shield"></i>
             Adminpanel
@@ -152,6 +157,67 @@
           </div>
         </section>
 
+        <!-- INBOX VIEW (ADMIN) -->
+        <section id="inboxView" class="view" style="display:none;">
+          <div class="inboxGrid">
+
+            <div class="card">
+              <div class="cardTitle">Inbox</div>
+
+              <div class="row">
+                <select id="inboxStatusFilter" class="select">
+                  <option value="">Alla status</option>
+                  <option value="open">Open</option>
+                  <option value="pending">Pending</option>
+                  <option value="solved">Solved</option>
+                </select>
+
+                <select id="inboxCategoryFilter" class="select">
+                  <option value="">Alla kategorier</option>
+                  <option value="demo">Demo</option>
+                  <option value="law">Law</option>
+                  <option value="tech">Tech</option>
+                  <option value="cleaning">Cleaning</option>
+                </select>
+
+                <button id="inboxRefreshBtn" class="btn secondary">
+                  <i class="fa-solid fa-rotate"></i> Uppdatera
+                </button>
+              </div>
+
+              <div id="inboxMsg" class="alert" style="display:none;margin-top:10px;"></div>
+              <div id="inboxTicketsList" class="adminList" style="margin-top:10px;"></div>
+            </div>
+
+            <div class="card">
+              <div class="cardTitle">Ticket</div>
+              <div class="muted small">Välj en ticket i listan för att se hela konversationen.</div>
+
+              <div class="divider"></div>
+
+              <div id="ticketDetails" class="ticketDetails muted small">
+                Ingen ticket vald.
+              </div>
+
+              <div class="divider"></div>
+
+              <div class="row">
+                <button class="btn secondary" id="setStatusOpen"><i class="fa-solid fa-circle"></i> Open</button>
+                <button class="btn secondary" id="setStatusPending"><i class="fa-solid fa-clock"></i> Pending</button>
+                <button class="btn secondary" id="setStatusSolved"><i class="fa-solid fa-check"></i> Solved</button>
+              </div>
+
+              <textarea id="agentReplyTextInbox" class="textarea" placeholder="Skriv agent-svar..."></textarea>
+              <button id="sendAgentReplyInboxBtn" class="btn primary">
+                <i class="fa-solid fa-reply"></i> Skicka agent-svar
+              </button>
+
+              <div id="inboxTicketMsg" class="alert" style="display:none;margin-top:10px;"></div>
+            </div>
+
+          </div>
+        </section>
+
         <!-- ADMIN VIEW -->
         <section id="adminView" class="view" style="display:none;">
           <div class="adminGrid">
@@ -160,7 +226,7 @@
             <div class="card">
               <div class="cardTitle">Kunskapsdatabas (RAG)</div>
               <div class="muted small" style="margin-bottom:10px;">
-                Ladda upp PDF / Text / URL per kategori. Detta används automatiskt av AI när det matchar.
+                Ladda upp PDF / Text / URL per kategori. AI använder detta automatiskt.
               </div>
 
               <div class="kbRow">
@@ -179,7 +245,6 @@
                 <button class="tabBtn" data-tab="pdfTab"><i class="fa-solid fa-file-pdf"></i> PDF</button>
               </div>
 
-              <!-- TEXT TAB -->
               <div id="textTab" class="tabPanel">
                 <input id="kbTextTitle" class="input" placeholder="Titel (t.ex. FAQ / Prislista)" />
                 <textarea id="kbTextContent" class="textarea" placeholder="Klistra in text här..."></textarea>
@@ -188,18 +253,13 @@
                 </button>
               </div>
 
-              <!-- URL TAB -->
               <div id="urlTab" class="tabPanel" style="display:none;">
                 <input id="kbUrlInput" class="input" placeholder="Klistra in URL (https://...)" />
                 <button id="kbUploadUrlBtn" class="btn primary">
                   <i class="fa-solid fa-upload"></i> Ladda upp URL
                 </button>
-                <div class="muted small" style="margin-top:8px;">
-                  Om sidan är “låst” eller laddas via JS kan texten ibland inte extraheras.
-                </div>
               </div>
 
-              <!-- PDF TAB -->
               <div id="pdfTab" class="tabPanel" style="display:none;">
                 <input id="kbPdfFile" type="file" accept="application/pdf" class="file" />
                 <button id="kbUploadPdfBtn" class="btn primary">
@@ -215,6 +275,12 @@
                 </button>
                 <button id="kbExportBtn" class="btn secondary">
                   <i class="fa-solid fa-download"></i> Exportera KB (JSON)
+                </button>
+              </div>
+
+              <div class="row">
+                <button id="trainingExportBtn" class="btn secondary">
+                  <i class="fa-solid fa-database"></i> Export training (Q/A)
                 </button>
               </div>
 
@@ -240,32 +306,15 @@
               <div id="adminUsersList" class="adminList"></div>
             </div>
 
-            <!-- TICKETS -->
+            <!-- HELP -->
             <div class="card">
-              <div class="cardTitle">Tickets (Admin)</div>
-              <div class="row" style="margin-bottom:10px;">
-                <button id="adminTicketsRefreshBtn" class="btn secondary">
-                  <i class="fa-solid fa-rotate"></i> Ladda tickets
-                </button>
+              <div class="cardTitle">Admin hjälp</div>
+              <div class="muted small" style="line-height:1.5;">
+                ✅ Inbox = hantera tickets<br/>
+                ✅ Adminpanel = KB + Users + Export<br/>
+                ✅ Training export = Q/A från tickets<br/><br/>
+                För att göra någon admin: klicka på user → “Gör admin”
               </div>
-
-              <div id="adminTicketsMsg" class="alert" style="display:none;"></div>
-              <div id="adminTicketsList" class="adminList"></div>
-
-              <div class="divider"></div>
-
-              <div class="cardTitle" style="margin-top:8px;">Agent-svar</div>
-              <div class="muted small">
-                Svara på en ticket som mänsklig agent (takeover). Välj ticket först.
-              </div>
-
-              <input id="agentTicketId" class="input" placeholder="Ticket ID..." />
-              <textarea id="agentReplyText" class="textarea" placeholder="Skriv agent-svar..."></textarea>
-              <button id="sendAgentReplyBtn" class="btn primary">
-                <i class="fa-solid fa-reply"></i> Skicka agent-svar
-              </button>
-
-              <div id="agentMsg" class="alert" style="display:none;margin-top:10px;"></div>
             </div>
 
           </div>
