@@ -419,19 +419,32 @@ async function inboxLoadTickets() {
       div.className = `ticketItem ${inboxSelectedTicketId === t._id ? "selected" : ""}`;
 
      div.innerHTML = `
-  <div class="row" style="margin-top:10px;">
-  <button class="btn secondary small" data-action="toggleRole">
-    <i class="fa-solid fa-user-gear"></i>
-    ${isAdmin ? "Ta bort admin" : "Gör admin"}
-  </button>
+  <div class="listItemTitle">
+    ${escapeHtml(u.username)}
+    <span class="pill ${isAdmin ? "admin" : ""}">${escapeHtml(u.role)}</span>
+  </div>
 
-  ${isAdmin ? "" : `
+  <div class="listItemMeta">ID: ${escapeHtml(u._id || u.id || "-")}</div>
+
+  <div class="row" style="margin-top:10px;">
+    <button class="btn secondary small" data-action="toggleRole">
+      <i class="fa-solid fa-user-gear"></i>
+      ${isAdmin ? "Ta bort admin" : "Gör admin"}
+    </button>
+
     <button class="btn danger small" data-action="deleteUser">
       <i class="fa-solid fa-trash"></i>
       Ta bort
     </button>
-  `}
-</div>
+  </div>
+`;
+
+// ✅ Safety: don't allow delete button for admins
+if (isAdmin) {
+  div.querySelector('[data-action="deleteUser"]')?.remove();
+}
+
+
 
       div.addEventListener("click", async () => {
         inboxSelectedTicketId = t._id;
