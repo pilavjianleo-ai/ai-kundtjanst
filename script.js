@@ -177,6 +177,21 @@ function applyAuthUI() {
     // settings view is available for all
   }
 
+
+// ✅ hide sidebar menu when NOT logged in
+const menuChat = $("openChatView");
+const menuSettings = $("openSettingsView");
+const sidebar = document.querySelector(".sidebar");
+
+if (!token || !currentUser) {
+  if (menuChat) show(menuChat, false);
+  if (menuSettings) show(menuSettings, false);
+  if (sidebar) sidebar.style.opacity = "0.9";
+} else {
+  if (menuChat) show(menuChat, true);
+  if (menuSettings) show(menuSettings, true);
+  if (sidebar) sidebar.style.opacity = "1";
+
   refreshDebug();
 }
 
@@ -776,33 +791,36 @@ async function adminLoadUsers() {
       const isSelf = String(u._id) === String(currentUser?.id);
 
       div.innerHTML = `
-        <div class="listItemTitle">
-          ${escapeHtml(u.username)}
-          <span class="pill ${isAdmin ? "admin" : ""}">${escapeHtml(u.role)}</span>
-        </div>
-        <div class="muted small">ID: ${escapeHtml(u._id)}</div>
+  <div class="listItemTitle">
+    ${escapeHtml(u.username)}
+    <span class="pill ${isAdmin ? "admin" : ""}">${escapeHtml(u.role)}</span>
+  </div>
+  <div class="muted small">ID: ${escapeHtml(u._id)}</div>
+  <div class="muted small">${u.email ? "Email: " + escapeHtml(u.email) : ""}</div>
 
-        <div class="row" style="margin-top:10px;">
-          <button class="btn secondary small" data-action="toggleRole"
-            ${isSelf || isAdmin ? "disabled style='opacity:.6;cursor:not-allowed;'" : ""}>
-            <i class="fa-solid fa-user-gear"></i>
-            ${isSelf ? "Din roll" : (isAdmin ? "Admin (låst)" : "Gör admin")}
-          </button>
+  <div class="row" style="margin-top:10px;">
+    <select class="input smallInput" data-action="roleSelect" ${isSelf ? "disabled" : ""}>
+      <option value="user" ${u.role === "user" ? "selected" : ""}>user</option>
+      <option value="agent" ${u.role === "agent" ? "selected" : ""}>agent</option>
+      <option value="admin" ${u.role === "admin" ? "selected" : ""}>admin</option>
+    </select>
 
-          ${isAdmin ? "" : `
-          <button class="btn danger small" data-action="deleteUser" ${isSelf ? "disabled style='opacity:.6;cursor:not-allowed;'" : ""}>
-            <i class="fa-solid fa-trash"></i>
-            Ta bort
-          </button>
-          `}
-        </div>
-      `;
+    <button class="btn secondary small" data-action="saveRole" ${isSelf ? "disabled style='opacity:.6;cursor:not-allowed;'" : ""}>
+      <i class="fa-solid fa-floppy-disk"></i> Spara
+    </button>
 
-      div.querySelector('[data-action="toggleRole"]')?.addEventListener("click", async () => {
-        if (isSelf || isAdmin) return;
-        await adminSetUserRole(u._id, "admin");
-        await adminLoadUsers();
-      });
+    <button class="btn danger small" data-action="deleteUser" ${isSelf ? "disabled style='opacity:.6;cursor:not-allowed;'" : ""}>
+      <i class="fa-solid fa-trash"></i> Ta bort
+    </button>
+  </div>
+`;
+
+      div.querySelector('[data-action="saveRole"]')?.addEventListener("click", async () => {
+  if (isSelf) return;
+  const role = div.querySelector('[data-action="roleSelect"]')?.value || "user";
+  await adminSetUserRole(u._id, role);
+  await adminLoadUsers();
+});
 
       div.querySelector('[data-action="deleteUser"]')?.addEventListener("click", async () => {
         if (isSelf) return;

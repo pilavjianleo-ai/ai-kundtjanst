@@ -13,27 +13,32 @@ const path = require("path");
 const cheerio = require("cheerio");
 const pdfParse = require("pdf-parse");
 const nodemailer = require("nodemailer");
+const crypto = require("crypto");
 
 const app = express();
 app.set("trust proxy", 1);
 
-app.use(express.json({ limit: "25mb" }));
+app.use(express.json({ limit: "18mb" }));
 app.use(cors());
 app.use(express.static(__dirname));
 
 /* =====================
-   ✅ ENV CHECK
+   ✅ ENV
 ===================== */
 const mongoUri = process.env.MONGO_URI || process.env.MONGODB_URI;
 
 console.log("✅ ENV CHECK:");
-console.log("MONGO_URI:", mongoUri ? "OK" : "SAKNAS");
+console.log("MONGO_URI:", process.env.MONGO_URI ? "OK" : "SAKNAS");
 console.log("JWT_SECRET:", process.env.JWT_SECRET ? "OK" : "SAKNAS");
 console.log("OPENAI_API_KEY:", process.env.OPENAI_API_KEY ? "OK" : "SAKNAS");
 console.log("SMTP_HOST:", process.env.SMTP_HOST ? "OK" : "SAKNAS");
+console.log("SMTP_USER:", process.env.SMTP_USER ? "OK" : "SAKNAS");
 console.log("APP_URL:", process.env.APP_URL ? "OK" : "SAKNAS");
 
 if (!mongoUri) console.error("❌ MongoDB URI saknas! Lägg till MONGO_URI i Render env.");
+if (!process.env.JWT_SECRET) console.error("❌ JWT_SECRET saknas!");
+if (!process.env.OPENAI_API_KEY) console.error("❌ OPENAI_API_KEY saknas!");
+if (!process.env.APP_URL) console.error("❌ APP_URL saknas! Ex: https://ai-kundtjanst.onrender.com");
 
 /* =====================
    ✅ MongoDB
@@ -52,12 +57,14 @@ mongoose.connection.on("error", (err) => {
    ✅ Models
 ===================== */
 const userSchema = new mongoose.Schema({
-  username: { type: String, unique: true, required: true },
-  email: { type: String, default: "" }, // optional men används för reset
+  username: { type: String, unique: true, required: true, index: true },
+  email: { type: String, default: "", index: true },
   password: { type: String, required: true },
-  role: { type: String, default: "user" }, // user | admin
+  role: { type: String, default: "user" }, // user | agent | admin
+
   resetTokenHash: { type: String, default: "" },
-  resetTokenExp: { type: Date, default: null },
+  resetTokenExpiresAt: { type: Date, default: null },
+
   createdAt: { type: Date, default: Date.now }
 });
 const User = mongoose.model("User", userSchema);
@@ -70,27 +77,29 @@ const messageSchema = new mongoose.Schema({
 
 const ticketSchema = new mongoose.Schema({
   userId: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true },
-  companyId: { type: String, required: true }, // category key
+  companyId: { type: String, required: true },
   status: { type: String, default: "open" }, // open | pending | solved
   priority: { type: String, default: "normal" }, // low | normal | high
   title: { type: String, default: "" },
+
+  assignedToUserId: { type: mongoose.Schema.Types.ObjectId, ref: "User", default: null },
+
+  internalNotes: [
+    {
+      createdBy: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
+      content: String,
+      createdAt: { type: Date, default: Date.now }
+    }
+  ],
+
   messages: [messageSchema],
   lastActivityAt: { type: Date, default: Date.now },
   createdAt: { type: Date, default: Date.now }
 });
 const Ticket = mongoose.model("Ticket", ticketSchema);
 
-// ✅ FIXAD category schema (key istället för companyId)
-const categorySchema = new mongoose.Schema({
-  key: { type: String, unique: true, required: true }, // demo | law | tech | cleaning
-  name: { type: String, required: true },
-  systemPrompt: { type: String, default: "" },
-  createdAt: { type: Date, default: Date.now }
-});
-const Category = mongoose.model("Category", categorySchema);
-
 const kbChunkSchema = new mongoose.Schema({
-  companyId: { type: String, required: true }, // category key
+  companyId: { type: String, required: true },
   sourceType: { type: String, required: true }, // url | text | pdf
   sourceRef: { type: String, default: "" },
   title: { type: String, default: "" },
@@ -98,6 +107,8 @@ const kbChunkSchema = new mongoose.Schema({
   content: { type: String, default: "" },
   embedding: { type: [Number], default: [] },
   embeddingOk: { type: Boolean, default: false },
+  version: { type: Number, default: 1 },
+  isDeleted: { type: Boolean, default: false },
   createdAt: { type: Date, default: Date.now }
 });
 const KBChunk = mongoose.model("KBChunk", kbChunkSchema);
@@ -110,6 +121,36 @@ const feedbackSchema = new mongoose.Schema({
 });
 const Feedback = mongoose.model("Feedback", feedbackSchema);
 
+const categorySchema = new mongoose.Schema({
+  key: { type: String, unique: true, required: true, index: true }, // companyId
+  name: { type: String, default: "" },
+  systemPrompt: { type: String, default: "" },
+  createdAt: { type: Date, default: Date.now }
+});
+const Category = mongoose.model("Category", categorySchema);
+
+/* =====================
+   ✅ Default categories (safe upsert)
+===================== */
+async function ensureDefaultCategories() {
+  const defaults = [
+    { key: "demo", name: "Demo AB", systemPrompt: "Du är en professionell och vänlig AI-kundtjänst på svenska." },
+    { key: "law", name: "Juridik", systemPrompt: "Du är en AI-kundtjänst för juridiska frågor på svenska. Ge allmän vägledning men inte juridisk rådgivning." },
+    { key: "tech", name: "Teknisk support", systemPrompt: "Du är en AI-kundtjänst för teknisk support på svenska. Felsök steg-för-steg och ge konkreta lösningar." },
+    { key: "cleaning", name: "Städservice", systemPrompt: "Du är en AI-kundtjänst för städservice på svenska. Hjälp med tjänster, rutiner, bokning och tips." }
+  ];
+
+  for (const c of defaults) {
+    await Category.updateOne(
+      { key: c.key },
+      { $setOnInsert: c },
+      { upsert: true }
+    );
+  }
+  console.log("✅ Default categories säkerställda");
+}
+ensureDefaultCategories().catch((e) => console.error("❌ ensureDefaultCategories error:", e));
+
 /* =====================
    ✅ OpenAI
 ===================== */
@@ -119,11 +160,12 @@ const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
    ✅ Rate limit
 ===================== */
 const limiterChat = rateLimit({ windowMs: 15 * 60 * 1000, max: 120 });
-const limiterAuth = rateLimit({ windowMs: 15 * 60 * 1000, max: 50 });
+const limiterAuth = rateLimit({ windowMs: 15 * 60 * 1000, max: 40 });
 
 app.use("/chat", limiterChat);
 app.use("/login", limiterAuth);
 app.use("/register", limiterAuth);
+app.use("/auth", limiterAuth);
 
 /* =====================
    ✅ Helpers
@@ -169,10 +211,7 @@ async function createEmbedding(text) {
     });
     return r.data?.[0]?.embedding || null;
   } catch (e) {
-    const msg = e?.message || "";
-    console.error("❌ Embedding error:", msg);
-
-    // Om quota är slut: return null => embeddingOk false
+    console.error("❌ Embedding error:", e?.message || e);
     return null;
   }
 }
@@ -181,7 +220,7 @@ async function ragSearch(companyId, query, topK = 4) {
   const qEmbed = await createEmbedding(query);
   if (!qEmbed) return { used: false, context: "", sources: [] };
 
-  const chunks = await KBChunk.find({ companyId, embeddingOk: true }).limit(1500);
+  const chunks = await KBChunk.find({ companyId, embeddingOk: true, isDeleted: false }).limit(1500);
   if (!chunks.length) return { used: false, context: "", sources: [] };
 
   const scored = chunks
@@ -202,24 +241,6 @@ async function ragSearch(companyId, query, topK = 4) {
   return { used: true, context, sources };
 }
 
-async function getSystemPrompt(companyId) {
-  // Hämta kategori från DB
-  const cat = await Category.findOne({ key: companyId });
-  if (cat?.systemPrompt) return cat.systemPrompt;
-
-  // fallback
-  switch (companyId) {
-    case "law":
-      return "Du är en AI-kundtjänst för juridiska frågor på svenska. Ge allmän vägledning men inte juridisk rådgivning.";
-    case "tech":
-      return "Du är en AI-kundtjänst för teknisk support inom IT och programmering på svenska. Felsök steg-för-steg och ge konkreta lösningar.";
-    case "cleaning":
-      return "Du är en AI-kundtjänst för städservice på svenska. Hjälp med bokningar, priser, rutiner och tips.";
-    default:
-      return "Du är en professionell och vänlig AI-kundtjänst på svenska.";
-  }
-}
-
 async function ensureTicket(userId, companyId) {
   let t = await Ticket.findOne({ userId, companyId, status: { $ne: "solved" } }).sort({ lastActivityAt: -1 });
   if (!t) t = await new Ticket({ userId, companyId, messages: [] }).save();
@@ -238,7 +259,6 @@ async function fetchUrlText(url) {
   });
 
   if (!res.ok) throw new Error(`Kunde inte hämta URL. Status: ${res.status}`);
-
   const html = await res.text();
   const $ = cheerio.load(html);
 
@@ -246,7 +266,9 @@ async function fetchUrlText(url) {
   const main = $("main").text() || $("article").text() || $("body").text();
   const text = cleanText(main);
 
-  if (!text || text.length < 200) throw new Error("Ingen tillräcklig text kunde extraheras från URL.");
+  if (!text || text.length < 200) {
+    throw new Error("Ingen tillräcklig text kunde extraheras från URL.");
+  }
 
   return text;
 }
@@ -260,38 +282,14 @@ async function extractPdfText(base64) {
 }
 
 /* =====================
-   ✅ Email (Nodemailer)
-===================== */
-function mailerEnabled() {
-  return (
-    process.env.SMTP_HOST &&
-    process.env.SMTP_USER &&
-    process.env.SMTP_PASS &&
-    process.env.APP_URL
-  );
-}
-
-function createTransporter() {
-  return nodemailer.createTransport({
-    host: process.env.SMTP_HOST,
-    port: Number(process.env.SMTP_PORT || 587),
-    secure: false,
-    auth: {
-      user: process.env.SMTP_USER,
-      pass: process.env.SMTP_PASS
-    }
-  });
-}
-
-/* =====================
    ✅ Auth middleware
 ===================== */
 const authenticate = (req, res, next) => {
-  const token = req.header("Authorization")?.replace("Bearer ", "");
-  if (!token) return res.status(401).json({ error: "Ingen token" });
+  const t = req.header("Authorization")?.replace("Bearer ", "");
+  if (!t) return res.status(401).json({ error: "Ingen token" });
 
   try {
-    req.user = jwt.verify(token, process.env.JWT_SECRET);
+    req.user = jwt.verify(t, process.env.JWT_SECRET);
     next();
   } catch {
     return res.status(401).json({ error: "Ogiltig token" });
@@ -304,27 +302,32 @@ const requireAdmin = async (req, res, next) => {
   next();
 };
 
-/* =====================
-   ✅ Default categories (SAFE UPSERT)
-===================== */
-async function ensureDefaultCategories() {
-  const defaults = [
-    { key: "demo", name: "Demo AB", systemPrompt: "Du är en professionell och vänlig AI-kundtjänst på svenska." },
-    { key: "law", name: "Juridik", systemPrompt: "Du är en AI-kundtjänst för juridiska frågor på svenska. Ge allmän vägledning men inte juridisk rådgivning." },
-    { key: "tech", name: "Teknisk Support", systemPrompt: "Du är en AI-kundtjänst för teknisk support inom IT och programmering på svenska. Felsök steg-för-steg och ge konkreta lösningar." },
-    { key: "cleaning", name: "Städservice", systemPrompt: "Du är en AI-kundtjänst för städservice på svenska. Hjälp med bokningar, priser, rutiner och tips." }
-  ];
-
-  for (const c of defaults) {
-    await Category.updateOne({ key: c.key }, { $setOnInsert: c }, { upsert: true });
+const requireAgentOrAdmin = async (req, res, next) => {
+  const dbUser = await User.findById(req.user?.id);
+  if (!dbUser || (dbUser.role !== "admin" && dbUser.role !== "agent")) {
+    return res.status(403).json({ error: "Agent/Admin krävs" });
   }
+  next();
+};
 
-  console.log("✅ Default categories säkrade");
+/* =====================
+   ✅ Email (SMTP)
+===================== */
+function smtpReady() {
+  return !!(process.env.SMTP_HOST && process.env.SMTP_USER && process.env.SMTP_PASS);
 }
 
-mongoose.connection.once("open", () => {
-  ensureDefaultCategories().catch((e) => console.error("❌ ensureDefaultCategories error:", e.message));
-});
+function createTransport() {
+  return nodemailer.createTransport({
+    host: process.env.SMTP_HOST,
+    port: Number(process.env.SMTP_PORT || 587),
+    secure: String(process.env.SMTP_SECURE || "false") === "true",
+    auth: {
+      user: process.env.SMTP_USER,
+      pass: process.env.SMTP_PASS
+    }
+  });
+}
 
 /* =====================
    ✅ ROUTES
@@ -332,9 +335,6 @@ mongoose.connection.once("open", () => {
 app.get("/", (req, res) => res.sendFile(path.join(__dirname, "index.html")));
 app.get("/favicon.ico", (req, res) => res.status(204).end());
 
-/* =====================
-   ✅ ME
-===================== */
 app.get("/me", authenticate, async (req, res) => {
   const u = await User.findById(req.user.id).select("-password");
   if (!u) return res.status(404).json({ error: "User saknas" });
@@ -350,12 +350,7 @@ app.post("/register", async (req, res) => {
 
   try {
     const hashedPassword = await bcrypt.hash(password, 10);
-    const u = await new User({
-      username,
-      email: (email || "").trim().toLowerCase(),
-      password: hashedPassword
-    }).save();
-
+    const u = await new User({ username, password: hashedPassword, email: email || "" }).save();
     return res.json({ message: "Registrering lyckades", user: { id: u._id, username: u.username, role: u.role } });
   } catch {
     return res.status(400).json({ error: "Användarnamn upptaget" });
@@ -371,113 +366,168 @@ app.post("/login", async (req, res) => {
   if (!ok) return res.status(401).json({ error: "Fel användarnamn eller lösenord" });
 
   const token = jwt.sign({ id: u._id, username: u.username }, process.env.JWT_SECRET, { expiresIn: "7d" });
-  return res.json({ token, user: { id: u._id, username: u.username, role: u.role } });
-});
-
-/* =====================
-   ✅ Change password (logged in)
-===================== */
-app.post("/auth/change-password", authenticate, async (req, res) => {
-  const { currentPassword, newPassword } = req.body || {};
-  if (!currentPassword || !newPassword) return res.status(400).json({ error: "Saknar fält" });
-
-  const u = await User.findById(req.user.id);
-  if (!u) return res.status(404).json({ error: "User saknas" });
-
-  const ok = await bcrypt.compare(currentPassword, u.password);
-  if (!ok) return res.status(401).json({ error: "Fel nuvarande lösenord" });
-
-  u.password = await bcrypt.hash(newPassword, 10);
-  await u.save();
-
-  return res.json({ message: "Lösenord uppdaterat ✅" });
+  return res.json({ token, user: { id: u._id, username: u.username, role: u.role, email: u.email || "" } });
 });
 
 /* =====================
    ✅ Change username (logged in)
 ===================== */
 app.post("/auth/change-username", authenticate, async (req, res) => {
-  const { newUsername } = req.body || {};
-  if (!newUsername) return res.status(400).json({ error: "newUsername saknas" });
+  try {
+    const { newUsername } = req.body || {};
+    if (!newUsername || newUsername.length < 3) return res.status(400).json({ error: "Nytt username är för kort" });
 
-  const exists = await User.findOne({ username: newUsername });
-  if (exists) return res.status(400).json({ error: "Användarnamn upptaget" });
+    const exists = await User.findOne({ username: newUsername });
+    if (exists) return res.status(400).json({ error: "Användarnamn upptaget" });
 
-  const u = await User.findById(req.user.id);
-  if (!u) return res.status(404).json({ error: "User saknas" });
+    const u = await User.findById(req.user.id);
+    if (!u) return res.status(404).json({ error: "User saknas" });
 
-  u.username = newUsername;
-  await u.save();
+    u.username = newUsername;
+    await u.save();
 
-  return res.json({ message: "Användarnamn uppdaterat ✅", username: newUsername });
+    return res.json({ message: "Användarnamn uppdaterat ✅" });
+  } catch (e) {
+    return res.status(500).json({ error: "Serverfel vid byte av användarnamn" });
+  }
 });
 
 /* =====================
-   ✅ Forgot password (email)
+   ✅ Change password (logged in)
+===================== */
+app.post("/auth/change-password", authenticate, async (req, res) => {
+  try {
+    const { currentPassword, newPassword } = req.body || {};
+    if (!currentPassword || !newPassword) return res.status(400).json({ error: "Fyll i båda fälten" });
+
+    const u = await User.findById(req.user.id);
+    if (!u) return res.status(404).json({ error: "User saknas" });
+
+    const ok = await bcrypt.compare(currentPassword, u.password);
+    if (!ok) return res.status(401).json({ error: "Fel nuvarande lösenord" });
+
+    u.password = await bcrypt.hash(newPassword, 10);
+    await u.save();
+
+    return res.json({ message: "Lösenord uppdaterat ✅" });
+  } catch {
+    return res.status(500).json({ error: "Serverfel vid byte av lösenord" });
+  }
+});
+
+/* =====================
+   ✅ Forgot password (email reset)
 ===================== */
 app.post("/auth/forgot-password", async (req, res) => {
-  const { email } = req.body || {};
-  if (!email) return res.status(400).json({ error: "Email saknas" });
+  try {
+    const { email } = req.body || {};
+    if (!email) return res.status(400).json({ error: "Email krävs" });
 
-  if (!mailerEnabled()) {
-    return res.status(500).json({ error: "SMTP är inte konfigurerat" });
+    const u = await User.findOne({ email });
+    if (!u) {
+      // säkerhet: säg aldrig om email finns
+      return res.json({ message: "Om email finns så skickas en länk ✅" });
+    }
+
+    if (!smtpReady()) {
+      console.error("❌ SMTP saknas i ENV");
+      return res.status(500).json({ error: "SMTP är inte konfigurerat i Render ENV" });
+    }
+
+    const resetToken = crypto.randomBytes(32).toString("hex");
+    const resetTokenHash = crypto.createHash("sha256").update(resetToken).digest("hex");
+
+    u.resetTokenHash = resetTokenHash;
+    u.resetTokenExpiresAt = new Date(Date.now() + 1000 * 60 * 30); // 30 min
+    await u.save();
+
+    const resetLink = `${process.env.APP_URL}/?resetToken=${resetToken}`;
+
+    const transporter = createTransport();
+    await transporter.sendMail({
+      from: process.env.SMTP_FROM || process.env.SMTP_USER,
+      to: email,
+      subject: "Återställ ditt lösenord",
+      html: `
+        <div style="font-family:Arial">
+          <h2>Återställ lösenord</h2>
+          <p>Klicka på länken nedan för att välja nytt lösenord:</p>
+          <p><a href="${resetLink}">${resetLink}</a></p>
+          <p>Länken gäller i 30 minuter.</p>
+        </div>
+      `
+    });
+
+    return res.json({ message: "Återställningsmail skickat ✅" });
+  } catch (e) {
+    console.error("❌ forgot-password error:", e?.message || e);
+    return res.status(500).json({ error: "Serverfel vid återställning (mail)" });
   }
-
-  const e = String(email).trim().toLowerCase();
-  const u = await User.findOne({ email: e });
-
-  // svara alltid OK (säkerhet) även om user saknas
-  if (!u) return res.json({ message: "Om kontot finns skickas ett mail ✅" });
-
-  const rawToken = `${u._id}.${Date.now()}.${Math.random()}`;
-  const tokenHash = await bcrypt.hash(rawToken, 10);
-
-  u.resetTokenHash = tokenHash;
-  u.resetTokenExp = new Date(Date.now() + 1000 * 60 * 30); // 30 min
-  await u.save();
-
-  const resetUrl = `${process.env.APP_URL.replace(/\/$/, "")}/?resetToken=${encodeURIComponent(rawToken)}`;
-
-  const transporter = createTransporter();
-  await transporter.sendMail({
-    from: process.env.SMTP_FROM || process.env.SMTP_USER,
-    to: u.email,
-    subject: "Återställ lösenord (AI Kundtjänst)",
-    text: `Hej!\n\nKlicka här för att återställa lösenord:\n${resetUrl}\n\nLänken gäller i 30 minuter.`,
-  });
-
-  return res.json({ message: "Om kontot finns skickas ett mail ✅" });
 });
 
 /* =====================
-   ✅ Reset password (email token)
+   ✅ Reset password (token)
 ===================== */
 app.post("/auth/reset-password", async (req, res) => {
-  const { resetToken, newPassword } = req.body || {};
-  if (!resetToken || !newPassword) return res.status(400).json({ error: "Saknar fält" });
+  try {
+    const { resetToken, newPassword } = req.body || {};
+    if (!resetToken || !newPassword) return res.status(400).json({ error: "Token + nytt lösenord krävs" });
 
-  const parts = String(resetToken).split(".");
-  const userId = parts?.[0];
-  if (!userId) return res.status(400).json({ error: "Ogiltig token" });
+    const tokenHash = crypto.createHash("sha256").update(resetToken).digest("hex");
 
-  const u = await User.findById(userId);
-  if (!u || !u.resetTokenHash || !u.resetTokenExp) return res.status(400).json({ error: "Ogiltig token" });
+    const u = await User.findOne({
+      resetTokenHash: tokenHash,
+      resetTokenExpiresAt: { $gt: new Date() }
+    });
 
-  if (u.resetTokenExp < new Date()) return res.status(400).json({ error: "Token har gått ut" });
+    if (!u) return res.status(400).json({ error: "Reset-token är ogiltig eller har gått ut" });
 
-  const ok = await bcrypt.compare(resetToken, u.resetTokenHash);
-  if (!ok) return res.status(400).json({ error: "Ogiltig token" });
+    u.password = await bcrypt.hash(newPassword, 10);
+    u.resetTokenHash = "";
+    u.resetTokenExpiresAt = null;
+    await u.save();
 
-  u.password = await bcrypt.hash(newPassword, 10);
-  u.resetTokenHash = "";
-  u.resetTokenExp = null;
-  await u.save();
-
-  return res.json({ message: "Lösenord återställt ✅ Du kan logga in nu." });
+    return res.json({ message: "Lösenord återställt ✅ Logga in nu." });
+  } catch (e) {
+    console.error("❌ reset-password error:", e?.message || e);
+    return res.status(500).json({ error: "Serverfel vid reset" });
+  }
 });
 
 /* =====================
-   ✅ CHAT (ticket + RAG)
+   ✅ Feedback (ALL users)
+===================== */
+app.post("/feedback", authenticate, async (req, res) => {
+  try {
+    const { type, companyId } = req.body || {};
+    if (!type) return res.status(400).json({ error: "type saknas" });
+
+    await new Feedback({
+      userId: req.user.id,
+      type,
+      companyId: companyId || "demo"
+    }).save();
+
+    return res.json({ message: "Feedback sparad ✅" });
+  } catch {
+    return res.status(500).json({ error: "Serverfel vid feedback" });
+  }
+});
+
+/* =====================
+   ✅ Public Categories (for dropdown for ALL users)
+===================== */
+app.get("/categories", async (req, res) => {
+  try {
+    const cats = await Category.find({}).sort({ createdAt: 1 });
+    return res.json(cats.map(c => ({ key: c.key, name: c.name, systemPrompt: c.systemPrompt })));
+  } catch {
+    return res.status(500).json({ error: "Serverfel vid kategorier" });
+  }
+});
+
+/* =====================
+   ✅ CHAT (with ticket + RAG)
 ===================== */
 app.post("/chat", authenticate, async (req, res) => {
   try {
@@ -504,12 +554,15 @@ app.post("/chat", authenticate, async (req, res) => {
       await ticket.save();
     }
 
+    const cat = await Category.findOne({ key: companyId });
+    const systemPrompt = cat?.systemPrompt || "Du är en professionell och vänlig AI-kundtjänst på svenska.";
+
     const rag = await ragSearch(companyId, userQuery, 4);
 
     const systemMessage = {
       role: "system",
       content:
-        (await getSystemPrompt(companyId)) +
+        systemPrompt +
         (rag.used
           ? `\n\nIntern kunskapsdatabas (om relevant):\n${rag.context}\n\nSvara tydligt och konkret.`
           : "")
@@ -536,36 +589,43 @@ app.post("/chat", authenticate, async (req, res) => {
 });
 
 /* =====================
-   ✅ Feedback (alla users)
+   ✅ USER: My tickets (for "Mina ärenden")
 ===================== */
-app.post("/feedback", authenticate, async (req, res) => {
-  const { type, companyId } = req.body || {};
-  if (!type) return res.status(400).json({ error: "type saknas" });
-
-  await new Feedback({ userId: req.user.id, type, companyId }).save();
-  return res.json({ message: "Tack för feedback ✅" });
-});
-
-/* =====================
-   ✅ ADMIN: Tickets inbox
-===================== */
-app.get("/admin/tickets", authenticate, requireAdmin, async (req, res) => {
-  const { status, companyId } = req.query || {};
-  const query = {};
-  if (status) query.status = status;
-  if (companyId) query.companyId = companyId;
-
-  const tickets = await Ticket.find(query).sort({ lastActivityAt: -1 }).limit(300);
+app.get("/my/tickets", authenticate, async (req, res) => {
+  const tickets = await Ticket.find({ userId: req.user.id }).sort({ lastActivityAt: -1 }).limit(100);
   return res.json(tickets);
 });
 
-app.get("/admin/tickets/:ticketId", authenticate, requireAdmin, async (req, res) => {
+app.get("/my/tickets/:ticketId", authenticate, async (req, res) => {
+  const t = await Ticket.findOne({ _id: req.params.ticketId, userId: req.user.id });
+  if (!t) return res.status(404).json({ error: "Ticket hittades inte" });
+  return res.json(t);
+});
+
+/* =====================
+   ✅ ADMIN/AGENT: Inbox (tickets)
+===================== */
+app.get("/admin/tickets", authenticate, requireAgentOrAdmin, async (req, res) => {
+  try {
+    const { status, companyId } = req.query || {};
+    const query = {};
+    if (status) query.status = status;
+    if (companyId) query.companyId = companyId;
+
+    const tickets = await Ticket.find(query).sort({ lastActivityAt: -1 }).limit(500);
+    return res.json(tickets);
+  } catch {
+    return res.status(500).json({ error: "Serverfel vid inbox" });
+  }
+});
+
+app.get("/admin/tickets/:ticketId", authenticate, requireAgentOrAdmin, async (req, res) => {
   const t = await Ticket.findById(req.params.ticketId);
   if (!t) return res.status(404).json({ error: "Ticket hittades inte" });
   return res.json(t);
 });
 
-app.post("/admin/tickets/:ticketId/status", authenticate, requireAdmin, async (req, res) => {
+app.post("/admin/tickets/:ticketId/status", authenticate, requireAgentOrAdmin, async (req, res) => {
   const { status } = req.body || {};
   if (!["open", "pending", "solved"].includes(status)) return res.status(400).json({ error: "Ogiltig status" });
 
@@ -575,11 +635,10 @@ app.post("/admin/tickets/:ticketId/status", authenticate, requireAdmin, async (r
   t.status = status;
   t.lastActivityAt = new Date();
   await t.save();
-
   return res.json({ message: "Status uppdaterad ✅", ticket: t });
 });
 
-app.post("/admin/tickets/:ticketId/priority", authenticate, requireAdmin, async (req, res) => {
+app.post("/admin/tickets/:ticketId/priority", authenticate, requireAgentOrAdmin, async (req, res) => {
   const { priority } = req.body || {};
   if (!["low", "normal", "high"].includes(priority)) return res.status(400).json({ error: "Ogiltig prioritet" });
 
@@ -589,12 +648,10 @@ app.post("/admin/tickets/:ticketId/priority", authenticate, requireAdmin, async 
   t.priority = priority;
   t.lastActivityAt = new Date();
   await t.save();
-
   return res.json({ message: "Prioritet uppdaterad ✅", ticket: t });
 });
 
-// ✅ Agent reply (syns för kunden som nästa meddelande)
-app.post("/admin/tickets/:ticketId/agent-reply", authenticate, requireAdmin, async (req, res) => {
+app.post("/admin/tickets/:ticketId/agent-reply", authenticate, requireAgentOrAdmin, async (req, res) => {
   const { content } = req.body || {};
   if (!content) return res.status(400).json({ error: "content saknas" });
 
@@ -606,58 +663,114 @@ app.post("/admin/tickets/:ticketId/agent-reply", authenticate, requireAdmin, asy
   t.lastActivityAt = new Date();
   await t.save();
 
-  return res.json({ message: "Agent-svar skickat ✅", ticket: t });
+  return res.json({ message: "Agent-svar sparat ✅", ticket: t });
 });
 
-// ✅ Delete ONE ticket
-app.delete("/admin/tickets/:ticketId", authenticate, requireAdmin, async (req, res) => {
-  await Ticket.deleteOne({ _id: req.params.ticketId });
-  return res.json({ message: "Ticket borttagen ✅" });
+app.post("/admin/tickets/:ticketId/internal-note", authenticate, requireAgentOrAdmin, async (req, res) => {
+  const { content } = req.body || {};
+  if (!content) return res.status(400).json({ error: "Notering saknas" });
+
+  const t = await Ticket.findById(req.params.ticketId);
+  if (!t) return res.status(404).json({ error: "Ticket hittades inte" });
+
+  t.internalNotes.push({ createdBy: req.user.id, content: cleanText(content) });
+  await t.save();
+
+  return res.json({ message: "Intern notering sparad ✅" });
 });
 
-// ✅ Delete all solved tickets
+app.post("/admin/tickets/:ticketId/assign", authenticate, requireAgentOrAdmin, async (req, res) => {
+  const { userId } = req.body || {};
+  if (!userId) return res.status(400).json({ error: "userId saknas" });
+
+  const t = await Ticket.findById(req.params.ticketId);
+  if (!t) return res.status(404).json({ error: "Ticket hittades inte" });
+
+  t.assignedToUserId = userId;
+  await t.save();
+
+  return res.json({ message: "Ticket assignad ✅" });
+});
+
+app.delete("/admin/tickets/:ticketId", authenticate, requireAgentOrAdmin, async (req, res) => {
+  try {
+    const t = await Ticket.findById(req.params.ticketId);
+    if (!t) return res.status(404).json({ error: "Ticket hittades inte" });
+
+    await Ticket.deleteOne({ _id: t._id });
+    return res.json({ message: "Ticket borttagen ✅" });
+  } catch {
+    return res.status(500).json({ error: "Serverfel vid borttagning av ticket" });
+  }
+});
+
 app.post("/admin/tickets/cleanup-solved", authenticate, requireAdmin, async (req, res) => {
-  const r = await Ticket.deleteMany({ status: "solved" });
-  return res.json({ message: `Rensade ${r.deletedCount} lösta tickets ✅` });
+  try {
+    const r = await Ticket.deleteMany({ status: "solved" });
+    return res.json({ message: `Rensade solved ✅ (${r.deletedCount} st)` });
+  } catch {
+    return res.status(500).json({ error: "Serverfel vid cleanup" });
+  }
 });
 
 /* =====================
-   ✅ ADMIN: Users
+   ✅ ADMIN: Users + roles (user/agent/admin)
 ===================== */
-app.get("/admin/users", authenticate, requireAdmin, async (req, res) => {
+app.get("/admin/users", authenticate, requireAgentOrAdmin, async (req, res) => {
   const users = await User.find({}).select("-password").sort({ createdAt: -1 }).limit(2000);
   return res.json(users);
 });
 
 app.post("/admin/users/:userId/role", authenticate, requireAdmin, async (req, res) => {
-  const { role } = req.body || {};
-  if (!["user", "admin"].includes(role)) return res.status(400).json({ error: "Ogiltig roll" });
+  try {
+    const { role } = req.body || {};
+    if (!["user", "agent", "admin"].includes(role)) return res.status(400).json({ error: "Ogiltig roll" });
 
-  const u = await User.findById(req.params.userId);
-  if (!u) return res.status(404).json({ error: "User hittades inte" });
+    const targetId = req.params.userId;
+    const me = await User.findById(req.user.id);
 
-  u.role = role;
-  await u.save();
+    if (!me || me.role !== "admin") return res.status(403).json({ error: "Admin krävs" });
 
-  return res.json({ message: "Roll uppdaterad ✅", user: { id: u._id, username: u.username, role: u.role } });
+    const u = await User.findById(targetId);
+    if (!u) return res.status(404).json({ error: "User hittades inte" });
+
+    // allow removing admin from others, but not yourself
+    if (String(u._id) === String(me._id)) {
+      return res.status(400).json({ error: "Du kan inte ändra din egen roll." });
+    }
+
+    u.role = role;
+    await u.save();
+
+    return res.json({ message: "Roll uppdaterad ✅", user: { id: u._id, username: u.username, role: u.role } });
+  } catch (e) {
+    return res.status(500).json({ error: "Serverfel vid roll-ändring" });
+  }
 });
 
 app.delete("/admin/users/:userId", authenticate, requireAdmin, async (req, res) => {
-  const targetId = req.params.userId;
-  if (String(targetId) === String(req.user.id)) return res.status(400).json({ error: "Du kan inte ta bort dig själv." });
+  try {
+    const targetId = req.params.userId;
 
-  const u = await User.findById(targetId);
-  if (!u) return res.status(404).json({ error: "User hittades inte" });
+    if (String(targetId) === String(req.user.id)) {
+      return res.status(400).json({ error: "Du kan inte ta bort dig själv." });
+    }
 
-  await Ticket.deleteMany({ userId: targetId });
-  await Feedback.deleteMany({ userId: targetId });
-  await User.deleteOne({ _id: targetId });
+    const u = await User.findById(targetId);
+    if (!u) return res.status(404).json({ error: "User hittades inte" });
 
-  return res.json({ message: `Användaren ${u.username} togs bort ✅` });
+    await Ticket.deleteMany({ userId: targetId });
+    await Feedback.deleteMany({ userId: targetId });
+    await User.deleteOne({ _id: targetId });
+
+    return res.json({ message: `Användaren ${u.username} togs bort ✅` });
+  } catch (e) {
+    return res.status(500).json({ error: "Serverfel vid borttagning" });
+  }
 });
 
 /* =====================
-   ✅ ADMIN: Category manager
+   ✅ ADMIN: Categories manager
 ===================== */
 app.get("/admin/categories", authenticate, requireAdmin, async (req, res) => {
   const cats = await Category.find({}).sort({ createdAt: 1 });
@@ -665,48 +778,59 @@ app.get("/admin/categories", authenticate, requireAdmin, async (req, res) => {
 });
 
 app.post("/admin/categories", authenticate, requireAdmin, async (req, res) => {
-  const { key, name, systemPrompt } = req.body || {};
-  if (!key || !name) return res.status(400).json({ error: "key + name krävs" });
+  try {
+    const { key, name, systemPrompt } = req.body || {};
+    if (!key || !name) return res.status(400).json({ error: "key + name krävs" });
 
-  const exists = await Category.findOne({ key });
-  if (exists) return res.status(400).json({ error: "Key finns redan" });
+    const exists = await Category.findOne({ key });
+    if (exists) return res.status(400).json({ error: "Kategori finns redan" });
 
-  const c = await new Category({ key, name, systemPrompt: systemPrompt || "" }).save();
-  return res.json({ message: "Kategori skapad ✅", category: c });
+    await new Category({ key, name, systemPrompt: systemPrompt || "" }).save();
+    return res.json({ message: "Kategori skapad ✅" });
+  } catch {
+    return res.status(500).json({ error: "Serverfel vid skapa kategori" });
+  }
 });
 
 app.put("/admin/categories/:key", authenticate, requireAdmin, async (req, res) => {
-  const { name, systemPrompt } = req.body || {};
-  const c = await Category.findOne({ key: req.params.key });
-  if (!c) return res.status(404).json({ error: "Kategori hittades inte" });
+  try {
+    const { name, systemPrompt } = req.body || {};
+    const c = await Category.findOne({ key: req.params.key });
+    if (!c) return res.status(404).json({ error: "Kategori hittades inte" });
 
-  if (name) c.name = name;
-  if (systemPrompt !== undefined) c.systemPrompt = systemPrompt;
-  await c.save();
+    if (name) c.name = name;
+    if (typeof systemPrompt === "string") c.systemPrompt = systemPrompt;
 
-  return res.json({ message: "Kategori uppdaterad ✅", category: c });
+    await c.save();
+    return res.json({ message: "Kategori uppdaterad ✅" });
+  } catch {
+    return res.status(500).json({ error: "Serverfel vid update kategori" });
+  }
 });
 
 app.delete("/admin/categories/:key", authenticate, requireAdmin, async (req, res) => {
-  const key = req.params.key;
+  try {
+    const key = req.params.key;
 
-  // skydda default
-  if (["demo", "law", "tech", "cleaning"].includes(key)) {
-    return res.status(400).json({ error: "Du kan inte ta bort default-kategorier." });
+    if (["demo", "law", "tech", "cleaning"].includes(key)) {
+      return res.status(400).json({ error: "Default-kategorier kan inte tas bort" });
+    }
+
+    await Category.deleteOne({ key });
+    await KBChunk.deleteMany({ companyId: key });
+    await Ticket.deleteMany({ companyId: key });
+
+    return res.json({ message: `Kategori ${key} borttagen ✅` });
+  } catch {
+    return res.status(500).json({ error: "Serverfel vid delete kategori" });
   }
-
-  await Category.deleteOne({ key });
-  await KBChunk.deleteMany({ companyId: key });
-  await Ticket.deleteMany({ companyId: key });
-
-  return res.json({ message: "Kategori borttagen ✅" });
 });
 
 /* =====================
    ✅ ADMIN: KB Upload / List / Export
 ===================== */
 app.get("/kb/list/:companyId", authenticate, requireAdmin, async (req, res) => {
-  const items = await KBChunk.find({ companyId: req.params.companyId }).sort({ createdAt: -1 }).limit(400);
+  const items = await KBChunk.find({ companyId: req.params.companyId, isDeleted: false }).sort({ createdAt: -1 }).limit(400);
   return res.json(items);
 });
 
@@ -719,7 +843,6 @@ app.post("/kb/upload-text", authenticate, requireAdmin, async (req, res) => {
     if (!chunks.length) return res.status(400).json({ error: "Ingen text att spara" });
 
     let okCount = 0;
-
     for (let i = 0; i < chunks.length; i++) {
       const emb = await createEmbedding(chunks[i]);
       const embeddingOk = !!emb;
@@ -750,8 +873,8 @@ app.post("/kb/upload-url", authenticate, requireAdmin, async (req, res) => {
 
     const text = await fetchUrlText(url);
     const chunks = chunkText(text);
-    let okCount = 0;
 
+    let okCount = 0;
     for (let i = 0; i < chunks.length; i++) {
       const emb = await createEmbedding(chunks[i]);
       const embeddingOk = !!emb;
@@ -782,8 +905,8 @@ app.post("/kb/upload-pdf", authenticate, requireAdmin, async (req, res) => {
 
     const text = await extractPdfText(base64);
     const chunks = chunkText(text);
-    let okCount = 0;
 
+    let okCount = 0;
     for (let i = 0; i < chunks.length; i++) {
       const emb = await createEmbedding(chunks[i]);
       const embeddingOk = !!emb;
@@ -815,14 +938,14 @@ app.get("/export/kb/:companyId", authenticate, requireAdmin, async (req, res) =>
 });
 
 /* =====================
-   ✅ TRAINING EXPORT (Q/A)
+   ✅ TRAINING EXPORT
 ===================== */
 app.get("/admin/export/training", authenticate, requireAdmin, async (req, res) => {
   const { companyId } = req.query || {};
   const query = {};
   if (companyId) query.companyId = companyId;
 
-  const tickets = await Ticket.find(query).sort({ createdAt: -1 }).limit(2000);
+  const tickets = await Ticket.find(query).sort({ createdAt: -1 }).limit(4000);
 
   const rows = [];
   for (const t of tickets) {
@@ -844,10 +967,7 @@ app.get("/admin/export/training", authenticate, requireAdmin, async (req, res) =
   }
 
   res.setHeader("Content-Type", "application/json");
-  res.setHeader(
-    "Content-Disposition",
-    `attachment; filename="training_export${companyId ? "_" + companyId : ""}.json"`
-  );
+  res.setHeader("Content-Disposition", `attachment; filename="training_export${companyId ? "_" + companyId : ""}.json"`);
   return res.send(JSON.stringify({ exportedAt: new Date().toISOString(), rows }, null, 2));
 });
 
