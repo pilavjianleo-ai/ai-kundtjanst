@@ -31,6 +31,7 @@ body[data-theme="light"]{
 }
 
 *{ box-sizing:border-box; }
+
 body{
   margin:0;
   font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
@@ -43,6 +44,9 @@ body{
   min-height:100vh;
 }
 
+/* =========================
+   SIDEBAR
+========================= */
 .sidebar{
   width: 280px;
   background: linear-gradient(180deg, var(--panel), var(--panel2));
@@ -108,6 +112,10 @@ body{
   background: rgba(255,255,255,0.03);
 }
 
+.menuBtn:active{
+  transform: translateY(1px);
+}
+
 .menuBtn.active{
   border-color: rgba(76,125,255,0.35);
   background: rgba(76,125,255,0.12);
@@ -131,10 +139,6 @@ body{
   outline: 2px solid rgba(255,176,32,0.35);
   border-radius: 10px;
 }
-    
-  border-color: rgba(76,125,255,0.35);
-  background: rgba(76,125,255,0.12);
-}
 
 .sidebarFooter{
   margin-top:auto;
@@ -152,6 +156,9 @@ body{
   border-radius:12px;
 }
 
+/* =========================
+   MAIN
+========================= */
 .main{
   flex:1;
   padding:18px;
@@ -162,6 +169,9 @@ body{
   margin:0 auto;
 }
 
+/* =========================
+   CARDS / FORMS
+========================= */
 .card{
   background: var(--panel);
   border:1px solid var(--border);
@@ -176,6 +186,7 @@ body{
 }
 
 h2{ margin:0 0 6px 0; }
+
 label{
   font-size:12px;
   color: var(--muted);
@@ -226,75 +237,9 @@ label{
   gap:12px;
 }
 
-@media (max-width: 900px){
-  .app{
-    flex-direction: column;
-  }
-
-  .sidebar{
-    width: 100%;
-    display: flex;
-    position: sticky;
-    top: 0;
-    z-index: 50;
-
-    flex-direction: row;
-    align-items: center;
-    gap: 10px;
-
-    padding: 10px;
-    border-right: none;
-    border-bottom: 1px solid var(--border);
-    overflow-x: auto;
-  }
-
-  .brand{
-    min-width: 210px;
-    flex-shrink: 0;
-  }
-
-  .sidebarBlock{
-    min-width: 220px;
-    flex-shrink: 0;
-  }
-
-  .menu{
-    flex-direction: row;
-    gap: 8px;
-    flex-shrink: 0;
-  }
-
-  .menuBtn{
-    white-space: nowrap;
-  }
-
-  .sidebarFooter{
-    flex-direction: row;
-    gap: 8px;
-    margin-top: 0;
-    margin-left: auto;
-    flex-shrink: 0;
-  }
-
-  .main{
-    padding: 12px;
-  }
-
-  .messages{
-    height: 60vh;
-  }
-
-  .grid2{
-    grid-template-columns: 1fr;
-  }
-
-  /* Inbox split på mobil */
-  .split{
-    grid-template-columns: 1fr;
-  }
-}
-
-
+/* =========================
+   BUTTONS
+========================= */
 .btn{
   border:1px solid var(--border);
   background: rgba(255,255,255,0.03);
@@ -352,6 +297,9 @@ label{
   font-size: 12px;
 }
 
+/* =========================
+   ALERTS
+========================= */
 .alert{
   margin-top:12px;
   border:1px solid var(--border);
@@ -365,6 +313,9 @@ label{
   background: rgba(255,77,77,0.10);
 }
 
+/* =========================
+   TOPBAR
+========================= */
 .topbar{
   display:flex;
   align-items:flex-start;
@@ -386,6 +337,9 @@ label{
   flex-wrap:wrap;
 }
 
+/* =========================
+   CHAT
+========================= */
 .messages{
   margin-top:12px;
   background: var(--panel);
@@ -480,16 +434,14 @@ label{
   gap:10px;
 }
 
+/* =========================
+   SPLIT LAYOUT (Inbox, Tickets)
+========================= */
 .split{
   margin-top:12px;
   display:grid;
   grid-template-columns: 1fr 1.2fr;
   gap:12px;
-}
-
-@media (max-width: 900px){
-  .split{ grid-template-columns: 1fr; }
-  .messages{ height: 60vh; }
 }
 
 .panel{
@@ -520,6 +472,9 @@ label{
   margin:12px 0;
 }
 
+/* =========================
+   LIST / ITEMS
+========================= */
 .list{
   display:flex;
   flex-direction:column;
@@ -532,10 +487,16 @@ label{
   border-radius:14px;
   cursor:pointer;
   background: rgba(255,255,255,0.02);
+  transition: background 0.2s ease, border 0.2s ease;
 }
 
 .listItem:hover{
   background: rgba(255,255,255,0.04);
+}
+
+.listItem.selected{
+  border-color: rgba(76,125,255,0.45);
+  box-shadow: 0 0 0 2px rgba(76,125,255,0.12);
 }
 
 .listItemTitle{
@@ -560,6 +521,9 @@ label{
   border-color: rgba(76,125,255,0.45);
 }
 
+/* =========================
+   TICKET DETAILS
+========================= */
 .ticketDetails{
   max-height: 48vh;
   overflow:auto;
@@ -581,10 +545,14 @@ label{
   margin-bottom:6px;
 }
 
+/* =========================
+   ADMIN TABS
+========================= */
 .tabs{
   display:flex;
   gap:10px;
   margin-top:12px;
+  flex-wrap:wrap;
 }
 
 .tabBtn{
@@ -608,13 +576,83 @@ label{
   gap:12px;
 }
 
-@media (max-width: 1100px){
-  .kbGrid{ grid-template-columns:1fr; }
-}
-
 .filterBar{
   display:flex;
   gap:10px;
   flex-wrap:wrap;
   margin-bottom:10px;
+}
+
+/* =========================
+   RESPONSIVE
+========================= */
+@media (max-width: 1100px){
+  .kbGrid{ grid-template-columns:1fr; }
+}
+
+@media (max-width: 900px){
+  .app{
+    flex-direction: column;
+  }
+
+  .sidebar{
+    width: 100%;
+    display: flex;
+    position: sticky;
+    top: 0;
+    z-index: 50;
+
+    flex-direction: row;
+    align-items: center;
+    gap: 10px;
+
+    padding: 10px;
+    border-right: none;
+    border-bottom: 1px solid var(--border);
+    overflow-x: auto;
+  }
+
+  .brand{
+    min-width: 210px;
+    flex-shrink: 0;
+  }
+
+  .sidebarBlock{
+    min-width: 220px;
+    flex-shrink: 0;
+  }
+
+  .menu{
+    flex-direction: row;
+    gap: 8px;
+    flex-shrink: 0;
+  }
+
+  .menuBtn{
+    white-space: nowrap;
+  }
+
+  .sidebarFooter{
+    flex-direction: row;
+    gap: 8px;
+    margin-top: 0;
+    margin-left: auto;
+    flex-shrink: 0;
+  }
+
+  .main{
+    padding: 12px;
+  }
+
+  .messages{
+    height: 60vh;
+  }
+
+  .grid2{
+    grid-template-columns: 1fr;
+  }
+
+  .split{
+    grid-template-columns: 1fr;
+  }
 }
