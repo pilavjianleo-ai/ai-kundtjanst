@@ -7,48 +7,51 @@ const API = {
   ME: `${API_BASE}/me`,
   LOGIN: `${API_BASE}/login`,
   REGISTER: `${API_BASE}/register`,
+
   CHAT: `${API_BASE}/chat`,
-  CATEGORIES: `${API_BASE}/categories`,
-
-  FORGOT: `${API_BASE}/auth/forgot-password`,
-  RESET: `${API_BASE}/auth/reset-password`,
-  CHANGE_PASSWORD: `${API_BASE}/auth/change-password`,
-  CHANGE_USERNAME: `${API_BASE}/auth/change-username`,
-
   FEEDBACK: `${API_BASE}/feedback`,
 
-  ADMIN_DASH: `${API_BASE}/admin/dashboard`,
-  ADMIN_TICKETS: `${API_BASE}/admin/tickets`,
-  ADMIN_TICKET: (id) => `${API_BASE}/admin/tickets/${id}`,
-  ADMIN_TICKET_STATUS: (id) => `${API_BASE}/admin/tickets/${id}/status`,
-  ADMIN_TICKET_REPLY: (id) => `${API_BASE}/admin/tickets/${id}/agent-reply`,
-  ADMIN_TICKET_PRIORITY: (id) => `${API_BASE}/admin/tickets/${id}/priority`,
-  ADMIN_TICKET_NOTES: (id) => `${API_BASE}/admin/tickets/${id}/notes`,
-  ADMIN_DELETE_TICKET: (id) => `${API_BASE}/admin/tickets/${id}`,
-  ADMIN_DELETE_SOLVED: `${API_BASE}/admin/tickets-solved`,
+  CHANGE_USERNAME: `${API_BASE}/auth/change-username`,
+  CHANGE_PASSWORD: `${API_BASE}/auth/change-password`,
+  FORGOT: `${API_BASE}/auth/forgot-password`,
+  RESET: `${API_BASE}/auth/reset-password`,
 
   ADMIN_USERS: `${API_BASE}/admin/users`,
   ADMIN_USER_ROLE: (id) => `${API_BASE}/admin/users/${id}/role`,
   ADMIN_DELETE_USER: (id) => `${API_BASE}/admin/users/${id}`,
+
+  ADMIN_TICKETS: `${API_BASE}/admin/tickets`,
+  ADMIN_TICKET: (id) => `${API_BASE}/admin/tickets/${id}`,
+  ADMIN_TICKET_STATUS: (id) => `${API_BASE}/admin/tickets/${id}/status`,
+  ADMIN_TICKET_PRIORITY: (id) => `${API_BASE}/admin/tickets/${id}/priority`,
+  ADMIN_TICKET_REPLY: (id) => `${API_BASE}/admin/tickets/${id}/agent-reply`,
+  ADMIN_TICKET_DELETE: (id) => `${API_BASE}/admin/tickets/${id}`,
+  ADMIN_CLEANUP_SOLVED: `${API_BASE}/admin/tickets/cleanup-solved`,
+
   ADMIN_EXPORT_ALL: `${API_BASE}/admin/export/all`,
+  ADMIN_EXPORT_TRAINING: `${API_BASE}/admin/export/training`,
+
+  ADMIN_CATEGORIES: `${API_BASE}/admin/categories`,
+  ADMIN_CATEGORY: (key) => `${API_BASE}/admin/categories/${key}`,
 
   KB_LIST: (companyId) => `${API_BASE}/kb/list/${companyId}`,
   KB_TEXT: `${API_BASE}/kb/upload-text`,
   KB_URL: `${API_BASE}/kb/upload-url`,
   KB_PDF: `${API_BASE}/kb/upload-pdf`,
   KB_EXPORT: (companyId) => `${API_BASE}/export/kb/${companyId}`,
-
-  ADMIN_CATEGORIES: `${API_BASE}/admin/categories`,
-  ADMIN_CAT_UPDATE: (key) => `${API_BASE}/admin/categories/${key}`,
-  ADMIN_CAT_DELETE: (key) => `${API_BASE}/admin/categories/${key}`,
 };
 
+/*************************************************
+ * ✅ App state
+ *************************************************/
 let token = localStorage.getItem("token") || null;
-let currentUser = null;
+let currentUser = null; // {id, username, role, email}
 let companyId = "demo";
 let ticketId = null;
 let lastRagUsed = null;
+let categoriesCache = []; // [{key,name,systemPrompt}]
 
+// Inbox state
 let inboxSelectedTicketId = null;
 
 /*************************************************
@@ -80,11 +83,21 @@ function escapeHtml(s) {
 }
 
 function formatDate(d) {
-  try {
-    return new Date(d).toLocaleString();
-  } catch {
-    return "";
+  try { return new Date(d).toLocaleString(); }
+  catch { return ""; }
+}
+
+async function fetchJson(url, options = {}) {
+  const res = await fetch(url, options);
+  const text = await res.text();
+
+  // om server råkar skicka HTML (t.ex. index.html) så vill vi ha ett tydligt fel
+  if (text.startsWith("<!DOCTYPE")) {
+    throw new Error(`API returnerade HTML istället för JSON. URL: ${url}`);
   }
+
+  const data = text ? JSON.parse(text) : {};
+  return { res, data };
 }
 
 /*************************************************
@@ -101,6 +114,29 @@ function toggleTheme() {
 }
 
 /*************************************************
+ * ✅ View switch
+ *************************************************/
+function setActiveMenu(btnId) {
+  ["openChatView", "openSettingsView", "openInboxView", "openAdminView"].forEach((id) => {
+    const btn = $(id);
+    if (btn) btn.classList.remove("active");
+  });
+
+  if (btnId === "chat") $("openChatView")?.classList.add("active");
+  if (btnId === "settings") $("openSettingsView")?.classList.add("active");
+  if (btnId === "inbox") $("openInboxView")?.classList.add("active");
+  if (btnId === "admin") $("openAdminView")?.classList.add("active");
+}
+
+function openView(viewName) {
+  show($("authView"), viewName === "auth");
+  show($("chatView"), viewName === "chat");
+  show($("settingsView"), viewName === "settings");
+  show($("inboxView"), viewName === "inbox");
+  show($("adminView"), viewName === "admin");
+}
+
+/*************************************************
  * ✅ Debug
  *************************************************/
 function refreshDebug() {
@@ -109,37 +145,6 @@ function refreshDebug() {
   setText($("dbgRole"), currentUser?.role || "-");
   setText($("dbgTicket"), ticketId || "-");
   setText($("dbgRag"), lastRagUsed === null ? "-" : (lastRagUsed ? "JA" : "NEJ"));
-
-  setText($("ticketPill"), ticketId || "-");
-
-  const ragPill = $("ragPill");
-  if (ragPill) {
-    ragPill.textContent = lastRagUsed === null ? "-" : (lastRagUsed ? "JA ✅" : "NEJ ⚠️");
-    ragPill.className = `pill ${lastRagUsed ? "ok" : "warn"}`;
-  }
-}
-
-/*************************************************
- * ✅ Views
- *************************************************/
-function setActiveMenu(which) {
-  ["openChatView", "openInboxView", "openAdminView", "openSettingsView", "openFeedbackView"]
-    .forEach((id) => $(id)?.classList.remove("active"));
-
-  if (which === "chat") $("openChatView")?.classList.add("active");
-  if (which === "inbox") $("openInboxView")?.classList.add("active");
-  if (which === "admin") $("openAdminView")?.classList.add("active");
-  if (which === "settings") $("openSettingsView")?.classList.add("active");
-  if (which === "feedback") $("openFeedbackView")?.classList.add("active");
-}
-
-function openView(viewName) {
-  show($("authView"), viewName === "auth");
-  show($("chatView"), viewName === "chat");
-  show($("inboxView"), viewName === "inbox");
-  show($("adminView"), viewName === "admin");
-  show($("settingsView"), viewName === "settings");
-  show($("feedbackView"), viewName === "feedback");
 }
 
 /*************************************************
@@ -150,6 +155,7 @@ function applyAuthUI() {
   const logoutBtn = $("logoutBtn");
   const inboxBtn = $("openInboxView");
   const adminBtn = $("openAdminView");
+  const quickTools = $("quickTools");
 
   if (!token || !currentUser) {
     openView("auth");
@@ -157,14 +163,18 @@ function applyAuthUI() {
     show(logoutBtn, false);
     show(inboxBtn, false);
     show(adminBtn, false);
+    show(quickTools, false);
   } else {
     openView("chat");
-    setText(roleBadge, `${currentUser.username} • ${currentUser.role.toUpperCase()}`);
+    setText(roleBadge, `${currentUser.username} • ${String(currentUser.role || "user").toUpperCase()}`);
     show(logoutBtn, true);
+    show(quickTools, true);
 
     const isAdmin = currentUser.role === "admin";
     show(inboxBtn, isAdmin);
     show(adminBtn, isAdmin);
+
+    // settings view is available for all
   }
 
   refreshDebug();
@@ -176,57 +186,119 @@ function applyAuthUI() {
 async function fetchMe() {
   if (!token) return null;
 
-  const res = await fetch(API.ME, {
-    headers: { Authorization: `Bearer ${token}` }
-  });
+  try {
+    const { res, data } = await fetchJson(API.ME, {
+      headers: { Authorization: `Bearer ${token}` }
+    });
 
-  if (!res.ok) {
+    if (!res.ok) {
+      token = null;
+      localStorage.removeItem("token");
+      return null;
+    }
+
+    return data;
+  } catch (e) {
     token = null;
     localStorage.removeItem("token");
     return null;
   }
-
-  return await res.json();
 }
 
 /*************************************************
- * ✅ Load categories
+ * ✅ Categories (from DB)
  *************************************************/
 async function loadCategories() {
-  const catSel = $("categorySelect");
-  const inboxCat = $("inboxCategoryFilter");
-  const kbCat = $("kbCategorySelect");
-
-  if (catSel) catSel.innerHTML = "";
-  if (inboxCat) inboxCat.innerHTML = `<option value="">Alla kategorier</option>`;
-  if (kbCat) kbCat.innerHTML = "";
+  // för alla users: vi använder admin endpoint bara om admin
+  // men för vanliga users kan vi återanvända samma lista från default (fallback)
+  // OBS: server.js upsertar defaults, så dessa finns alltid.
 
   try {
-    const res = await fetch(API.CATEGORIES);
-    const data = await res.json();
+    // För att alla ska kunna läsa kategorier (utan admin) behöver vi en publik endpoint.
+    // Om du INTE har den: vi använder fallback list.
+    // För att hålla det 100% kompatibelt nu: vi kör fallback i frontend.
+    categoriesCache = [
+      { key: "demo", name: "Demo AB" },
+      { key: "law", name: "Juridik" },
+      { key: "tech", name: "Teknisk Support" },
+      { key: "cleaning", name: "Städservice" }
+    ];
 
-    data.forEach((c) => {
+    // Om admin: hämta riktiga kategorier från servern
+    if (currentUser?.role === "admin") {
+      const { res, data } = await fetchJson(API.ADMIN_CATEGORIES, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      if (res.ok && Array.isArray(data)) categoriesCache = data;
+    }
+  } catch (e) {
+    // fallback only
+  }
+
+  // populera dropdowns
+  const categorySelect = $("categorySelect");
+  const inboxCategoryFilter = $("inboxCategoryFilter");
+  const kbCategorySelect = $("kbCategorySelect");
+
+  if (categorySelect) {
+    categorySelect.innerHTML = "";
+    categoriesCache.forEach(c => {
+      const opt = document.createElement("option");
+      opt.value = c.key;
+      opt.textContent = `${c.name} (${c.key})`;
+      categorySelect.appendChild(opt);
+    });
+    categorySelect.value = companyId;
+  }
+
+  if (inboxCategoryFilter) {
+    inboxCategoryFilter.innerHTML = `<option value="">Alla kategorier</option>`;
+    categoriesCache.forEach(c => {
       const opt = document.createElement("option");
       opt.value = c.key;
       opt.textContent = c.name;
-      catSel?.appendChild(opt);
-
-      const opt2 = document.createElement("option");
-      opt2.value = c.key;
-      opt2.textContent = c.name;
-      inboxCat?.appendChild(opt2);
-
-      const opt3 = document.createElement("option");
-      opt3.value = c.key;
-      opt3.textContent = c.name;
-      kbCat?.appendChild(opt3);
+      inboxCategoryFilter.appendChild(opt);
     });
-
-    if (catSel) catSel.value = companyId;
-    if (kbCat) kbCat.value = companyId;
-  } catch (e) {
-    console.error("Categories load error:", e);
   }
+
+  if (kbCategorySelect) {
+    kbCategorySelect.innerHTML = "";
+    categoriesCache.forEach(c => {
+      const opt = document.createElement("option");
+      opt.value = c.key;
+      opt.textContent = `${c.name} (${c.key})`;
+      kbCategorySelect.appendChild(opt);
+    });
+    kbCategorySelect.value = companyId;
+  }
+}
+
+/*************************************************
+ * ✅ Title map
+ *************************************************/
+function titleForCompany(c) {
+  const found = categoriesCache.find(x => x.key === c);
+  const name = found?.name || c;
+
+  const desc = {
+    demo: "Ställ en fråga så hjälper jag dig direkt.",
+    law: "Allmän vägledning (inte juridisk rådgivning).",
+    tech: "Felsökning och IT-hjälp.",
+    cleaning: "Frågor om städ, tjänster, rutiner."
+  };
+
+  return {
+    title: `AI Kundtjänst – ${name}`,
+    sub: desc[c] || "Ställ en fråga så hjälper jag dig direkt."
+  };
+}
+
+function applyCompanyToUI() {
+  const t = titleForCompany(companyId);
+  setText($("chatTitle"), t.title);
+  setText($("chatSubtitle"), t.sub);
+
+  if ($("categorySelect")) $("categorySelect").value = companyId;
 }
 
 /*************************************************
@@ -245,14 +317,13 @@ function addMessage(role, content, meta = "") {
 
   wrapper.innerHTML = `
     <div class="avatar"><i class="fa-solid ${icon}"></i></div>
-    <div class="msgBody">
+    <div>
       <div class="bubble">${safe}</div>
       ${meta ? `<div class="msgMeta">${escapeHtml(meta)}</div>` : ""}
+
       ${!isUser ? `
         <div class="bubbleActions">
-          <button class="actionBtn" data-action="copy">
-            <i class="fa-solid fa-copy"></i> Kopiera
-          </button>
+          <button class="actionBtn" data-action="copy"><i class="fa-solid fa-copy"></i> Kopiera</button>
         </div>
       ` : ""}
     </div>
@@ -283,7 +354,7 @@ function showTyping() {
   wrapper.className = "msg ai";
   wrapper.innerHTML = `
     <div class="avatar"><i class="fa-solid fa-robot"></i></div>
-    <div class="msgBody"><div class="bubble">AI skriver…</div></div>
+    <div><div class="bubble">AI skriver…</div></div>
   `;
 
   messagesDiv.appendChild(wrapper);
@@ -296,25 +367,28 @@ function hideTyping() {
 }
 
 /*************************************************
- * ✅ Ticket utilities
+ * ✅ Chat tools
  *************************************************/
-async function startNewTicket() {
-  ticketId = null;
-  $("messages").innerHTML = "";
-  addMessage("assistant", "Nytt ärende skapat ✅ Vad kan jag hjälpa dig med?");
-  refreshDebug();
-}
-
 function clearChat() {
   if ($("messages")) $("messages").innerHTML = "";
+  setText($("ragHint"), "");
+}
+
+async function startNewTicket() {
+  ticketId = null;
+  clearChat();
+  addMessage("assistant", "Nytt ärende skapat ✅ Vad kan jag hjälpa dig med?");
+  refreshDebug();
 }
 
 async function exportChat() {
   const messagesDiv = $("messages");
   if (!messagesDiv) return;
+
   const text = messagesDiv.innerText.trim();
   const blob = new Blob([text], { type: "text/plain" });
   const url = URL.createObjectURL(blob);
+
   const a = document.createElement("a");
   a.href = url;
   a.download = `chat_${companyId}_${new Date().toISOString().split("T")[0]}.txt`;
@@ -323,7 +397,7 @@ async function exportChat() {
 }
 
 /*************************************************
- * ✅ Conversation builder
+ * ✅ Conversation builder (simple from UI)
  *************************************************/
 function gatherConversationFromUI() {
   const messagesDiv = $("messages");
@@ -365,7 +439,7 @@ async function sendMessage() {
     const conversation = gatherConversationFromUI();
     conversation.push({ role: "user", content: text });
 
-    const res = await fetch(API.CHAT, {
+    const { res, data } = await fetchJson(API.CHAT, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -378,7 +452,6 @@ async function sendMessage() {
       })
     });
 
-    const data = await res.json();
     hideTyping();
 
     if (!res.ok) {
@@ -390,6 +463,7 @@ async function sendMessage() {
     lastRagUsed = !!data.ragUsed;
     refreshDebug();
 
+    setText($("ragHint"), data.ragUsed ? "RAG användes: JA ✅" : "RAG användes: NEJ ⚠️");
     addMessage("assistant", data.reply || "Inget svar.", data.ragUsed ? "Svar baserat på kunskapsdatabas (RAG)" : "");
   } catch (e) {
     hideTyping();
@@ -403,43 +477,82 @@ async function sendMessage() {
  *************************************************/
 function setCompanyFromSelect(value) {
   companyId = value || "demo";
+  applyCompanyToUI();
+
+  // New ticket so context resets for category
   ticketId = null;
   clearChat();
-  addMessage("assistant", `Du bytte kategori ✅ Vad vill du fråga inom "${companyId}"?`);
+  addMessage("assistant", `Du bytte kategori till "${companyId}". Vad vill du fråga?`);
   refreshDebug();
+}
+
+/*************************************************
+ * ✅ Feedback (ALL users)
+ *************************************************/
+async function sendFeedback(type) {
+  try {
+    const { res, data } = await fetchJson(API.FEEDBACK, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`
+      },
+      body: JSON.stringify({ type, companyId })
+    });
+
+    if (!res.ok) {
+      alert(data?.error || "Kunde inte skicka feedback");
+      return;
+    }
+
+    alert("Tack för feedback ✅");
+  } catch {
+    alert("Serverfel vid feedback");
+  }
 }
 
 /*************************************************
  * ✅ Inbox (Admin)
  *************************************************/
+function renderTicketItem(t) {
+  const title = t.title || "(utan titel)";
+  const meta = `${t.companyId} • ${t.status.toUpperCase()} • ${formatDate(t.lastActivityAt)}`;
+  return `
+    <div class="listItemTitle">${escapeHtml(title)} <span class="pill">${escapeHtml(t.priority || "normal")}</span></div>
+    <div class="muted small">${escapeHtml(meta)}</div>
+    <div class="muted small">ID: ${escapeHtml(t._id)}</div>
+  `;
+}
+
 async function inboxLoadTickets() {
   const list = $("inboxTicketsList");
   const msg = $("inboxMsg");
   setAlert(msg, "");
   if (list) list.innerHTML = "";
 
-  const status = $("inboxStatusFilter")?.value || "";
-  const cat = $("inboxCategoryFilter")?.value || "";
-  const q = ($("inboxSearchInput")?.value || "").trim().toLowerCase();
-
-  const params = new URLSearchParams();
-  if (status) params.set("status", status);
-  if (cat) params.set("companyId", cat);
-
   try {
-    const res = await fetch(`${API.ADMIN_TICKETS}?${params.toString()}`, {
+    const status = $("inboxStatusFilter")?.value || "";
+    const cat = $("inboxCategoryFilter")?.value || "";
+    const q = ($("inboxSearchInput")?.value || "").trim().toLowerCase();
+
+    const params = new URLSearchParams();
+    if (status) params.set("status", status);
+    if (cat) params.set("companyId", cat);
+
+    const { res, data } = await fetchJson(`${API.ADMIN_TICKETS}?${params.toString()}`, {
       headers: { Authorization: `Bearer ${token}` }
     });
 
-    const data = await res.json();
     if (!res.ok) {
       setAlert(msg, data?.error || "Kunde inte hämta inbox", true);
       return;
     }
 
-    let filtered = Array.isArray(data) ? data : [];
+    let tickets = Array.isArray(data) ? data : [];
+
+    // ✅ search filter
     if (q) {
-      filtered = filtered.filter((t) => {
+      tickets = tickets.filter((t) => {
         const a = String(t.title || "").toLowerCase();
         const b = String(t.companyId || "").toLowerCase();
         const c = String(t._id || "").toLowerCase();
@@ -447,28 +560,15 @@ async function inboxLoadTickets() {
       });
     }
 
-    if (!filtered.length) {
+    if (!tickets.length) {
       list.innerHTML = `<div class="muted small">Inga tickets hittades.</div>`;
       return;
     }
 
-    filtered.forEach((t) => {
+    tickets.forEach((t) => {
       const div = document.createElement("div");
       div.className = `ticketItem ${inboxSelectedTicketId === t._id ? "selected" : ""}`;
-
-      div.innerHTML = `
-        <div class="ticketTop">
-          <div class="ticketTitle">${escapeHtml(t.title || "Inget ämne")}</div>
-          <div class="row gap">
-            <span class="pill">${escapeHtml(t.status || "open")}</span>
-            <span class="pill">${escapeHtml(t.priority || "normal")}</span>
-          </div>
-        </div>
-        <div class="ticketMeta">
-          <div>Kategori: <b>${escapeHtml(t.companyId)}</b></div>
-          <div class="muted small">Senast: ${escapeHtml(formatDate(t.lastActivityAt || t.createdAt))}</div>
-        </div>
-      `;
+      div.innerHTML = renderTicketItem(t);
 
       div.addEventListener("click", async () => {
         inboxSelectedTicketId = t._id;
@@ -480,7 +580,7 @@ async function inboxLoadTickets() {
     });
   } catch (e) {
     console.error("Inbox error:", e);
-    setAlert(msg, "Serverfel vid inbox (kolla Console / Network)", true);
+    setAlert($("inboxMsg"), "Serverfel vid inbox (kolla Console / Network)", true);
   }
 }
 
@@ -488,31 +588,30 @@ async function inboxLoadTicketDetails(id) {
   const details = $("ticketDetails");
   const msg = $("inboxTicketMsg");
   setAlert(msg, "");
-
   if (!details) return;
+
   details.innerHTML = `<div class="muted small">Laddar ticket...</div>`;
 
   try {
-    const res = await fetch(API.ADMIN_TICKET(id), {
+    const { res, data } = await fetchJson(API.ADMIN_TICKET(id), {
       headers: { Authorization: `Bearer ${token}` }
     });
 
-    const data = await res.json();
     if (!res.ok) {
       details.innerHTML = `<div class="muted small">Kunde inte ladda ticket.</div>`;
       setAlert(msg, data?.error || "Kunde inte ladda ticket", true);
       return;
     }
 
-    if ($("agentNotesInbox")) $("agentNotesInbox").value = data.agentNotes || "";
+    const t = data;
+    const msgs = t.messages || [];
 
-    const msgs = data.messages || [];
     const html = msgs.slice(-80).map((m) => {
       const roleLabel = m.role === "user" ? "Kund" : (m.role === "agent" ? "Agent" : "AI");
       return `
         <div class="ticketMsg ${m.role}">
           <div class="ticketMsgHead">
-            <b>${roleLabel}</b>
+            <b>${escapeHtml(roleLabel)}</b>
             <span>${escapeHtml(formatDate(m.timestamp))}</span>
           </div>
           <div class="ticketMsgBody">${escapeHtml(m.content)}</div>
@@ -522,18 +621,21 @@ async function inboxLoadTicketDetails(id) {
 
     details.innerHTML = `
       <div class="ticketInfo">
-        <div><b>ID:</b> ${escapeHtml(data._id)}</div>
-        <div><b>Kategori:</b> ${escapeHtml(data.companyId)}</div>
-        <div><b>Status:</b> ${escapeHtml(data.status)}</div>
-        <div><b>Prioritet:</b> ${escapeHtml(data.priority || "normal")}</div>
-        <div><b>Senast:</b> ${escapeHtml(formatDate(data.lastActivityAt))}</div>
+        <div><b>ID:</b> ${escapeHtml(t._id)}</div>
+        <div><b>Kategori:</b> ${escapeHtml(t.companyId)}</div>
+        <div><b>Status:</b> ${escapeHtml(t.status)}</div>
+        <div><b>Prioritet:</b> ${escapeHtml(t.priority || "normal")}</div>
+        <div><b>Senast:</b> ${escapeHtml(formatDate(t.lastActivityAt))}</div>
       </div>
       <div class="divider"></div>
       <div class="ticketMsgs">${html}</div>
     `;
+
+    // sätt dropdown priority
+    if ($("ticketPrioritySelect")) $("ticketPrioritySelect").value = t.priority || "normal";
   } catch (e) {
-    details.innerHTML = `<div class="muted small">Serverfel vid ticket.</div>`;
     console.error(e);
+    details.innerHTML = `<div class="muted small">Serverfel vid ticket.</div>`;
   }
 }
 
@@ -541,13 +643,10 @@ async function inboxSetStatus(status) {
   const msg = $("inboxTicketMsg");
   setAlert(msg, "");
 
-  if (!inboxSelectedTicketId) {
-    setAlert(msg, "Välj en ticket först.", true);
-    return;
-  }
+  if (!inboxSelectedTicketId) return setAlert(msg, "Välj en ticket först.", true);
 
   try {
-    const res = await fetch(API.ADMIN_TICKET_STATUS(inboxSelectedTicketId), {
+    const { res, data } = await fetchJson(API.ADMIN_TICKET_STATUS(inboxSelectedTicketId), {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -556,11 +655,7 @@ async function inboxSetStatus(status) {
       body: JSON.stringify({ status })
     });
 
-    const data = await res.json();
-    if (!res.ok) {
-      setAlert(msg, data?.error || "Kunde inte uppdatera status", true);
-      return;
-    }
+    if (!res.ok) return setAlert(msg, data?.error || "Kunde inte uppdatera status", true);
 
     setAlert(msg, "Status uppdaterad ✅");
     await inboxLoadTicketDetails(inboxSelectedTicketId);
@@ -574,15 +669,12 @@ async function inboxSetPriority() {
   const msg = $("inboxTicketMsg");
   setAlert(msg, "");
 
-  if (!inboxSelectedTicketId) {
-    setAlert(msg, "Välj en ticket först.", true);
-    return;
-  }
+  if (!inboxSelectedTicketId) return setAlert(msg, "Välj en ticket först.", true);
 
   const priority = $("ticketPrioritySelect")?.value || "normal";
 
   try {
-    const res = await fetch(API.ADMIN_TICKET_PRIORITY(inboxSelectedTicketId), {
+    const { res, data } = await fetchJson(API.ADMIN_TICKET_PRIORITY(inboxSelectedTicketId), {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -591,11 +683,7 @@ async function inboxSetPriority() {
       body: JSON.stringify({ priority })
     });
 
-    const data = await res.json();
-    if (!res.ok) {
-      setAlert(msg, data?.error || "Kunde inte spara prioritet", true);
-      return;
-    }
+    if (!res.ok) return setAlert(msg, data?.error || "Kunde inte spara prioritet", true);
 
     setAlert(msg, "Prioritet sparad ✅");
     await inboxLoadTicketDetails(inboxSelectedTicketId);
@@ -609,19 +697,13 @@ async function inboxSendAgentReply() {
   const msgEl = $("inboxTicketMsg");
   setAlert(msgEl, "");
 
-  if (!inboxSelectedTicketId) {
-    setAlert(msgEl, "Välj en ticket först.", true);
-    return;
-  }
+  if (!inboxSelectedTicketId) return setAlert(msgEl, "Välj en ticket först.", true);
 
   const content = $("agentReplyTextInbox")?.value?.trim();
-  if (!content) {
-    setAlert(msgEl, "Skriv ett svar först.", true);
-    return;
-  }
+  if (!content) return setAlert(msgEl, "Skriv ett svar först.", true);
 
   try {
-    const res = await fetch(API.ADMIN_TICKET_REPLY(inboxSelectedTicketId), {
+    const { res, data } = await fetchJson(API.ADMIN_TICKET_REPLY(inboxSelectedTicketId), {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -630,11 +712,7 @@ async function inboxSendAgentReply() {
       body: JSON.stringify({ content })
     });
 
-    const data = await res.json();
-    if (!res.ok) {
-      setAlert(msgEl, data?.error || "Kunde inte skicka svar", true);
-      return;
-    }
+    if (!res.ok) return setAlert(msgEl, data?.error || "Kunde inte skicka svar", true);
 
     setAlert(msgEl, "Agent-svar skickat ✅");
     $("agentReplyTextInbox").value = "";
@@ -645,69 +723,29 @@ async function inboxSendAgentReply() {
   }
 }
 
-async function saveNotes() {
+async function inboxDeleteTicket() {
   const msgEl = $("inboxTicketMsg");
   setAlert(msgEl, "");
 
-  if (!inboxSelectedTicketId) {
-    setAlert(msgEl, "Välj en ticket först.", true);
-    return;
-  }
+  if (!inboxSelectedTicketId) return setAlert(msgEl, "Välj en ticket först.", true);
 
-  const notes = $("agentNotesInbox")?.value || "";
-
-  try {
-    const res = await fetch(API.ADMIN_TICKET_NOTES(inboxSelectedTicketId), {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${token}`
-      },
-      body: JSON.stringify({ notes })
-    });
-
-    const data = await res.json();
-    if (!res.ok) {
-      setAlert(msgEl, data?.error || "Kunde inte spara notering", true);
-      return;
-    }
-
-    setAlert(msgEl, "Notering sparad ✅");
-  } catch {
-    setAlert(msgEl, "Serverfel vid notering", true);
-  }
-}
-
-async function deleteTicket() {
-  const msgEl = $("inboxTicketMsg");
-  setAlert(msgEl, "");
-
-  if (!inboxSelectedTicketId) {
-    setAlert(msgEl, "Välj en ticket först.", true);
-    return;
-  }
-
-  const ok = confirm("Vill du verkligen radera denna ticket? Detta kan inte ångras.");
+  const ok = confirm("Vill du ta bort denna ticket permanent?");
   if (!ok) return;
 
   try {
-    const res = await fetch(API.ADMIN_DELETE_TICKET(inboxSelectedTicketId), {
+    const { res, data } = await fetchJson(API.ADMIN_TICKET_DELETE(inboxSelectedTicketId), {
       method: "DELETE",
       headers: { Authorization: `Bearer ${token}` }
     });
 
-    const data = await res.json();
-    if (!res.ok) {
-      setAlert(msgEl, data?.error || "Kunde inte radera ticket", true);
-      return;
-    }
+    if (!res.ok) return setAlert(msgEl, data?.error || "Kunde inte ta bort ticket", true);
 
-    setAlert(msgEl, "Ticket raderad ✅");
     inboxSelectedTicketId = null;
-    $("ticketDetails").innerHTML = `<div class="muted small">Välj en ticket i listan</div>`;
+    $("ticketDetails").innerHTML = "";
+    setAlert(msgEl, "Ticket borttagen ✅");
     await inboxLoadTickets();
   } catch {
-    setAlert(msgEl, "Serverfel vid radera ticket", true);
+    setAlert(msgEl, "Serverfel vid borttagning", true);
   }
 }
 
@@ -721,22 +759,16 @@ async function adminLoadUsers() {
   if (list) list.innerHTML = "";
 
   try {
-    const res = await fetch(API.ADMIN_USERS, {
+    const { res, data } = await fetchJson(API.ADMIN_USERS, {
       headers: { Authorization: `Bearer ${token}` }
     });
 
-    const data = await res.json();
-    if (!res.ok) {
-      setAlert(msgEl, data?.error || "Kunde inte hämta users", true);
-      return;
-    }
+    if (!res.ok) return setAlert(msgEl, data?.error || "Kunde inte hämta users", true);
+    const users = Array.isArray(data) ? data : [];
 
-    if (!data.length) {
-      list.innerHTML = `<div class="muted small">Inga users hittades.</div>`;
-      return;
-    }
+    if (!users.length) return setAlert(msgEl, "Inga users hittades.");
 
-    data.forEach((u) => {
+    users.forEach((u) => {
       const div = document.createElement("div");
       div.className = "listItem";
 
@@ -745,22 +777,23 @@ async function adminLoadUsers() {
 
       div.innerHTML = `
         <div class="listItemTitle">
-          ${escapeHtml(u.username)} <span class="muted small">(${escapeHtml(u.email || "-")})</span>
+          ${escapeHtml(u.username)}
           <span class="pill ${isAdmin ? "admin" : ""}">${escapeHtml(u.role)}</span>
         </div>
         <div class="muted small">ID: ${escapeHtml(u._id)}</div>
 
-        <div class="row gap" style="margin-top:10px;">
-          <button class="btn secondary small" data-action="toggleRole" ${isSelf || isAdmin ? "disabled" : ""}>
+        <div class="row" style="margin-top:10px;">
+          <button class="btn secondary small" data-action="toggleRole"
+            ${isSelf || isAdmin ? "disabled style='opacity:.6;cursor:not-allowed;'" : ""}>
             <i class="fa-solid fa-user-gear"></i>
             ${isSelf ? "Din roll" : (isAdmin ? "Admin (låst)" : "Gör admin")}
           </button>
 
           ${isAdmin ? "" : `
-            <button class="btn danger small" data-action="deleteUser">
-              <i class="fa-solid fa-trash"></i>
-              Ta bort
-            </button>
+          <button class="btn danger small" data-action="deleteUser" ${isSelf ? "disabled style='opacity:.6;cursor:not-allowed;'" : ""}>
+            <i class="fa-solid fa-trash"></i>
+            Ta bort
+          </button>
           `}
         </div>
       `;
@@ -772,7 +805,8 @@ async function adminLoadUsers() {
       });
 
       div.querySelector('[data-action="deleteUser"]')?.addEventListener("click", async () => {
-        const ok = confirm(`Vill du verkligen ta bort användaren "${u.username}"?`);
+        if (isSelf) return;
+        const ok = confirm(`Vill du ta bort användaren "${u.username}"?`);
         if (!ok) return;
         await adminDeleteUser(u._id);
         await adminLoadUsers();
@@ -781,7 +815,7 @@ async function adminLoadUsers() {
       list.appendChild(div);
     });
   } catch (e) {
-    console.error("adminLoadUsers error:", e);
+    console.error(e);
     setAlert(msgEl, "Serverfel vid users", true);
   }
 }
@@ -791,22 +825,15 @@ async function adminSetUserRole(userId, role) {
   setAlert(msgEl, "");
 
   try {
-    const res = await fetch(API.ADMIN_USER_ROLE(userId), {
+    const { res, data } = await fetchJson(API.ADMIN_USER_ROLE(userId), {
       method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${token}`
-      },
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
       body: JSON.stringify({ role })
     });
 
-    const data = await res.json();
-    if (!res.ok) {
-      setAlert(msgEl, data?.error || "Kunde inte ändra roll", true);
-      return;
-    }
+    if (!res.ok) return setAlert(msgEl, data?.error || "Kunde inte ändra roll", true);
 
-    setAlert(msgEl, `Roll uppdaterad ✅ ${data.user.username} → ${data.user.role}`);
+    setAlert(msgEl, `Roll uppdaterad ✅`);
   } catch {
     setAlert(msgEl, "Serverfel vid roll-ändring", true);
   }
@@ -817,17 +844,12 @@ async function adminDeleteUser(userId) {
   setAlert(msgEl, "");
 
   try {
-    const res = await fetch(API.ADMIN_DELETE_USER(userId), {
+    const { res, data } = await fetchJson(API.ADMIN_DELETE_USER(userId), {
       method: "DELETE",
       headers: { Authorization: `Bearer ${token}` }
     });
 
-    const data = await res.json();
-    if (!res.ok) {
-      setAlert(msgEl, data?.error || "Kunde inte ta bort user", true);
-      return;
-    }
-
+    if (!res.ok) return setAlert(msgEl, data?.error || "Kunde inte ta bort user", true);
     setAlert(msgEl, data.message || "User borttagen ✅");
   } catch {
     setAlert(msgEl, "Serverfel vid borttagning", true);
@@ -835,72 +857,175 @@ async function adminDeleteUser(userId) {
 }
 
 /*************************************************
- * ✅ Admin: Dashboard
+ * ✅ Dashboard
  *************************************************/
 async function loadDashboard() {
-  const msgEl = $("dashMsg");
-  setAlert(msgEl, "");
+  if (currentUser?.role !== "admin") return;
+
+  setAlert($("dashMsg"), "");
 
   try {
-    const res = await fetch(API.ADMIN_DASH, {
-      headers: { Authorization: `Bearer ${token}` }
-    });
+    // Vi räknar baserat på tickets + users endpoints som finns
+    const [{ res: resUsers, data: users }, { res: resTickets, data: tickets }] = await Promise.all([
+      fetchJson(API.ADMIN_USERS, { headers: { Authorization: `Bearer ${token}` } }),
+      fetchJson(API.ADMIN_TICKETS, { headers: { Authorization: `Bearer ${token}` } })
+    ]);
 
-    const data = await res.json();
-    if (!res.ok) {
-      setAlert(msgEl, data?.error || "Kunde inte ladda dashboard", true);
-      return;
-    }
+    if (!resUsers.ok) return setAlert($("dashMsg"), "Serverfel vid dashboard (users)", true);
+    if (!resTickets.ok) return setAlert($("dashMsg"), "Serverfel vid dashboard (tickets)", true);
 
-    setText($("d_totalUsers"), data.totalUsers);
-    setText($("d_totalTickets"), data.totalTickets);
-    setText($("d_openTickets"), data.openTickets);
-    setText($("d_pendingTickets"), data.pendingTickets);
-    setText($("d_solvedTickets"), data.solvedTickets);
-    setText($("d_totalKb"), data.totalKb);
-    setText($("d_totalFeedback"), data.totalFeedback);
+    const uCount = Array.isArray(users) ? users.length : 0;
+    const tArr = Array.isArray(tickets) ? tickets : [];
+    const tCount = tArr.length;
+
+    const openCount = tArr.filter(t => t.status === "open").length;
+    const solvedCount = tArr.filter(t => t.status === "solved").length;
+
+    setText($("statUsers"), uCount);
+    setText($("statTickets"), tCount);
+    setText($("statOpen"), openCount);
+    setText($("statSolved"), solvedCount);
   } catch (e) {
     console.error("Dashboard error:", e);
-    setAlert(msgEl, "Serverfel vid dashboard", true);
+    setAlert($("dashMsg"), "Serverfel vid dashboard", true);
   }
 }
 
-async function deleteSolvedTickets() {
-  const msgEl = $("dashMsg");
-  setAlert(msgEl, "");
-
-  const ok = confirm("Vill du radera ALLA solved tickets? (kan inte ångras)");
+async function cleanupSolved() {
+  const ok = confirm("Rensa alla SOLVED tickets permanent?");
   if (!ok) return;
 
-  try {
-    const res = await fetch(API.ADMIN_DELETE_SOLVED, {
-      method: "DELETE",
-      headers: { Authorization: `Bearer ${token}` }
-    });
+  const { res, data } = await fetchJson(API.ADMIN_CLEANUP_SOLVED, {
+    method: "POST",
+    headers: { Authorization: `Bearer ${token}` }
+  });
 
-    const data = await res.json();
-    if (!res.ok) {
-      setAlert(msgEl, data?.error || "Kunde inte radera solved tickets", true);
-      return;
-    }
-
-    setAlert(msgEl, data.message || "Klart ✅");
-    await loadDashboard();
-    await inboxLoadTickets();
-  } catch {
-    setAlert(msgEl, "Serverfel vid radera solved", true);
+  if (!res.ok) {
+    alert(data?.error || "Kunde inte rensa solved");
+    return;
   }
+
+  alert(data.message || "Rensat ✅");
+  await loadDashboard();
+  await inboxLoadTickets();
 }
 
 /*************************************************
- * ✅ Admin: KB
+ * ✅ Categories Manager (Admin)
  *************************************************/
-function kbActiveCategory() {
-  return $("kbCategorySelect")?.value || "demo";
+async function adminLoadCategoriesList() {
+  const list = $("categoriesList");
+  if (!list) return;
+  list.innerHTML = "";
+
+  try {
+    const { res, data } = await fetchJson(API.ADMIN_CATEGORIES, {
+      headers: { Authorization: `Bearer ${token}` }
+    });
+
+    if (!res.ok) return;
+
+    categoriesCache = Array.isArray(data) ? data : categoriesCache;
+
+    categoriesCache.forEach(c => {
+      const div = document.createElement("div");
+      div.className = "listItem";
+      div.innerHTML = `
+        <div class="listItemTitle">
+          ${escapeHtml(c.name)} <span class="pill">${escapeHtml(c.key)}</span>
+        </div>
+        <div class="muted small">${escapeHtml((c.systemPrompt || "").slice(0, 130))}${(c.systemPrompt || "").length > 130 ? "..." : ""}</div>
+      `;
+      div.addEventListener("click", () => {
+        $("catKey").value = c.key;
+        $("catName").value = c.name;
+        $("catPrompt").value = c.systemPrompt || "";
+      });
+      list.appendChild(div);
+    });
+
+    // refresh dropdowns too
+    await loadCategories();
+    applyCompanyToUI();
+  } catch (e) {}
 }
 
+async function createCategory() {
+  const key = $("catKey")?.value?.trim();
+  const name = $("catName")?.value?.trim();
+  const systemPrompt = $("catPrompt")?.value || "";
+
+  if (!key || !name) return setAlert($("catMsg"), "Key + Name krävs", true);
+
+  const { res, data } = await fetchJson(API.ADMIN_CATEGORIES, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+    body: JSON.stringify({ key, name, systemPrompt })
+  });
+
+  if (!res.ok) return setAlert($("catMsg"), data?.error || "Kunde inte skapa kategori", true);
+
+  setAlert($("catMsg"), data.message || "Kategori skapad ✅");
+  await adminLoadCategoriesList();
+}
+
+async function updateCategory() {
+  const key = $("catKey")?.value?.trim();
+  const name = $("catName")?.value?.trim();
+  const systemPrompt = $("catPrompt")?.value || "";
+
+  if (!key) return setAlert($("catMsg"), "Välj en kategori först", true);
+
+  const { res, data } = await fetchJson(API.ADMIN_CATEGORY(key), {
+    method: "PUT",
+    headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+    body: JSON.stringify({ name, systemPrompt })
+  });
+
+  if (!res.ok) return setAlert($("catMsg"), data?.error || "Kunde inte uppdatera kategori", true);
+
+  setAlert($("catMsg"), data.message || "Kategori uppdaterad ✅");
+  await adminLoadCategoriesList();
+}
+
+async function deleteCategory() {
+  const key = $("catKey")?.value?.trim();
+  if (!key) return setAlert($("catMsg"), "Välj en kategori först", true);
+
+  const ok = confirm(`Ta bort kategori "${key}"? Detta tar bort tickets + KB för kategorin.`);
+  if (!ok) return;
+
+  const { res, data } = await fetchJson(API.ADMIN_CATEGORY(key), {
+    method: "DELETE",
+    headers: { Authorization: `Bearer ${token}` }
+  });
+
+  if (!res.ok) return setAlert($("catMsg"), data?.error || "Kunde inte ta bort kategori", true);
+
+  setAlert($("catMsg"), data.message || "Kategori borttagen ✅");
+  $("catKey").value = "";
+  $("catName").value = "";
+  $("catPrompt").value = "";
+  await adminLoadCategoriesList();
+}
+
+/*************************************************
+ * ✅ KB Manager
+ *************************************************/
+function kbActiveCategory() {
+  return $("kbCategorySelect")?.value || companyId || "demo";
+}
 function setKbMsg(msg, isErr = false) {
   setAlert($("kbMsg"), msg, isErr);
+}
+
+function activateKbTab(tabId) {
+  document.querySelectorAll(".tabBtn").forEach((b) => b.classList.remove("active"));
+  document.querySelectorAll(".tabPanel").forEach((p) => (p.style.display = "none"));
+
+  document.querySelectorAll(`.tabBtn[data-tab="${tabId}"]`).forEach((b) => b.classList.add("active"));
+  const panel = document.getElementById(tabId);
+  if (panel) panel.style.display = "";
 }
 
 async function kbRefreshList() {
@@ -911,41 +1036,33 @@ async function kbRefreshList() {
   const cat = kbActiveCategory();
 
   try {
-    const res = await fetch(API.KB_LIST(cat), {
+    const { res, data } = await fetchJson(API.KB_LIST(cat), {
       headers: { Authorization: `Bearer ${token}` }
     });
 
-    const data = await res.json();
-    if (!res.ok) {
-      setKbMsg(data?.error || "Kunde inte ladda KB", true);
-      return;
-    }
+    if (!res.ok) return setKbMsg(data?.error || "Kunde inte ladda KB", true);
 
     if (!data.length) {
       list.innerHTML = `<div class="muted small">Ingen kunskap uppladdad för denna kategori.</div>`;
       return;
     }
 
-    data.slice(0, 40).forEach((item) => {
+    data.slice(0, 25).forEach((item) => {
       const div = document.createElement("div");
-      div.className = "kbItem";
+      div.className = "listItem";
+
       const preview = (item.content || "").slice(0, 160);
-
       div.innerHTML = `
-        <div class="kbItemTop">
-          <div>
-            <div class="kbItemTitle">${escapeHtml(item.title || item.sourceRef || "KB")}</div>
-            <div class="kbItemMeta">${escapeHtml(item.sourceType)} • ${escapeHtml(item.sourceRef || "")}</div>
-          </div>
-          <div class="muted small">${item.embeddingOk ? "Vector ✅" : "Vector ❌"}</div>
+        <div class="listItemTitle">
+          ${escapeHtml(item.title || item.sourceRef || "KB")}
+          <span class="pill">${item.embeddingOk ? "Vector ✅" : "Vector ❌"}</span>
         </div>
-        <div class="kbPreview">${escapeHtml(preview)}...</div>
+        <div class="muted small">${escapeHtml(item.sourceType)} • ${escapeHtml(item.sourceRef || "")}</div>
+        <div class="muted small">${escapeHtml(preview)}...</div>
       `;
-
       list.appendChild(div);
     });
   } catch (e) {
-    console.error("KB list error:", e);
     setKbMsg("Serverfel vid KB-lista", true);
   }
 }
@@ -955,107 +1072,41 @@ async function kbUploadText() {
   const title = $("kbTextTitle")?.value?.trim() || "Text";
   const content = $("kbTextContent")?.value?.trim() || "";
 
-  if (!content || content.length < 30) {
-    setKbMsg("Skriv/klistra in mer text först (minst ~30 tecken).", true);
-    return;
-  }
+  if (!content || content.length < 30) return setKbMsg("Skriv mer text (minst ~30 tecken).", true);
 
   setKbMsg("Laddar upp text…");
 
-  try {
-    const res = await fetch(API.KB_TEXT, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${token}`
-      },
-      body: JSON.stringify({ companyId: cat, title, content })
-    });
+  const { res, data } = await fetchJson(API.KB_TEXT, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+    body: JSON.stringify({ companyId: cat, title, content })
+  });
 
-    const data = await res.json();
-    if (!res.ok) {
-      setKbMsg(data?.error || "Fel vid text-upload", true);
-      return;
-    }
+  if (!res.ok) return setKbMsg(data?.error || "Fel vid text-upload", true);
 
-    setKbMsg(data.message || "Text uppladdad ✅");
-    $("kbTextContent").value = "";
-    kbRefreshList();
-  } catch {
-    setKbMsg("Serverfel vid text-upload", true);
-  }
+  setKbMsg(data.message || "Text uppladdad ✅");
+  $("kbTextContent").value = "";
+  await kbRefreshList();
 }
 
 async function kbUploadUrl() {
   const cat = kbActiveCategory();
   const url = $("kbUrlInput")?.value?.trim() || "";
-
-  if (!url.startsWith("http")) {
-    setKbMsg("Ange en riktig URL som börjar med http/https", true);
-    return;
-  }
+  if (!url.startsWith("http")) return setKbMsg("Ange en riktig URL (http/https)", true);
 
   setKbMsg("Hämtar URL och extraherar text…");
 
-  try {
-    const res = await fetch(API.KB_URL, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${token}`
-      },
-      body: JSON.stringify({ companyId: cat, url })
-    });
+  const { res, data } = await fetchJson(API.KB_URL, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+    body: JSON.stringify({ companyId: cat, url })
+  });
 
-    const data = await res.json();
-    if (!res.ok) {
-      setKbMsg(data?.error || "Fel vid URL-upload", true);
-      return;
-    }
+  if (!res.ok) return setKbMsg(data?.error || "Fel vid URL-upload", true);
 
-    setKbMsg(data.message || "URL uppladdad ✅");
-    $("kbUrlInput").value = "";
-    kbRefreshList();
-  } catch {
-    setKbMsg("Serverfel vid URL-upload", true);
-  }
-}
-
-async function kbUploadPdf() {
-  const cat = kbActiveCategory();
-  const file = $("kbPdfFile")?.files?.[0];
-
-  if (!file) {
-    setKbMsg("Välj en PDF först.", true);
-    return;
-  }
-
-  setKbMsg("Läser PDF…");
-
-  const base64 = await readFileAsBase64(file);
-
-  try {
-    const res = await fetch(API.KB_PDF, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${token}`
-      },
-      body: JSON.stringify({ companyId: cat, filename: file.name, base64 })
-    });
-
-    const data = await res.json();
-    if (!res.ok) {
-      setKbMsg(data?.error || "Fel vid PDF-upload", true);
-      return;
-    }
-
-    setKbMsg(data.message || "PDF uppladdad ✅");
-    $("kbPdfFile").value = "";
-    kbRefreshList();
-  } catch {
-    setKbMsg("Serverfel vid PDF-upload", true);
-  }
+  setKbMsg(data.message || "URL uppladdad ✅");
+  $("kbUrlInput").value = "";
+  await kbRefreshList();
 }
 
 function readFileAsBase64(file) {
@@ -1071,262 +1122,186 @@ function readFileAsBase64(file) {
   });
 }
 
+async function kbUploadPdf() {
+  const cat = kbActiveCategory();
+  const file = $("kbPdfFile")?.files?.[0];
+  if (!file) return setKbMsg("Välj en PDF först.", true);
+
+  setKbMsg("Läser PDF…");
+
+  const base64 = await readFileAsBase64(file);
+
+  const { res, data } = await fetchJson(API.KB_PDF, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+    body: JSON.stringify({ companyId: cat, filename: file.name, base64 })
+  });
+
+  if (!res.ok) return setKbMsg(data?.error || "Fel vid PDF-upload", true);
+
+  setKbMsg(data.message || "PDF uppladdad ✅");
+  $("kbPdfFile").value = "";
+  await kbRefreshList();
+}
+
 function kbExport() {
   const cat = kbActiveCategory();
   window.open(API.KB_EXPORT(cat), "_blank");
 }
 
+function trainingExport() {
+  const cat = kbActiveCategory();
+  window.open(`${API.ADMIN_EXPORT_TRAINING}?companyId=${encodeURIComponent(cat)}`, "_blank");
+}
+
+function adminExportAll() {
+  window.open(API.ADMIN_EXPORT_ALL, "_blank");
+}
+
 /*************************************************
- * ✅ KB Tabs
+ * ✅ Settings actions
  *************************************************/
-function activateKbTab(tabId) {
-  document.querySelectorAll(".tabBtn").forEach((b) => b.classList.remove("active"));
-  document.querySelectorAll(".tabPanel").forEach((p) => (p.style.display = "none"));
-  document.querySelectorAll(`.tabBtn[data-tab="${tabId}"]`).forEach((b) => b.classList.add("active"));
-  const panel = document.getElementById(tabId);
-  if (panel) panel.style.display = "";
+async function changeUsername() {
+  const newUsername = $("newUsernameInput")?.value?.trim();
+  if (!newUsername) return setAlert($("changeUsernameMsg"), "Skriv ett nytt användarnamn.", true);
+
+  const { res, data } = await fetchJson(API.CHANGE_USERNAME, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+    body: JSON.stringify({ newUsername })
+  });
+
+  if (!res.ok) return setAlert($("changeUsernameMsg"), data?.error || "Kunde inte byta användarnamn", true);
+
+  setAlert($("changeUsernameMsg"), data.message || "Användarnamn uppdaterat ✅");
+  currentUser = await fetchMe();
+  applyAuthUI();
+  renderSettingsUserInfo();
+}
+
+async function changePassword() {
+  const currentPassword = $("currentPasswordInput")?.value?.trim();
+  const newPassword = $("newPasswordInput")?.value?.trim();
+  if (!currentPassword || !newPassword) return setAlert($("changePasswordMsg"), "Fyll i båda fälten.", true);
+
+  const { res, data } = await fetchJson(API.CHANGE_PASSWORD, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+    body: JSON.stringify({ currentPassword, newPassword })
+  });
+
+  if (!res.ok) return setAlert($("changePasswordMsg"), data?.error || "Kunde inte byta lösenord", true);
+
+  setAlert($("changePasswordMsg"), data.message || "Lösenord uppdaterat ✅");
+  $("currentPasswordInput").value = "";
+  $("newPasswordInput").value = "";
+}
+
+function renderSettingsUserInfo() {
+  if (!$("settingsUserInfo")) return;
+  if (!currentUser) return setText($("settingsUserInfo"), "-");
+
+  const lines = [
+    `Username: ${currentUser.username}`,
+    `Role: ${currentUser.role}`,
+    `Email: ${currentUser.email || "(saknas)"}`
+  ];
+  $("settingsUserInfo").textContent = lines.join("\n");
 }
 
 /*************************************************
- * ✅ Category Manager
+ * ✅ Forgot/Reset UI
  *************************************************/
-let adminCats = [];
-
-function setCatMsg(msg, isErr = false) {
-  setAlert($("catMsg"), msg, isErr);
+function toggleInputType(inputId) {
+  const el = $(inputId);
+  if (!el) return;
+  el.type = el.type === "password" ? "text" : "password";
 }
 
-async function loadAdminCategories() {
-  const select = $("catSelect");
-  if (!select) return;
-  select.innerHTML = "";
-
-  try {
-    const res = await fetch(API.ADMIN_CATEGORIES, {
-      headers: { Authorization: `Bearer ${token}` }
-    });
-
-    const data = await res.json();
-    if (!res.ok) {
-      setCatMsg(data?.error || "Kunde inte ladda kategorier", true);
-      return;
-    }
-
-    adminCats = data;
-
-    data.forEach((c) => {
-      const opt = document.createElement("option");
-      opt.value = c.key;
-      opt.textContent = `${c.key} — ${c.name}`;
-      select.appendChild(opt);
-    });
-
-    select.value = data[0]?.key || "demo";
-    applyCatEditFromSelect();
-  } catch (e) {
-    console.error(e);
-    setCatMsg("Serverfel vid kategorier", true);
-  }
+function getResetTokenFromUrl() {
+  const params = new URLSearchParams(window.location.search);
+  return params.get("resetToken");
 }
 
-function applyCatEditFromSelect() {
-  const key = $("catSelect")?.value;
-  const c = adminCats.find(x => x.key === key);
-  if (!c) return;
-  $("catEditName").value = c.name || "";
-  $("catEditPrompt").value = c.systemPrompt || "";
+async function sendForgotEmail() {
+  const email = $("forgotEmail")?.value?.trim();
+  if (!email) return setAlert($("forgotMsg"), "Skriv din email.", true);
+
+  const { res, data } = await fetchJson(API.FORGOT, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ email })
+  });
+
+  if (!res.ok) return setAlert($("forgotMsg"), data?.error || "Kunde inte skicka mail", true);
+  setAlert($("forgotMsg"), data.message || "Mail skickat ✅");
 }
 
-async function createCategory() {
-  setCatMsg("");
-  const key = $("catNewKey")?.value?.trim();
-  const name = $("catNewName")?.value?.trim();
-  const systemPrompt = $("catNewPrompt")?.value || "";
+async function resetPassword() {
+  const tokenFromUrl = getResetTokenFromUrl();
+  const newPassword = $("resetNewPassword")?.value?.trim();
+  if (!tokenFromUrl) return setAlert($("resetMsg"), "resetToken saknas i URL", true);
+  if (!newPassword) return setAlert($("resetMsg"), "Skriv nytt lösenord.", true);
 
-  if (!key || !name) {
-    setCatMsg("Fyll i key + namn", true);
-    return;
-  }
+  const { res, data } = await fetchJson(API.RESET, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ resetToken: tokenFromUrl, newPassword })
+  });
 
-  try {
-    const res = await fetch(API.ADMIN_CATEGORIES, {
-      method: "POST",
-      headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-      body: JSON.stringify({ key, name, systemPrompt })
-    });
-
-    const data = await res.json();
-    if (!res.ok) {
-      setCatMsg(data?.error || "Kunde inte skapa kategori", true);
-      return;
-    }
-
-    setCatMsg("Kategori skapad ✅");
-    $("catNewKey").value = "";
-    $("catNewName").value = "";
-    $("catNewPrompt").value = "";
-
-    await loadCategories();
-    await loadAdminCategories();
-  } catch {
-    setCatMsg("Serverfel vid skapa kategori", true);
-  }
-}
-
-async function updateCategory() {
-  setCatMsg("");
-  const key = $("catSelect")?.value;
-  const name = $("catEditName")?.value?.trim();
-  const systemPrompt = $("catEditPrompt")?.value || "";
-
-  if (!key) return;
-
-  try {
-    const res = await fetch(API.ADMIN_CAT_UPDATE(key), {
-      method: "PUT",
-      headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-      body: JSON.stringify({ name, systemPrompt })
-    });
-
-    const data = await res.json();
-    if (!res.ok) {
-      setCatMsg(data?.error || "Kunde inte uppdatera kategori", true);
-      return;
-    }
-
-    setCatMsg("Kategori uppdaterad ✅");
-    await loadCategories();
-    await loadAdminCategories();
-  } catch {
-    setCatMsg("Serverfel vid uppdatera kategori", true);
-  }
-}
-
-async function deleteCategory() {
-  setCatMsg("");
-  const key = $("catSelect")?.value;
-  if (!key) return;
-
-  const ok = confirm(`Vill du verkligen radera kategorin "${key}"?`);
-  if (!ok) return;
-
-  try {
-    const res = await fetch(API.ADMIN_CAT_DELETE(key), {
-      method: "DELETE",
-      headers: { Authorization: `Bearer ${token}` }
-    });
-
-    const data = await res.json();
-    if (!res.ok) {
-      setCatMsg(data?.error || "Kunde inte radera kategori", true);
-      return;
-    }
-
-    setCatMsg("Kategori raderad ✅");
-    await loadCategories();
-    await loadAdminCategories();
-  } catch {
-    setCatMsg("Serverfel vid radera kategori", true);
-  }
+  if (!res.ok) return setAlert($("resetMsg"), data?.error || "Kunde inte återställa", true);
+  setAlert($("resetMsg"), data.message || "Återställt ✅ Logga in nu.");
 }
 
 /*************************************************
- * ✅ Feedback
- *************************************************/
-async function sendFeedback() {
-  const msgEl = $("fbMsg");
-  setAlert(msgEl, "");
-
-  const rating = $("fbRating")?.value || "5";
-  const comment = $("fbComment")?.value || "";
-
-  try {
-    const res = await fetch(API.FEEDBACK, {
-      method: "POST",
-      headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-      body: JSON.stringify({ companyId, rating: Number(rating), comment })
-    });
-
-    const data = await res.json();
-    if (!res.ok) {
-      setAlert(msgEl, data?.error || "Kunde inte skicka feedback", true);
-      return;
-    }
-
-    setAlert(msgEl, "Feedback skickad ✅");
-    $("fbComment").value = "";
-  } catch {
-    setAlert(msgEl, "Serverfel vid feedback", true);
-  }
-}
-
-/*************************************************
- * ✅ AUTH actions
+ * ✅ Login / Register / Logout
  *************************************************/
 async function login() {
   const username = $("username")?.value?.trim();
   const password = $("password")?.value?.trim();
+
   setAlert($("authMessage"), "");
+  if (!username || !password) return setAlert($("authMessage"), "Fyll i både användarnamn och lösenord.", true);
 
-  if (!username || !password) {
-    setAlert($("authMessage"), "Fyll i användarnamn och lösenord.", true);
-    return;
-  }
+  const { res, data } = await fetchJson(API.LOGIN, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ username, password })
+  });
 
-  try {
-    const res = await fetch(API.LOGIN, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ username, password })
-    });
+  if (!res.ok) return setAlert($("authMessage"), data?.error || "Login misslyckades", true);
 
-    const data = await res.json();
-    if (!res.ok) {
-      setAlert($("authMessage"), data?.error || "Login misslyckades", true);
-      return;
-    }
+  token = data.token;
+  localStorage.setItem("token", token);
 
-    token = data.token;
-    localStorage.setItem("token", token);
-    currentUser = await fetchMe();
-    applyAuthUI();
+  currentUser = await fetchMe();
+  applyAuthUI();
 
-    clearChat();
-    addMessage("assistant", "Välkommen! Vad kan jag hjälpa dig med?");
-  } catch {
-    setAlert($("authMessage"), "Serverfel vid login", true);
-  }
+  await loadCategories();
+  applyCompanyToUI();
+
+  clearChat();
+  addMessage("assistant", "Välkommen! Vad kan jag hjälpa dig med?");
+  renderSettingsUserInfo();
 }
 
 async function register() {
   const username = $("username")?.value?.trim();
-  const email = $("email")?.value?.trim();
   const password = $("password")?.value?.trim();
+  const email = $("email")?.value?.trim();
 
   setAlert($("authMessage"), "");
+  if (!username || !password) return setAlert($("authMessage"), "Fyll i både användarnamn och lösenord.", true);
 
-  if (!username || !email || !password) {
-    setAlert($("authMessage"), "Fyll i användarnamn, email och lösenord.", true);
-    return;
-  }
+  const { res, data } = await fetchJson(API.REGISTER, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ username, password, email })
+  });
 
-  try {
-    const res = await fetch(API.REGISTER, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ username, email, password })
-    });
+  if (!res.ok) return setAlert($("authMessage"), data?.error || "Registrering misslyckades", true);
 
-    const data = await res.json();
-    if (!res.ok) {
-      setAlert($("authMessage"), data?.error || "Registrering misslyckades", true);
-      return;
-    }
-
-    setAlert($("authMessage"), "Registrering klar ✅ Logga in nu.");
-  } catch {
-    setAlert($("authMessage"), "Serverfel vid registrering", true);
-  }
+  setAlert($("authMessage"), "Registrering klar ✅ Logga in nu.");
 }
 
 function logout() {
@@ -1341,241 +1316,83 @@ function logout() {
 }
 
 /*************************************************
- * ✅ Forgot / Reset Password
- *************************************************/
-function toggleForgotPanel(open = null) {
-  const p = $("forgotPanel");
-  if (!p) return;
-  if (open === null) {
-    p.style.display = p.style.display === "none" ? "" : "none";
-  } else {
-    p.style.display = open ? "" : "none";
-  }
-}
-
-async function sendResetLink() {
-  const msg = $("forgotMsg");
-  setAlert(msg, "");
-
-  const username = $("username")?.value?.trim();
-  if (!username) {
-    setAlert(msg, "Skriv ditt användarnamn först.", true);
-    return;
-  }
-
-  try {
-    const res = await fetch(API.FORGOT, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ username })
-    });
-
-    const data = await res.json();
-    if (!res.ok) {
-      setAlert(msg, data?.error || "Kunde inte skicka länk", true);
-      return;
-    }
-
-    setAlert(msg, data.message || "Länk skickad ✅");
-  } catch {
-    setAlert(msg, "Serverfel vid reset mail", true);
-  }
-}
-
-function openResetPanel(resetToken) {
-  show($("resetPanel"), true);
-  show($("forgotPanel"), false);
-  window.__RESET_TOKEN__ = resetToken;
-}
-
-async function resetPassword() {
-  const msg = $("resetMsg");
-  setAlert(msg, "");
-
-  const newPassword = $("resetNewPassword")?.value?.trim();
-  const token = window.__RESET_TOKEN__;
-
-  if (!token) {
-    setAlert(msg, "Reset token saknas.", true);
-    return;
-  }
-  if (!newPassword || newPassword.length < 6) {
-    setAlert(msg, "Lösenord måste vara minst 6 tecken.", true);
-    return;
-  }
-
-  try {
-    const res = await fetch(API.RESET, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ token, newPassword })
-    });
-
-    const data = await res.json();
-    if (!res.ok) {
-      setAlert(msg, data?.error || "Kunde inte återställa", true);
-      return;
-    }
-
-    setAlert(msg, data.message || "Klart ✅ Logga in nu.");
-    $("resetNewPassword").value = "";
-
-    // remove resetToken from url
-    const url = new URL(window.location.href);
-    url.searchParams.delete("resetToken");
-    window.history.replaceState({}, "", url.toString());
-
-    window.__RESET_TOKEN__ = null;
-    show($("resetPanel"), false);
-  } catch {
-    setAlert(msg, "Serverfel vid reset", true);
-  }
-}
-
-/*************************************************
- * ✅ Settings
- *************************************************/
-async function changeUsername() {
-  const msg = $("settingsMsg");
-  setAlert(msg, "");
-
-  const newUsername = $("newUsername")?.value?.trim();
-  if (!newUsername || newUsername.length < 3) {
-    setAlert(msg, "Användarnamn måste vara minst 3 tecken.", true);
-    return;
-  }
-
-  try {
-    const res = await fetch(API.CHANGE_USERNAME, {
-      method: "POST",
-      headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-      body: JSON.stringify({ newUsername })
-    });
-
-    const data = await res.json();
-    if (!res.ok) {
-      setAlert(msg, data?.error || "Kunde inte ändra användarnamn", true);
-      return;
-    }
-
-    setAlert(msg, "Användarnamn uppdaterat ✅");
-    currentUser = await fetchMe();
-    applyAuthUI();
-    $("newUsername").value = "";
-  } catch {
-    setAlert(msg, "Serverfel vid ändra användarnamn", true);
-  }
-}
-
-async function changePassword() {
-  const msg = $("settingsMsg");
-  setAlert(msg, "");
-
-  const currentPassword = $("currentPw")?.value?.trim();
-  const newPassword = $("newPw")?.value?.trim();
-
-  if (!currentPassword || !newPassword) {
-    setAlert(msg, "Fyll i både nuvarande och nytt lösenord.", true);
-    return;
-  }
-
-  if (newPassword.length < 6) {
-    setAlert(msg, "Nytt lösenord måste vara minst 6 tecken.", true);
-    return;
-  }
-
-  try {
-    const res = await fetch(API.CHANGE_PASSWORD, {
-      method: "POST",
-      headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-      body: JSON.stringify({ currentPassword, newPassword })
-    });
-
-    const data = await res.json();
-    if (!res.ok) {
-      setAlert(msg, data?.error || "Kunde inte byta lösenord", true);
-      return;
-    }
-
-    setAlert(msg, "Lösenord uppdaterat ✅");
-    $("currentPw").value = "";
-    $("newPw").value = "";
-  } catch {
-    setAlert(msg, "Serverfel vid byta lösenord", true);
-  }
-}
-
-/*************************************************
- * ✅ Password eye toggles
- *************************************************/
-function togglePasswordInput(id) {
-  const input = $(id);
-  if (!input) return;
-  input.type = input.type === "password" ? "text" : "password";
-}
-
-/*************************************************
  * ✅ Init
  *************************************************/
 async function init() {
-  // read category from URL if set
+  refreshDebug();
+
+  // reset-token UI
+  const resetToken = getResetTokenFromUrl();
+  if (resetToken) {
+    show($("forgotCard"), false);
+    show($("resetCard"), true);
+    show($("authView"), true);
+  }
+
+  // if token exists => load me
+  if (token) currentUser = await fetchMe();
+
+  applyAuthUI();
+
+  // load categories and apply UI
+  await loadCategories();
+
   const params = new URLSearchParams(window.location.search);
   const c = params.get("company");
   if (c) companyId = c;
+  applyCompanyToUI();
 
-  // If resetToken exists -> show reset form
-  const resetToken = params.get("resetToken");
-  if (resetToken) {
-    show($("resetPanel"), true);
-    openResetPanel(resetToken);
-  }
+  renderSettingsUserInfo();
 
-  await loadCategories();
-  refreshDebug();
-
-  if (token) currentUser = await fetchMe();
-  applyAuthUI();
-
-  // Top events
+  // EVENTS
   $("themeToggle")?.addEventListener("click", toggleTheme);
   $("logoutBtn")?.addEventListener("click", logout);
 
-  // Auth
-  $("loginBtn")?.addEventListener("click", login);
-  $("registerBtn")?.addEventListener("click", register);
-
-  $("forgotPwBtn")?.addEventListener("click", () => toggleForgotPanel(true));
-  $("closeForgotPanelBtn")?.addEventListener("click", () => toggleForgotPanel(false));
-  $("sendResetLinkBtn")?.addEventListener("click", sendResetLink);
-
-  $("resetPasswordBtn")?.addEventListener("click", resetPassword);
-  $("cancelResetBtn")?.addEventListener("click", () => show($("resetPanel"), false));
-
-  $("toggleLoginPw")?.addEventListener("click", () => togglePasswordInput("password"));
-  $("toggleResetPw")?.addEventListener("click", () => togglePasswordInput("resetNewPassword"));
-
-  $("toggleCurrentPw")?.addEventListener("click", () => togglePasswordInput("currentPw"));
-  $("toggleNewPw")?.addEventListener("click", () => togglePasswordInput("newPw"));
-
-  // Chat
-  $("sendBtn")?.addEventListener("click", sendMessage);
-  $("messageInput")?.addEventListener("keydown", (e) => {
-    if (e.key === "Enter") {
-      e.preventDefault();
-      sendMessage();
-    }
+  $("toggleDebugBtn")?.addEventListener("click", () => {
+    const p = $("debugPanel");
+    if (!p) return;
+    p.style.display = p.style.display === "none" ? "" : "none";
   });
 
-  $("categorySelect")?.addEventListener("change", (e) => setCompanyFromSelect(e.target.value));
+  // auth
+  $("loginBtn")?.addEventListener("click", login);
+  $("registerBtn")?.addEventListener("click", register);
+  $("openForgotBtn")?.addEventListener("click", () => show($("forgotCard"), true));
+  $("forgotSendBtn")?.addEventListener("click", sendForgotEmail);
+  $("resetSaveBtn")?.addEventListener("click", resetPassword);
+
+  $("togglePassLogin")?.addEventListener("click", () => toggleInputType("password"));
+  $("toggleResetPass")?.addEventListener("click", () => toggleInputType("resetNewPassword"));
+  $("toggleChangePass")?.addEventListener("click", () => {
+    toggleInputType("currentPasswordInput");
+    toggleInputType("newPasswordInput");
+  });
+
+  // chat
+  $("sendBtn")?.addEventListener("click", sendMessage);
+  $("messageInput")?.addEventListener("keydown", (e) => {
+    if (e.key === "Enter") { e.preventDefault(); sendMessage(); }
+  });
+
   $("newTicketBtn")?.addEventListener("click", startNewTicket);
-
-  $("exportChatBtn")?.addEventListener("click", exportChat);
   $("clearChatBtn")?.addEventListener("click", clearChat);
+  $("exportChatBtn")?.addEventListener("click", exportChat);
 
-  // Views
+  $("feedbackPosBtn")?.addEventListener("click", () => sendFeedback("positive"));
+  $("feedbackNegBtn")?.addEventListener("click", () => sendFeedback("negative"));
+
+  $("categorySelect")?.addEventListener("change", (e) => setCompanyFromSelect(e.target.value));
+
+  // menu views
   $("openChatView")?.addEventListener("click", () => {
     setActiveMenu("chat");
-    openView(token ? "chat" : "auth");
+    openView("chat");
+  });
+
+  $("openSettingsView")?.addEventListener("click", () => {
+    setActiveMenu("settings");
+    openView("settings");
+    renderSettingsUserInfo();
   });
 
   $("openInboxView")?.addEventListener("click", async () => {
@@ -1588,22 +1405,16 @@ async function init() {
     setActiveMenu("admin");
     openView("admin");
     await loadDashboard();
-    await kbRefreshList();
     await adminLoadUsers();
-    await loadAdminCategories();
+    await adminLoadCategoriesList();
+    await kbRefreshList();
   });
 
-  $("openSettingsView")?.addEventListener("click", () => {
-    setActiveMenu("settings");
-    openView("settings");
-  });
+  // settings actions
+  $("changeUsernameBtn")?.addEventListener("click", changeUsername);
+  $("changePasswordBtn")?.addEventListener("click", changePassword);
 
-  $("openFeedbackView")?.addEventListener("click", () => {
-    setActiveMenu("feedback");
-    openView("feedback");
-  });
-
-  // Inbox actions
+  // Inbox
   $("inboxRefreshBtn")?.addEventListener("click", inboxLoadTickets);
   $("inboxStatusFilter")?.addEventListener("change", inboxLoadTickets);
   $("inboxCategoryFilter")?.addEventListener("change", inboxLoadTickets);
@@ -1612,55 +1423,37 @@ async function init() {
   $("setStatusOpen")?.addEventListener("click", () => inboxSetStatus("open"));
   $("setStatusPending")?.addEventListener("click", () => inboxSetStatus("pending"));
   $("setStatusSolved")?.addEventListener("click", () => inboxSetStatus("solved"));
-
-  $("sendAgentReplyInboxBtn")?.addEventListener("click", inboxSendAgentReply);
   $("setPriorityBtn")?.addEventListener("click", inboxSetPriority);
-  $("saveNotesBtn")?.addEventListener("click", saveNotes);
-  $("deleteTicketBtn")?.addEventListener("click", deleteTicket);
+  $("sendAgentReplyInboxBtn")?.addEventListener("click", inboxSendAgentReply);
+  $("deleteTicketBtn")?.addEventListener("click", inboxDeleteTicket);
 
-  // Dashboard buttons
-  $("refreshDashboardBtn")?.addEventListener("click", loadDashboard);
-  $("deleteSolvedTicketsBtn")?.addEventListener("click", deleteSolvedTickets);
+  // Dashboard
+  $("cleanupSolvedBtn")?.addEventListener("click", cleanupSolved);
+  $("adminExportAllBtn")?.addEventListener("click", adminExportAll);
 
-  // KB actions
+  // Category manager
+  $("createCategoryBtn")?.addEventListener("click", createCategory);
+  $("updateCategoryBtn")?.addEventListener("click", updateCategory);
+  $("deleteCategoryBtn")?.addEventListener("click", deleteCategory);
+
+  // KB tabs
   document.querySelectorAll(".tabBtn").forEach((btn) => {
     btn.addEventListener("click", () => activateKbTab(btn.dataset.tab));
   });
 
   $("kbRefreshBtn")?.addEventListener("click", kbRefreshList);
   $("kbExportBtn")?.addEventListener("click", kbExport);
+  $("trainingExportBtn")?.addEventListener("click", trainingExport);
+
   $("kbUploadTextBtn")?.addEventListener("click", kbUploadText);
   $("kbUploadUrlBtn")?.addEventListener("click", kbUploadUrl);
   $("kbUploadPdfBtn")?.addEventListener("click", kbUploadPdf);
   $("kbCategorySelect")?.addEventListener("change", kbRefreshList);
 
-  // Users/admin
   $("adminUsersRefreshBtn")?.addEventListener("click", adminLoadUsers);
-  $("adminExportAllBtn")?.addEventListener("click", () => window.open(API.ADMIN_EXPORT_ALL, "_blank"));
 
-  // Category manager
-  $("createCategoryBtn")?.addEventListener("click", createCategory);
-  $("catSelect")?.addEventListener("change", applyCatEditFromSelect);
-  $("updateCategoryBtn")?.addEventListener("click", updateCategory);
-  $("deleteCategoryBtn")?.addEventListener("click", deleteCategory);
-
-  // Settings actions
-  $("changeUsernameBtn")?.addEventListener("click", changeUsername);
-  $("changePasswordBtn")?.addEventListener("click", changePassword);
-
-  // Feedback
-  $("sendFeedbackBtn")?.addEventListener("click", sendFeedback);
-
-  // Debug
-  $("toggleDebugBtn")?.addEventListener("click", () => {
-    const p = $("debugPanel");
-    if (!p) return;
-    p.style.display = p.style.display === "none" ? "" : "none";
-  });
-
-  // welcome text
+  // if logged in show welcome
   if (token && currentUser) {
-    openView("chat");
     clearChat();
     addMessage("assistant", "Välkommen tillbaka! Vad kan jag hjälpa dig med?");
   }
