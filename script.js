@@ -418,16 +418,20 @@ async function inboxLoadTickets() {
       const div = document.createElement("div");
       div.className = `ticketItem ${inboxSelectedTicketId === t._id ? "selected" : ""}`;
 
-      div.innerHTML = `
-        <div class="ticketTop">
-          <div class="ticketTitle">${escapeHtml(t.title || "Ticket")}</div>
-          <div class="ticketBadge ${escapeHtml(t.status)}">${escapeHtml(t.status)}</div>
-        </div>
-        <div class="ticketMeta">
-          <span>Kategori: <b>${escapeHtml(t.companyId)}</b></span>
-          <span>Senast: ${escapeHtml(formatDate(t.lastActivityAt))}</span>
-        </div>
-      `;
+     div.innerHTML = `
+  <div class="row" style="margin-top:10px;">
+  <button class="btn secondary small" data-action="toggleRole">
+    <i class="fa-solid fa-user-gear"></i>
+    ${isAdmin ? "Ta bort admin" : "Gör admin"}
+  </button>
+
+  ${isAdmin ? "" : `
+    <button class="btn danger small" data-action="deleteUser">
+      <i class="fa-solid fa-trash"></i>
+      Ta bort
+    </button>
+  `}
+</div>
 
       div.addEventListener("click", async () => {
         inboxSelectedTicketId = t._id;
