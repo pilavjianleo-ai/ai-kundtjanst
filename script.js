@@ -28,14 +28,16 @@ const API = {
   ADMIN_TICKET_STATUS: (id) => `${API_BASE}/admin/tickets/${id}/status`,
   ADMIN_TICKET_REPLY: (id) => `${API_BASE}/admin/tickets/${id}/agent-reply`,
   ADMIN_TICKET_PRIORITY: (id) => `${API_BASE}/admin/tickets/${id}/priority`,
+
   ADMIN_TICKET_NOTE: (id) => `${API_BASE}/admin/tickets/${id}/internal-note`,
   ADMIN_TICKET_NOTE_DELETE: (ticketId, noteId) => `${API_BASE}/admin/tickets/${ticketId}/internal-note/${noteId}`,
-ADMIN_TICKET_NOTES_CLEAR: (ticketId) => `${API_BASE}/admin/tickets/${ticketId}/internal-notes`,
+  ADMIN_TICKET_NOTES_CLEAR: (ticketId) => `${API_BASE}/admin/tickets/${ticketId}/internal-notes`,
+
   ADMIN_TICKET_ASSIGN: (id) => `${API_BASE}/admin/tickets/${id}/assign`,
   ADMIN_TICKET_DELETE: (id) => `${API_BASE}/admin/tickets/${id}`,
-  ADMIN_TICKETS_CLEANUP_SOLVED: `${API_BASE}/admin/tickets/cleanup-solved`,
-ADMIN_TICKETS_SOLVE_ALL: `${API_BASE}/admin/tickets/solve-all`,
-ADMIN_TICKETS_REMOVE_SOLVED: `${API_BASE}/admin/tickets/remove-solved`,
+
+  ADMIN_TICKETS_SOLVE_ALL: `${API_BASE}/admin/tickets/solve-all`,
+  ADMIN_TICKETS_REMOVE_SOLVED: `${API_BASE}/admin/tickets/remove-solved`,
 
   ADMIN_EXPORT_ALL: `${API_BASE}/admin/export/all`,
   ADMIN_EXPORT_TRAINING: `${API_BASE}/admin/export/training`,
@@ -60,6 +62,7 @@ let mySelectedTicketId = null;
 
 let pollInterval = null;
 let lastAdminTicketSnapshot = {};
+let lastMyTicketSnapshot = {};
 let categoryNotifMap = {}; // { companyId: true/false }
 
 /*************************************************
@@ -104,26 +107,17 @@ function formatDate(d) {
  *************************************************/
 async function fetchJson(url, opts = {}) {
   const res = await fetch(url, opts);
-  const text = await res.text();
 
-  // If server returned HTML, throw readable error
-  if (text.trim().startsWith("<!DOCTYPE") || text.trim().startsWith("<html")) {
-    throw new Error(`API returnerade HTML istället för JSON. URL: ${url}`);
+  const contentType = res.headers.get("content-type") || "";
+  if (!contentType.includes("application/json")) {
+    const raw = await res.text();
+    throw new Error(`API returnerade HTML istället för JSON. URL: ${url}\nStatus: ${res.status}\n${raw.slice(0, 140)}`);
   }
 
-  let data = {};
-  try {
-    data = text ? JSON.parse(text) : {};
-  } catch {
-    data = { error: "Ogiltig JSON från server" };
-  }
+  const data = await res.json();
 
   if (!res.ok) {
-    const msg = data?.error || "Serverfel";
-    const err = new Error(msg);
-    err.status = res.status;
-    err.data = data;
-    throw err;
+    throw new Error(data?.error || `Fel (${res.status})`);
   }
 
   return data;
@@ -216,8 +210,6 @@ function applyAuthUI() {
 
   if (!isLogged) {
     openView("auth");
-    setActiveMenu("chat");
-
     setText(roleBadge, "Inte inloggad");
     show(logoutBtn, false);
 
@@ -231,7 +223,6 @@ function applyAuthUI() {
     setText(roleBadge, `${currentUser.username} • ${String(currentUser.role || "user").toUpperCase()}`);
     show(logoutBtn, true);
 
-    // Show user menus
     show(chatBtn, true);
     show(myTicketsBtn, true);
     show(settingsBtn, true);
@@ -287,9 +278,8 @@ async function loadCategories() {
     if (!cats.some(c => c.key === companyId)) companyId = cats[0]?.key || "demo";
     select.value = companyId;
 
-    // also update other dropdowns
+    // inbox filter
     const inboxCat = $("inboxCategoryFilter");
-    const kbCat = $("kbCategorySelect");
     if (inboxCat) {
       inboxCat.innerHTML = `<option value="">Alla kategorier</option>`;
       cats.forEach((c) => {
@@ -300,6 +290,8 @@ async function loadCategories() {
       });
     }
 
+    // kb select
+    const kbCat = $("kbCategorySelect");
     if (kbCat) {
       kbCat.innerHTML = "";
       cats.forEach((c) => {
@@ -587,7 +579,7 @@ async function loadMyTicketDetails(id) {
       <div class="divider"></div>
       ${html || `<div class="muted small">Inga meddelanden.</div>`}
     `;
-  } catch (e) {
+  } catch {
     details.innerHTML = `<div class="muted small">Kunde inte ladda ticket.</div>`;
   }
 }
@@ -595,11 +587,39 @@ async function loadMyTicketDetails(id) {
 /*************************************************
  * ✅ Polling (live notifiering vid agent-svar)
  *************************************************/
-let lastMyTicketSnapshot = {};
-
 async function pollMyTickets() {
+  if (!token || !currentUser) return;
 
-  async function pollAdminInbox() {
+  try {
+    const tickets = await fetchJson(API.MY_TICKETS, {
+      headers: { Authorization: `Bearer ${token}` }
+    });
+
+    tickets.forEach((t) => {
+      const prev = lastMyTicketSnapshot[t._id];
+      const nowTs = new Date(t.lastActivityAt).getTime();
+
+      if (prev && nowTs > prev) {
+        const sub = $("chatSubtitle");
+        if (sub) {
+          sub.textContent = "📩 Ny uppdatering i ett ärende (agent/AI svar).";
+          setTimeout(() => applyCompanyToUI(), 2500);
+        }
+      }
+      lastMyTicketSnapshot[t._id] = nowTs;
+    });
+
+    if ($("myTicketsView")?.style.display !== "none") {
+      await loadMyTickets();
+      if (mySelectedTicketId) await loadMyTicketDetails(mySelectedTicketId);
+    }
+
+  } catch {
+    // ignore
+  }
+}
+
+async function pollAdminInbox() {
   if (!token || !currentUser) return;
   const isAdminOrAgent = ["admin", "agent"].includes(currentUser.role);
   if (!isAdminOrAgent) return;
@@ -609,9 +629,7 @@ async function pollMyTickets() {
       headers: { Authorization: `Bearer ${token}` }
     });
 
-    // Reset map
     categoryNotifMap = {};
-
     let hasNew = false;
 
     tickets.forEach((t) => {
@@ -625,7 +643,6 @@ async function pollMyTickets() {
       lastAdminTicketSnapshot[t._id] = nowTs;
     });
 
-    // Inbox highlight + dot
     const inboxBtn = $("openInboxView");
     const dot = $("inboxNotifDot");
 
@@ -634,53 +651,16 @@ async function pollMyTickets() {
       if (dot) dot.style.display = "";
     }
 
-    // Category dropdown highlight
     const catSelect = $("categorySelect");
     if (catSelect) {
-      // remove any highlight
       catSelect.classList.remove("categoryNotif");
-
       if (categoryNotifMap[catSelect.value]) {
         catSelect.classList.add("categoryNotif");
       }
     }
 
-  } catch (e) {
+  } catch {
     // ignore
-  }
-}
-
-  if (!token || !currentUser) return;
-
-  try {
-    const tickets = await fetchJson(API.MY_TICKETS, {
-      headers: { Authorization: `Bearer ${token}` }
-    });
-
-    // detect new activity on any ticket
-    tickets.forEach((t) => {
-      const prev = lastMyTicketSnapshot[t._id];
-      const nowTs = new Date(t.lastActivityAt).getTime();
-
-      if (prev && nowTs > prev) {
-        // simple notification: show in chat subtitle
-        const sub = $("chatSubtitle");
-        if (sub) {
-          sub.textContent = "📩 Ny uppdatering i ett ärende (agent/AI svar).";
-          setTimeout(() => applyCompanyToUI(), 2500);
-        }
-      }
-      lastMyTicketSnapshot[t._id] = nowTs;
-    });
-
-    // if user currently views myTickets, auto-refresh
-    if ($("myTicketsView")?.style.display !== "none") {
-      await loadMyTickets();
-      if (mySelectedTicketId) await loadMyTicketDetails(mySelectedTicketId);
-    }
-
-  } catch (e) {
-    // ignore polling errors
   }
 }
 
@@ -692,7 +672,6 @@ function startPolling() {
   }, 8000);
 }
 
-
 function stopPolling() {
   if (pollInterval) clearInterval(pollInterval);
   pollInterval = null;
@@ -701,49 +680,6 @@ function stopPolling() {
 /*************************************************
  * ✅ Inbox (Agent/Admin)
  *************************************************/
-
-async function deleteOneInternalNote(noteId) {
-  const msgEl = $("inboxTicketMsg");
-  setAlert(msgEl, "");
-
-  if (!inboxSelectedTicketId) return setAlert(msgEl, "Välj en ticket först.", true);
-
-  try {
-    await fetchJson(API.ADMIN_TICKET_NOTE_DELETE(inboxSelectedTicketId, noteId), {
-      method: "DELETE",
-      headers: { Authorization: `Bearer ${token}` }
-    });
-
-    setAlert(msgEl, "Notering borttagen ✅");
-    await inboxLoadTicketDetails(inboxSelectedTicketId);
-  } catch (e) {
-    setAlert(msgEl, e.message || "Fel vid borttagning", true);
-  }
-}
-
-async function clearAllInternalNotes() {
-  const msgEl = $("inboxTicketMsg");
-  setAlert(msgEl, "");
-
-  if (!inboxSelectedTicketId) return setAlert(msgEl, "Välj en ticket först.", true);
-
-  const ok = confirm("Ta bort ALLA interna notes på denna ticket?");
-  if (!ok) return;
-
-  try {
-    await fetchJson(API.ADMIN_TICKET_NOTES_CLEAR(inboxSelectedTicketId), {
-      method: "DELETE",
-      headers: { Authorization: `Bearer ${token}` }
-    });
-
-    setAlert(msgEl, "Alla notes borttagna ✅");
-    await inboxLoadTicketDetails(inboxSelectedTicketId);
-  } catch (e) {
-    setAlert(msgEl, e.message || "Fel vid rensning", true);
-  }
-}
-
-
 async function inboxLoadTickets() {
   const list = $("inboxTicketsList");
   const msg = $("inboxMsg");
@@ -777,7 +713,7 @@ async function inboxLoadTickets() {
 
     filtered.forEach((t) => {
       const div = document.createElement("div");
-      div.className = "listItem";
+      div.className = `listItem ${inboxSelectedTicketId === t._id ? "selected" : ""}`;
       div.innerHTML = `
         <div class="listItemTitle">
           ${escapeHtml(t.title || "Ticket")}
@@ -814,9 +750,7 @@ async function inboxLoadTicketDetails(id) {
       headers: { Authorization: `Bearer ${token}` }
     });
 
-    // update priority select
-    const pr = $("ticketPrioritySelect");
-    if (pr) pr.value = t.priority || "normal";
+    if ($("ticketPrioritySelect")) $("ticketPrioritySelect").value = t.priority || "normal";
 
     const msgs = (t.messages || []).slice(-80);
     const html = msgs.map((m) => {
@@ -832,21 +766,17 @@ async function inboxLoadTicketDetails(id) {
       `;
     }).join("");
 
-    const notes = (t.internalNotes || []).slice(-20).map((n) => {
-  return `<div class="ticketMsg">
-    <div class="ticketMsgHead">
-      <b>Intern note</b>
-      <span>${escapeHtml(formatDate(n.createdAt))}</span>
-    </div>
-    <div class="ticketMsgBody">${escapeHtml(n.content)}</div>
-    <div class="row" style="margin-top:8px;">
-      <button class="btn danger small" onclick="deleteOneInternalNote('${n._id}')">
-        <i class="fa-solid fa-trash"></i> Ta bort
-      </button>
-    </div>
-  </div>`;
-}).join("");
-
+    const notes = (t.internalNotes || []).slice(-30).map((n) => `
+      <div class="noteItem">
+        <div class="noteMeta">${escapeHtml(formatDate(n.createdAt))}</div>
+        <div class="noteText">${escapeHtml(n.content)}</div>
+        <div style="margin-top:8px;">
+          <button class="btn danger small" data-note-del="${n._id}">
+            <i class="fa-solid fa-trash"></i> Ta bort
+          </button>
+        </div>
+      </div>
+    `).join("");
 
     details.innerHTML = `
       <div class="muted small">
@@ -858,9 +788,42 @@ async function inboxLoadTicketDetails(id) {
       ${html || `<div class="muted small">Inga meddelanden.</div>`}
 
       <div class="divider"></div>
-      <b class="muted small">Interna notes (syns ej för kund)</b>
-      ${notes || `<div class="muted small">Inga notes.</div>`}
+
+      <div class="noteBox">
+        <b class="muted small">Interna notes (syns ej för kund)</b>
+        <div style="margin-top:8px;" class="row gap">
+          <input id="internalNoteText" class="input" placeholder="Skriv intern notering..." />
+          <button id="saveInternalNoteBtn2" class="btn secondary small">
+            <i class="fa-solid fa-plus"></i> Lägg till
+          </button>
+        </div>
+        <div style="margin-top:8px;">
+          <button id="clearInternalNotesBtn2" class="btn danger small">
+            <i class="fa-solid fa-trash"></i> Ta bort alla
+          </button>
+        </div>
+
+        <div style="margin-top:10px;" id="notesList">
+          ${notes || `<div class="muted small">Inga notes.</div>`}
+        </div>
+      </div>
     `;
+
+    // bind delete note buttons
+    details.querySelectorAll("[data-note-del]").forEach((btn) => {
+      btn.addEventListener("click", async () => {
+        const noteId = btn.getAttribute("data-note-del");
+        if (!noteId) return;
+        const ok = confirm("Ta bort denna notering?");
+        if (!ok) return;
+        await deleteOneInternalNote(noteId);
+      });
+    });
+
+    // bind add/clear
+    $("saveInternalNoteBtn2")?.addEventListener("click", inboxSaveInternalNote);
+    $("clearInternalNotesBtn2")?.addEventListener("click", clearAllInternalNotes);
+
   } catch (e) {
     console.error(e);
     details.innerHTML = `<div class="muted small">Kunde inte ladda ticket.</div>`;
@@ -960,6 +923,47 @@ async function inboxSaveInternalNote() {
   }
 }
 
+async function deleteOneInternalNote(noteId) {
+  const msgEl = $("inboxTicketMsg");
+  setAlert(msgEl, "");
+
+  if (!inboxSelectedTicketId) return setAlert(msgEl, "Välj en ticket först.", true);
+
+  try {
+    await fetchJson(API.ADMIN_TICKET_NOTE_DELETE(inboxSelectedTicketId, noteId), {
+      method: "DELETE",
+      headers: { Authorization: `Bearer ${token}` }
+    });
+
+    setAlert(msgEl, "Notering borttagen ✅");
+    await inboxLoadTicketDetails(inboxSelectedTicketId);
+  } catch (e) {
+    setAlert(msgEl, e.message || "Fel vid borttagning", true);
+  }
+}
+
+async function clearAllInternalNotes() {
+  const msgEl = $("inboxTicketMsg");
+  setAlert(msgEl, "");
+
+  if (!inboxSelectedTicketId) return setAlert(msgEl, "Välj en ticket först.", true);
+
+  const ok = confirm("Ta bort ALLA interna notes på denna ticket?");
+  if (!ok) return;
+
+  try {
+    await fetchJson(API.ADMIN_TICKET_NOTES_CLEAR(inboxSelectedTicketId), {
+      method: "DELETE",
+      headers: { Authorization: `Bearer ${token}` }
+    });
+
+    setAlert(msgEl, "Alla notes borttagna ✅");
+    await inboxLoadTicketDetails(inboxSelectedTicketId);
+  } catch (e) {
+    setAlert(msgEl, e.message || "Fel vid rensning", true);
+  }
+}
+
 async function inboxAssignTicket() {
   const msgEl = $("inboxTicketMsg");
   setAlert(msgEl, "");
@@ -1006,6 +1010,41 @@ async function inboxDeleteTicket() {
 }
 
 /*************************************************
+ * ✅ Bulk actions
+ *************************************************/
+async function solveAllTickets() {
+  const ok = confirm("Vill du markera ALLA open/pending som SOLVED?");
+  if (!ok) return;
+
+  try {
+    const data = await fetchJson(API.ADMIN_TICKETS_SOLVE_ALL, {
+      method: "POST",
+      headers: { Authorization: `Bearer ${token}` }
+    });
+    alert(data.message || "Alla tickets solved ✅");
+    await inboxLoadTickets();
+  } catch (e) {
+    alert(e.message || "Fel vid Solve ALL");
+  }
+}
+
+async function removeAllSolvedTickets() {
+  const ok = confirm("Vill du TA BORT alla solved tickets? (kan inte ångras)");
+  if (!ok) return;
+
+  try {
+    const data = await fetchJson(API.ADMIN_TICKETS_REMOVE_SOLVED, {
+      method: "POST",
+      headers: { Authorization: `Bearer ${token}` }
+    });
+    alert(data.message || "Alla solved borttagna ✅");
+    await inboxLoadTickets();
+  } catch (e) {
+    alert(e.message || "Fel vid Remove solved");
+  }
+}
+
+/*************************************************
  * ✅ Admin: Users + roles
  *************************************************/
 async function adminLoadUsers() {
@@ -1019,7 +1058,6 @@ async function adminLoadUsers() {
       headers: { Authorization: `Bearer ${token}` }
     });
 
-    // Fill assign dropdown with agent/admin
     const assignSel = $("assignUserSelect");
     if (assignSel) {
       assignSel.innerHTML = `<option value="">Välj agent...</option>`;
@@ -1119,320 +1157,6 @@ async function adminDeleteUser(userId) {
     setAlert(msgEl, data.message || "User borttagen ✅");
   } catch (e) {
     setAlert(msgEl, e.message || "Serverfel vid borttagning", true);
-  }
-}
-
-/*************************************************
- * ✅ KB Manager (Admin)
- *************************************************/
-function kbActiveCategory() {
-  return $("kbCategorySelect")?.value || companyId || "demo";
-}
-
-async function kbRefreshList() {
-  const list = $("kbList");
-  if (list) list.innerHTML = "";
-  setAlert($("kbMsg"), "");
-
-  const cat = kbActiveCategory();
-
-  try {
-    const items = await fetchJson(API.KB_LIST(cat), {
-      headers: { Authorization: `Bearer ${token}` }
-    });
-
-    if (!items.length) {
-      list.innerHTML = `<div class="muted small">Ingen kunskap uppladdad för denna kategori.</div>`;
-      return;
-    }
-
-    items.slice(0, 40).forEach((item) => {
-      const div = document.createElement("div");
-      div.className = "listItem";
-      const preview = (item.content || "").slice(0, 160);
-
-      div.innerHTML = `
-        <div class="listItemTitle">
-          ${escapeHtml(item.title || item.sourceRef || "KB")}
-          <span class="pill">${escapeHtml(item.sourceType)}</span>
-        </div>
-        <div class="muted small">${escapeHtml(item.sourceRef || "")}</div>
-        <div class="muted small">${item.embeddingOk ? "Vector ✅" : "Vector ❌"} • v${item.version || 1}</div>
-        <div class="muted small" style="margin-top:6px;">${escapeHtml(preview)}...</div>
-      `;
-      list.appendChild(div);
-    });
-
-  } catch (e) {
-    console.error("KB list error:", e);
-    setAlert($("kbMsg"), e.message || "Serverfel vid KB-lista", true);
-  }
-}
-
-async function kbUploadText() {
-  const cat = kbActiveCategory();
-  const title = $("kbTextTitle")?.value?.trim() || "Text";
-  const content = $("kbTextContent")?.value?.trim() || "";
-
-  if (!content || content.length < 30) {
-    setAlert($("kbMsg"), "Skriv mer text (minst ~30 tecken).", true);
-    return;
-  }
-
-  setAlert($("kbMsg"), "Laddar upp text…");
-
-  try {
-    const data = await fetchJson(API.KB_TEXT, {
-      method: "POST",
-      headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-      body: JSON.stringify({ companyId: cat, title, content })
-    });
-
-    setAlert($("kbMsg"), data.message || "Text uppladdad ✅");
-    $("kbTextContent").value = "";
-    kbRefreshList();
-  } catch (e) {
-    setAlert($("kbMsg"), e.message || "Fel vid text-upload", true);
-  }
-}
-
-async function kbUploadUrl() {
-  const cat = kbActiveCategory();
-  const url = $("kbUrlInput")?.value?.trim() || "";
-
-  if (!url.startsWith("http")) {
-    setAlert($("kbMsg"), "Ange en riktig URL som börjar med http/https", true);
-    return;
-  }
-
-  setAlert($("kbMsg"), "Hämtar URL och extraherar text…");
-
-  try {
-    const data = await fetchJson(API.KB_URL, {
-      method: "POST",
-      headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-      body: JSON.stringify({ companyId: cat, url })
-    });
-
-    setAlert($("kbMsg"), data.message || "URL uppladdad ✅");
-    $("kbUrlInput").value = "";
-    kbRefreshList();
-  } catch (e) {
-    setAlert($("kbMsg"), e.message || "Fel vid URL-upload", true);
-  }
-}
-
-async function kbUploadPdf() {
-  const cat = kbActiveCategory();
-  const file = $("kbPdfFile")?.files?.[0];
-
-  if (!file) {
-    setAlert($("kbMsg"), "Välj en PDF först.", true);
-    return;
-  }
-
-  setAlert($("kbMsg"), "Läser PDF…");
-
-  const base64 = await readFileAsBase64(file);
-
-  try {
-    const data = await fetchJson(API.KB_PDF, {
-      method: "POST",
-      headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-      body: JSON.stringify({ companyId: cat, filename: file.name, base64 })
-    });
-
-    setAlert($("kbMsg"), data.message || "PDF uppladdad ✅");
-    $("kbPdfFile").value = "";
-    kbRefreshList();
-  } catch (e) {
-    setAlert($("kbMsg"), e.message || "Fel vid PDF-upload", true);
-  }
-}
-
-function readFileAsBase64(file) {
-  return new Promise((resolve, reject) => {
-    const r = new FileReader();
-    r.onload = () => {
-      const result = r.result || "";
-      const base64 = String(result).split(",")[1] || "";
-      resolve(base64);
-    };
-    r.onerror = reject;
-    r.readAsDataURL(file);
-  });
-}
-
-function kbExport() {
-  const cat = kbActiveCategory();
-  window.open(API.KB_EXPORT(cat), "_blank");
-}
-
-/*************************************************
- * ✅ Admin: Categories manager
- *************************************************/
-async function catsRefresh() {
-  const list = $("catsList");
-  if (list) list.innerHTML = "";
-  setAlert($("catsMsg"), "");
-
-  try {
-    const cats = await fetchJson(API.ADMIN_CATEGORIES, {
-      headers: { Authorization: `Bearer ${token}` }
-    });
-
-    cats.forEach((c) => {
-      const div = document.createElement("div");
-      div.className = "listItem";
-
-      div.innerHTML = `
-        <div class="listItemTitle">
-          ${escapeHtml(c.key)} — ${escapeHtml(c.name)}
-        </div>
-        <div class="muted small">Prompt:</div>
-        <textarea class="input textarea" data-action="prompt">${escapeHtml(c.systemPrompt || "")}</textarea>
-        <div class="row gap" style="margin-top:10px;">
-          <input class="input smallInput" data-action="name" value="${escapeHtml(c.name || "")}" />
-          <button class="btn secondary small" data-action="save">
-            <i class="fa-solid fa-floppy-disk"></i> Spara
-          </button>
-          <button class="btn danger small" data-action="del">
-            <i class="fa-solid fa-trash"></i> Ta bort
-          </button>
-        </div>
-      `;
-
-      div.querySelector('[data-action="save"]')?.addEventListener("click", async () => {
-        const name = div.querySelector('[data-action="name"]')?.value?.trim() || "";
-        const systemPrompt = div.querySelector('[data-action="prompt"]')?.value || "";
-        await catsUpdate(c.key, name, systemPrompt);
-        await loadCategories();
-        await catsRefresh();
-      });
-
-      div.querySelector('[data-action="del"]')?.addEventListener("click", async () => {
-        const ok = confirm(`Ta bort kategori "${c.key}"?`);
-        if (!ok) return;
-        await catsDelete(c.key);
-        await loadCategories();
-        await catsRefresh();
-      });
-
-      list.appendChild(div);
-    });
-
-  } catch (e) {
-    console.error("Cats error:", e);
-    setAlert($("catsMsg"), e.message || "Serverfel vid kategorier", true);
-  }
-}
-
-async function catsCreate() {
-  setAlert($("catsMsg"), "");
-
-  const key = $("newCatKey")?.value?.trim();
-  const name = $("newCatName")?.value?.trim();
-  const systemPrompt = $("newCatPrompt")?.value || "";
-
-  if (!key || !name) return setAlert($("catsMsg"), "Key + name krävs", true);
-
-  try {
-    const data = await fetchJson(API.ADMIN_CATEGORIES, {
-      method: "POST",
-      headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-      body: JSON.stringify({ key, name, systemPrompt })
-    });
-
-    setAlert($("catsMsg"), data.message || "Kategori skapad ✅");
-    $("newCatKey").value = "";
-    $("newCatName").value = "";
-    $("newCatPrompt").value = "";
-    await loadCategories();
-    await catsRefresh();
-  } catch (e) {
-    setAlert($("catsMsg"), e.message || "Serverfel vid skapa kategori", true);
-  }
-}
-
-async function catsUpdate(key, name, systemPrompt) {
-  setAlert($("catsMsg"), "");
-  try {
-    const data = await fetchJson(`${API.ADMIN_CATEGORIES}/${encodeURIComponent(key)}`, {
-      method: "PUT",
-      headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-      body: JSON.stringify({ name, systemPrompt })
-    });
-    setAlert($("catsMsg"), data.message || "Uppdaterad ✅");
-  } catch (e) {
-    setAlert($("catsMsg"), e.message || "Serverfel vid update", true);
-  }
-}
-
-async function catsDelete(key) {
-  setAlert($("catsMsg"), "");
-  try {
-    const data = await fetchJson(`${API.ADMIN_CATEGORIES}/${encodeURIComponent(key)}`, {
-      method: "DELETE",
-      headers: { Authorization: `Bearer ${token}` }
-    });
-    setAlert($("catsMsg"), data.message || "Borttagen ✅");
-  } catch (e) {
-    setAlert($("catsMsg"), e.message || "Serverfel vid delete", true);
-  }
-}
-
-/*************************************************
- * ✅ Admin exports + cleanup
- *************************************************/
-function adminExportAll() {
-  window.open(API.ADMIN_EXPORT_ALL, "_blank");
-}
-function trainingExport() {
-  window.open(`${API.ADMIN_EXPORT_TRAINING}?companyId=${encodeURIComponent(companyId)}`, "_blank");
-}
-async function cleanupSolvedTickets() {
-
-async function solveAllTickets() {
-  const ok = confirm("Vill du markera ALLA tickets som SOLVED?");
-  if (!ok) return;
-
-  try {
-    const data = await fetchJson(API.ADMIN_TICKETS_SOLVE_ALL, {
-      method: "POST",
-      headers: { Authorization: `Bearer ${token}` }
-    });
-    alert(data.message || "Alla tickets solved ✅");
-    await inboxLoadTickets();
-  } catch (e) {
-    alert(e.message || "Fel vid Solve ALL");
-  }
-}
-
-async function removeAllSolvedTickets() {
-  const ok = confirm("Vill du TA BORT alla solved tickets? (kan inte ångras)");
-  if (!ok) return;
-
-  try {
-    const data = await fetchJson(API.ADMIN_TICKETS_REMOVE_SOLVED, {
-      method: "POST",
-      headers: { Authorization: `Bearer ${token}` }
-    });
-    alert(data.message || "Alla solved borttagna ✅");
-    await inboxLoadTickets();
-  } catch (e) {
-    alert(e.message || "Fel vid Remove solved");
-  }
-}
-  
-  try {
-    const data = await fetchJson(API.ADMIN_TICKETS_CLEANUP_SOLVED, {
-      method: "POST",
-      headers: { Authorization: `Bearer ${token}` }
-    });
-    alert(data.message || "Rensat ✅");
-    await inboxLoadTickets();
-  } catch (e) {
-    alert(e.message || "Fel vid cleanup");
   }
 }
 
@@ -1600,18 +1324,6 @@ function logout() {
 }
 
 /*************************************************
- * ✅ Tabs
- *************************************************/
-function activateTab(tabId) {
-  document.querySelectorAll(".tabBtn").forEach((b) => b.classList.remove("active"));
-  document.querySelectorAll(".tabPanel").forEach((p) => (p.style.display = "none"));
-
-  document.querySelectorAll(`.tabBtn[data-tab="${tabId}"]`).forEach((b) => b.classList.add("active"));
-  const panel = document.getElementById(tabId);
-  if (panel) panel.style.display = "";
-}
-
-/*************************************************
  * ✅ Init
  *************************************************/
 async function init() {
@@ -1629,14 +1341,12 @@ async function init() {
     show($("authView"), true);
     show($("resetCard"), true);
     show($("forgotCard"), false);
-    // keep login visible too but reset is shown
   }
 
   // token check
   if (token) currentUser = await fetchMe();
   applyAuthUI();
 
-  // load categories dropdown always (public)
   await loadCategories();
   applyCompanyToUI();
 
@@ -1648,9 +1358,7 @@ async function init() {
   $("togglePassBtn")?.addEventListener("click", () => togglePass("password"));
   $("toggleResetPassBtn")?.addEventListener("click", () => togglePass("resetNewPass"));
 
-  $("openForgotBtn")?.addEventListener("click", () => {
-    show($("forgotCard"), true);
-  });
+  $("openForgotBtn")?.addEventListener("click", () => show($("forgotCard"), true));
   $("closeForgotBtn")?.addEventListener("click", () => {
     show($("forgotCard"), false);
     setAlert($("forgotMsg"), "");
@@ -1661,13 +1369,6 @@ async function init() {
 
   // Theme
   $("themeToggle")?.addEventListener("click", toggleTheme);
-
-  // Debug toggle
-  $("toggleDebugBtn")?.addEventListener("click", () => {
-    const p = $("debugPanel");
-    if (!p) return;
-    p.style.display = p.style.display === "none" ? "" : "none";
-  });
 
   // Menu view switches
   $("openChatView")?.addEventListener("click", () => {
@@ -1682,23 +1383,13 @@ async function init() {
   });
 
   $("openInboxView")?.addEventListener("click", async () => {
-  // reset notif
-  $("openInboxView")?.classList.remove("hasNotif");
-  if ($("inboxNotifDot")) $("inboxNotifDot").style.display = "none";
+    $("openInboxView")?.classList.remove("hasNotif");
+    if ($("inboxNotifDot")) $("inboxNotifDot").style.display = "none";
 
-  setActiveMenu("inbox");
-  openView("inbox");
-  await inboxLoadTickets();
-  await adminLoadUsers();
-});
-
-
-  $("openAdminView")?.addEventListener("click", async () => {
-    setActiveMenu("admin");
-    openView("admin");
+    setActiveMenu("inbox");
+    openView("inbox");
+    await inboxLoadTickets();
     await adminLoadUsers();
-    await kbRefreshList();
-    await catsRefresh();
   });
 
   $("openSettingsView")?.addEventListener("click", () => {
@@ -1732,7 +1423,8 @@ async function init() {
   // Inbox actions
   $("inboxRefreshBtn")?.addEventListener("click", inboxLoadTickets);
   $("solveAllBtn")?.addEventListener("click", solveAllTickets);
-$("removeSolvedBtn")?.addEventListener("click", removeAllSolvedTickets);
+  $("removeSolvedBtn")?.addEventListener("click", removeAllSolvedTickets);
+
   $("inboxStatusFilter")?.addEventListener("change", inboxLoadTickets);
   $("inboxCategoryFilter")?.addEventListener("change", inboxLoadTickets);
   $("inboxSearchInput")?.addEventListener("input", inboxLoadTickets);
@@ -1740,43 +1432,20 @@ $("removeSolvedBtn")?.addEventListener("click", removeAllSolvedTickets);
   $("setStatusOpen")?.addEventListener("click", () => inboxSetStatus("open"));
   $("setStatusPending")?.addEventListener("click", () => inboxSetStatus("pending"));
   $("setStatusSolved")?.addEventListener("click", () => inboxSetStatus("solved"));
+
   $("sendAgentReplyInboxBtn")?.addEventListener("click", inboxSendAgentReply);
   $("setPriorityBtn")?.addEventListener("click", inboxSetPriority);
+
   $("saveInternalNoteBtn")?.addEventListener("click", inboxSaveInternalNote);
   $("clearInternalNotesBtn")?.addEventListener("click", clearAllInternalNotes);
+
   $("assignTicketBtn")?.addEventListener("click", inboxAssignTicket);
   $("deleteTicketBtn")?.addEventListener("click", inboxDeleteTicket);
-
-  // Admin exports + cleanup
-  $("adminExportAllBtn")?.addEventListener("click", adminExportAll);
-  $("trainingExportBtn")?.addEventListener("click", trainingExport);
-  $("cleanupSolvedBtn")?.addEventListener("click", cleanupSolvedTickets);
-
-  // KB
-  $("kbRefreshBtn")?.addEventListener("click", kbRefreshList);
-  $("kbExportBtn")?.addEventListener("click", kbExport);
-  $("kbUploadTextBtn")?.addEventListener("click", kbUploadText);
-  $("kbUploadUrlBtn")?.addEventListener("click", kbUploadUrl);
-  $("kbUploadPdfBtn")?.addEventListener("click", kbUploadPdf);
-  $("kbCategorySelect")?.addEventListener("change", kbRefreshList);
-
-  // Admin users refresh
-  $("adminUsersRefreshBtn")?.addEventListener("click", adminLoadUsers);
-
-  // Categories manager
-  $("catsRefreshBtn")?.addEventListener("click", catsRefresh);
-  $("createCatBtn")?.addEventListener("click", catsCreate);
-
-  // Tabs
-  document.querySelectorAll(".tabBtn").forEach((btn) => {
-    btn.addEventListener("click", () => activateTab(btn.dataset.tab));
-  });
 
   // Settings actions
   $("changeUsernameBtn")?.addEventListener("click", changeUsername);
   $("changePasswordBtn")?.addEventListener("click", changePassword);
 
-  // If logged in: start polling
   if (token && currentUser) startPolling();
 }
 
