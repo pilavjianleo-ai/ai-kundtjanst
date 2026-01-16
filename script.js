@@ -108,81 +108,33 @@ function formatDate(d) {
   }
 }
 
+/*************************************************
+ * ✅ Internal notes renderer (ONE UI ONLY)
+ *************************************************/
 function renderInternalNotes(notes = []) {
+  if (!notes || notes.length === 0) {
+    return `<div class="muted small">Inga notes ännu.</div>`;
+  }
+
   return `
-    <div class="noteBox">
-      <b class="muted small">Interna notes (syns ej för kund)</b>
+    <div class="noteList">
+      ${notes
+        .slice(-30)
+        .map(
+          (n) => `
+          <div class="noteItem">
+            <div class="noteMeta">${escapeHtml(formatDate(n.createdAt))}</div>
+            <div class="noteText">${escapeHtml(n.content)}</div>
 
-      <div style="margin-top:8px;" class="row gap">
-        <input id="internalNoteText" class="input" placeholder="Skriv intern notering..." />
-        <button id="saveInternalNoteBtn" class="btn secondary small">
-          <i class="fa-solid fa-plus"></i> Lägg till
-        </button>
-      </div>
-
-      <div style="margin-top:8px;">
-        <button id="clearInternalNotesBtn" class="btn danger small">
-          <i class="fa-solid fa-trash"></i> Ta bort alla
-        </button>
-      </div>
-
-      <div style="margin-top:10px;" id="notesList">
-        ${
-          notes.length
-            ? notes
-                .slice(-30)
-                .map(
-                  (n) => `
-                    <div class="noteItem">
-                      <div class="noteMeta">${escapeHtml(formatDate(n.createdAt))}</div>
-                      <div class="noteText">${escapeHtml(n.content)}</div>
-                    </div>
-                  `
-                )
-                .join("")
-            : `<div class="muted small">Inga notes ännu.</div>`
-        }
-      </div>
+            <button class="btn danger small" data-note-id="${escapeHtml(n._id)}" style="margin-top:8px;">
+              <i class="fa-solid fa-trash"></i> Ta bort
+            </button>
+          </div>
+        `
+        )
+        .join("")}
     </div>
   `;
-}
-
-
-/*************************************************
- * ✅ Safe event binding
- *************************************************/
-function onClick(id, fn) {
-  const el = $(id);
-  if (!el) return;
-  el.addEventListener("click", (e) => {
-    try {
-      fn(e);
-    } catch (err) {
-      console.error(`Click handler crashed: #${id}`, err);
-    }
-  });
-}
-function onChange(id, fn) {
-  const el = $(id);
-  if (!el) return;
-  el.addEventListener("change", (e) => {
-    try {
-      fn(e);
-    } catch (err) {
-      console.error(`Change handler crashed: #${id}`, err);
-    }
-  });
-}
-function onInput(id, fn) {
-  const el = $(id);
-  if (!el) return;
-  el.addEventListener("input", (e) => {
-    try {
-      fn(e);
-    } catch (err) {
-      console.error(`Input handler crashed: #${id}`, err);
-    }
-  });
 }
 
 /*************************************************
@@ -206,6 +158,45 @@ async function fetchJson(url, opts = {}) {
 }
 
 /*************************************************
+ * ✅ Safe event binding
+ *************************************************/
+function onClick(id, fn) {
+  const el = $(id);
+  if (!el) return;
+  el.addEventListener("click", (e) => {
+    try {
+      fn(e);
+    } catch (err) {
+      console.error(`Click handler crashed: #${id}`, err);
+    }
+  });
+}
+
+function onChange(id, fn) {
+  const el = $(id);
+  if (!el) return;
+  el.addEventListener("change", (e) => {
+    try {
+      fn(e);
+    } catch (err) {
+      console.error(`Change handler crashed: #${id}`, err);
+    }
+  });
+}
+
+function onInput(id, fn) {
+  const el = $(id);
+  if (!el) return;
+  el.addEventListener("input", (e) => {
+    try {
+      fn(e);
+    } catch (err) {
+      console.error(`Input handler crashed: #${id}`, err);
+    }
+  });
+}
+
+/*************************************************
  * ✅ Debug panel
  *************************************************/
 function refreshDebug() {
@@ -216,9 +207,6 @@ function refreshDebug() {
   setText($("dbgRag"), lastRagUsed === null ? "-" : lastRagUsed ? "JA" : "NEJ");
 }
 
-/*************************************************
- * ✅ Debug toggle (FIX)
- *************************************************/
 function toggleDebugPanel() {
   const panel = $("debugPanel");
   if (!panel) return;
@@ -229,10 +217,9 @@ function toggleDebugPanel() {
 }
 
 /*************************************************
- * ✅ Admin Export buttons (FIX)
+ * ✅ Admin Export buttons
  *************************************************/
 function adminExportAll() {
-  // Öppnar export i ny flik (laddar ner fil)
   window.open(API.ADMIN_EXPORT_ALL, "_blank");
 }
 
@@ -295,6 +282,7 @@ function applySavedTheme() {
   const icon = $("themeToggle")?.querySelector("i");
   if (icon) icon.className = saved === "dark" ? "fa-solid fa-moon" : "fa-solid fa-sun";
 }
+
 function toggleTheme() {
   const body = document.body;
   const current = body.getAttribute("data-theme") || "dark";
@@ -418,7 +406,7 @@ async function loadCategories() {
 }
 
 /*************************************************
- * ✅ Admin Tabs (FIX)
+ * ✅ Admin Tabs
  *************************************************/
 function initAdminTabs() {
   const tabBtns = document.querySelectorAll(".tabBtn");
@@ -432,7 +420,6 @@ function initAdminTabs() {
       const tab = btn.getAttribute("data-tab");
       panels.forEach((p) => show($(p), p === tab));
 
-      // Auto-load content
       if (tab === "tabUsers") await adminLoadUsers();
       if (tab === "tabKB") await kbLoadList();
       if (tab === "tabCats") await catsLoadList();
@@ -441,7 +428,7 @@ function initAdminTabs() {
 }
 
 /*************************************************
- * ✅ Knowledge Base (KB) - FULL
+ * ✅ Knowledge Base (KB)
  *************************************************/
 async function kbLoadList() {
   const msg = $("kbMsg");
@@ -575,7 +562,7 @@ function kbExport() {
 }
 
 /*************************************************
- * ✅ Categories Admin (FULL)
+ * ✅ Categories Admin
  *************************************************/
 async function catsLoadList() {
   const msg = $("catsMsg");
@@ -639,7 +626,7 @@ async function catsCreateCategory() {
 }
 
 /*************************************************
- * ✅ Chat rendering + sending (same)
+ * ✅ Chat rendering + sending
  *************************************************/
 function addMessage(role, content, meta = "") {
   const messagesDiv = $("messages");
@@ -696,6 +683,7 @@ function showTyping() {
   messagesDiv.appendChild(wrapper);
   messagesDiv.scrollTop = messagesDiv.scrollHeight;
 }
+
 function hideTyping() {
   const el = document.getElementById("typing");
   if (el) el.remove();
@@ -1000,6 +988,7 @@ function startPolling() {
     await pollAdminInbox();
   }, 8000);
 }
+
 function stopPolling() {
   if (pollInterval) clearInterval(pollInterval);
   pollInterval = null;
@@ -1156,7 +1145,7 @@ async function adminDeleteUser(userId) {
 }
 
 /*************************************************
- * ✅ Inbox functions (keep existing)
+ * ✅ Inbox list + details
  *************************************************/
 async function inboxLoadTickets() {
   const list = $("inboxTicketsList");
@@ -1202,19 +1191,12 @@ async function inboxLoadTickets() {
         <div class="muted small">${escapeHtml(t.companyId)} • ${escapeHtml(formatDate(t.lastActivityAt))}</div>
       `;
 
+      // ✅ ONLY ONE CLICK LISTENER
       div.addEventListener("click", async () => {
         inboxSelectedTicketId = t._id;
         await inboxLoadTicketDetails(t._id);
         await inboxLoadTickets();
       });
-
-div.addEventListener("click", async () => {
-  inboxSelectedTicketId = t._id;
-  console.log("✅ CLICK set inboxSelectedTicketId:", inboxSelectedTicketId);
-
-  await inboxLoadTicketDetails(t._id);
-  await inboxLoadTickets();
-});
 
       list.appendChild(div);
     });
@@ -1225,8 +1207,6 @@ div.addEventListener("click", async () => {
 }
 
 async function inboxLoadTicketDetails(id) {
-  console.log("✅ inboxLoadTicketDetails called with id:", id);
-   console.log("✅ inboxSelectedTicketId is:", inboxSelectedTicketId);
   const details = $("ticketDetails");
   const msg = $("inboxTicketMsg");
   setAlert(msg, "");
@@ -1257,20 +1237,21 @@ async function inboxLoadTicketDetails(id) {
       })
       .join("");
 
-      const notesHtml = renderInternalNotes(t.internalNotes || []);
-
     details.innerHTML = `
-  <div class="muted small">
-    <b>ID:</b> ${escapeHtml(t._id)} • <b>Kategori:</b> ${escapeHtml(t.companyId)}
-    • <b>Status:</b> ${escapeHtml(t.status)} • <b>Prioritet:</b> ${escapeHtml(t.priority)}
-  </div>
+      <div class="muted small">
+        <b>ID:</b> ${escapeHtml(t._id)} • <b>Kategori:</b> ${escapeHtml(t.companyId)}
+        • <b>Status:</b> ${escapeHtml(t.status)} • <b>Prioritet:</b> ${escapeHtml(t.priority)}
+      </div>
 
-  <div class="divider"></div>
-  ${html || `<div class="muted small">Inga meddelanden.</div>`}
+      <div class="divider"></div>
+      ${html || `<div class="muted small">Inga meddelanden.</div>`}
+    `;
 
-  <div class="divider"></div>
-  ${notesHtml}
-`;
+    // ✅ Render notes ONLY in the lower box
+    const notesTarget = $("notesList");
+    if (notesTarget) {
+      notesTarget.innerHTML = renderInternalNotes(t.internalNotes || []);
+    }
   } catch (e) {
     details.innerHTML = `<div class="muted small">Kunde inte ladda ticket.</div>`;
     setAlert(msg, e.message || "Fel vid ticket", true);
@@ -1278,7 +1259,7 @@ async function inboxLoadTicketDetails(id) {
 }
 
 /*************************************************
- * ✅ Inbox Ticket actions (required functions)
+ * ✅ Inbox Ticket actions
  *************************************************/
 async function inboxSetStatus(status) {
   const msg = $("inboxTicketMsg");
@@ -1289,11 +1270,8 @@ async function inboxSetStatus(status) {
   try {
     await fetchJson(API.ADMIN_TICKET_STATUS(inboxSelectedTicketId), {
       method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${token}`
-      },
-      body: JSON.stringify({ status })
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+      body: JSON.stringify({ status }),
     });
 
     setAlert(msg, "Status uppdaterad ✅");
@@ -1315,11 +1293,8 @@ async function inboxSetPriority() {
   try {
     await fetchJson(API.ADMIN_TICKET_PRIORITY(inboxSelectedTicketId), {
       method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${token}`
-      },
-      body: JSON.stringify({ priority })
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+      body: JSON.stringify({ priority }),
     });
 
     setAlert(msg, "Prioritet sparad ✅");
@@ -1342,11 +1317,8 @@ async function inboxSendAgentReply() {
   try {
     await fetchJson(API.ADMIN_TICKET_REPLY(inboxSelectedTicketId), {
       method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${token}`
-      },
-      body: JSON.stringify({ content })
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+      body: JSON.stringify({ content }),
     });
 
     $("agentReplyTextInbox").value = "";
@@ -1370,15 +1342,14 @@ async function inboxSaveInternalNote() {
   try {
     await fetchJson(API.ADMIN_TICKET_NOTE(inboxSelectedTicketId), {
       method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${token}`
-      },
-      body: JSON.stringify({ content })
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+      body: JSON.stringify({ content }),
     });
 
     $("internalNoteText").value = "";
     setAlert(msgEl, "Intern note sparad ✅");
+
+    // ✅ Reload ticket details to show note instantly
     await inboxLoadTicketDetails(inboxSelectedTicketId);
   } catch (e) {
     setAlert(msgEl, e.message || "Serverfel vid note", true);
@@ -1397,9 +1368,7 @@ async function clearAllInternalNotes() {
   try {
     await fetchJson(API.ADMIN_TICKET_NOTES_CLEAR(inboxSelectedTicketId), {
       method: "DELETE",
-      headers: {
-        Authorization: `Bearer ${token}`
-      }
+      headers: { Authorization: `Bearer ${token}` },
     });
 
     setAlert(msgEl, "Alla notes borttagna ✅");
@@ -1421,11 +1390,8 @@ async function inboxAssignTicket() {
   try {
     await fetchJson(API.ADMIN_TICKET_ASSIGN(inboxSelectedTicketId), {
       method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${token}`
-      },
-      body: JSON.stringify({ userId })
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+      body: JSON.stringify({ userId }),
     });
 
     setAlert(msgEl, "Ticket assignad ✅");
@@ -1446,9 +1412,7 @@ async function inboxDeleteTicket() {
   try {
     await fetchJson(API.ADMIN_TICKET_DELETE(inboxSelectedTicketId), {
       method: "DELETE",
-      headers: {
-        Authorization: `Bearer ${token}`
-      }
+      headers: { Authorization: `Bearer ${token}` },
     });
 
     setAlert(msgEl, "Ticket borttagen ✅");
@@ -1458,63 +1422,83 @@ async function inboxDeleteTicket() {
       $("ticketDetails").innerHTML = `<div class="muted small">Välj en ticket.</div>`;
     }
 
+    // Clear notes list UI too
+    if ($("notesList")) $("notesList").innerHTML = `<div class="muted small">Inga notes ännu.</div>`;
+
     await inboxLoadTickets();
   } catch (e) {
     setAlert(msgEl, e.message || "Serverfel vid borttagning", true);
   }
 }
 
-// ✅ Make sure inbox functions exist globally (fix ReferenceError)
-window.inboxSetStatus = inboxSetStatus;
-window.inboxSetPriority = inboxSetPriority;
-window.inboxSendAgentReply = inboxSendAgentReply;
-window.inboxSaveInternalNote = inboxSaveInternalNote;
-window.clearAllInternalNotes = clearAllInternalNotes;
-window.inboxAssignTicket = inboxAssignTicket;
-window.inboxDeleteTicket = inboxDeleteTicket;
+/*************************************************
+ * ✅ Delete ONE internal note
+ *************************************************/
+async function deleteOneInternalNote(noteId) {
+  const msgEl = $("inboxTicketMsg");
+  setAlert(msgEl, "");
+
+  if (!inboxSelectedTicketId) {
+    return setAlert(msgEl, "Välj en ticket först.", true);
+  }
+
+  const ok = confirm("Vill du ta bort denna notering?");
+  if (!ok) return;
+
+  try {
+    await fetchJson(API.ADMIN_TICKET_NOTE_DELETE(inboxSelectedTicketId, noteId), {
+      method: "DELETE",
+      headers: { Authorization: `Bearer ${token}` },
+    });
+
+    setAlert(msgEl, "Notering borttagen ✅");
+    await inboxLoadTicketDetails(inboxSelectedTicketId);
+  } catch (e) {
+    setAlert(msgEl, e.message || "Fel vid borttagning", true);
+  }
+}
 
 /*************************************************
- * ✅ Inbox Ticket actions (FIX: event delegation)
+ * ✅ Inbox Ticket actions (event delegation) - FIXED
  *************************************************/
 function bindInboxTicketActions() {
   const inboxView = $("inboxView");
   if (!inboxView) return;
 
-  // Undvik dubbla bindings
   if (inboxView.dataset.bound === "1") return;
   inboxView.dataset.bound = "1";
 
   inboxView.addEventListener("click", async (e) => {
+    // ✅ Delete one note
+    const noteBtn = e.target.closest("[data-note-id]");
+    if (noteBtn) {
+      const noteId = noteBtn.getAttribute("data-note-id");
+      if (!noteId) return;
+      await deleteOneInternalNote(noteId);
+      return;
+    }
+
+    // Other button actions
     const btn = e.target.closest("button");
     if (!btn) return;
 
     const id = btn.id;
 
-    // ✅ Status buttons
     if (id === "setStatusOpen") return inboxSetStatus("open");
     if (id === "setStatusPending") return inboxSetStatus("pending");
     if (id === "setStatusSolved") return inboxSetStatus("solved");
 
-    // ✅ Priority
     if (id === "setPriorityBtn") return inboxSetPriority();
-
-    // ✅ Send agent reply
     if (id === "sendAgentReplyInboxBtn") return inboxSendAgentReply();
 
-    // ✅ Internal notes (original buttons)
+    // ✅ ONLY keep lower internal notes
     if (id === "saveInternalNoteBtn") return inboxSaveInternalNote();
     if (id === "clearInternalNotesBtn") return clearAllInternalNotes();
 
-    // ✅ Internal notes (dynamic buttons: if you added them in HTML via innerHTML)
-    if (id === "saveInternalNoteBtn2") return inboxSaveInternalNote();
-    if (id === "clearInternalNotesBtn2") return clearAllInternalNotes();
-
-    // ✅ Assign + Delete
     if (id === "assignTicketBtn") return inboxAssignTicket();
     if (id === "deleteTicketBtn") return inboxDeleteTicket();
   });
 }
-
 
 /*************************************************
  * ✅ Settings
@@ -1565,6 +1549,7 @@ function getResetTokenFromUrl() {
   const p = new URLSearchParams(window.location.search);
   return p.get("resetToken");
 }
+
 function togglePass(inputId) {
   const inp = $(inputId);
   if (!inp) return;
@@ -1708,13 +1693,12 @@ async function init() {
     // Tabs
     initAdminTabs();
 
-// Debug
-onClick("toggleDebugBtn", toggleDebugPanel);
+    // Debug
+    onClick("toggleDebugBtn", toggleDebugPanel);
 
-// Admin export
-onClick("adminExportAllBtn", adminExportAll);
-onClick("trainingExportBtn", adminExportTraining);
-
+    // Admin export
+    onClick("adminExportAllBtn", adminExportAll);
+    onClick("trainingExportBtn", adminExportTraining);
 
     // Auth
     onClick("loginBtn", login);
@@ -1736,6 +1720,7 @@ onClick("trainingExportBtn", adminExportTraining);
     // Theme
     onClick("themeToggle", toggleTheme);
 
+    // ✅ Bind inbox ticket action delegation (notes save/delete etc)
     bindInboxTicketActions();
 
     // Menu
@@ -1763,8 +1748,6 @@ onClick("trainingExportBtn", adminExportTraining);
     onClick("openAdminView", async () => {
       setActiveMenu("admin");
       openView("admin");
-
-      // Default content: Users
       await adminLoadUsers();
     });
 
@@ -1796,7 +1779,7 @@ onClick("trainingExportBtn", adminExportTraining);
     onClick("fbUp", () => sendFeedback("positive"));
     onClick("fbDown", () => sendFeedback("negative"));
 
-    // Inbox
+    // Inbox top actions
     onClick("inboxRefreshBtn", inboxLoadTickets);
     onClick("solveAllBtn", solveAllTickets);
     onClick("removeSolvedBtn", removeAllSolvedTickets);
@@ -1826,15 +1809,6 @@ onClick("trainingExportBtn", adminExportTraining);
     console.error("init crashed:", err);
     alert("script.js kraschade vid start. Kolla Console.");
   }
-
-// ✅ Expose inbox functions globally (fix ReferenceError)
-window.inboxSetStatus = inboxSetStatus;
-window.inboxSetPriority = inboxSetPriority;
-window.inboxSendAgentReply = inboxSendAgentReply;
-window.inboxSaveInternalNote = inboxSaveInternalNote;
-window.clearAllInternalNotes = clearAllInternalNotes;
-window.inboxAssignTicket = inboxAssignTicket;
-window.inboxDeleteTicket = inboxDeleteTicket;
 }
 
 document.addEventListener("DOMContentLoaded", init);
