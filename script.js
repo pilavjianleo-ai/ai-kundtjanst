@@ -646,6 +646,8 @@ async function catsCreateCategory() {
   } catch (e) {
     setAlert(msg, e.message || "Fel vid skapa kategori", true);
   }
+}
+  
   async function catsDeleteCategory(key) {
     const msg = $("catsMsg");
     setAlert(msg, "");
@@ -670,27 +672,6 @@ async function catsCreateCategory() {
       setAlert(msg, e.message || "Fel vid borttagning", true);
     }
   }
-
-  async function catsDeleteCategory(key) {
-  const msg = $("catsMsg");
-  setAlert(msg, "");
-
-  const ok = confirm(`Vill du ta bort kategorin "${key}"? Detta går inte att ångra.`);
-  if (!ok) return;
-
-  try {
-    const data = await fetchJson(`${API_BASE}/admin/categories/${encodeURIComponent(key)}`, {
-      method: "DELETE",
-      headers: { Authorization: `Bearer ${token}` },
-    });
-
-    setAlert(msg, data.message || "Kategori borttagen ✅");
-    await loadCategories();   // uppdaterar dropdowns
-    await catsLoadList();     // uppdaterar listan
-  } catch (e) {
-    setAlert(msg, e.message || "Fel vid borttagning", true);
-  }
-}
 
   /*************************************************
    * ✅ Chat rendering + sending
@@ -1798,7 +1779,7 @@ async function catsCreateCategory() {
       // Theme
       onClick("themeToggle", toggleTheme);
 
-      // ✅ Bind inbox ticket action delegation (notes save/delete etc)
+      // ✅ Bind inbox ticket action delegation
       bindInboxTicketActions();
 
       // Menu
@@ -1884,10 +1865,9 @@ async function catsCreateCategory() {
 
       if (token && currentUser) startPolling();
     } catch (err) {
-      console.error("init crashed:", err);
-      alert("script.js kraschade vid start. Kolla Console.");
-    }
+    console.error("init crashed:", err);
+    alert("script.js kraschade vid start. Kolla Console.");
   }
+}
 
-  
-  document.addEventListener("DOMContentLoaded", init);
+document.addEventListener("DOMContentLoaded", init);
