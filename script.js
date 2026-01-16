@@ -177,6 +177,30 @@ function refreshDebug() {
 }
 
 /*************************************************
+ * ✅ Debug toggle (FIX)
+ *************************************************/
+function toggleDebugPanel() {
+  const panel = $("debugPanel");
+  if (!panel) return;
+
+  const isOpen = panel.style.display !== "none";
+  panel.style.display = isOpen ? "none" : "";
+  refreshDebug();
+}
+
+/*************************************************
+ * ✅ Admin Export buttons (FIX)
+ *************************************************/
+function adminExportAll() {
+  // Öppnar export i ny flik (laddar ner fil)
+  window.open(API.ADMIN_EXPORT_ALL, "_blank");
+}
+
+function adminExportTraining() {
+  window.open(API.ADMIN_EXPORT_TRAINING, "_blank");
+}
+
+/*************************************************
  * ✅ Views
  *************************************************/
 function openView(viewName) {
@@ -1388,6 +1412,14 @@ async function init() {
 
     // Tabs
     initAdminTabs();
+
+// Debug
+onClick("toggleDebugBtn", toggleDebugPanel);
+
+// Admin export
+onClick("adminExportAllBtn", adminExportAll);
+onClick("trainingExportBtn", adminExportTraining);
+
 
     // Auth
     onClick("loginBtn", login);
