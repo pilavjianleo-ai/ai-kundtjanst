@@ -580,50 +580,46 @@ async function catsLoadList() {
       return;
     }
 
+    // ✅ 1) Rendera listan (map + join måste sitta ihop)
     list.innerHTML = cats
-  .map((c) => {
-    return `
-      <div class="listItem">
-        <div class="listItemTitle" style="display:flex;align-items:center;justify-content:space-between;gap:10px;">
-          <span>${escapeHtml(c.key)} — ${escapeHtml(c.name)}</span>
-          
-          <button 
-            class="btn danger small" 
-            type="button"
-            data-del-cat="${escapeHtml(c.key)}"
-            style="flex-shrink:0;"
-          >
-            <i class="fa-solid fa-trash"></i> Ta bort
-          </button>
-        </div>
+      .map((c) => {
+        return `
+          <div class="listItem">
+            <div class="listItemTitle">
+              ${escapeHtml(c.key)} — ${escapeHtml(c.name)}
+            </div>
 
-        <div class="muted small">
-          ${escapeHtml((c.prompt || "").slice(0, 120))}
-          ${(c.prompt || "").length > 120 ? "..." : ""}
-        </div>
-      </div>
-    `;
-  })
+            <div class="muted small">
+              ${escapeHtml((c.prompt || "").slice(0, 120))}${(c.prompt || "").length > 120 ? "..." : ""}
+            </div>
 
-  list.querySelectorAll("[data-del-cat]").forEach((btn) => {
-  btn.addEventListener("click", async (e) => {
-    e.stopPropagation();
-    const key = btn.getAttribute("data-del-cat");
-    if (!key) return;
-    await catsDeleteCategory(key);
-  });
-});
-  
-  .join("");
+            <div class="row gap" style="margin-top:10px;">
+              <button class="btn danger small" type="button" data-del-cat="${escapeHtml(c.key)}">
+                <i class="fa-solid fa-trash"></i> Ta bort
+              </button>
+            </div>
+          </div>
+        `;
+      })
+      .join("");
 
-// ✅ bind delete buttons
-list.querySelectorAll("[data-del-cat]").forEach((btn) => {
-  btn.addEventListener("click", async (e) => {
-    e.stopPropagation();
-    const key = btn.getAttribute("data-del-cat");
-    await catsDeleteCategory(key);
-  });
-});
+    // ✅ 2) Bind delete knappar EFTER att HTML är insatt
+    list.querySelectorAll("[data-del-cat]").forEach((btn) => {
+      btn.addEventListener("click", async (e) => {
+        e.stopPropagation();
+        const key = btn.getAttribute("data-del-cat");
+        if (!key) return;
+        await catsDeleteCategory(key);
+      });
+    });
+
+  } catch (e) {
+    console.error(e);
+    setAlert(msg, e.message || "Kunde inte ladda kategorier", true);
+    if (list) list.innerHTML = "";
+  }
+}
+
 
 async function catsCreateCategory() {
   const msg = $("catsMsg");
