@@ -1871,4 +1871,5 @@ async function catsCreateCategory() {
     }
   }
 
+  
   document.addEventListener("DOMContentLoaded", init);
