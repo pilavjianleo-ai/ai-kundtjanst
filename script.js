@@ -580,30 +580,27 @@ async function catsLoadList() {
       return;
     }
 
-    // ✅ 1) Rendera listan (map + join måste sitta ihop)
     list.innerHTML = cats
       .map((c) => {
         return `
           <div class="listItem">
             <div class="listItemTitle">
               ${escapeHtml(c.key)} — ${escapeHtml(c.name)}
+              <button class="btn danger small" data-del-cat="${escapeHtml(c.key)}" style="margin-left:auto;">
+                <i class="fa-solid fa-trash"></i> Ta bort
+              </button>
             </div>
 
             <div class="muted small">
-              ${escapeHtml((c.prompt || "").slice(0, 120))}${(c.prompt || "").length > 120 ? "..." : ""}
-            </div>
-
-            <div class="row gap" style="margin-top:10px;">
-              <button class="btn danger small" type="button" data-del-cat="${escapeHtml(c.key)}">
-                <i class="fa-solid fa-trash"></i> Ta bort
-              </button>
+              ${escapeHtml((c.prompt || "").slice(0, 120))}
+              ${(c.prompt || "").length > 120 ? "..." : ""}
             </div>
           </div>
         `;
       })
       .join("");
 
-    // ✅ 2) Bind delete knappar EFTER att HTML är insatt
+    // ✅ bind delete buttons
     list.querySelectorAll("[data-del-cat]").forEach((btn) => {
       btn.addEventListener("click", async (e) => {
         e.stopPropagation();
@@ -612,13 +609,13 @@ async function catsLoadList() {
         await catsDeleteCategory(key);
       });
     });
-
   } catch (e) {
     console.error(e);
     setAlert(msg, e.message || "Kunde inte ladda kategorier", true);
     if (list) list.innerHTML = "";
   }
 }
+
 
 
 async function catsCreateCategory() {
@@ -673,6 +670,27 @@ async function catsCreateCategory() {
       setAlert(msg, e.message || "Fel vid borttagning", true);
     }
   }
+
+  async function catsDeleteCategory(key) {
+  const msg = $("catsMsg");
+  setAlert(msg, "");
+
+  const ok = confirm(`Vill du ta bort kategorin "${key}"? Detta går inte att ångra.`);
+  if (!ok) return;
+
+  try {
+    const data = await fetchJson(`${API_BASE}/admin/categories/${encodeURIComponent(key)}`, {
+      method: "DELETE",
+      headers: { Authorization: `Bearer ${token}` },
+    });
+
+    setAlert(msg, data.message || "Kategori borttagen ✅");
+    await loadCategories();   // uppdaterar dropdowns
+    await catsLoadList();     // uppdaterar listan
+  } catch (e) {
+    setAlert(msg, e.message || "Fel vid borttagning", true);
+  }
+}
 
   /*************************************************
    * ✅ Chat rendering + sending
