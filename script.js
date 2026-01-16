@@ -45,7 +45,9 @@ const API = {
   ADMIN_EXPORT_TRAINING: `${API_BASE}/admin/export/training`,
 
   ADMIN_CATEGORIES: `${API_BASE}/admin/categories`,
+ADMIN_CATEGORY_DELETE: (key) => `${API_BASE}/admin/categories/${key}`,
 
+  
   KB_LIST: (companyId) => `${API_BASE}/kb/list/${companyId}`,
   KB_TEXT: `${API_BASE}/kb/upload-text`,
   KB_URL: `${API_BASE}/kb/upload-url`,
@@ -579,21 +581,49 @@ async function catsLoadList() {
     }
 
     list.innerHTML = cats
-      .map((c) => {
-        return `
-        <div class="listItem">
-          <div class="listItemTitle">${escapeHtml(c.key)} — ${escapeHtml(c.name)}</div>
-          <div class="muted small">${escapeHtml((c.prompt || "").slice(0, 120))}${(c.prompt || "").length > 120 ? "..." : ""}</div>
+  .map((c) => {
+    return `
+      <div class="listItem">
+        <div class="listItemTitle" style="display:flex;align-items:center;justify-content:space-between;gap:10px;">
+          <span>${escapeHtml(c.key)} — ${escapeHtml(c.name)}</span>
+          
+          <button 
+            class="btn danger small" 
+            type="button"
+            data-del-cat="${escapeHtml(c.key)}"
+            style="flex-shrink:0;"
+          >
+            <i class="fa-solid fa-trash"></i> Ta bort
+          </button>
         </div>
-      `;
-      })
-      .join("");
-  } catch (e) {
-    console.error(e);
-    setAlert(msg, e.message || "Kunde inte ladda kategorier", true);
-    if (list) list.innerHTML = "";
-  }
-}
+
+        <div class="muted small">
+          ${escapeHtml((c.prompt || "").slice(0, 120))}
+          ${(c.prompt || "").length > 120 ? "..." : ""}
+        </div>
+      </div>
+    `;
+  })
+
+  list.querySelectorAll("[data-del-cat]").forEach((btn) => {
+  btn.addEventListener("click", async (e) => {
+    e.stopPropagation();
+    const key = btn.getAttribute("data-del-cat");
+    if (!key) return;
+    await catsDeleteCategory(key);
+  });
+});
+  
+  .join("");
+
+// ✅ bind delete buttons
+list.querySelectorAll("[data-del-cat]").forEach((btn) => {
+  btn.addEventListener("click", async (e) => {
+    e.stopPropagation();
+    const key = btn.getAttribute("data-del-cat");
+    await catsDeleteCategory(key);
+  });
+});
 
 async function catsCreateCategory() {
   const msg = $("catsMsg");
@@ -622,6 +652,29 @@ async function catsCreateCategory() {
     await catsLoadList();
   } catch (e) {
     setAlert(msg, e.message || "Fel vid skapa kategori", true);
+  }
+  async function catsDeleteCategory(key) {
+  const msg = $("catsMsg");
+  setAlert(msg, "");
+
+  if (!key) return setAlert(msg, "Kategori-key saknas", true);
+
+  const ok = confirm(`Vill du verkligen ta bort kategorin "${key}"? Detta går inte att ångra.`);
+  if (!ok) return;
+
+  try {
+    const data = await fetchJson(API.ADMIN_CATEGORY_DELETE(key), {
+      method: "DELETE",
+      headers: { Authorization: `Bearer ${token}` },
+    });
+
+    setAlert(msg, data.message || "Kategori borttagen ✅");
+
+    await loadCategories();   // uppdaterar dropdown
+    await catsLoadList();     // uppdaterar admin-listan
+
+  } catch (e) {
+    setAlert(msg, e.message || "Fel vid borttagning", true);
   }
 }
 
