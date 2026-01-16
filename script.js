@@ -108,6 +108,46 @@ function formatDate(d) {
   }
 }
 
+function renderInternalNotes(notes = []) {
+  return `
+    <div class="noteBox">
+      <b class="muted small">Interna notes (syns ej för kund)</b>
+
+      <div style="margin-top:8px;" class="row gap">
+        <input id="internalNoteText" class="input" placeholder="Skriv intern notering..." />
+        <button id="saveInternalNoteBtn" class="btn secondary small">
+          <i class="fa-solid fa-plus"></i> Lägg till
+        </button>
+      </div>
+
+      <div style="margin-top:8px;">
+        <button id="clearInternalNotesBtn" class="btn danger small">
+          <i class="fa-solid fa-trash"></i> Ta bort alla
+        </button>
+      </div>
+
+      <div style="margin-top:10px;" id="notesList">
+        ${
+          notes.length
+            ? notes
+                .slice(-30)
+                .map(
+                  (n) => `
+                    <div class="noteItem">
+                      <div class="noteMeta">${escapeHtml(formatDate(n.createdAt))}</div>
+                      <div class="noteText">${escapeHtml(n.content)}</div>
+                    </div>
+                  `
+                )
+                .join("")
+            : `<div class="muted small">Inga notes ännu.</div>`
+        }
+      </div>
+    </div>
+  `;
+}
+
+
 /*************************************************
  * ✅ Safe event binding
  *************************************************/
@@ -1217,14 +1257,20 @@ async function inboxLoadTicketDetails(id) {
       })
       .join("");
 
+      const notesHtml = renderInternalNotes(t.internalNotes || []);
+
     details.innerHTML = `
-      <div class="muted small">
-        <b>ID:</b> ${escapeHtml(t._id)} • <b>Kategori:</b> ${escapeHtml(t.companyId)}
-        • <b>Status:</b> ${escapeHtml(t.status)} • <b>Prioritet:</b> ${escapeHtml(t.priority)}
-      </div>
-      <div class="divider"></div>
-      ${html || `<div class="muted small">Inga meddelanden.</div>`}
-    `;
+  <div class="muted small">
+    <b>ID:</b> ${escapeHtml(t._id)} • <b>Kategori:</b> ${escapeHtml(t.companyId)}
+    • <b>Status:</b> ${escapeHtml(t.status)} • <b>Prioritet:</b> ${escapeHtml(t.priority)}
+  </div>
+
+  <div class="divider"></div>
+  ${html || `<div class="muted small">Inga meddelanden.</div>`}
+
+  <div class="divider"></div>
+  ${notesHtml}
+`;
   } catch (e) {
     details.innerHTML = `<div class="muted small">Kunde inte ladda ticket.</div>`;
     setAlert(msg, e.message || "Fel vid ticket", true);
