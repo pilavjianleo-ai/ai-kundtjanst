@@ -1584,6 +1584,15 @@ onClick("trainingExportBtn", adminExportTraining);
     console.error("init crashed:", err);
     alert("script.js kraschade vid start. Kolla Console.");
   }
+
+// ✅ Expose inbox functions globally (fix ReferenceError)
+window.inboxSetStatus = inboxSetStatus;
+window.inboxSetPriority = inboxSetPriority;
+window.inboxSendAgentReply = inboxSendAgentReply;
+window.inboxSaveInternalNote = inboxSaveInternalNote;
+window.clearAllInternalNotes = clearAllInternalNotes;
+window.inboxAssignTicket = inboxAssignTicket;
+window.inboxDeleteTicket = inboxDeleteTicket;
 }
 
 document.addEventListener("DOMContentLoaded", init);
