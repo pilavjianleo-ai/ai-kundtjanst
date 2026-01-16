@@ -1870,5 +1870,5 @@ async function init() {
     alert("script.js kraschade vid start. Kolla Console.");
   }
 }
-
+{
 document.addEventListener("DOMContentLoaded", init);
