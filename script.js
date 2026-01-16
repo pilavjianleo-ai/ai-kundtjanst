@@ -1207,6 +1207,9 @@ async function inboxLoadTickets() {
 }
 
 async function inboxLoadTicketDetails(id) {
+  console.log("✅ inboxLoadTicketDetails called with id:", id);
+  console.log("✅ inboxSelectedTicketId is:", inboxSelectedTicketId);
+
   const details = $("ticketDetails");
   const msg = $("inboxTicketMsg");
   setAlert(msg, "");
@@ -1219,29 +1222,27 @@ async function inboxLoadTicketDetails(id) {
       headers: { Authorization: `Bearer ${token}` },
     });
 
-    // ✅ Render notes in lower internal notes box
-const notesTarget = $("notesList");
-if (notesTarget) {
-  notesTarget.innerHTML = renderInternalNotes(t.internalNotes || []);
-} else {
-  console.warn("❌ notesList saknas i HTML");
-}
+    // ✅ priority dropdown sync
+    if ($("ticketPrioritySelect")) {
+      $("ticketPrioritySelect").value = t.priority || "normal";
+    }
 
-    if ($("ticketPrioritySelect")) $("ticketPrioritySelect").value = t.priority || "normal";
-
+    // ✅ render messages
     const msgs = (t.messages || []).slice(-80);
     const html = msgs
       .map((m) => {
-        const roleLabel = m.role === "user" ? "Kund" : m.role === "agent" ? "Agent" : "AI";
+        const roleLabel =
+          m.role === "user" ? "Kund" : m.role === "agent" ? "Agent" : "AI";
+
         return `
-        <div class="ticketMsg ${escapeHtml(m.role)}">
-          <div class="ticketMsgHead">
-            <b>${roleLabel}</b>
-            <span>${escapeHtml(formatDate(m.timestamp))}</span>
+          <div class="ticketMsg ${escapeHtml(m.role)}">
+            <div class="ticketMsgHead">
+              <b>${roleLabel}</b>
+              <span>${escapeHtml(formatDate(m.timestamp))}</span>
+            </div>
+            <div class="ticketMsgBody">${escapeHtml(m.content)}</div>
           </div>
-          <div class="ticketMsgBody">${escapeHtml(m.content)}</div>
-        </div>
-      `;
+        `;
       })
       .join("");
 
@@ -1255,16 +1256,18 @@ if (notesTarget) {
       ${html || `<div class="muted small">Inga meddelanden.</div>`}
     `;
 
-    // ✅ Render notes ONLY in the lower box
-    const notesTarget = $("notesList");
-    if (notesTarget) {
-      notesTarget.innerHTML = renderInternalNotes(t.internalNotes || []);
+    // ✅ Render internal notes i din riktiga HTML-container (INTERNALNOTESLIST)
+    const notesBox = $("internalNotesList");
+    if (notesBox) {
+      notesBox.innerHTML = renderInternalNotes(t.internalNotes || []);
     }
+
   } catch (e) {
     details.innerHTML = `<div class="muted small">Kunde inte ladda ticket.</div>`;
     setAlert(msg, e.message || "Fel vid ticket", true);
   }
 }
+
 
 /*************************************************
  * ✅ Inbox Ticket actions
@@ -1431,7 +1434,7 @@ async function inboxDeleteTicket() {
     }
 
     // Clear notes list UI too
-    if ($("notesList")) $("notesList").innerHTML = `<div class="muted small">Inga notes ännu.</div>`;
+    if ($("internalNotesList")) $("internalNotesList").innerHTML = `<div class="muted small">Inga notes ännu.</div>`;
 
     await inboxLoadTickets();
   } catch (e) {
