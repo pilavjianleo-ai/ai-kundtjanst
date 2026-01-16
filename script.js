@@ -1232,6 +1232,202 @@ async function inboxLoadTicketDetails(id) {
 }
 
 /*************************************************
+ * ✅ Inbox Ticket actions (required functions)
+ *************************************************/
+async function inboxSetStatus(status) {
+  const msg = $("inboxTicketMsg");
+  setAlert(msg, "");
+
+  if (!inboxSelectedTicketId) return setAlert(msg, "Välj en ticket först.", true);
+
+  try {
+    await fetchJson(API.ADMIN_TICKET_STATUS(inboxSelectedTicketId), {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`
+      },
+      body: JSON.stringify({ status })
+    });
+
+    setAlert(msg, "Status uppdaterad ✅");
+    await inboxLoadTicketDetails(inboxSelectedTicketId);
+    await inboxLoadTickets();
+  } catch (e) {
+    setAlert(msg, e.message || "Serverfel vid status", true);
+  }
+}
+
+async function inboxSetPriority() {
+  const msg = $("inboxTicketMsg");
+  setAlert(msg, "");
+
+  if (!inboxSelectedTicketId) return setAlert(msg, "Välj en ticket först.", true);
+
+  const priority = $("ticketPrioritySelect")?.value || "normal";
+
+  try {
+    await fetchJson(API.ADMIN_TICKET_PRIORITY(inboxSelectedTicketId), {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`
+      },
+      body: JSON.stringify({ priority })
+    });
+
+    setAlert(msg, "Prioritet sparad ✅");
+    await inboxLoadTicketDetails(inboxSelectedTicketId);
+    await inboxLoadTickets();
+  } catch (e) {
+    setAlert(msg, e.message || "Serverfel vid prioritet", true);
+  }
+}
+
+async function inboxSendAgentReply() {
+  const msgEl = $("inboxTicketMsg");
+  setAlert(msgEl, "");
+
+  if (!inboxSelectedTicketId) return setAlert(msgEl, "Välj en ticket först.", true);
+
+  const content = $("agentReplyTextInbox")?.value?.trim();
+  if (!content) return setAlert(msgEl, "Skriv ett svar först.", true);
+
+  try {
+    await fetchJson(API.ADMIN_TICKET_REPLY(inboxSelectedTicketId), {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`
+      },
+      body: JSON.stringify({ content })
+    });
+
+    $("agentReplyTextInbox").value = "";
+    setAlert(msgEl, "Agent-svar skickat ✅");
+    await inboxLoadTicketDetails(inboxSelectedTicketId);
+    await inboxLoadTickets();
+  } catch (e) {
+    setAlert(msgEl, e.message || "Serverfel vid agent-svar", true);
+  }
+}
+
+async function inboxSaveInternalNote() {
+  const msgEl = $("inboxTicketMsg");
+  setAlert(msgEl, "");
+
+  if (!inboxSelectedTicketId) return setAlert(msgEl, "Välj en ticket först.", true);
+
+  const content = $("internalNoteText")?.value?.trim();
+  if (!content) return setAlert(msgEl, "Skriv en note först.", true);
+
+  try {
+    await fetchJson(API.ADMIN_TICKET_NOTE(inboxSelectedTicketId), {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`
+      },
+      body: JSON.stringify({ content })
+    });
+
+    $("internalNoteText").value = "";
+    setAlert(msgEl, "Intern note sparad ✅");
+    await inboxLoadTicketDetails(inboxSelectedTicketId);
+  } catch (e) {
+    setAlert(msgEl, e.message || "Serverfel vid note", true);
+  }
+}
+
+async function clearAllInternalNotes() {
+  const msgEl = $("inboxTicketMsg");
+  setAlert(msgEl, "");
+
+  if (!inboxSelectedTicketId) return setAlert(msgEl, "Välj en ticket först.", true);
+
+  const ok = confirm("Ta bort ALLA interna notes på denna ticket?");
+  if (!ok) return;
+
+  try {
+    await fetchJson(API.ADMIN_TICKET_NOTES_CLEAR(inboxSelectedTicketId), {
+      method: "DELETE",
+      headers: {
+        Authorization: `Bearer ${token}`
+      }
+    });
+
+    setAlert(msgEl, "Alla notes borttagna ✅");
+    await inboxLoadTicketDetails(inboxSelectedTicketId);
+  } catch (e) {
+    setAlert(msgEl, e.message || "Fel vid rensning", true);
+  }
+}
+
+async function inboxAssignTicket() {
+  const msgEl = $("inboxTicketMsg");
+  setAlert(msgEl, "");
+
+  if (!inboxSelectedTicketId) return setAlert(msgEl, "Välj en ticket först.", true);
+
+  const userId = $("assignUserSelect")?.value || "";
+  if (!userId) return setAlert(msgEl, "Välj en agent/admin först.", true);
+
+  try {
+    await fetchJson(API.ADMIN_TICKET_ASSIGN(inboxSelectedTicketId), {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`
+      },
+      body: JSON.stringify({ userId })
+    });
+
+    setAlert(msgEl, "Ticket assignad ✅");
+  } catch (e) {
+    setAlert(msgEl, e.message || "Serverfel vid assign", true);
+  }
+}
+
+async function inboxDeleteTicket() {
+  const msgEl = $("inboxTicketMsg");
+  setAlert(msgEl, "");
+
+  if (!inboxSelectedTicketId) return setAlert(msgEl, "Välj en ticket först.", true);
+
+  const ok = confirm("Vill du verkligen ta bort denna ticket? Detta går inte att ångra.");
+  if (!ok) return;
+
+  try {
+    await fetchJson(API.ADMIN_TICKET_DELETE(inboxSelectedTicketId), {
+      method: "DELETE",
+      headers: {
+        Authorization: `Bearer ${token}`
+      }
+    });
+
+    setAlert(msgEl, "Ticket borttagen ✅");
+    inboxSelectedTicketId = null;
+
+    if ($("ticketDetails")) {
+      $("ticketDetails").innerHTML = `<div class="muted small">Välj en ticket.</div>`;
+    }
+
+    await inboxLoadTickets();
+  } catch (e) {
+    setAlert(msgEl, e.message || "Serverfel vid borttagning", true);
+  }
+}
+
+// ✅ Make sure inbox functions exist globally (fix ReferenceError)
+window.inboxSetStatus = inboxSetStatus;
+window.inboxSetPriority = inboxSetPriority;
+window.inboxSendAgentReply = inboxSendAgentReply;
+window.inboxSaveInternalNote = inboxSaveInternalNote;
+window.clearAllInternalNotes = clearAllInternalNotes;
+window.inboxAssignTicket = inboxAssignTicket;
+window.inboxDeleteTicket = inboxDeleteTicket;
+
+/*************************************************
  * ✅ Inbox Ticket actions (FIX: event delegation)
  *************************************************/
 function bindInboxTicketActions() {
