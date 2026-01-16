@@ -1177,6 +1177,7 @@ async function inboxLoadTickets() {
 }
 
 async function inboxLoadTicketDetails(id) {
+  console.log("✅ Ticket selected:", inboxSelectedTicketId);
   const details = $("ticketDetails");
   const msg = $("inboxTicketMsg");
   setAlert(msg, "");
@@ -1220,6 +1221,49 @@ async function inboxLoadTicketDetails(id) {
     setAlert(msg, e.message || "Fel vid ticket", true);
   }
 }
+
+/*************************************************
+ * ✅ Inbox Ticket actions (FIX: event delegation)
+ *************************************************/
+function bindInboxTicketActions() {
+  const inboxView = $("inboxView");
+  if (!inboxView) return;
+
+  // Undvik dubbla bindings
+  if (inboxView.dataset.bound === "1") return;
+  inboxView.dataset.bound = "1";
+
+  inboxView.addEventListener("click", async (e) => {
+    const btn = e.target.closest("button");
+    if (!btn) return;
+
+    const id = btn.id;
+
+    // ✅ Status buttons
+    if (id === "setStatusOpen") return inboxSetStatus("open");
+    if (id === "setStatusPending") return inboxSetStatus("pending");
+    if (id === "setStatusSolved") return inboxSetStatus("solved");
+
+    // ✅ Priority
+    if (id === "setPriorityBtn") return inboxSetPriority();
+
+    // ✅ Send agent reply
+    if (id === "sendAgentReplyInboxBtn") return inboxSendAgentReply();
+
+    // ✅ Internal notes (original buttons)
+    if (id === "saveInternalNoteBtn") return inboxSaveInternalNote();
+    if (id === "clearInternalNotesBtn") return clearAllInternalNotes();
+
+    // ✅ Internal notes (dynamic buttons: if you added them in HTML via innerHTML)
+    if (id === "saveInternalNoteBtn2") return inboxSaveInternalNote();
+    if (id === "clearInternalNotesBtn2") return clearAllInternalNotes();
+
+    // ✅ Assign + Delete
+    if (id === "assignTicketBtn") return inboxAssignTicket();
+    if (id === "deleteTicketBtn") return inboxDeleteTicket();
+  });
+}
+
 
 /*************************************************
  * ✅ Settings
@@ -1440,6 +1484,8 @@ onClick("trainingExportBtn", adminExportTraining);
 
     // Theme
     onClick("themeToggle", toggleTheme);
+
+    bindInboxTicketActions();
 
     // Menu
     onClick("openChatView", () => {
