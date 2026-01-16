@@ -1168,6 +1168,14 @@ async function inboxLoadTickets() {
         await inboxLoadTickets();
       });
 
+div.addEventListener("click", async () => {
+  inboxSelectedTicketId = t._id;
+  console.log("✅ CLICK set inboxSelectedTicketId:", inboxSelectedTicketId);
+
+  await inboxLoadTicketDetails(t._id);
+  await inboxLoadTickets();
+});
+
       list.appendChild(div);
     });
   } catch (e) {
@@ -1177,7 +1185,8 @@ async function inboxLoadTickets() {
 }
 
 async function inboxLoadTicketDetails(id) {
-  console.log("✅ Ticket selected:", inboxSelectedTicketId);
+  console.log("✅ inboxLoadTicketDetails called with id:", id);
+   console.log("✅ inboxSelectedTicketId is:", inboxSelectedTicketId);
   const details = $("ticketDetails");
   const msg = $("inboxTicketMsg");
   setAlert(msg, "");
