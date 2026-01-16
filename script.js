@@ -1219,6 +1219,14 @@ async function inboxLoadTicketDetails(id) {
       headers: { Authorization: `Bearer ${token}` },
     });
 
+    // ✅ Render notes in lower internal notes box
+const notesTarget = $("notesList");
+if (notesTarget) {
+  notesTarget.innerHTML = renderInternalNotes(t.internalNotes || []);
+} else {
+  console.warn("❌ notesList saknas i HTML");
+}
+
     if ($("ticketPrioritySelect")) $("ticketPrioritySelect").value = t.priority || "normal";
 
     const msgs = (t.messages || []).slice(-80);
