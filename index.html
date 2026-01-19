@@ -44,7 +44,7 @@
           <span id="inboxNotifDot" class="notifDot" style="display:none;"></span>
         </button>
 
-        <!-- ✅ SLA-knapp (Agent/Admin) -->
+        <!-- ✅ SLA (Agent/Admin) -->
         <button id="openSlaView" class="menuBtn adminOnly" style="display:none;" type="button">
           <i class="fa-solid fa-chart-line"></i> SLA
         </button>
@@ -240,11 +240,20 @@
             <div id="myTicketDetails" class="ticketDetails muted small">
               Välj ett ärende för att se detaljer.
             </div>
+
+            <!-- ✅ Kund kan svara i ticket -->
+            <div class="divider"></div>
+            <label>Svara i ärendet</label>
+            <textarea id="myTicketReplyText" class="input textarea" placeholder="Skriv ditt svar..."></textarea>
+            <button id="myTicketReplyBtn" class="btn primary full" type="button">
+              <i class="fa-solid fa-paper-plane"></i> Skicka
+            </button>
+            <div id="myTicketReplyMsg" class="alert" style="display:none;"></div>
           </div>
         </div>
       </section>
 
-      <!-- ✅ SLA VIEW (ny, men i samma stil/komponenter) -->
+      <!-- ✅ SLA VIEW (FIXAD FÖR script.js) -->
       <section id="slaView" class="view" style="display:none;">
         <div class="topbar">
           <div>
@@ -260,56 +269,38 @@
               <option value="90">90 dagar</option>
             </select>
 
-            <!-- ✅ Compare periods -->
-            <select id="slaCompareMode" class="input smallInput">
-              <option value="none" selected>Ingen jämförelse</option>
-              <option value="prevPeriod">Jämför med föregående period</option>
-              <option value="prevWeek">Jämför med föregående vecka</option>
-            </select>
-
             <button id="slaRefreshBtn" class="btn ghost" type="button">
               <i class="fa-solid fa-rotate"></i> Uppdatera
             </button>
 
-            <!-- ✅ Export -->
             <button id="slaExportCsvBtn" class="btn ghost" type="button">
               <i class="fa-solid fa-file-csv"></i> Export CSV
-            </button>
-
-            <!-- ✅ Clear stats -->
-            <button id="slaClearMyStatsBtn" class="btn danger" type="button">
-              <i class="fa-solid fa-eraser"></i> Radera min statistik
-            </button>
-
-            <button id="slaClearAllStatsBtn" class="btn danger" type="button" style="display:none;">
-              <i class="fa-solid fa-trash"></i> Radera ALL statistik
             </button>
           </div>
         </div>
 
         <div class="divider"></div>
 
-        <!-- ✅ Overview -->
+        <!-- Overview -->
         <div id="slaOverviewBox"></div>
 
         <div class="divider"></div>
 
-        <!-- ✅ Trend week chart -->
+        <!-- ✅ Trend Canvas (ID FIX: script.js använder slaTrendCanvas) -->
         <h3 style="margin:0 0 8px 0;">Trend vecka för vecka</h3>
         <div class="panel">
-          <canvas id="slaTrendChart" height="110" style="width:100%;"></canvas>
-          <div class="muted small" id="slaTrendHint" style="margin-top:8px;"></div>
+          <canvas id="slaTrendCanvas" height="110" style="width:100%;"></canvas>
         </div>
 
         <div class="divider"></div>
 
-        <!-- ✅ Agents -->
+        <!-- Agents -->
         <h3 style="margin:0 0 8px 0;">Agents</h3>
         <div id="slaAgentsBox"></div>
 
         <div class="divider"></div>
 
-        <!-- ✅ Tickets + breached filter -->
+        <!-- ✅ Filters (ID FIX: script.js använder slaBreachedTypeFilter + slaSortSelect) -->
         <div class="row gap" style="margin-bottom:10px; flex-wrap:wrap;">
           <b>Tickets</b>
 
@@ -319,20 +310,67 @@
             <option value="okOnly">Endast OK</option>
           </select>
 
-          <select id="slaBreachTypeFilter" class="input smallInput">
-            <option value="any" selected>Alla breach-typer</option>
+          <select id="slaBreachedTypeFilter" class="input smallInput">
+            <option value="" selected>Alla breach-typer</option>
             <option value="first">First response breach</option>
             <option value="resolution">Resolution breach</option>
           </select>
 
-          <select id="slaSortTickets" class="input smallInput">
+          <select id="slaSortSelect" class="input smallInput">
             <option value="newest" selected>Sortera: Nyast</option>
             <option value="oldest">Sortera: Äldst</option>
             <option value="worstFirst">Sortera: Mest brutet</option>
           </select>
+
+          <!-- ✅ Compare (script.js har slaCompare()) -->
+          <select id="slaCompareA" class="input smallInput">
+            <option value="30" selected>Period A: 30 dagar</option>
+            <option value="14">Period A: 14 dagar</option>
+            <option value="7">Period A: 7 dagar</option>
+          </select>
+
+          <select id="slaCompareB" class="input smallInput">
+            <option value="7" selected>Period B: 7 dagar</option>
+            <option value="14">Period B: 14 dagar</option>
+            <option value="30">Period B: 30 dagar</option>
+          </select>
+
+          <button id="slaCompareBtn" class="btn ghost small" type="button">
+            <i class="fa-solid fa-code-compare"></i> Jämför
+          </button>
         </div>
 
+        <div id="slaCompareBox"></div>
+
+        <div class="divider"></div>
+
         <div id="slaTicketsBox"></div>
+
+        <!-- ✅ Admin-only clear stats panel (script.js använder slaClearAllBtn + slaClearAgentBtn + slaClearAgentSelect) -->
+        <div class="divider"></div>
+        <div class="panel">
+          <div class="panelHead">
+            <b>Admin: Rensa SLA-statistik</b>
+          </div>
+
+          <div class="row gap" style="flex-wrap:wrap;">
+            <button id="slaClearAllBtn" class="btn danger" type="button">
+              <i class="fa-solid fa-trash"></i> Radera ALL statistik
+            </button>
+
+            <select id="slaClearAgentSelect" class="input smallInput" style="min-width:240px;">
+              <option value="">Välj agent att radera...</option>
+            </select>
+
+            <button id="slaClearAgentBtn" class="btn danger" type="button">
+              <i class="fa-solid fa-eraser"></i> Radera agent-statistik
+            </button>
+          </div>
+
+          <div class="muted small" style="margin-top:8px;">
+            Visas endast för admin.
+          </div>
+        </div>
       </section>
 
       <!-- INBOX VIEW (Agent/Admin) -->
@@ -473,7 +511,6 @@
           <button class="tabBtn active" data-tab="tabUsers" type="button">Users</button>
           <button class="tabBtn" data-tab="tabKB" type="button">Knowledge Base</button>
           <button class="tabBtn" data-tab="tabCats" type="button">Kategorier</button>
-          <!-- ✅ SLA tab borttagen enligt din begäran -->
         </div>
 
         <!-- Users -->
