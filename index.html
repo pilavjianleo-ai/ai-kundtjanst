@@ -186,8 +186,6 @@
           </div>
         </div>
 
-        <div id="notesList"></div>
-        
         <div id="messages" class="messages"></div>
 
         <div class="composer">
@@ -381,6 +379,7 @@
           <button class="tabBtn active" data-tab="tabUsers" type="button">Users</button>
           <button class="tabBtn" data-tab="tabKB" type="button">Knowledge Base</button>
           <button class="tabBtn" data-tab="tabCats" type="button">Kategorier</button>
+          <button class="tabBtn" data-tab="tabSLA" type="button">📊 SLA</button>
         </div>
 
         <!-- Users -->
@@ -472,6 +471,43 @@
               </div>
             </div>
 
+          </div>
+        </div>
+
+        <!-- ✅ SLA -->
+        <div id="tabSLA" class="tabPanel" style="display:none;">
+          <div class="panel">
+            <div class="panelHead">
+              <b>SLA Dashboard</b>
+              <div style="margin-left:auto; display:flex; gap:10px; flex-wrap:wrap;">
+                <select id="slaDaysSelect" class="input smallInput">
+                  <option value="7">Senaste 7 dagar</option>
+                  <option value="30" selected>Senaste 30 dagar</option>
+                  <option value="90">Senaste 90 dagar</option>
+                  <option value="180">Senaste 180 dagar</option>
+                </select>
+
+                <button id="slaRefreshBtn" class="btn ghost small" type="button">
+                  <i class="fa-solid fa-rotate"></i> Uppdatera
+                </button>
+              </div>
+            </div>
+
+            <div id="slaOverviewBox" style="margin-top:10px;"></div>
+
+            <div class="divider"></div>
+
+            <div class="panel soft">
+              <b>Agent-statistik</b>
+              <div id="slaAgentsBox" style="margin-top:10px;"></div>
+            </div>
+
+            <div class="divider"></div>
+
+            <div class="panel soft">
+              <b>Ticket SLA (breaches)</b>
+              <div id="slaTicketsBox" style="margin-top:10px;"></div>
+            </div>
           </div>
         </div>
 
