@@ -421,7 +421,7 @@ async function loadCategories() {
  *************************************************/
 function initAdminTabs() {
   const tabBtns = document.querySelectorAll(".tabBtn");
-  const panels = ["tabUsers", "tabKB", "tabCats"];
+  const panels = ["tabUsers", "tabKB", "tabCats", "tabSLA"];
 
   tabBtns.forEach((btn) => {
     btn.addEventListener("click", async () => {
@@ -434,9 +434,11 @@ function initAdminTabs() {
       if (tab === "tabUsers") await adminLoadUsers();
       if (tab === "tabKB") await kbLoadList();
       if (tab === "tabCats") await catsLoadList();
+      if (tab === "tabSLA") await slaRefreshAll(); // ✅ NY
     });
   });
 }
+
 
 /*************************************************
  * ✅ Knowledge Base (KB)
