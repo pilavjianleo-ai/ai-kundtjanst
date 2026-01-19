@@ -584,10 +584,71 @@ label{
 }
 
 /* =========================
+   SLA
+========================= */
+.slaGrid{
+  display:grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap:12px;
+}
+
+.slaCard{
+  background: rgba(255,255,255,0.02);
+  border:1px solid var(--border);
+  border-radius:16px;
+  padding:14px;
+}
+
+.slaLabel{
+  font-size:12px;
+  color: var(--muted);
+  margin-bottom:6px;
+}
+
+.slaValue{
+  font-size:22px;
+  font-weight:800;
+}
+
+.tableWrap{
+  width:100%;
+  overflow:auto;
+  border:1px solid var(--border);
+  border-radius:14px;
+}
+
+.table{
+  width:100%;
+  border-collapse: collapse;
+  font-size:13px;
+}
+
+.table th,
+.table td{
+  padding:10px;
+  border-bottom:1px solid var(--border);
+  text-align:left;
+  white-space:nowrap;
+}
+
+.pill.danger{
+  background: rgba(255,77,77,0.14);
+  border-color: rgba(255,77,77,0.35);
+  color: #ffb3b3;
+}
+
+.pill.ok{
+  background: rgba(55,214,122,0.12);
+  border-color: rgba(55,214,122,0.25);
+  color: #b9f5d3;
+}
+
+/* =========================
    RESPONSIVE
 ========================= */
 @media (max-width: 1100px){
   .kbGrid{ grid-template-columns:1fr; }
+  .slaGrid{ grid-template-columns:1fr; }
 }
 
 @media (max-width: 900px){
@@ -655,169 +716,4 @@ label{
   .split{
     grid-template-columns: 1fr;
   }
-}
-
-/* =========================
-   ✅ SLA DASHBOARD (NEW)
-========================= */
-.slaGrid{
-  display:grid;
-  grid-template-columns: repeat(4, 1fr);
-  gap:12px;
-  margin-top:12px;
-}
-
-@media (max-width: 1100px){
-  .slaGrid{
-    grid-template-columns: repeat(2, 1fr);
-  }
-}
-@media (max-width: 650px){
-  .slaGrid{
-    grid-template-columns: 1fr;
-  }
-}
-
-.slaCard{
-  border: 1px solid var(--border);
-  background: rgba(255,255,255,0.02);
-  border-radius: 16px;
-  padding: 14px;
-  box-shadow: none;
-}
-
-.slaCardTop{
-  display:flex;
-  align-items:center;
-  justify-content:space-between;
-  gap:12px;
-  margin-bottom:8px;
-}
-
-.slaCardIcon{
-  width:42px;
-  height:42px;
-  border-radius: 14px;
-  display:flex;
-  align-items:center;
-  justify-content:center;
-  background: rgba(76,125,255,0.15);
-  color: var(--primary);
-  flex-shrink:0;
-}
-
-.slaCardTitle{
-  font-size:12px;
-  color: var(--muted);
-}
-
-.slaCardValue{
-  font-weight: 900;
-  font-size: 22px;
-  letter-spacing: 0.2px;
-  margin-top: 2px;
-}
-
-.slaCardSub{
-  margin-top:6px;
-  font-size:12px;
-  color: var(--muted);
-}
-
-.slaPill{
-  font-size: 12px;
-  padding: 4px 10px;
-  border-radius: 999px;
-  border: 1px solid var(--border);
-  font-weight: 700;
-  color: var(--muted);
-}
-
-.slaPill.ok{
-  color: white;
-  background: rgba(55,214,122,0.18);
-  border-color: rgba(55,214,122,0.40);
-}
-
-.slaPill.warn{
-  color: white;
-  background: rgba(255,176,32,0.18);
-  border-color: rgba(255,176,32,0.40);
-}
-
-.slaPill.bad{
-  color: white;
-  background: rgba(255,77,77,0.18);
-  border-color: rgba(255,77,77,0.42);
-}
-
-.slaTable{
-  width:100%;
-  border-collapse: collapse;
-  margin-top: 10px;
-  overflow:hidden;
-  border-radius: 14px;
-  border: 1px solid var(--border);
-}
-
-.slaTable th,
-.slaTable td{
-  text-align:left;
-  padding: 10px 10px;
-  border-bottom: 1px solid var(--border);
-  font-size: 13px;
-}
-
-.slaTable th{
-  color: var(--muted);
-  font-weight: 700;
-  background: rgba(255,255,255,0.02);
-}
-
-.slaTable tr:hover td{
-  background: rgba(255,255,255,0.03);
-}
-
-.slaBadge{
-  display:inline-flex;
-  align-items:center;
-  gap:6px;
-  font-size:12px;
-  padding: 3px 9px;
-  border-radius: 999px;
-  border: 1px solid var(--border);
-  color: var(--muted);
-  font-weight: 700;
-}
-
-.slaBadge.ok{
-  color: white;
-  background: rgba(55,214,122,0.18);
-  border-color: rgba(55,214,122,0.40);
-}
-
-.slaBadge.bad{
-  color: white;
-  background: rgba(255,77,77,0.18);
-  border-color: rgba(255,77,77,0.42);
-}
-
-.slaBadge.warn{
-  color: white;
-  background: rgba(255,176,32,0.18);
-  border-color: rgba(255,176,32,0.40);
-}
-
-.slaMini{
-  font-size: 12px;
-  color: var(--muted);
-}
-
-.slaHintBox{
-  border: 1px dashed var(--border);
-  border-radius: 14px;
-  padding: 12px;
-  color: var(--muted);
-  font-size: 12px;
-  background: rgba(255,255,255,0.02);
 }
