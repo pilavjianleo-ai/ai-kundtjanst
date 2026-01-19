@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="sv">
+
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
@@ -47,6 +48,11 @@
 
         <button id="openAdminView" class="menuBtn adminOnly" style="display:none;" type="button">
           <i class="fa-solid fa-shield-halved"></i> Admin
+        </button>
+
+        <!-- ✅ NEW: SLA -->
+        <button id="openSlaView" class="menuBtn adminOnly" style="display:none;" type="button">
+          <i class="fa-solid fa-chart-line"></i> SLA
         </button>
 
         <button id="openSettingsView" class="menuBtn" style="display:none;" type="button">
@@ -211,7 +217,7 @@
         <div class="topbar">
           <div>
             <div class="title">Mina ärenden</div>
-            <div class="subtitle muted">Se dina tickets och status. Du kan även fortsätta konversationen.</div>
+            <div class="subtitle muted">Se dina tickets och status.</div>
           </div>
           <div class="topbarActions">
             <button id="myTicketsRefreshBtn" class="btn ghost" type="button">
@@ -233,21 +239,9 @@
             <div class="panelHead">
               <b>Detaljer</b>
             </div>
-
             <div id="myTicketDetails" class="ticketDetails muted small">
               Välj ett ärende för att se detaljer.
             </div>
-
-            <div class="divider"></div>
-
-            <!-- ✅ Kund kan svara vidare i sitt ticket -->
-            <label>Fortsätt konversationen i detta ärende</label>
-            <textarea id="myTicketReplyText" class="input textarea" placeholder="Skriv ditt meddelande..."></textarea>
-            <button id="myTicketSendReplyBtn" class="btn primary full" type="button">
-              <i class="fa-solid fa-paper-plane"></i> Skicka meddelande
-            </button>
-
-            <div id="myTicketReplyMsg" class="alert" style="display:none;"></div>
           </div>
         </div>
       </section>
@@ -374,7 +368,7 @@
         <div class="topbar">
           <div>
             <div class="title">Admin Dashboard</div>
-            <div class="subtitle muted">Hantera users, export, KB, SLA och kategorier.</div>
+            <div class="subtitle muted">Hantera users, export, KB och kategorier.</div>
           </div>
           <div class="topbarActions">
             <button id="adminExportAllBtn" class="btn ghost" type="button">
@@ -390,7 +384,6 @@
           <button class="tabBtn active" data-tab="tabUsers" type="button">Users</button>
           <button class="tabBtn" data-tab="tabKB" type="button">Knowledge Base</button>
           <button class="tabBtn" data-tab="tabCats" type="button">Kategorier</button>
-          <button class="tabBtn" data-tab="tabSLA" type="button">SLA</button>
         </div>
 
         <!-- Users -->
@@ -481,67 +474,93 @@
                 <div id="catsList" class="list"></div>
               </div>
             </div>
+
           </div>
         </div>
+      </section>
 
-        <!-- ✅ SLA TAB -->
-        <div id="tabSLA" class="tabPanel" style="display:none;">
-          <div class="panel">
-            <div class="panelHead">
-              <b>SLA Dashboard</b>
-
-              <div style="margin-left:auto; display:flex; gap:10px; flex-wrap:wrap; align-items:center;">
-                <select id="slaDaysSelect" class="input smallInput">
-                  <option value="7">7 dagar</option>
-                  <option value="14">14 dagar</option>
-                  <option value="30" selected>30 dagar</option>
-                  <option value="90">90 dagar</option>
-                </select>
-
-                <select id="slaCompareDaysSelect" class="input smallInput">
-                  <option value="">Jämför: av</option>
-                  <option value="7">Jämför med 7 dagar</option>
-                  <option value="14">Jämför med 14 dagar</option>
-                  <option value="30">Jämför med 30 dagar</option>
-                  <option value="90">Jämför med 90 dagar</option>
-                </select>
-
-                <button id="slaRefreshBtn" class="btn ghost small" type="button">
-                  <i class="fa-solid fa-rotate"></i> Uppdatera
-                </button>
-
-                <!-- ✅ Radera SLA statistik -->
-                <button id="slaDeleteMyStatsBtn" class="btn danger small" type="button">
-                  <i class="fa-solid fa-user-xmark"></i> Radera min statistik
-                </button>
-
-                <button id="slaDeleteAllStatsBtn" class="btn danger small" type="button" style="display:none;">
-                  <i class="fa-solid fa-trash"></i> Radera ALL statistik
-                </button>
-              </div>
+      <!-- ✅ SLA VIEW -->
+      <section id="slaView" class="view" style="display:none;">
+        <div class="topbar">
+          <div>
+            <div class="title">SLA Dashboard</div>
+            <div class="subtitle muted">
+              SLA statistik för first response, resolution, compliance och breaches.
             </div>
+          </div>
 
-            <div id="slaMsg" class="alert" style="display:none;"></div>
+          <div class="topbarActions">
+            <select id="slaDaysSelect" class="input smallInput">
+              <option value="7">7 dagar</option>
+              <option value="14">14 dagar</option>
+              <option value="30" selected>30 dagar</option>
+              <option value="90">90 dagar</option>
+            </select>
 
-            <div id="slaOverviewBox" style="margin-top:10px;"></div>
-
-            <div class="divider"></div>
-
-            <h3 style="margin:0 0 8px 0;">Agents</h3>
-            <div id="slaAgentsBox"></div>
-
-            <div class="divider"></div>
-
-            <h3 style="margin:0 0 8px 0;">Tickets</h3>
-            <div id="slaTicketsBox"></div>
-
-            <div class="divider"></div>
-
-            <h3 style="margin:0 0 8px 0;">Jämförelse (perioder)</h3>
-            <div id="slaCompareBox" class="muted small">Välj “Jämför med …” för att se skillnad mot vald period.</div>
+            <button id="slaRefreshBtn" class="btn ghost" type="button">
+              <i class="fa-solid fa-rotate"></i> Uppdatera
+            </button>
           </div>
         </div>
 
+        <div id="slaMsg" class="alert" style="display:none;"></div>
+
+        <div class="panel" style="margin-top:12px;">
+          <div class="panelHead">
+            <b>Översikt</b>
+
+            <button id="slaClearOwnBtn" class="btn danger small" style="margin-left:auto;" type="button">
+              <i class="fa-solid fa-eraser"></i> Rensa min statistik
+            </button>
+
+            <button id="slaClearAllBtn" class="btn danger small adminOnly" type="button">
+              <i class="fa-solid fa-trash"></i> Rensa ALL statistik
+            </button>
+          </div>
+
+          <div id="slaOverviewBox"></div>
+        </div>
+
+        <div class="panel" style="margin-top:12px;">
+          <div class="panelHead">
+            <b>Agent-statistik</b>
+          </div>
+          <div id="slaAgentsBox"></div>
+        </div>
+
+        <div class="panel" style="margin-top:12px;">
+          <div class="panelHead">
+            <b>Tickets</b>
+          </div>
+          <div id="slaTicketsBox"></div>
+        </div>
+
+        <div class="panel" style="margin-top:12px;">
+          <div class="panelHead">
+            <b>Jämför perioder</b>
+          </div>
+
+          <div class="row gap" style="flex-wrap:wrap;">
+            <select id="slaCompareDaysA" class="input smallInput">
+              <option value="7" selected>Period A: 7 dagar</option>
+              <option value="14">Period A: 14 dagar</option>
+              <option value="30">Period A: 30 dagar</option>
+            </select>
+
+            <select id="slaCompareDaysB" class="input smallInput">
+              <option value="7">Period B: 7 dagar</option>
+              <option value="14">Period B: 14 dagar</option>
+              <option value="30" selected>Period B: 30 dagar</option>
+              <option value="90">Period B: 90 dagar</option>
+            </select>
+
+            <button id="slaCompareBtn" class="btn secondary" type="button">
+              <i class="fa-solid fa-code-compare"></i> Jämför
+            </button>
+          </div>
+
+          <div style="margin-top:12px;" id="slaCompareBox"></div>
+        </div>
       </section>
 
       <!-- SETTINGS VIEW -->
@@ -568,7 +587,8 @@
             <div>
               <label>Byt lösenord</label>
               <input id="currentPassInput" type="password" class="input" placeholder="Nuvarande lösenord" />
-              <input id="newPassInput" type="password" class="input" placeholder="Nytt lösenord" style="margin-top:10px;" />
+              <input id="newPassInput" type="password" class="input" placeholder="Nytt lösenord"
+                style="margin-top:10px;" />
               <button id="changePasswordBtn" class="btn secondary full" style="margin-top:10px;" type="button">
                 <i class="fa-solid fa-lock"></i> Byt lösenord
               </button>
@@ -584,4 +604,5 @@
 
   <script src="script.js"></script>
 </body>
+
 </html>
