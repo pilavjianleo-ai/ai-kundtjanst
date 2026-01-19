@@ -1,760 +1,773 @@
-:root{
-  --bg:#0f1220;
-  --panel:#151a2c;
-  --panel2:#101426;
-  --text:#e8eaf3;
-  --muted:#a6abc6;
-  --border:rgba(255,255,255,0.08);
-  --shadow: 0 12px 40px rgba(0,0,0,0.35);
-
-  --primary:#4c7dff;
-  --primary2:#3b66e6;
-  --danger:#ff4d4d;
-  --warn:#ffb020;
-  --ok:#37d67a;
+/* ===========================
+   ✅ Base / Reset
+=========================== */
+* {
+  box-sizing: border-box;
 }
 
-body[data-theme="light"]{
-  --bg:#f5f6fb;
-  --panel:#ffffff;
-  --panel2:#f2f3fa;
-  --text:#141625;
-  --muted:#60657c;
-  --border:rgba(0,0,0,0.08);
-  --shadow: 0 12px 40px rgba(10,12,18,0.12);
+:root {
+  --bg: #0b1220;
+  --panel: #101a2e;
+  --panel2: #0f192b;
+  --text: rgba(255,255,255,0.92);
+  --muted: rgba(255,255,255,0.62);
 
-  --primary:#2b6cff;
-  --primary2:#1f56d5;
-  --danger:#e43b3b;
-  --warn:#e0a100;
-  --ok:#1bbd64;
+  --border: rgba(255,255,255,0.08);
+  --shadow: 0 12px 30px rgba(0,0,0,0.35);
+
+  --primary: #4c7dff;
+  --primary2: rgba(76,125,255,0.15);
+
+  --ok: #37d67a;
+  --ok2: rgba(55,214,122,0.16);
+
+  --warn: #ffc14a;
+  --warn2: rgba(255,193,74,0.16);
+
+  --danger: #ff4d4d;
+  --danger2: rgba(255,77,77,0.14);
+
+  --cardRadius: 16px;
+  --radius: 14px;
 }
 
-*{ box-sizing:border-box; }
+body[data-theme="light"] {
+  --bg: #f2f6ff;
+  --panel: #ffffff;
+  --panel2: #fbfcff;
+  --text: rgba(15,20,30,0.92);
+  --muted: rgba(15,20,30,0.62);
 
-body{
-  margin:0;
+  --border: rgba(10,20,40,0.1);
+  --shadow: 0 12px 30px rgba(20,30,60,0.10);
+
+  --primary2: rgba(76,125,255,0.12);
+  --ok2: rgba(55,214,122,0.14);
+  --warn2: rgba(255,193,74,0.14);
+  --danger2: rgba(255,77,77,0.10);
+}
+
+html, body {
+  height: 100%;
+}
+
+body {
+  margin: 0;
   font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
-  background: var(--bg);
+  background: radial-gradient(1100px 600px at 20% -10%, rgba(76,125,255,0.25), transparent 50%),
+              radial-gradient(900px 540px at 90% 20%, rgba(55,214,122,0.14), transparent 45%),
+              var(--bg);
   color: var(--text);
 }
 
-.app{
-  display:flex;
-  min-height:100vh;
+/* ===========================
+   ✅ Layout
+=========================== */
+.appShell {
+  display: grid;
+  grid-template-columns: 260px 1fr;
+  min-height: 100vh;
 }
 
-/* =========================
-   SIDEBAR
-========================= */
-.sidebar{
-  width: 280px;
-  background: linear-gradient(180deg, var(--panel), var(--panel2));
+.sidebar {
   border-right: 1px solid var(--border);
+  background: linear-gradient(180deg, rgba(255,255,255,0.02), transparent 55%);
   padding: 16px;
-  display:flex;
-  flex-direction:column;
-  gap:14px;
 }
 
-.brand{
-  display:flex;
-  gap:12px;
-  align-items:center;
-  padding:10px;
-  border:1px solid var(--border);
-  border-radius:14px;
-  background: rgba(255,255,255,0.02);
+.main {
+  padding: 18px;
 }
 
-.logo{
-  width:44px;
-  height:44px;
-  display:flex;
-  align-items:center;
-  justify-content:center;
-  border-radius:14px;
-  background: rgba(76,125,255,0.18);
+/* Mobile layout */
+@media (max-width: 940px) {
+  .appShell {
+    grid-template-columns: 1fr;
+  }
+  .sidebar {
+    border-right: none;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    gap: 12px;
+    flex-wrap: wrap;
+    align-items: center;
+  }
+}
+
+/* ===========================
+   ✅ Sidebar / Menu
+=========================== */
+.brand {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 10px 14px;
+}
+
+.brand .logo {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-weight: 700;
+  letter-spacing: 0.2px;
+}
+
+.brand .logo i {
   color: var(--primary);
-  font-size:18px;
 }
 
-.brandTitle{ font-weight:800; letter-spacing:0.2px; }
-.brandSub{ font-size:12px; color: var(--muted); margin-top:2px; }
-
-.sidebarBlock .label{
-  font-size:12px;
-  color: var(--muted);
-  margin-bottom:6px;
+.brandRight {
+  display: flex;
+  align-items: center;
+  gap: 8px;
 }
 
-.menu{
-  display:flex;
-  flex-direction:column;
-  gap:8px;
+.nav {
+  margin-top: 6px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
 }
 
-.menuBtn{
-  width:100%;
-  display:flex;
-  align-items:center;
-  gap:10px;
-  padding:10px 12px;
-  background: transparent;
-  border:1px solid var(--border);
-  color: var(--text);
-  border-radius:12px;
-  cursor:pointer;
-  transition: transform 0.05s ease, background 0.2s ease, border 0.2s ease;
-}
-
-.menuBtn:hover{
-  background: rgba(255,255,255,0.03);
-}
-
-.menuBtn:active{
-  transform: translateY(1px);
-}
-
-.menuBtn.active{
-  border-color: rgba(76,125,255,0.35);
-  background: rgba(76,125,255,0.12);
-}
-
-.menuBtn.hasNotif{
-  border-color: rgba(255,176,32,0.45);
-  box-shadow: 0 0 0 2px rgba(255,176,32,0.12);
-}
-
-.notifDot{
-  width: 8px;
-  height: 8px;
-  border-radius: 999px;
-  background: var(--warn);
-  display: inline-block;
-  margin-left: auto;
-}
-
-.categoryNotif{
-  outline: 2px solid rgba(255,176,32,0.35);
-  border-radius: 10px;
-}
-
-.sidebarFooter{
-  margin-top:auto;
-  display:flex;
-  flex-direction:column;
-  gap:8px;
-}
-
-.debugPanel{
-  margin-top:10px;
-  font-size:12px;
-  color: var(--muted);
-  border: 1px dashed var(--border);
-  padding:10px;
-  border-radius:12px;
-}
-
-/* =========================
-   MAIN
-========================= */
-.main{
-  flex:1;
-  padding:18px;
-}
-
-.view{
-  max-width: 1200px;
-  margin:0 auto;
-}
-
-/* =========================
-   CARDS / FORMS
-========================= */
-.card{
-  background: var(--panel);
-  border:1px solid var(--border);
-  border-radius:16px;
-  padding:16px;
-  box-shadow: var(--shadow);
-}
-
-.authCard{
-  max-width: 720px;
-  margin: 18px auto;
-}
-
-h2{ margin:0 0 6px 0; }
-
-label{
-  font-size:12px;
-  color: var(--muted);
-  display:block;
-  margin: 10px 0 6px;
-}
-
-.input{
-  width:100%;
+.navBtn {
+  width: 100%;
+  padding: 12px 12px;
+  border-radius: 14px;
+  border: 1px solid var(--border);
   background: rgba(255,255,255,0.02);
   color: var(--text);
-  border:1px solid var(--border);
-  border-radius:12px;
-  padding:12px 12px;
-  outline:none;
+  cursor: pointer;
+  transition: 0.15s ease;
+  display: flex;
+  align-items: center;
+  gap: 10px;
 }
 
-.input:focus{
-  border-color: rgba(76,125,255,0.35);
+.navBtn i {
+  width: 18px;
+  text-align: center;
+  color: rgba(255,255,255,0.70);
 }
 
-.textarea{
-  min-height: 120px;
-  resize: vertical;
+body[data-theme="light"] .navBtn i {
+  color: rgba(15,20,30,0.58);
 }
 
-.smallInput{
-  padding:10px 10px;
-  border-radius:10px;
-  font-size: 13px;
+.navBtn:hover {
+  transform: translateY(-1px);
+  border-color: rgba(255,255,255,0.14);
+  background: rgba(255,255,255,0.04);
 }
 
-.passRow{
-  display:flex;
-  gap:10px;
-  align-items:center;
-}
-
-.row{ display:flex; align-items:center; }
-.gap{ gap:10px; }
-.full{ width:100%; }
-.muted{ color: var(--muted); }
-.small{ font-size: 12px; }
-
-.grid2{
-  display:grid;
-  grid-template-columns: 1fr 1fr;
-  gap:12px;
-}
-
-/* =========================
-   BUTTONS
-========================= */
-.btn{
-  border:1px solid var(--border);
-  background: rgba(255,255,255,0.03);
-  color: var(--text);
-  border-radius: 12px;
-  padding: 10px 12px;
-  cursor:pointer;
-  transition: background 0.2s ease, transform 0.05s ease;
-}
-
-.btn:hover{
-  background: rgba(255,255,255,0.06);
-}
-
-.btn:active{
-  transform: translateY(1px);
-}
-
-.btn.primary{
-  background: var(--primary);
-  border-color: rgba(255,255,255,0.12);
-  color: white;
-}
-
-.btn.primary:hover{
+.navBtn.active {
+  border-color: rgba(76,125,255,0.55);
   background: var(--primary2);
 }
 
-.btn.secondary{
-  background: rgba(55,214,122,0.12);
-  border-color: rgba(55,214,122,0.25);
+.navBtn.hasNotif {
+  border-color: rgba(255,193,74,0.6);
+  background: rgba(255,193,74,0.10);
 }
 
-.btn.danger{
-  background: rgba(255,77,77,0.14);
-  border-color: rgba(255,77,77,0.35);
+.notifDot {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  border-radius: 999px;
+  background: var(--warn);
+  box-shadow: 0 0 0 4px rgba(255,193,74,0.12);
+  margin-left: auto;
 }
 
-.btn.ghost{
-  background: transparent;
+/* Role badge + logout */
+.topMeta {
+  margin-top: 10px;
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  flex-wrap: wrap;
 }
 
-.btn.round{
-  width:44px;
-  height:44px;
-  border-radius: 16px;
-  display:flex;
-  align-items:center;
-  justify-content:center;
+.roleBadge {
+  font-size: 12px;
+  padding: 6px 10px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: rgba(255,255,255,0.02);
+  color: var(--muted);
 }
 
-.btn.small{
-  padding:8px 10px;
-  border-radius:10px;
+/* ===========================
+   ✅ Cards / Panels
+=========================== */
+.panel {
+  background: linear-gradient(180deg, rgba(255,255,255,0.02), transparent 60%), var(--panel);
+  border: 1px solid var(--border);
+  border-radius: var(--cardRadius);
+  box-shadow: var(--shadow);
+  padding: 16px;
+}
+
+.panelHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-bottom: 10px;
+}
+
+.panelTitle {
+  font-weight: 700;
+  font-size: 16px;
+}
+
+.muted {
+  color: var(--muted);
+}
+
+.small {
   font-size: 12px;
 }
 
-/* =========================
-   ALERTS
-========================= */
-.alert{
-  margin-top:12px;
-  border:1px solid var(--border);
-  border-radius: 12px;
+.divider {
+  height: 1px;
+  background: var(--border);
+  margin: 14px 0;
+}
+
+.row {
+  display: flex;
+  align-items: center;
+}
+
+.gap {
+  gap: 10px;
+}
+
+.wrap {
+  flex-wrap: wrap;
+}
+
+/* ===========================
+   ✅ Inputs
+=========================== */
+.input, select, textarea {
+  width: 100%;
   padding: 10px 12px;
-  background: rgba(255,255,255,0.03);
-}
-
-.alert.error{
-  border-color: rgba(255,77,77,0.4);
-  background: rgba(255,77,77,0.10);
-}
-
-/* =========================
-   TOPBAR
-========================= */
-.topbar{
-  display:flex;
-  align-items:flex-start;
-  justify-content:space-between;
-  gap:12px;
-  padding: 14px 16px;
-  border-radius: 16px;
-  background: var(--panel);
-  border:1px solid var(--border);
-  box-shadow: var(--shadow);
-}
-
-.title{ font-weight:800; font-size: 18px; }
-.subtitle{ margin-top:3px; font-size: 13px; color: var(--muted); }
-
-.topbarActions{
-  display:flex;
-  gap:10px;
-  flex-wrap:wrap;
-}
-
-/* =========================
-   CHAT
-========================= */
-.messages{
-  margin-top:12px;
-  background: var(--panel);
-  border:1px solid var(--border);
-  border-radius: 16px;
-  padding: 14px;
-  height: calc(100vh - 270px);
-  overflow:auto;
-  box-shadow: var(--shadow);
-}
-
-.msg{
-  display:flex;
-  gap:12px;
-  margin-bottom:12px;
-  align-items:flex-start;
-}
-
-.msg.user{
-  flex-direction: row-reverse;
-}
-
-.avatar{
-  width:36px;
-  height:36px;
-  border-radius: 14px;
-  background: rgba(76,125,255,0.14);
-  color: var(--primary);
-  display:flex;
-  align-items:center;
-  justify-content:center;
-  flex-shrink:0;
-}
-
-.msg.user .avatar{
-  background: rgba(255,255,255,0.08);
-  color: var(--text);
-}
-
-.bubble{
-  max-width: 720px;
-  padding: 12px 12px;
-  border-radius: 16px;
+  border-radius: 12px;
   border: 1px solid var(--border);
   background: rgba(255,255,255,0.02);
-  line-height: 1.4;
-  white-space: pre-wrap;
+  color: var(--text);
+  outline: none;
+  transition: 0.15s ease;
 }
 
-.msg.user .bubble{
-  background: rgba(76,125,255,0.14);
-  border-color: rgba(76,125,255,0.28);
+textarea {
+  min-height: 90px;
+  resize: vertical;
 }
 
-.msgMeta{
-  margin-top:6px;
-  font-size:12px;
-  color: var(--muted);
+.input:focus, select:focus, textarea:focus {
+  border-color: rgba(76,125,255,0.55);
+  box-shadow: 0 0 0 4px rgba(76,125,255,0.12);
 }
 
-.bubbleActions{
-  margin-top:8px;
-  display:flex;
-  gap:8px;
+.smallInput {
+  padding: 8px 10px;
+  border-radius: 10px;
+  font-size: 12px;
 }
 
-.actionBtn{
-  border:1px solid var(--border);
-  background: transparent;
+/* Category notify */
+.categoryNotif {
+  border-color: rgba(255,193,74,0.6) !important;
+  box-shadow: 0 0 0 4px rgba(255,193,74,0.14) !important;
+}
+
+/* ===========================
+   ✅ Buttons
+=========================== */
+.btn {
+  border: 1px solid var(--border);
+  background: rgba(255,255,255,0.02);
+  color: var(--text);
+  padding: 10px 12px;
+  border-radius: 14px;
+  cursor: pointer;
+  transition: 0.15s ease;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  justify-content: center;
+}
+
+.btn:hover {
+  transform: translateY(-1px);
+  border-color: rgba(255,255,255,0.14);
+  background: rgba(255,255,255,0.04);
+}
+
+.btn.primary {
+  border-color: rgba(76,125,255,0.55);
+  background: var(--primary2);
+}
+
+.btn.primary:hover {
+  border-color: rgba(76,125,255,0.75);
+}
+
+.btn.secondary {
+  background: rgba(255,255,255,0.04);
+}
+
+.btn.danger {
+  border-color: rgba(255,77,77,0.55);
+  background: var(--danger2);
+}
+
+.btn.danger:hover {
+  border-color: rgba(255,77,77,0.75);
+}
+
+.btn.small {
+  padding: 7px 10px;
+  border-radius: 12px;
+  font-size: 12px;
+}
+
+.iconBtn {
+  width: 42px;
+  height: 42px;
+  border-radius: 14px;
+  border: 1px solid var(--border);
+  background: rgba(255,255,255,0.02);
+  color: var(--text);
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: 0.15s ease;
+}
+
+.iconBtn:hover {
+  transform: translateY(-1px);
+  background: rgba(255,255,255,0.04);
+}
+
+/* Inline action button (chat bubbles) */
+.actionBtn {
+  border: 1px solid var(--border);
+  background: rgba(255,255,255,0.02);
   color: var(--muted);
   padding: 6px 8px;
-  border-radius: 10px;
-  cursor:pointer;
+  border-radius: 12px;
+  cursor: pointer;
+  font-size: 12px;
+  transition: 0.12s ease;
 }
 
-.actionBtn:hover{
-  background: rgba(255,255,255,0.04);
+.actionBtn:hover {
+  background: rgba(255,255,255,0.05);
   color: var(--text);
 }
 
-.composer{
-  margin-top:12px;
-  display:flex;
-  gap:10px;
-  align-items:center;
-}
-
-.feedbackRow{
-  margin-top:10px;
-  display:flex;
-  align-items:center;
-  gap:10px;
-}
-
-/* =========================
-   SPLIT LAYOUT (Inbox, Tickets)
-========================= */
-.split{
-  margin-top:12px;
-  display:grid;
-  grid-template-columns: 1fr 1.2fr;
-  gap:12px;
-}
-
-.panel{
-  background: var(--panel);
-  border:1px solid var(--border);
-  border-radius:16px;
-  padding:14px;
-  box-shadow: var(--shadow);
-}
-
-.panel.soft{
-  background: rgba(255,255,255,0.02);
-  box-shadow: none;
-}
-
-.panelHead{
-  display:flex;
-  align-items:center;
-  gap:10px;
-  padding-bottom:10px;
-  border-bottom: 1px solid var(--border);
-  margin-bottom:10px;
-}
-
-.divider{
-  height:1px;
-  background: var(--border);
-  margin:12px 0;
-}
-
-/* =========================
-   LIST / ITEMS
-========================= */
-.list{
-  display:flex;
-  flex-direction:column;
-  gap:10px;
-}
-
-.listItem{
-  padding:12px;
-  border:1px solid var(--border);
-  border-radius:14px;
-  cursor:pointer;
-  background: rgba(255,255,255,0.02);
-  transition: background 0.2s ease, border 0.2s ease;
-}
-
-.listItem:hover{
-  background: rgba(255,255,255,0.04);
-}
-
-.listItem.selected{
-  border-color: rgba(76,125,255,0.45);
-  box-shadow: 0 0 0 2px rgba(76,125,255,0.12);
-}
-
-.listItemTitle{
-  display:flex;
-  align-items:center;
-  gap:10px;
-  font-weight:700;
-}
-
-.pill{
-  font-size:12px;
-  padding:3px 8px;
-  border-radius:999px;
-  border:1px solid var(--border);
-  color: var(--muted);
-  font-weight:600;
-}
-
-.pill.admin{
-  color: white;
-  background: rgba(76,125,255,0.25);
-  border-color: rgba(76,125,255,0.45);
-}
-
-/* ✅ SLA pills */
-.pill.ok{
-  color: white;
-  background: rgba(55,214,122,0.18);
-  border-color: rgba(55,214,122,0.35);
-}
-
-.pill.danger{
-  color: white;
-  background: rgba(255,77,77,0.18);
-  border-color: rgba(255,77,77,0.35);
-}
-
-/* =========================
-   TICKET DETAILS
-========================= */
-.ticketDetails{
-  max-height: 48vh;
-  overflow:auto;
-}
-
-.ticketMsg{
-  border:1px solid var(--border);
-  border-radius:14px;
-  padding:10px;
-  margin-bottom:10px;
-  background: rgba(255,255,255,0.02);
-}
-
-.ticketMsgHead{
-  display:flex;
-  justify-content:space-between;
-  color: var(--muted);
-  font-size:12px;
-  margin-bottom:6px;
-}
-
-/* =========================
-   ADMIN TABS
-========================= */
-.tabs{
-  display:flex;
-  gap:10px;
-  margin-top:12px;
-  flex-wrap:wrap;
-}
-
-.tabBtn{
-  border:1px solid var(--border);
-  background: transparent;
-  color: var(--muted);
-  padding:10px 12px;
-  border-radius:12px;
-  cursor:pointer;
-}
-
-.tabBtn.active{
-  color: var(--text);
+/* ===========================
+   ✅ Alerts
+=========================== */
+.alert {
+  padding: 10px 12px;
+  border-radius: 14px;
+  border: 1px solid rgba(76,125,255,0.35);
   background: rgba(76,125,255,0.12);
-  border-color: rgba(76,125,255,0.35);
+  color: rgba(255,255,255,0.92);
 }
 
-.kbGrid{
-  display:grid;
-  grid-template-columns: 1fr 1fr 1fr;
-  gap:12px;
+body[data-theme="light"] .alert {
+  color: rgba(15,20,30,0.86);
 }
 
-.filterBar{
-  display:flex;
-  gap:10px;
-  flex-wrap:wrap;
-  margin-bottom:10px;
+.alert.error {
+  border-color: rgba(255,77,77,0.45);
+  background: rgba(255,77,77,0.14);
 }
 
-/* =========================
-   ✅ INTERNAL NOTES UI
-========================= */
-.noteList{
-  display:flex;
-  flex-direction:column;
-  gap:10px;
+.alert.success {
+  border-color: rgba(55,214,122,0.45);
+  background: rgba(55,214,122,0.14);
 }
 
-.noteItem{
-  border:1px solid var(--border);
+/* ===========================
+   ✅ Pills
+=========================== */
+.pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 10px;
+  border-radius: 999px;
+  font-size: 12px;
+  border: 1px solid var(--border);
   background: rgba(255,255,255,0.02);
-  border-radius:14px;
-  padding:10px;
-}
-
-.noteMeta{
   color: var(--muted);
-  font-size:12px;
-  margin-bottom:6px;
+  margin-left: 8px;
+  white-space: nowrap;
 }
 
-.noteText{
-  white-space: pre-wrap;
-  line-height:1.35;
+.pill.admin {
+  border-color: rgba(76,125,255,0.55);
+  background: rgba(76,125,255,0.12);
+  color: rgba(255,255,255,0.86);
 }
 
-/* =========================
-   ✅ SLA DASHBOARD STYLES
-========================= */
-.slaToolbar{
-  display:flex;
-  gap:10px;
-  flex-wrap:wrap;
-  align-items:center;
+.pill.ok {
+  border-color: rgba(55,214,122,0.55);
+  background: rgba(55,214,122,0.14);
+  color: rgba(255,255,255,0.86);
 }
 
-.slaGrid{
-  display:grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap:12px;
-  margin-top:12px;
+.pill.danger {
+  border-color: rgba(255,77,77,0.55);
+  background: rgba(255,77,77,0.14);
+  color: rgba(255,255,255,0.88);
 }
 
-.slaCard{
-  border:1px solid var(--border);
-  border-radius:16px;
-  padding:14px;
-  background: rgba(255,255,255,0.02);
+/* ===========================
+   ✅ Tables
+=========================== */
+.tableWrap {
+  width: 100%;
+  overflow: auto;
+  border-radius: 14px;
+  border: 1px solid var(--border);
 }
 
-.slaLabel{
-  color: var(--muted);
-  font-size:12px;
-  margin-bottom:8px;
-}
-
-.slaValue{
-  font-size:22px;
-  font-weight:800;
-}
-
-.tableWrap{
-  overflow:auto;
-  border:1px solid var(--border);
-  border-radius:16px;
-  margin-top:12px;
-}
-
-.table{
-  width:100%;
+.table {
+  width: 100%;
   border-collapse: collapse;
-  min-width: 780px;
+  min-width: 820px;
+  background: rgba(255,255,255,0.01);
 }
 
-.table th, .table td{
-  padding:10px 12px;
+.table th, .table td {
+  padding: 10px 12px;
   border-bottom: 1px solid var(--border);
-  text-align:left;
-  font-size:13px;
+  text-align: left;
+  font-size: 13px;
+  white-space: nowrap;
 }
 
-.table th{
-  color: var(--muted);
-  font-weight:700;
+.table th {
+  font-weight: 700;
+  color: rgba(255,255,255,0.78);
   background: rgba(255,255,255,0.02);
 }
 
-/* =========================
-   RESPONSIVE
-========================= */
-@media (max-width: 1100px){
-  .kbGrid{ grid-template-columns:1fr; }
-  .slaGrid{ grid-template-columns:1fr; }
+body[data-theme="light"] .table th {
+  color: rgba(15,20,30,0.70);
 }
 
-@media (max-width: 900px){
-  .app{
-    flex-direction: column;
-  }
+.table tr:hover td {
+  background: rgba(255,255,255,0.02);
+}
 
-  .sidebar{
-    width: 100%;
-    display: flex;
-    position: sticky;
-    top: 0;
-    z-index: 50;
+/* ===========================
+   ✅ List items
+=========================== */
+.listItem {
+  padding: 12px 12px;
+  border-radius: 14px;
+  border: 1px solid var(--border);
+  background: rgba(255,255,255,0.02);
+  cursor: pointer;
+  transition: 0.12s ease;
+  margin-bottom: 10px;
+}
 
-    flex-direction: row;
-    align-items: center;
-    gap: 10px;
+.listItem:hover {
+  transform: translateY(-1px);
+  background: rgba(255,255,255,0.04);
+}
 
-    padding: 10px;
-    border-right: none;
-    border-bottom: 1px solid var(--border);
-    overflow-x: auto;
-  }
+.listItem.selected {
+  border-color: rgba(76,125,255,0.55);
+  background: rgba(76,125,255,0.12);
+}
 
-  .brand{
-    min-width: 210px;
-    flex-shrink: 0;
-  }
+.listItemTitle {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 700;
+}
 
-  .sidebarBlock{
-    min-width: 220px;
-    flex-shrink: 0;
-  }
+/* ===========================
+   ✅ Chat
+=========================== */
+.chatHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-bottom: 12px;
+}
 
-  .menu{
-    flex-direction: row;
-    gap: 8px;
-    flex-shrink: 0;
-  }
+.chatTitle {
+  font-size: 18px;
+  font-weight: 800;
+}
 
-  .menuBtn{
-    white-space: nowrap;
-  }
+.chatSubtitle {
+  color: var(--muted);
+  font-size: 13px;
+}
 
-  .sidebarFooter{
-    flex-direction: row;
-    gap: 8px;
-    margin-top: 0;
-    margin-left: auto;
-    flex-shrink: 0;
-  }
+.messages {
+  height: 52vh;
+  overflow: auto;
+  padding: 10px 8px;
+  border-radius: 14px;
+  border: 1px solid var(--border);
+  background: rgba(255,255,255,0.02);
+}
 
-  .main{
-    padding: 12px;
-  }
+.msg {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  margin-bottom: 12px;
+}
 
-  .messages{
-    height: 60vh;
-  }
+.avatar {
+  width: 38px;
+  height: 38px;
+  border-radius: 14px;
+  display: grid;
+  place-items: center;
+  border: 1px solid var(--border);
+  background: rgba(255,255,255,0.02);
+}
 
-  .grid2{
+.bubble {
+  max-width: 760px;
+  padding: 10px 12px;
+  border-radius: 16px;
+  border: 1px solid var(--border);
+  background: rgba(255,255,255,0.03);
+  line-height: 1.35;
+  white-space: pre-wrap;
+}
+
+.msg.user .bubble {
+  border-color: rgba(76,125,255,0.55);
+  background: rgba(76,125,255,0.10);
+}
+
+.msgMeta {
+  margin-top: 6px;
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.bubbleActions {
+  margin-top: 6px;
+}
+
+/* Chat composer */
+.composer {
+  margin-top: 10px;
+  display: flex;
+  gap: 10px;
+}
+
+.composer .input {
+  flex: 1;
+}
+
+/* ===========================
+   ✅ Ticket messages
+=========================== */
+.ticketMsg {
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  background: rgba(255,255,255,0.02);
+  padding: 10px 12px;
+  margin-bottom: 10px;
+}
+
+.ticketMsg.user {
+  border-color: rgba(76,125,255,0.55);
+  background: rgba(76,125,255,0.10);
+}
+
+.ticketMsg.agent {
+  border-color: rgba(255,193,74,0.45);
+  background: rgba(255,193,74,0.10);
+}
+
+.ticketMsg.ai {
+  border-color: rgba(55,214,122,0.45);
+  background: rgba(55,214,122,0.10);
+}
+
+.ticketMsgHead {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  color: var(--muted);
+  font-size: 12px;
+  margin-bottom: 6px;
+}
+
+.ticketMsgBody {
+  white-space: pre-wrap;
+}
+
+/* ===========================
+   ✅ Internal notes UI
+=========================== */
+.noteList {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.noteItem {
+  border: 1px dashed rgba(255,255,255,0.14);
+  border-radius: 14px;
+  padding: 10px 12px;
+  background: rgba(255,255,255,0.02);
+}
+
+.noteMeta {
+  color: var(--muted);
+  font-size: 12px;
+  margin-bottom: 6px;
+}
+
+.noteText {
+  white-space: pre-wrap;
+}
+
+/* ===========================
+   ✅ SLA Dashboard
+=========================== */
+.slaGrid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 12px;
+}
+
+@media (max-width: 980px) {
+  .slaGrid {
     grid-template-columns: 1fr;
   }
+}
 
-  .split{
-    grid-template-columns: 1fr;
-  }
+.slaCard {
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  padding: 12px;
+  background: rgba(255,255,255,0.02);
+}
+
+.slaLabel {
+  color: var(--muted);
+  font-size: 12px;
+  margin-bottom: 6px;
+}
+
+.slaValue {
+  font-weight: 800;
+  font-size: 22px;
+  letter-spacing: 0.2px;
+}
+
+.slaControls {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  align-items: center;
+}
+
+.slaTrendWrap {
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  background: rgba(255,255,255,0.02);
+  padding: 10px;
+}
+
+#slaTrendCanvas {
+  width: 100%;
+  height: 140px;
+  border-radius: 14px;
+}
+
+/* ===========================
+   ✅ Admin tabs
+=========================== */
+.tabs {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin: 10px 0 12px;
+}
+
+.tabBtn {
+  padding: 9px 12px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: rgba(255,255,255,0.02);
+  cursor: pointer;
+  color: var(--muted);
+  transition: 0.14s ease;
+}
+
+.tabBtn:hover {
+  transform: translateY(-1px);
+  background: rgba(255,255,255,0.04);
+  color: var(--text);
+}
+
+.tabBtn.active {
+  border-color: rgba(76,125,255,0.55);
+  background: rgba(76,125,255,0.12);
+  color: var(--text);
+}
+
+/* ===========================
+   ✅ Debug panel
+=========================== */
+.debugPanel {
+  margin-top: 10px;
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  padding: 12px;
+  background: rgba(255,255,255,0.02);
+}
+
+.debugRow {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  font-size: 12px;
+  padding: 6px 0;
+  border-bottom: 1px solid var(--border);
+}
+
+.debugRow:last-child {
+  border-bottom: none;
+}
+
+/* ===========================
+   ✅ Utility
+=========================== */
+.center {
+  display: grid;
+  place-items: center;
+}
+
+.hidden {
+  display: none !important;
 }

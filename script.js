@@ -14,7 +14,7 @@ const API = {
   MY_TICKETS: `${API_BASE}/my/tickets`,
   MY_TICKET: (id) => `${API_BASE}/my/tickets/${id}`,
 
-  // ✅ NEW: customer reply from My Tickets
+  // ✅ NEW: user can reply from "My tickets"
   MY_TICKET_REPLY: (id) => `${API_BASE}/my/tickets/${id}/reply`,
 
   AUTH_FORGOT: `${API_BASE}/auth/forgot-password`,
@@ -50,14 +50,17 @@ const API = {
   ADMIN_CATEGORIES: `${API_BASE}/admin/categories`,
   ADMIN_CATEGORY_DELETE: (key) => `${API_BASE}/admin/categories/${key}`,
 
-  // ✅ SLA (Admin = all, Agent = own)
+  // ✅ SLA (Admin full, Agent own)
   ADMIN_SLA_OVERVIEW: `${API_BASE}/admin/sla/overview`,
   ADMIN_SLA_TICKETS: `${API_BASE}/admin/sla/tickets`,
   ADMIN_SLA_AGENTS: `${API_BASE}/admin/sla/agents`,
 
-  // ✅ SLA clear
-  ADMIN_SLA_CLEAR_OWN: `${API_BASE}/admin/sla/clear-own`,
-  ADMIN_SLA_CLEAR_ALL: `${API_BASE}/admin/sla/clear-all`,
+  // ✅ NEW SLA features
+  ADMIN_SLA_TREND_WEEKLY: `${API_BASE}/admin/sla/trend/weekly`,
+  ADMIN_SLA_EXPORT_CSV: `${API_BASE}/admin/sla/export/csv`,
+  ADMIN_SLA_COMPARE: `${API_BASE}/admin/sla/compare`,
+  ADMIN_SLA_CLEAR_ALL: `${API_BASE}/admin/sla/clear/all`,
+  ADMIN_SLA_CLEAR_AGENT: (agentId) => `${API_BASE}/admin/sla/clear/agent/${agentId}`,
 
   KB_LIST: (companyId) => `${API_BASE}/kb/list/${companyId}`,
   KB_TEXT: `${API_BASE}/kb/upload-text`,
@@ -83,9 +86,6 @@ let pollInterval = null;
 let lastAdminTicketSnapshot = {};
 let lastMyTicketSnapshot = {};
 let categoryNotifMap = {};
-
-// ✅ new: keep last ticket opened in "My tickets" chat-mode
-let myTicketChatOpenId = null;
 
 /*************************************************
  * ✅ DOM helpers
@@ -125,7 +125,7 @@ function formatDate(d) {
 }
 
 /*************************************************
- * ✅ Internal notes renderer
+ * ✅ Internal notes renderer (ONE UI ONLY)
  *************************************************/
 function renderInternalNotes(notes = []) {
   if (!notes || notes.length === 0) {
@@ -251,9 +251,9 @@ function openView(viewName) {
   show($("chatView"), viewName === "chat");
   show($("myTicketsView"), viewName === "myTickets");
   show($("inboxView"), viewName === "inbox");
+  show($("slaView"), viewName === "sla");
   show($("adminView"), viewName === "admin");
   show($("settingsView"), viewName === "settings");
-  show($("slaView"), viewName === "sla"); // ✅ new SLA view
 }
 
 function setActiveMenu(btnId) {
@@ -261,9 +261,9 @@ function setActiveMenu(btnId) {
     chat: $("openChatView"),
     myTickets: $("openMyTicketsView"),
     inbox: $("openInboxView"),
+    sla: $("openSlaView"),
     admin: $("openAdminView"),
     settings: $("openSettingsView"),
-    sla: $("openSlaView"),
   };
 
   Object.values(map).forEach((b) => b?.classList.remove("active"));
@@ -351,8 +351,8 @@ function applyAuthUI() {
     const isAgent = currentUser.role === "agent";
 
     show(inboxBtn, isAdmin || isAgent);
-    show(adminBtn, isAdmin);
     show(slaBtn, isAdmin || isAgent);
+    show(adminBtn, isAdmin);
 
     openView("chat");
     setActiveMenu("chat");
@@ -431,7 +431,7 @@ async function loadCategories() {
  *************************************************/
 function initAdminTabs() {
   const tabBtns = document.querySelectorAll(".tabBtn");
-  const panels = ["tabUsers", "tabKB", "tabCats"];
+  const panels = ["tabUsers", "tabKB", "tabCats", "tabSLA"];
 
   tabBtns.forEach((btn) => {
     btn.addEventListener("click", async () => {
@@ -444,6 +444,10 @@ function initAdminTabs() {
       if (tab === "tabUsers") await adminLoadUsers();
       if (tab === "tabKB") await kbLoadList();
       if (tab === "tabCats") await catsLoadList();
+      if (tab === "tabSLA") {
+        // Admin tab just points to new SLA view (kept for compatibility)
+        await slaRefreshAll();
+      }
     });
   });
 }
@@ -551,22 +555,26 @@ async function kbUploadPdf() {
 
   if (!file) return setAlert(msg, "Välj en PDF-fil först", true);
 
-  const form = new FormData();
-  form.append("companyId", kbCompany);
-  form.append("file", file);
+  // Your original server.js expects JSON base64 in kb/upload-pdf.
+  // But your old script used FormData (it would fail).
+  // ✅ Fix: read as base64 and send JSON (compatible with your server.js).
+  const base64 = await new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => {
+      const result = String(reader.result || "");
+      const b64 = result.includes(",") ? result.split(",")[1] : result;
+      resolve(b64);
+    };
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+  });
 
   try {
-    const res = await fetch(API.KB_PDF, {
+    const data = await fetchJson(API.KB_PDF, {
       method: "POST",
-      headers: { Authorization: `Bearer ${token}` },
-      body: form,
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+      body: JSON.stringify({ companyId: kbCompany, filename: file.name, base64 }),
     });
-
-    const contentType = res.headers.get("content-type") || "";
-    let data = null;
-
-    if (contentType.includes("application/json")) data = await res.json();
-    if (!res.ok) throw new Error(data?.error || `Fel (${res.status})`);
 
     setAlert(msg, data?.message || "PDF uppladdad ✅");
     if ($("kbPdfFile")) $("kbPdfFile").value = "";
@@ -611,8 +619,8 @@ async function catsLoadList() {
             </div>
 
             <div class="muted small">
-              ${escapeHtml((c.prompt || "").slice(0, 120))}
-              ${(c.prompt || "").length > 120 ? "..." : ""}
+              ${escapeHtml((c.prompt || c.systemPrompt || "").slice(0, 120))}
+              ${(c.prompt || c.systemPrompt || "").length > 120 ? "..." : ""}
             </div>
           </div>
         `;
@@ -649,7 +657,7 @@ async function catsCreateCategory() {
     const data = await fetchJson(API.ADMIN_CATEGORIES, {
       method: "POST",
       headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-      body: JSON.stringify({ key, name, prompt }),
+      body: JSON.stringify({ key, name, systemPrompt: prompt }),
     });
 
     setAlert(msg, data.message || "Kategori skapad ✅");
@@ -888,8 +896,7 @@ async function sendFeedback(type) {
 }
 
 /*************************************************
- * ✅ My Tickets (customer)
- * ✅ NEW: customer can continue conversation inside "My Tickets"
+ * ✅ My Tickets
  *************************************************/
 async function loadMyTickets() {
   const list = $("myTicketsList");
@@ -944,8 +951,6 @@ async function loadMyTicketDetails(id) {
       headers: { Authorization: `Bearer ${token}` },
     });
 
-    myTicketChatOpenId = t._id;
-
     const msgs = (t.messages || []).slice(-80);
     const html = msgs
       .map((m) => {
@@ -964,65 +969,42 @@ async function loadMyTicketDetails(id) {
 
     details.innerHTML = `
       <div class="muted small">
-        <b>ID:</b> ${escapeHtml(t._id)} • 
-        <b>Status:</b> ${escapeHtml(t.status)} • 
-        <b>Kategori:</b> ${escapeHtml(t.companyId)}
+        <b>ID:</b> ${escapeHtml(t._id)} • <b>Status:</b> ${escapeHtml(t.status)} • <b>Kategori:</b> ${escapeHtml(t.companyId)}
       </div>
-
       <div class="divider"></div>
       ${html || `<div class="muted small">Inga meddelanden.</div>`}
-
-      <div class="divider"></div>
-
-      <div>
-        <label>Fortsätt konversationen</label>
-        <textarea id="myTicketReplyText" class="input textarea" placeholder="Skriv ditt svar..."></textarea>
-        <button id="myTicketReplyBtn" class="btn primary full" type="button" style="margin-top:10px;">
-          <i class="fa-solid fa-paper-plane"></i> Skicka svar
-        </button>
-        <div id="myTicketReplyMsg" class="alert" style="display:none;"></div>
-      </div>
     `;
-
-    // bind reply btn
-    const replyBtn = $("myTicketReplyBtn");
-    if (replyBtn) {
-      replyBtn.addEventListener("click", async () => {
-        await myTicketSendReply();
-      });
-    }
   } catch {
     details.innerHTML = `<div class="muted small">Kunde inte ladda ticket.</div>`;
   }
 }
 
+/*************************************************
+ * ✅ NEW: Customer reply in "My tickets"
+ *************************************************/
 async function myTicketSendReply() {
   const msgEl = $("myTicketReplyMsg");
   setAlert(msgEl, "");
 
-  if (!myTicketChatOpenId) return setAlert(msgEl, "Ticket saknas.", true);
+  if (!mySelectedTicketId) return setAlert(msgEl, "Välj ett ärende först.", true);
 
   const content = $("myTicketReplyText")?.value?.trim();
   if (!content) return setAlert(msgEl, "Skriv ett meddelande först.", true);
 
   try {
-    const data = await fetchJson(API.MY_TICKET_REPLY(myTicketChatOpenId), {
+    const data = await fetchJson(API.MY_TICKET_REPLY(mySelectedTicketId), {
       method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${token}`,
-      },
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
       body: JSON.stringify({ content }),
     });
 
-    setAlert(msgEl, data.message || "Svar skickat ✅");
     $("myTicketReplyText").value = "";
+    setAlert(msgEl, data.message || "Skickat ✅");
 
-    // refresh UI
-    await loadMyTicketDetails(myTicketChatOpenId);
     await loadMyTickets();
+    await loadMyTicketDetails(mySelectedTicketId);
   } catch (e) {
-    setAlert(msgEl, e.message || "Fel vid svar", true);
+    setAlert(msgEl, e.message || "Fel vid skickning", true);
   }
 }
 
@@ -1175,6 +1157,20 @@ async function adminLoadUsers() {
         });
     }
 
+    // ✅ Also fill SLA clear agent dropdown (admin only) when we have users
+    const clearSel = $("slaClearAgentSelect");
+    if (clearSel) {
+      clearSel.innerHTML = `<option value="">Välj agent att radera...</option>`;
+      users
+        .filter((u) => ["admin", "agent"].includes(u.role))
+        .forEach((u) => {
+          const opt = document.createElement("option");
+          opt.value = u._id;
+          opt.textContent = `${u.username} (${u.role})`;
+          clearSel.appendChild(opt);
+        });
+    }
+
     users.forEach((u) => {
       const div = document.createElement("div");
       div.className = "listItem";
@@ -1197,15 +1193,11 @@ async function adminLoadUsers() {
             <option value="admin" ${u.role === "admin" ? "selected" : ""}>admin</option>
           </select>
 
-          <button class="btn secondary small" data-action="saveRole" ${
-            isSelf ? "disabled style='opacity:.6;cursor:not-allowed;'" : ""
-          }>
+          <button class="btn secondary small" data-action="saveRole" ${isSelf ? "disabled style='opacity:.6;cursor:not-allowed;'" : ""}>
             <i class="fa-solid fa-floppy-disk"></i> Spara
           </button>
 
-          <button class="btn danger small" data-action="deleteUser" ${
-            isSelf ? "disabled style='opacity:.6;cursor:not-allowed;'" : ""
-          }>
+          <button class="btn danger small" data-action="deleteUser" ${isSelf ? "disabled style='opacity:.6;cursor:not-allowed;'" : ""}>
             <i class="fa-solid fa-trash"></i> Ta bort
           </button>
         </div>
@@ -1366,6 +1358,7 @@ async function inboxLoadTicketDetails(id) {
         <b>ID:</b> ${escapeHtml(t._id)} • <b>Kategori:</b> ${escapeHtml(t.companyId)}
         • <b>Status:</b> ${escapeHtml(t.status)} • <b>Prioritet:</b> ${escapeHtml(t.priority)}
       </div>
+
       <div class="divider"></div>
       ${html || `<div class="muted small">Inga meddelanden.</div>`}
     `;
@@ -1464,7 +1457,7 @@ async function inboxSaveInternalNote() {
   try {
     await fetchJson(API.ADMIN_TICKET_NOTE(inboxSelectedTicketId), {
       method: "POST",
-      headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+     headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
       body: JSON.stringify({ content }),
     });
 
@@ -1541,6 +1534,7 @@ async function inboxDeleteTicket() {
     if ($("ticketDetails")) {
       $("ticketDetails").innerHTML = `<div class="muted small">Välj en ticket.</div>`;
     }
+
     if ($("internalNotesList")) $("internalNotesList").innerHTML = `<div class="muted small">Inga notes ännu.</div>`;
 
     await inboxLoadTickets();
@@ -1772,7 +1766,6 @@ function logout() {
 
   inboxSelectedTicketId = null;
   mySelectedTicketId = null;
-  myTicketChatOpenId = null;
 
   stopPolling();
   clearChat();
@@ -1780,7 +1773,7 @@ function logout() {
 }
 
 /*************************************************
- * ✅ SLA Dashboard
+ * ✅ SLA Dashboard helpers (NEW)
  *************************************************/
 function msToHuman(ms) {
   if (ms == null) return "-";
@@ -1795,11 +1788,107 @@ function msToHuman(ms) {
   return `${s}s`;
 }
 
-function pctText(n) {
+function pct(n) {
   if (n == null) return "-";
   return `${n}%`;
 }
 
+// ✅ small stats helpers
+function median(arr) {
+  const a = (arr || []).filter((x) => typeof x === "number" && !isNaN(x)).slice().sort((x, y) => x - y);
+  if (!a.length) return null;
+  const mid = Math.floor(a.length / 2);
+  if (a.length % 2 === 0) return Math.round((a[mid - 1] + a[mid]) / 2);
+  return a[mid];
+}
+
+/*************************************************
+ * ✅ SLA: Trend graph (canvas)
+ *************************************************/
+function drawSlaTrend(canvas, rows = []) {
+  if (!canvas) return;
+  const ctx = canvas.getContext("2d");
+  if (!ctx) return;
+
+  const w = canvas.width = canvas.clientWidth || 800;
+  const h = canvas.height = canvas.height || 120;
+
+  ctx.clearRect(0, 0, w, h);
+
+  if (!rows.length) {
+    ctx.fillStyle = "rgba(255,255,255,0.6)";
+    ctx.font = "12px system-ui";
+    ctx.fillText("Ingen trend-data i valt intervall.", 12, 20);
+    return;
+  }
+
+  const pad = 22;
+  const maxY = 100;
+  const minY = 0;
+
+  // axes
+  ctx.strokeStyle = "rgba(255,255,255,0.08)";
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  ctx.moveTo(pad, pad);
+  ctx.lineTo(pad, h - pad);
+  ctx.lineTo(w - pad, h - pad);
+  ctx.stroke();
+
+  function yScale(v) {
+    const pctVal = Math.max(minY, Math.min(maxY, Number(v || 0)));
+    const usable = (h - pad) - pad;
+    return (h - pad) - (pctVal / 100) * usable;
+  }
+
+  function xScale(i) {
+    const usable = (w - pad) - pad;
+    if (rows.length === 1) return pad + usable / 2;
+    return pad + (i / (rows.length - 1)) * usable;
+  }
+
+  // firstResponse line
+  ctx.strokeStyle = "rgba(76,125,255,0.9)";
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  rows.forEach((r, i) => {
+    const x = xScale(i);
+    const y = yScale(r.firstCompliancePct ?? 0);
+    if (i === 0) ctx.moveTo(x, y);
+    else ctx.lineTo(x, y);
+  });
+  ctx.stroke();
+
+  // resolution line
+  ctx.strokeStyle = "rgba(55,214,122,0.9)";
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  rows.forEach((r, i) => {
+    const x = xScale(i);
+    const y = yScale(r.resolutionCompliancePct ?? 0);
+    if (i === 0) ctx.moveTo(x, y);
+    else ctx.lineTo(x, y);
+  });
+  ctx.stroke();
+
+  // labels
+  ctx.fillStyle = "rgba(255,255,255,0.75)";
+  ctx.font = "12px system-ui";
+  ctx.fillText("First", pad + 2, pad - 6);
+  ctx.fillText("Res", pad + 48, pad - 6);
+
+  // x labels (first/last)
+  ctx.fillStyle = "rgba(255,255,255,0.55)";
+  const first = rows[0]?.week || "";
+  const last = rows[rows.length - 1]?.week || "";
+  ctx.fillText(String(first), pad, h - 6);
+  ctx.fillText(String(last), w - pad - 70, h - 6);
+}
+
+/*************************************************
+ * ✅ SLA Load: Overview
+ * Adds median (server returns it), fallback compute from tickets if missing.
+ *************************************************/
 async function slaLoadOverview(days = 30) {
   const box = $("slaOverviewBox");
   if (!box) return;
@@ -1814,6 +1903,9 @@ async function slaLoadOverview(days = 30) {
     const firstAvg = msToHuman(data?.firstResponse?.avgMs);
     const resAvg = msToHuman(data?.resolution?.avgMs);
 
+    const firstMed = msToHuman(data?.firstResponse?.medianMs);
+    const resMed = msToHuman(data?.resolution?.medianMs);
+
     box.innerHTML = `
       <div class="slaGrid">
         <div class="slaCard">
@@ -1826,7 +1918,7 @@ async function slaLoadOverview(days = 30) {
           <div class="slaLabel">First response</div>
           <div class="slaValue">${escapeHtml(firstAvg)}</div>
           <div class="muted small">
-            Compliance: <b>${escapeHtml(pctText(data.firstResponse?.compliancePct))}</b> • Breaches: <b>${escapeHtml(String(data.firstResponse?.breaches ?? 0))}</b>
+            Median: <b>${escapeHtml(firstMed)}</b> • Compliance: <b>${escapeHtml(pct(data.firstResponse?.compliancePct))}</b> • Breaches: <b>${escapeHtml(String(data.firstResponse?.breaches ?? 0))}</b>
           </div>
         </div>
 
@@ -1834,7 +1926,7 @@ async function slaLoadOverview(days = 30) {
           <div class="slaLabel">Resolution</div>
           <div class="slaValue">${escapeHtml(resAvg)}</div>
           <div class="muted small">
-            Compliance: <b>${escapeHtml(pctText(data.resolution?.compliancePct))}</b> • Breaches: <b>${escapeHtml(String(data.resolution?.breaches ?? 0))}</b>
+            Median: <b>${escapeHtml(resMed)}</b> • Compliance: <b>${escapeHtml(pct(data.resolution?.compliancePct))}</b> • Breaches: <b>${escapeHtml(String(data.resolution?.breaches ?? 0))}</b>
           </div>
         </div>
       </div>
@@ -1844,6 +1936,10 @@ async function slaLoadOverview(days = 30) {
   }
 }
 
+/*************************************************
+ * ✅ SLA Load: Agents
+ * Adds Pending per agent + median (first/res)
+ *************************************************/
 async function slaLoadAgents(days = 30) {
   const box = $("slaAgentsBox");
   if (!box) return;
@@ -1869,9 +1965,12 @@ async function slaLoadAgents(days = 30) {
             <tr>
               <th>Agent</th>
               <th>Tickets</th>
+              <th>Pending</th>
               <th>First response (avg)</th>
+              <th>First response (median)</th>
               <th>First comp.</th>
               <th>Resolution (avg)</th>
+              <th>Resolution (median)</th>
               <th>Res comp.</th>
             </tr>
           </thead>
@@ -1882,10 +1981,13 @@ async function slaLoadAgents(days = 30) {
                   <tr>
                     <td>${escapeHtml(r.username)} <span class="muted small">(${escapeHtml(r.role)})</span></td>
                     <td>${escapeHtml(String(r.tickets ?? 0))}</td>
+                    <td><b>${escapeHtml(String(r.pending ?? 0))}</b></td>
                     <td>${escapeHtml(msToHuman(r.firstResponse?.avgMs))}</td>
-                    <td><b>${escapeHtml(pctText(r.firstResponse?.compliancePct))}</b></td>
+                    <td>${escapeHtml(msToHuman(r.firstResponse?.medianMs))}</td>
+                    <td><b>${escapeHtml(pct(r.firstResponse?.compliancePct))}</b></td>
                     <td>${escapeHtml(msToHuman(r.resolution?.avgMs))}</td>
-                    <td><b>${escapeHtml(pctText(r.resolution?.compliancePct))}</b></td>
+                    <td>${escapeHtml(msToHuman(r.resolution?.medianMs))}</td>
+                    <td><b>${escapeHtml(pct(r.resolution?.compliancePct))}</b></td>
                   </tr>
                 `;
               })
@@ -1899,21 +2001,72 @@ async function slaLoadAgents(days = 30) {
   }
 }
 
+/*************************************************
+ * ✅ SLA Load: Tickets (with breached filter + sorting)
+ *************************************************/
 async function slaLoadTickets(days = 30) {
   const box = $("slaTicketsBox");
   if (!box) return;
 
   box.innerHTML = `<div class="muted small">Laddar tickets SLA…</div>`;
 
+  const breachedFilter = $("slaBreachedFilter")?.value || "";
+  const breachedType = $("slaBreachedTypeFilter")?.value || "";
+  const sort = $("slaSortSelect")?.value || "newest";
+
   try {
     const data = await fetchJson(`${API.ADMIN_SLA_TICKETS}?days=${encodeURIComponent(days)}`, {
       headers: { Authorization: `Bearer ${token}` },
     });
 
-    const rows = data.rows || [];
+    let rows = data.rows || [];
+
+    // ✅ filter breached
+    rows = rows.filter((r) => {
+      const s = r.sla || {};
+      const b1 = !!s.breachedFirstResponse;
+      const b2 = !!s.breachedResolution;
+
+      const anyBreached = b1 || b2;
+      const allOk = !b1 && !b2;
+
+      if (breachedFilter === "breachedOnly" && !anyBreached) return false;
+      if (breachedFilter === "okOnly" && !allOk) return false;
+
+      if (breachedType === "first" && !b1) return false;
+      if (breachedType === "resolution" && !b2) return false;
+
+      return true;
+    });
+
+    // ✅ sorting
+    rows.sort((a, b) => {
+      const ta = new Date(a.createdAt).getTime();
+      const tb = new Date(b.createdAt).getTime();
+
+      if (sort === "oldest") return ta - tb;
+      if (sort === "newest") return tb - ta;
+
+      if (sort === "worstFirst") {
+        const sa = a.sla || {};
+        const sb = b.sla || {};
+        const wa =
+          (sa.breachedFirstResponse ? 1 : 0) +
+          (sa.breachedResolution ? 1 : 0) +
+          (sa.breachedResolution ? 0.1 : 0);
+        const wb =
+          (sb.breachedFirstResponse ? 1 : 0) +
+          (sb.breachedResolution ? 1 : 0) +
+          (sb.breachedResolution ? 0.1 : 0);
+        if (wb !== wa) return wb - wa;
+        return tb - ta;
+      }
+
+      return tb - ta;
+    });
 
     if (!rows.length) {
-      box.innerHTML = `<div class="muted small">Inga tickets i valt intervall.</div>`;
+      box.innerHTML = `<div class="muted small">Inga tickets i valt filter/intervall.</div>`;
       return;
     }
 
@@ -1969,111 +2122,167 @@ async function slaLoadTickets(days = 30) {
   }
 }
 
-async function slaRefreshAll() {
-  const days = Number($("slaDaysSelect")?.value || 30);
-  await slaLoadOverview(days);
-  await slaLoadAgents(days);
-  await slaLoadTickets(days);
-}
-
-/**
- * ✅ Compare Period A vs Period B
- * Example: 7 days vs 30 days
- */
-async function slaComparePeriods() {
-  const a = Number($("slaCompareDaysA")?.value || 7);
-  const b = Number($("slaCompareDaysB")?.value || 30);
-
-  const box = $("slaCompareBox");
-  if (!box) return;
-
-  box.innerHTML = `<div class="muted small">Laddar jämförelse…</div>`;
+/*************************************************
+ * ✅ SLA: Trend Weekly loader
+ *************************************************/
+async function slaLoadTrendWeekly(days = 30) {
+  const canvas = $("slaTrendCanvas");
+  if (!canvas) return;
 
   try {
-    const dataA = await fetchJson(`${API.ADMIN_SLA_OVERVIEW}?days=${encodeURIComponent(a)}`, {
+    const data = await fetchJson(`${API.ADMIN_SLA_TREND_WEEKLY}?days=${encodeURIComponent(days)}`, {
       headers: { Authorization: `Bearer ${token}` },
     });
 
-    const dataB = await fetchJson(`${API.ADMIN_SLA_OVERVIEW}?days=${encodeURIComponent(b)}`, {
-      headers: { Authorization: `Bearer ${token}` },
-    });
-
-    box.innerHTML = `
-      <div class="slaCompareGrid">
-        <div class="slaCard">
-          <div class="slaLabel">Period A (senaste ${a} dagar)</div>
-          <div class="slaValue">${escapeHtml(String(dataA.totalTickets ?? 0))} tickets</div>
-          <div class="muted small">
-            First: <b>${escapeHtml(msToHuman(dataA.firstResponse?.avgMs))}</b> •
-            Res: <b>${escapeHtml(msToHuman(dataA.resolution?.avgMs))}</b>
-          </div>
-          <div class="muted small">
-            First comp: <b>${escapeHtml(pctText(dataA.firstResponse?.compliancePct))}</b> •
-            Res comp: <b>${escapeHtml(pctText(dataA.resolution?.compliancePct))}</b>
-          </div>
-        </div>
-
-        <div class="slaCard">
-          <div class="slaLabel">Period B (senaste ${b} dagar)</div>
-          <div class="slaValue">${escapeHtml(String(dataB.totalTickets ?? 0))} tickets</div>
-          <div class="muted small">
-            First: <b>${escapeHtml(msToHuman(dataB.firstResponse?.avgMs))}</b> •
-            Res: <b>${escapeHtml(msToHuman(dataB.resolution?.avgMs))}</b>
-          </div>
-          <div class="muted small">
-            First comp: <b>${escapeHtml(pctText(dataB.firstResponse?.compliancePct))}</b> •
-            Res comp: <b>${escapeHtml(pctText(dataB.resolution?.compliancePct))}</b>
-          </div>
-        </div>
-      </div>
-    `;
+    drawSlaTrend(canvas, data.rows || []);
   } catch (e) {
-    box.innerHTML = `<div class="alert error">Jämförelse misslyckades: ${escapeHtml(e.message || "Fel")}</div>`;
+    // draw error text
+    drawSlaTrend(canvas, []);
+    console.warn("sla trend failed:", e?.message || e);
   }
 }
 
 /*************************************************
- * ✅ SLA CLEAR BUTTONS
+ * ✅ SLA: Compare periods A/B
  *************************************************/
-async function slaClearOwn() {
-  const ok = confirm("Vill du rensa DIN SLA-statistik?");
-  if (!ok) return;
+async function slaCompare() {
+  const box = $("slaCompareBox");
+  if (!box) return;
 
-  const msg = $("slaMsg");
-  setAlert(msg, "");
+  const a = Number($("slaCompareA")?.value || 30);
+  const b = Number($("slaCompareB")?.value || 7);
+
+  box.innerHTML = `<div class="muted small">Jämför…</div>`;
 
   try {
-    const data = await fetchJson(API.ADMIN_SLA_CLEAR_OWN, {
-      method: "POST",
+    const data = await fetchJson(`${API.ADMIN_SLA_COMPARE}?a=${encodeURIComponent(a)}&b=${encodeURIComponent(b)}`, {
       headers: { Authorization: `Bearer ${token}` },
     });
 
-    setAlert(msg, data.message || "Din statistik rensades ✅");
-    await slaRefreshAll();
-    await slaComparePeriods();
+    const A = data.a || {};
+    const B = data.b || {};
+
+    box.innerHTML = `
+      <div class="tableWrap">
+        <table class="table" style="min-width:640px;">
+          <thead>
+            <tr>
+              <th></th>
+              <th>Period A (${escapeHtml(String(A.rangeDays || a))} dagar)</th>
+              <th>Period B (${escapeHtml(String(B.rangeDays || b))} dagar)</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><b>Tickets</b></td>
+              <td>${escapeHtml(String(A.totalTickets ?? "-"))}</td>
+              <td>${escapeHtml(String(B.totalTickets ?? "-"))}</td>
+            </tr>
+            <tr>
+              <td><b>First avg</b></td>
+              <td>${escapeHtml(msToHuman(A.firstResponse?.avgMs))}</td>
+              <td>${escapeHtml(msToHuman(B.firstResponse?.avgMs))}</td>
+            </tr>
+            <tr>
+              <td><b>First median</b></td>
+              <td>${escapeHtml(msToHuman(A.firstResponse?.medianMs))}</td>
+              <td>${escapeHtml(msToHuman(B.firstResponse?.medianMs))}</td>
+            </tr>
+            <tr>
+              <td><b>First compliance</b></td>
+              <td><b>${escapeHtml(pct(A.firstResponse?.compliancePct))}</b></td>
+              <td><b>${escapeHtml(pct(B.firstResponse?.compliancePct))}</b></td>
+            </tr>
+
+            <tr>
+              <td><b>Res avg</b></td>
+              <td>${escapeHtml(msToHuman(A.resolution?.avgMs))}</td>
+              <td>${escapeHtml(msToHuman(B.resolution?.avgMs))}</td>
+            </tr>
+            <tr>
+              <td><b>Res median</b></td>
+              <td>${escapeHtml(msToHuman(A.resolution?.medianMs))}</td>
+              <td>${escapeHtml(msToHuman(B.resolution?.medianMs))}</td>
+            </tr>
+            <tr>
+              <td><b>Res compliance</b></td>
+              <td><b>${escapeHtml(pct(A.resolution?.compliancePct))}</b></td>
+              <td><b>${escapeHtml(pct(B.resolution?.compliancePct))}</b></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    `;
   } catch (e) {
-    setAlert(msg, e.message || "Fel vid rensning", true);
+    box.innerHTML = `<div class="alert error">Compare failed: ${escapeHtml(e.message || "Fel")}</div>`;
   }
 }
 
-async function slaClearAll() {
-  const ok = confirm("Vill du rensa ALL SLA-statistik? (ADMIN)");
-  if (!ok) return;
+/*************************************************
+ * ✅ SLA: Export CSV
+ *************************************************/
+function slaExportCsv() {
+  const days = Number($("slaDaysSelect")?.value || 30);
+  window.open(`${API.ADMIN_SLA_EXPORT_CSV}?days=${encodeURIComponent(days)}`, "_blank");
+}
 
-  const msg = $("slaMsg");
-  setAlert(msg, "");
+/*************************************************
+ * ✅ SLA: Clear stats (Admin only)
+ *************************************************/
+async function slaClearAllStats() {
+  if (currentUser?.role !== "admin") return alert("Admin krävs.");
+
+  const ok = confirm("Vill du radera ALL SLA-statistik? (påverkar inte tickets)");
+  if (!ok) return;
 
   try {
     const data = await fetchJson(API.ADMIN_SLA_CLEAR_ALL, {
       method: "POST",
       headers: { Authorization: `Bearer ${token}` },
     });
-
-    setAlert(msg, data.message || "ALL statistik rensades ✅");
+    alert(data.message || "Rensat ✅");
     await slaRefreshAll();
-    await slaComparePeriods();
   } catch (e) {
-    setAlert(msg, e.message || "Fel vid rensning", true);
+    alert(e.message || "Fel vid rensning");
+  }
+}
+
+async function slaClearAgentStats() {
+  if (currentUser?.role !== "admin") return alert("Admin krävs.");
+
+  const agentId = $("slaClearAgentSelect")?.value || "";
+  if (!agentId) return alert("Välj en agent.");
+
+  const ok = confirm("Vill du radera SLA-statistik för denna agent? (påverkar inte tickets)");
+  if (!ok) return;
+
+  try {
+    const data = await fetchJson(API.ADMIN_SLA_CLEAR_AGENT(agentId), {
+      method: "POST",
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    alert(data.message || "Rensat ✅");
+    await slaRefreshAll();
+  } catch (e) {
+    alert(e.message || "Fel vid rensning");
+  }
+}
+
+/*************************************************
+ * ✅ SLA: Refresh All
+ *************************************************/
+async function slaRefreshAll() {
+  const days = Number($("slaDaysSelect")?.value || 30);
+
+  await slaLoadOverview(days);
+  await slaLoadAgents(days);
+  await slaLoadTickets(days);
+  await slaLoadTrendWeekly(days);
+
+  // Hide admin-only controls if not admin
+  const adminOnlyPanel = $("slaClearAllBtn")?.closest(".panel");
+  if (adminOnlyPanel) {
+    show(adminOnlyPanel, currentUser?.role === "admin");
   }
 }
 
@@ -2159,6 +2368,14 @@ async function init() {
       await adminLoadUsers();
     });
 
+    // ✅ SLA view
+    onClick("openSlaView", async () => {
+      setActiveMenu("sla");
+      openView("sla");
+      await adminLoadUsers(); // needed for clear-agent dropdown
+      await slaRefreshAll();
+    });
+
     onClick("openAdminView", async () => {
       setActiveMenu("admin");
       openView("admin");
@@ -2168,14 +2385,6 @@ async function init() {
     onClick("openSettingsView", () => {
       setActiveMenu("settings");
       openView("settings");
-    });
-
-    // ✅ SLA View
-    onClick("openSlaView", async () => {
-      setActiveMenu("sla");
-      openView("sla");
-      await slaRefreshAll();
-      await slaComparePeriods();
     });
 
     // Category select
@@ -2226,22 +2435,25 @@ async function init() {
     onClick("catsRefreshBtn", catsLoadList);
     onClick("createCatBtn", catsCreateCategory);
 
-    // ✅ SLA actions
-    onClick("slaRefreshBtn", async () => {
-      await slaRefreshAll();
-      await slaComparePeriods();
-    });
-
-    onChange("slaDaysSelect", async () => {
-      await slaRefreshAll();
-    });
-
-    onClick("slaCompareBtn", slaComparePeriods);
-    onClick("slaClearOwnBtn", slaClearOwn);
-    onClick("slaClearAllBtn", slaClearAll);
-
-    // ✅ My tickets refresh
+    // ✅ My tickets refresh button
     onClick("myTicketsRefreshBtn", loadMyTickets);
+
+    // ✅ My ticket reply (continue conversation)
+    onClick("myTicketReplyBtn", myTicketSendReply);
+
+    // ✅ SLA bindings
+    onClick("slaRefreshBtn", slaRefreshAll);
+    onChange("slaDaysSelect", slaRefreshAll);
+
+    onChange("slaBreachedFilter", slaRefreshAll);
+    onChange("slaBreachedTypeFilter", slaRefreshAll);
+    onChange("slaSortSelect", slaRefreshAll);
+
+    onClick("slaExportCsvBtn", slaExportCsv);
+    onClick("slaCompareBtn", slaCompare);
+
+    onClick("slaClearAllBtn", slaClearAllStats);
+    onClick("slaClearAgentBtn", slaClearAgentStats);
 
     if (token && currentUser) startPolling();
   } catch (err) {
