@@ -13,6 +13,7 @@ const API = {
 
   MY_TICKETS: `${API_BASE}/my/tickets`,
   MY_TICKET: (id) => `${API_BASE}/my/tickets/${id}`,
+  MY_TICKET_REPLY: (id) => `${API_BASE}/my/tickets/${id}/reply`, // ✅ new
 
   AUTH_FORGOT: `${API_BASE}/auth/forgot-password`,
   AUTH_RESET: `${API_BASE}/auth/reset-password`,
@@ -47,10 +48,14 @@ const API = {
   ADMIN_CATEGORIES: `${API_BASE}/admin/categories`,
   ADMIN_CATEGORY_DELETE: (key) => `${API_BASE}/admin/categories/${key}`,
 
-  // ✅ SLA (Admin full, Agent own)
+  // ✅ SLA (Admin = allt, Agent = egna via backend)
   ADMIN_SLA_OVERVIEW: `${API_BASE}/admin/sla/overview`,
   ADMIN_SLA_TICKETS: `${API_BASE}/admin/sla/tickets`,
   ADMIN_SLA_AGENTS: `${API_BASE}/admin/sla/agents`,
+
+  // ✅ SLA delete
+  ADMIN_SLA_CLEAR_OWN: `${API_BASE}/admin/sla/clear-own`,
+  ADMIN_SLA_CLEAR_ALL: `${API_BASE}/admin/sla/clear-all`,
 
   KB_LIST: (companyId) => `${API_BASE}/kb/list/${companyId}`,
   KB_TEXT: `${API_BASE}/kb/upload-text`,
@@ -76,6 +81,9 @@ let pollInterval = null;
 let lastAdminTicketSnapshot = {};
 let lastMyTicketSnapshot = {};
 let categoryNotifMap = {};
+
+// ✅ My ticket "continue chat"
+let myTicketChatId = null;
 
 /*************************************************
  * ✅ DOM helpers
@@ -241,9 +249,9 @@ function openView(viewName) {
   show($("chatView"), viewName === "chat");
   show($("myTicketsView"), viewName === "myTickets");
   show($("inboxView"), viewName === "inbox");
-  show($("slaView"), viewName === "sla");
   show($("adminView"), viewName === "admin");
   show($("settingsView"), viewName === "settings");
+  show($("slaView"), viewName === "sla"); // ✅ new
 }
 
 function setActiveMenu(btnId) {
@@ -251,9 +259,9 @@ function setActiveMenu(btnId) {
     chat: $("openChatView"),
     myTickets: $("openMyTicketsView"),
     inbox: $("openInboxView"),
-    sla: $("openSlaView"),
     admin: $("openAdminView"),
     settings: $("openSettingsView"),
+    sla: $("openSlaView"), // ✅ new
   };
 
   Object.values(map).forEach((b) => b?.classList.remove("active"));
@@ -341,8 +349,10 @@ function applyAuthUI() {
     const isAgent = currentUser.role === "agent";
 
     show(inboxBtn, isAdmin || isAgent);
-    show(slaBtn, isAdmin || isAgent);
     show(adminBtn, isAdmin);
+
+    // ✅ SLA visible for admin + agent
+    show(slaBtn, isAdmin || isAgent);
 
     openView("chat");
     setActiveMenu("chat");
@@ -421,7 +431,7 @@ async function loadCategories() {
  *************************************************/
 function initAdminTabs() {
   const tabBtns = document.querySelectorAll(".tabBtn");
-  const panels = ["tabUsers", "tabKB", "tabCats", "tabSLA"];
+  const panels = ["tabUsers", "tabKB", "tabCats"];
 
   tabBtns.forEach((btn) => {
     btn.addEventListener("click", async () => {
@@ -434,11 +444,9 @@ function initAdminTabs() {
       if (tab === "tabUsers") await adminLoadUsers();
       if (tab === "tabKB") await kbLoadList();
       if (tab === "tabCats") await catsLoadList();
-      if (tab === "tabSLA") await slaRefreshAll(); // ✅ NY
     });
   });
 }
-
 
 /*************************************************
  * ✅ Knowledge Base (KB)
@@ -611,7 +619,6 @@ async function catsLoadList() {
       })
       .join("");
 
-    // ✅ bind delete buttons
     list.querySelectorAll("[data-del-cat]").forEach((btn) => {
       btn.addEventListener("click", async (e) => {
         e.stopPropagation();
@@ -902,7 +909,7 @@ async function loadMyTickets() {
 
     tickets.forEach((t) => {
       const div = document.createElement("div");
-      div.className = "listItem";
+      div.className = `listItem ${mySelectedTicketId === t._id ? "selected" : ""}`;
       div.innerHTML = `
         <div class="listItemTitle">
           ${escapeHtml(t.title || "Ärende")}
@@ -914,6 +921,7 @@ async function loadMyTickets() {
       div.addEventListener("click", async () => {
         mySelectedTicketId = t._id;
         await loadMyTicketDetails(t._id);
+        await loadMyTickets();
       });
 
       list.appendChild(div);
@@ -929,6 +937,7 @@ async function loadMyTicketDetails(id) {
   if (!details) return;
 
   details.innerHTML = `<div class="muted small">Laddar…</div>`;
+  myTicketChatId = id;
 
   try {
     const t = await fetchJson(API.MY_TICKET(id), {
@@ -940,14 +949,14 @@ async function loadMyTicketDetails(id) {
       .map((m) => {
         const label = m.role === "user" ? "Du" : m.role === "agent" ? "Agent" : "AI";
         return `
-        <div class="ticketMsg ${escapeHtml(m.role)}">
-          <div class="ticketMsgHead">
-            <b>${label}</b>
-            <span>${escapeHtml(formatDate(m.timestamp))}</span>
+          <div class="ticketMsg ${escapeHtml(m.role)}">
+            <div class="ticketMsgHead">
+              <b>${label}</b>
+              <span>${escapeHtml(formatDate(m.timestamp))}</span>
+            </div>
+            <div class="ticketMsgBody">${escapeHtml(m.content)}</div>
           </div>
-          <div class="ticketMsgBody">${escapeHtml(m.content)}</div>
-        </div>
-      `;
+        `;
       })
       .join("");
 
@@ -955,11 +964,64 @@ async function loadMyTicketDetails(id) {
       <div class="muted small">
         <b>ID:</b> ${escapeHtml(t._id)} • <b>Status:</b> ${escapeHtml(t.status)} • <b>Kategori:</b> ${escapeHtml(t.companyId)}
       </div>
+
       <div class="divider"></div>
+
       ${html || `<div class="muted small">Inga meddelanden.</div>`}
+
+      <div class="divider"></div>
+
+      <div class="panel soft">
+        <b>Fortsätt konversationen</b>
+        <div class="muted small" style="margin-top:6px;">
+          Skriv ett nytt meddelande i detta ärende. Agenten ser det i inboxen.
+        </div>
+
+        <textarea id="myTicketReplyText" class="input textarea" placeholder="Skriv här..."></textarea>
+        <button id="myTicketReplyBtn" class="btn primary full" type="button" style="margin-top:10px;">
+          <i class="fa-solid fa-paper-plane"></i> Skicka meddelande
+        </button>
+
+        <div id="myTicketReplyMsg" class="alert" style="display:none;"></div>
+      </div>
     `;
+
+    // ✅ bind reply button
+    const btn = $("myTicketReplyBtn");
+    if (btn) {
+      btn.onclick = async () => {
+        await myTicketSendReply();
+      };
+    }
   } catch {
     details.innerHTML = `<div class="muted small">Kunde inte ladda ticket.</div>`;
+  }
+}
+
+async function myTicketSendReply() {
+  const msg = $("myTicketReplyMsg");
+  setAlert(msg, "");
+
+  if (!myTicketChatId) return setAlert(msg, "Välj ett ärende först.", true);
+
+  const content = $("myTicketReplyText")?.value?.trim();
+  if (!content) return setAlert(msg, "Skriv ett meddelande.", true);
+
+  try {
+    const data = await fetchJson(API.MY_TICKET_REPLY(myTicketChatId), {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+      body: JSON.stringify({ content }),
+    });
+
+    setAlert(msg, data.message || "Skickat ✅");
+    $("myTicketReplyText").value = "";
+
+    // reload details directly
+    await loadMyTicketDetails(myTicketChatId);
+    await loadMyTickets();
+  } catch (e) {
+    setAlert(msg, e.message || "Fel vid skick", true);
   }
 }
 
@@ -1134,11 +1196,15 @@ async function adminLoadUsers() {
             <option value="admin" ${u.role === "admin" ? "selected" : ""}>admin</option>
           </select>
 
-          <button class="btn secondary small" data-action="saveRole" ${isSelf ? "disabled style='opacity:.6;cursor:not-allowed;'" : ""}>
+          <button class="btn secondary small" data-action="saveRole" ${
+            isSelf ? "disabled style='opacity:.6;cursor:not-allowed;'" : ""
+          }>
             <i class="fa-solid fa-floppy-disk"></i> Spara
           </button>
 
-          <button class="btn danger small" data-action="deleteUser" ${isSelf ? "disabled style='opacity:.6;cursor:not-allowed;'" : ""}>
+          <button class="btn danger small" data-action="deleteUser" ${
+            isSelf ? "disabled style='opacity:.6;cursor:not-allowed;'" : ""
+          }>
             <i class="fa-solid fa-trash"></i> Ta bort
           </button>
         </div>
@@ -1476,7 +1542,8 @@ async function inboxDeleteTicket() {
       $("ticketDetails").innerHTML = `<div class="muted small">Välj en ticket.</div>`;
     }
 
-    if ($("internalNotesList")) $("internalNotesList").innerHTML = `<div class="muted small">Inga notes ännu.</div>`;
+    if ($("internalNotesList"))
+      $("internalNotesList").innerHTML = `<div class="muted small">Inga notes ännu.</div>`;
 
     await inboxLoadTickets();
   } catch (e) {
@@ -1714,7 +1781,7 @@ function logout() {
 }
 
 /*************************************************
- * ✅ SLA Dashboard
+ * ✅ SLA Dashboard helpers
  *************************************************/
 function msToHuman(ms) {
   if (ms == null) return "-";
@@ -1781,6 +1848,12 @@ async function slaLoadOverview(days = 30) {
 async function slaLoadAgents(days = 30) {
   const box = $("slaAgentsBox");
   if (!box) return;
+
+  // ✅ Only admin sees full agents table
+  if (currentUser?.role !== "admin") {
+    box.innerHTML = `<div class="muted small">Agent-statistik visas endast för Admin.</div>`;
+    return;
+  }
 
   box.innerHTML = `<div class="muted small">Laddar agent-statistik…</div>`;
 
@@ -1903,11 +1976,99 @@ async function slaLoadTickets(days = 30) {
   }
 }
 
+/*************************************************
+ * ✅ SLA Compare (period A vs B)
+ *************************************************/
+async function slaComparePeriods() {
+  const a = Number($("slaDaysSelect")?.value || 30);
+  const b = Number($("slaCompareDaysSelect")?.value || 7);
+
+  const box = $("slaCompareBox");
+  if (!box) return;
+
+  box.innerHTML = `<div class="muted small">Jämför perioder…</div>`;
+
+  try {
+    const dataA = await fetchJson(`${API.ADMIN_SLA_OVERVIEW}?days=${encodeURIComponent(a)}`, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    const dataB = await fetchJson(`${API.ADMIN_SLA_OVERVIEW}?days=${encodeURIComponent(b)}`, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+
+    box.innerHTML = `
+      <div class="slaGrid">
+        <div class="slaCard">
+          <div class="slaLabel">Period A (${a} dagar)</div>
+          <div class="slaValue">${escapeHtml(String(dataA.totalTickets ?? 0))} tickets</div>
+          <div class="muted small">
+            First avg: <b>${escapeHtml(msToHuman(dataA?.firstResponse?.avgMs))}</b><br/>
+            Res avg: <b>${escapeHtml(msToHuman(dataA?.resolution?.avgMs))}</b><br/>
+            First comp: <b>${escapeHtml(pct(dataA?.firstResponse?.compliancePct))}</b><br/>
+            Res comp: <b>${escapeHtml(pct(dataA?.resolution?.compliancePct))}</b>
+          </div>
+        </div>
+
+        <div class="slaCard">
+          <div class="slaLabel">Period B (${b} dagar)</div>
+          <div class="slaValue">${escapeHtml(String(dataB.totalTickets ?? 0))} tickets</div>
+          <div class="muted small">
+            First avg: <b>${escapeHtml(msToHuman(dataB?.firstResponse?.avgMs))}</b><br/>
+            Res avg: <b>${escapeHtml(msToHuman(dataB?.resolution?.avgMs))}</b><br/>
+            First comp: <b>${escapeHtml(pct(dataB?.firstResponse?.compliancePct))}</b><br/>
+            Res comp: <b>${escapeHtml(pct(dataB?.resolution?.compliancePct))}</b>
+          </div>
+        </div>
+      </div>
+    `;
+  } catch (e) {
+    box.innerHTML = `<div class="alert error">Kunde inte jämföra: ${escapeHtml(e.message || "Fel")}</div>`;
+  }
+}
+
 async function slaRefreshAll() {
   const days = Number($("slaDaysSelect")?.value || 30);
   await slaLoadOverview(days);
   await slaLoadAgents(days);
   await slaLoadTickets(days);
+  await slaComparePeriods();
+}
+
+/*************************************************
+ * ✅ SLA Delete actions
+ *************************************************/
+async function slaClearOwn() {
+  const ok = confirm("Vill du radera DIN SLA-statistik? (bara timestamps på dina tickets)");
+  if (!ok) return;
+
+  try {
+    const data = await fetchJson(API.ADMIN_SLA_CLEAR_OWN, {
+      method: "DELETE",
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    alert(data.message || "Raderad ✅");
+    await slaRefreshAll();
+  } catch (e) {
+    alert(e.message || "Fel vid radera");
+  }
+}
+
+async function slaClearAll() {
+  if (currentUser?.role !== "admin") return alert("Endast admin kan radera ALL statistik.");
+
+  const ok = confirm("Vill du radera ALL SLA-statistik för ALLA tickets? Detta går inte att ångra.");
+  if (!ok) return;
+
+  try {
+    const data = await fetchJson(API.ADMIN_SLA_CLEAR_ALL, {
+      method: "DELETE",
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    alert(data.message || "Allt raderat ✅");
+    await slaRefreshAll();
+  } catch (e) {
+    alert(e.message || "Fel vid radera ALL");
+  }
 }
 
 /*************************************************
@@ -1937,7 +2098,6 @@ async function init() {
     await loadCategories();
     applyCompanyToUI();
 
-    // Tabs
     initAdminTabs();
 
     // Debug
@@ -1967,7 +2127,7 @@ async function init() {
     // Theme
     onClick("themeToggle", toggleTheme);
 
-    // ✅ Bind inbox ticket action delegation
+    // Inbox delegation
     bindInboxTicketActions();
 
     // Menu
@@ -1992,12 +2152,6 @@ async function init() {
       await adminLoadUsers();
     });
 
-    onClick("openSlaView", async () => {
-      setActiveMenu("sla");
-      openView("sla");
-      await slaRefreshAll();
-    });
-
     onClick("openAdminView", async () => {
       setActiveMenu("admin");
       openView("admin");
@@ -2007,6 +2161,13 @@ async function init() {
     onClick("openSettingsView", () => {
       setActiveMenu("settings");
       openView("settings");
+    });
+
+    // ✅ SLA view
+    onClick("openSlaView", async () => {
+      setActiveMenu("sla");
+      openView("sla");
+      await slaRefreshAll();
     });
 
     // Category select
@@ -2057,12 +2218,13 @@ async function init() {
     onClick("catsRefreshBtn", catsLoadList);
     onClick("createCatBtn", catsCreateCategory);
 
-    // SLA
+    // ✅ SLA events
     onClick("slaRefreshBtn", slaRefreshAll);
     onChange("slaDaysSelect", slaRefreshAll);
+    onChange("slaCompareDaysSelect", slaRefreshAll);
 
-    // ✅ My tickets refresh button
-    onClick("myTicketsRefreshBtn", loadMyTickets);
+    onClick("slaClearOwnBtn", slaClearOwn);
+    onClick("slaClearAllBtn", slaClearAll);
 
     if (token && currentUser) startPolling();
   } catch (err) {

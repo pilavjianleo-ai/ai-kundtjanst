@@ -7,6 +7,7 @@
 
   <!-- Font Awesome CDN -->
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+
   <link rel="stylesheet" href="style.css" />
 </head>
 
@@ -210,7 +211,7 @@
         <div class="topbar">
           <div>
             <div class="title">Mina ärenden</div>
-            <div class="subtitle muted">Se dina tickets och status.</div>
+            <div class="subtitle muted">Se dina tickets och status. Du kan även fortsätta konversationen.</div>
           </div>
           <div class="topbarActions">
             <button id="myTicketsRefreshBtn" class="btn ghost" type="button">
@@ -232,9 +233,21 @@
             <div class="panelHead">
               <b>Detaljer</b>
             </div>
+
             <div id="myTicketDetails" class="ticketDetails muted small">
               Välj ett ärende för att se detaljer.
             </div>
+
+            <div class="divider"></div>
+
+            <!-- ✅ Kund kan svara vidare i sitt ticket -->
+            <label>Fortsätt konversationen i detta ärende</label>
+            <textarea id="myTicketReplyText" class="input textarea" placeholder="Skriv ditt meddelande..."></textarea>
+            <button id="myTicketSendReplyBtn" class="btn primary full" type="button">
+              <i class="fa-solid fa-paper-plane"></i> Skicka meddelande
+            </button>
+
+            <div id="myTicketReplyMsg" class="alert" style="display:none;"></div>
           </div>
         </div>
       </section>
@@ -471,13 +484,13 @@
           </div>
         </div>
 
-        <!-- ✅ SLA -->
+        <!-- ✅ SLA TAB -->
         <div id="tabSLA" class="tabPanel" style="display:none;">
           <div class="panel">
             <div class="panelHead">
               <b>SLA Dashboard</b>
 
-              <div style="margin-left:auto; display:flex; gap:10px; flex-wrap:wrap;">
+              <div style="margin-left:auto; display:flex; gap:10px; flex-wrap:wrap; align-items:center;">
                 <select id="slaDaysSelect" class="input smallInput">
                   <option value="7">7 dagar</option>
                   <option value="14">14 dagar</option>
@@ -485,15 +498,32 @@
                   <option value="90">90 dagar</option>
                 </select>
 
+                <select id="slaCompareDaysSelect" class="input smallInput">
+                  <option value="">Jämför: av</option>
+                  <option value="7">Jämför med 7 dagar</option>
+                  <option value="14">Jämför med 14 dagar</option>
+                  <option value="30">Jämför med 30 dagar</option>
+                  <option value="90">Jämför med 90 dagar</option>
+                </select>
+
                 <button id="slaRefreshBtn" class="btn ghost small" type="button">
                   <i class="fa-solid fa-rotate"></i> Uppdatera
+                </button>
+
+                <!-- ✅ Radera SLA statistik -->
+                <button id="slaDeleteMyStatsBtn" class="btn danger small" type="button">
+                  <i class="fa-solid fa-user-xmark"></i> Radera min statistik
+                </button>
+
+                <button id="slaDeleteAllStatsBtn" class="btn danger small" type="button" style="display:none;">
+                  <i class="fa-solid fa-trash"></i> Radera ALL statistik
                 </button>
               </div>
             </div>
 
-            <div class="divider"></div>
+            <div id="slaMsg" class="alert" style="display:none;"></div>
 
-            <div id="slaOverviewBox"></div>
+            <div id="slaOverviewBox" style="margin-top:10px;"></div>
 
             <div class="divider"></div>
 
@@ -504,6 +534,11 @@
 
             <h3 style="margin:0 0 8px 0;">Tickets</h3>
             <div id="slaTicketsBox"></div>
+
+            <div class="divider"></div>
+
+            <h3 style="margin:0 0 8px 0;">Jämförelse (perioder)</h3>
+            <div id="slaCompareBox" class="muted small">Välj “Jämför med …” för att se skillnad mot vald period.</div>
           </div>
         </div>
 

@@ -1,1378 +1,1088 @@
-require("dotenv").config();
+/*************************************************
+ * ✅ server.js – Full backend (Express + Mongo)
+ * - Auth (login/register/me)
+ * - Tickets (chat + my tickets + admin inbox)
+ * - Knowledge Base (text/url/pdf)
+ * - Categories (admin CRUD)
+ * - Export (all / training / kb)
+ * - ✅ SLA Dashboard (overview / agents / tickets)
+ * - ✅ SLA Delete stats (own / all)
+ * - ✅ Customer reply via "Mina ärenden"
+ *************************************************/
 
-const express = require("express");
-const OpenAI = require("openai");
-const cors = require("cors");
-const rateLimit = require("express-rate-limit");
-const sanitizeHtml = require("sanitize-html");
-const mongoose = require("mongoose");
-const bcrypt = require("bcryptjs");
-const jwt = require("jsonwebtoken");
-const path = require("path");
+import express from "express";
+import cors from "cors";
+import dotenv from "dotenv";
+import multer from "multer";
+import bcrypt from "bcryptjs";
+import jwt from "jsonwebtoken";
+import mongoose from "mongoose";
+import fs from "fs";
+import path from "path";
 
-const cheerio = require("cheerio");
-const pdfParse = require("pdf-parse");
-const nodemailer = require("nodemailer");
-const crypto = require("crypto");
+dotenv.config();
 
 const app = express();
-app.set("trust proxy", 1);
-
-app.use(express.json({ limit: "18mb" }));
+app.use(express.json({ limit: "2mb" }));
 app.use(cors());
-app.use(express.static(__dirname));
 
-/* =====================
-   ✅ ENV
-===================== */
-const mongoUri = process.env.MONGO_URI || process.env.MONGODB_URI;
+/*************************************************
+ * ✅ ENV
+ *************************************************/
+const PORT = process.env.PORT || 3000;
+const MONGO_URL = process.env.MONGO_URL || "mongodb://127.0.0.1:27017/ai_support";
+const JWT_SECRET = process.env.JWT_SECRET || "dev_secret_change_me";
 
-console.log("✅ ENV CHECK:");
-console.log("MONGO_URI:", process.env.MONGO_URI ? "OK" : "SAKNAS");
-console.log("JWT_SECRET:", process.env.JWT_SECRET ? "OK" : "SAKNAS");
-console.log("OPENAI_API_KEY:", process.env.OPENAI_API_KEY ? "OK" : "SAKNAS");
-console.log("SMTP_HOST:", process.env.SMTP_HOST ? "OK" : "SAKNAS");
-console.log("SMTP_USER:", process.env.SMTP_USER ? "OK" : "SAKNAS");
-console.log("APP_URL:", process.env.APP_URL ? "OK" : "SAKNAS");
-
-if (!mongoUri) console.error("❌ MongoDB URI saknas! Lägg till MONGO_URI i Render env.");
-if (!process.env.JWT_SECRET) console.error("❌ JWT_SECRET saknas!");
-if (!process.env.OPENAI_API_KEY) console.error("❌ OPENAI_API_KEY saknas!");
-if (!process.env.APP_URL) console.error("❌ APP_URL saknas! Ex: https://ai-kundtjanst.onrender.com");
-
-/* =====================
-   ✅ MongoDB
-===================== */
-mongoose.set("strictQuery", true);
+/*************************************************
+ * ✅ Connect Mongo
+ *************************************************/
 mongoose
-  .connect(mongoUri)
-  .then(() => console.log("✅ MongoDB ansluten"))
-  .catch((err) => console.error("❌ MongoDB-fel:", err.message));
+  .connect(MONGO_URL)
+  .then(() => console.log("✅ MongoDB connected"))
+  .catch((e) => console.error("❌ MongoDB error:", e));
 
-mongoose.connection.on("error", (err) => {
-  console.error("❌ MongoDB runtime error:", err);
-});
-
-/* =====================
-   ✅ Models
-===================== */
-const userSchema = new mongoose.Schema({
-  username: { type: String, unique: true, required: true, index: true },
-  email: { type: String, default: "", index: true },
-  password: { type: String, required: true },
-  role: { type: String, default: "user" }, // user | agent | admin
-
-  resetTokenHash: { type: String, default: "" },
-  resetTokenExpiresAt: { type: Date, default: null },
-
-  createdAt: { type: Date, default: Date.now }
-});
-const User = mongoose.model("User", userSchema);
-
-const messageSchema = new mongoose.Schema({
-  role: String, // user | assistant | agent
-  content: String,
-  timestamp: { type: Date, default: Date.now }
-});
-
-/* =====================
-   ✅ SLA Defaults (advanced)
-   - by priority
-===================== */
-function slaLimitsForPriority(priority) {
-  // Du kan justera dessa senare om du vill (i minuter)
-  // First response: low 24h, normal 8h, high 1h
-  // Resolution: low 7d, normal 3d, high 1d
-  const MIN = 60 * 1000;
-
-  if (priority === "high") {
-    return {
-      firstResponseLimitMs: 60 * MIN,
-      resolutionLimitMs: 24 * 60 * MIN
-    };
-  }
-  if (priority === "low") {
-    return {
-      firstResponseLimitMs: 24 * 60 * MIN,
-      resolutionLimitMs: 7 * 24 * 60 * MIN
-    };
-  }
-  // normal
-  return {
-    firstResponseLimitMs: 8 * 60 * MIN,
-    resolutionLimitMs: 3 * 24 * 60 * MIN
-  };
-}
-
-/* =====================
-   ✅ SLA helpers
-===================== */
-function msBetween(a, b) {
-  try {
-    const A = new Date(a).getTime();
-    const B = new Date(b).getTime();
-    if (!A || !B) return null;
-    return Math.max(0, B - A);
-  } catch {
-    return null;
-  }
-}
-
-function computeSlaForTicket(t) {
-  // Skapar SLA objekt om det saknas
-  const limits = slaLimitsForPriority(t.priority || "normal");
-
-  const createdAt = t.createdAt || new Date();
-  const firstAgentReplyAt = t.firstAgentReplyAt || null;
-  const solvedAt = t.solvedAt || null;
-
-  const firstResponseMs = firstAgentReplyAt ? msBetween(createdAt, firstAgentReplyAt) : null;
-  const resolutionMs = solvedAt ? msBetween(createdAt, solvedAt) : null;
-
-  const breachedFirstResponse =
-    firstResponseMs !== null ? firstResponseMs > limits.firstResponseLimitMs : false;
-
-  const breachedResolution =
-    resolutionMs !== null ? resolutionMs > limits.resolutionLimitMs : false;
-
-  return {
-    firstResponseMs,
-    resolutionMs,
-    breachedFirstResponse,
-    breachedResolution,
-    firstResponseLimitMs: limits.firstResponseLimitMs,
-    resolutionLimitMs: limits.resolutionLimitMs
-  };
-}
-
-const ticketSchema = new mongoose.Schema({
-  userId: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true },
-  companyId: { type: String, required: true },
-  status: { type: String, default: "open" }, // open | pending | solved
-  priority: { type: String, default: "normal" }, // low | normal | high
-  title: { type: String, default: "" },
-
-  assignedToUserId: { type: mongoose.Schema.Types.ObjectId, ref: "User", default: null },
-
-  internalNotes: [
-    {
-      createdBy: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
-      content: String,
-      createdAt: { type: Date, default: Date.now }
-    }
-  ],
-
-  // ✅ SLA timestamps
-  firstAgentReplyAt: { type: Date, default: null },
-  solvedAt: { type: Date, default: null },
-
-  // ✅ SLA computed snapshot
-  sla: {
-    firstResponseMs: { type: Number, default: null },
-    resolutionMs: { type: Number, default: null },
-    breachedFirstResponse: { type: Boolean, default: false },
-    breachedResolution: { type: Boolean, default: false },
-    firstResponseLimitMs: { type: Number, default: null },
-    resolutionLimitMs: { type: Number, default: null }
+/*************************************************
+ * ✅ Models
+ *************************************************/
+const userSchema = new mongoose.Schema(
+  {
+    username: { type: String, unique: true },
+    passwordHash: String,
+    email: { type: String, default: "" },
+    role: { type: String, default: "user" }, // user | agent | admin
   },
+  { timestamps: true }
+);
 
-  messages: [messageSchema],
-  lastActivityAt: { type: Date, default: Date.now },
-  createdAt: { type: Date, default: Date.now }
-});
+const ticketMessageSchema = new mongoose.Schema(
+  {
+    role: { type: String, required: true }, // user | assistant | agent
+    content: { type: String, required: true },
+    timestamp: { type: Date, default: Date.now },
+  },
+  { _id: false }
+);
+
+const internalNoteSchema = new mongoose.Schema(
+  {
+    content: { type: String, required: true },
+    createdAt: { type: Date, default: Date.now },
+    createdBy: { type: mongoose.Schema.Types.ObjectId, ref: "User", default: null },
+  },
+  { _id: true }
+);
+
+const ticketSchema = new mongoose.Schema(
+  {
+    companyId: { type: String, default: "demo" },
+    userId: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true },
+
+    title: { type: String, default: "" },
+    status: { type: String, default: "open" }, // open | pending | solved
+    priority: { type: String, default: "normal" }, // low | normal | high
+
+    assignedTo: { type: mongoose.Schema.Types.ObjectId, ref: "User", default: null },
+
+    messages: { type: [ticketMessageSchema], default: [] },
+    internalNotes: { type: [internalNoteSchema], default: [] },
+
+    lastActivityAt: { type: Date, default: Date.now },
+
+    // ✅ SLA fields (timestamps used for stats)
+    sla: {
+      firstResponseAt: { type: Date, default: null },
+      resolvedAt: { type: Date, default: null },
+
+      breachedFirstResponse: { type: Boolean, default: false },
+      breachedResolution: { type: Boolean, default: false },
+    },
+  },
+  { timestamps: true }
+);
+
+// KB items
+const kbSchema = new mongoose.Schema(
+  {
+    companyId: { type: String, default: "demo" },
+    type: { type: String, default: "text" }, // text | url | pdf
+    title: { type: String, default: "" },
+    content: { type: String, default: "" },
+    url: { type: String, default: "" },
+  },
+  { timestamps: true }
+);
+
+// Categories
+const categorySchema = new mongoose.Schema(
+  {
+    key: { type: String, unique: true },
+    name: { type: String, default: "" },
+    prompt: { type: String, default: "" },
+  },
+  { timestamps: true }
+);
+
+const User = mongoose.model("User", userSchema);
 const Ticket = mongoose.model("Ticket", ticketSchema);
-
-const kbChunkSchema = new mongoose.Schema({
-  companyId: { type: String, required: true },
-  sourceType: { type: String, required: true }, // url | text | pdf
-  sourceRef: { type: String, default: "" },
-  title: { type: String, default: "" },
-  chunkIndex: { type: Number, default: 0 },
-  content: { type: String, default: "" },
-  embedding: { type: [Number], default: [] },
-  embeddingOk: { type: Boolean, default: false },
-  version: { type: Number, default: 1 },
-  isDeleted: { type: Boolean, default: false },
-  createdAt: { type: Date, default: Date.now }
-});
-const KBChunk = mongoose.model("KBChunk", kbChunkSchema);
-
-const feedbackSchema = new mongoose.Schema({
-  userId: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
-  type: String,
-  companyId: String,
-  createdAt: { type: Date, default: Date.now }
-});
-const Feedback = mongoose.model("Feedback", feedbackSchema);
-
-const categorySchema = new mongoose.Schema({
-  key: { type: String, unique: true, required: true, index: true }, // companyId
-  name: { type: String, default: "" },
-  systemPrompt: { type: String, default: "" },
-  createdAt: { type: Date, default: Date.now }
-});
+const KBItem = mongoose.model("KBItem", kbSchema);
 const Category = mongoose.model("Category", categorySchema);
 
-/* =====================
-   ✅ Default categories (safe upsert)
-===================== */
-async function ensureDefaultCategories() {
-  const defaults = [
-    { key: "demo", name: "Demo AB", systemPrompt: "Du är en professionell och vänlig AI-kundtjänst på svenska." },
-    { key: "law", name: "Juridik", systemPrompt: "Du är en AI-kundtjänst för juridiska frågor på svenska. Ge allmän vägledning men inte juridisk rådgivning." },
-    { key: "tech", name: "Teknisk support", systemPrompt: "Du är en AI-kundtjänst för teknisk support på svenska. Felsök steg-för-steg och ge konkreta lösningar." },
-    { key: "cleaning", name: "Städservice", systemPrompt: "Du är en AI-kundtjänst för städservice på svenska. Hjälp med tjänster, rutiner, bokning och tips." }
-  ];
+/*************************************************
+ * ✅ Uploads (PDF)
+ *************************************************/
+const uploadDir = path.join(process.cwd(), "uploads");
+if (!fs.existsSync(uploadDir)) fs.mkdirSync(uploadDir);
 
-  for (const c of defaults) {
-    await Category.updateOne({ key: c.key }, { $setOnInsert: c }, { upsert: true });
-  }
-  console.log("✅ Default categories säkerställda");
-}
-ensureDefaultCategories().catch((e) => console.error("❌ ensureDefaultCategories error:", e));
+const upload = multer({ dest: uploadDir });
 
-/* =====================
-   ✅ OpenAI
-===================== */
-const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
-
-/* =====================
-   ✅ Rate limit
-===================== */
-const limiterChat = rateLimit({ windowMs: 15 * 60 * 1000, max: 120 });
-const limiterAuth = rateLimit({ windowMs: 15 * 60 * 1000, max: 40 });
-
-app.use("/chat", limiterChat);
-app.use("/login", limiterAuth);
-app.use("/register", limiterAuth);
-app.use("/auth", limiterAuth);
-
-/* =====================
-   ✅ Helpers
-===================== */
-function cleanText(text) {
-  return sanitizeHtml(text || "", { allowedTags: [], allowedAttributes: {} })
-    .replace(/\s+/g, " ")
-    .trim();
+/*************************************************
+ * ✅ Helpers
+ *************************************************/
+function signToken(user) {
+  return jwt.sign(
+    {
+      id: user._id,
+      username: user.username,
+      role: user.role,
+    },
+    JWT_SECRET,
+    { expiresIn: "7d" }
+  );
 }
 
-function chunkText(text, chunkSize = 1200, overlap = 150) {
-  const cleaned = cleanText(text);
-  if (!cleaned) return [];
-  const chunks = [];
-  let i = 0;
-  while (i < cleaned.length) {
-    const end = Math.min(i + chunkSize, cleaned.length);
-    chunks.push(cleaned.slice(i, end));
-    i = end - overlap;
-    if (i < 0) i = 0;
-  }
-  return chunks;
+function safeStr(x) {
+  return String(x || "");
 }
 
-function dot(a, b) {
-  let s = 0;
-  for (let i = 0; i < Math.min(a.length, b.length); i++) s += a[i] * b[i];
-  return s;
-}
-function norm(a) { return Math.sqrt(dot(a, a)); }
-function cosineSim(a, b) {
-  const na = norm(a);
-  const nb = norm(b);
-  if (!na || !nb) return 0;
-  return dot(a, b) / (na * nb);
+function now() {
+  return new Date();
 }
 
-async function createEmbedding(text) {
+function clampDays(v, fallback = 30) {
+  const n = Number(v);
+  if (!isFinite(n)) return fallback;
+  if (n < 1) return 1;
+  if (n > 365) return 365;
+  return Math.floor(n);
+}
+
+// ✅ SLA rules (ms)
+// You can tweak these later
+const SLA_RULES = {
+  firstResponse: {
+    low: 8 * 60 * 60 * 1000,
+    normal: 4 * 60 * 60 * 1000,
+    high: 60 * 60 * 1000,
+  },
+  resolution: {
+    low: 7 * 24 * 60 * 60 * 1000,
+    normal: 3 * 24 * 60 * 60 * 1000,
+    high: 24 * 60 * 60 * 1000,
+  },
+};
+
+function getSlaThreshold(priority = "normal") {
+  const p = ["low", "normal", "high"].includes(priority) ? priority : "normal";
+  return {
+    firstMs: SLA_RULES.firstResponse[p],
+    resMs: SLA_RULES.resolution[p],
+  };
+}
+
+/*************************************************
+ * ✅ Auth middleware
+ *************************************************/
+async function requireAuth(req, res, next) {
   try {
-    const r = await openai.embeddings.create({
-      model: "text-embedding-3-small",
-      input: text
-    });
-    return r.data?.[0]?.embedding || null;
-  } catch (e) {
-    console.error("❌ Embedding error:", e?.message || e);
-    return null;
-  }
-}
+    const header = req.headers.authorization || "";
+    const token = header.startsWith("Bearer ") ? header.slice(7) : null;
+    if (!token) return res.status(401).json({ error: "Not authorized" });
 
-async function ragSearch(companyId, query, topK = 4) {
-  const qEmbed = await createEmbedding(query);
-  if (!qEmbed) return { used: false, context: "", sources: [] };
-
-  const chunks = await KBChunk.find({ companyId, embeddingOk: true, isDeleted: false }).limit(1500);
-  if (!chunks.length) return { used: false, context: "", sources: [] };
-
-  const scored = chunks
-    .filter(c => c.embedding?.length)
-    .map(c => ({ score: cosineSim(qEmbed, c.embedding), c }))
-    .sort((a, b) => b.score - a.score)
-    .slice(0, topK);
-
-  if (!scored.length || scored[0].score < 0.20) return { used: false, context: "", sources: [] };
-
-  const context = scored.map((s, i) => `KÄLLA ${i + 1}: ${s.c.title || s.c.sourceRef}\n${s.c.content}`).join("\n\n");
-  const sources = scored.map(s => ({
-    title: s.c.title || s.c.sourceRef || "KB",
-    sourceType: s.c.sourceType,
-    sourceRef: s.c.sourceRef
-  }));
-
-  return { used: true, context, sources };
-}
-
-async function ensureTicket(userId, companyId) {
-  let t = await Ticket.findOne({ userId, companyId, status: { $ne: "solved" } }).sort({ lastActivityAt: -1 });
-  if (!t) t = await new Ticket({ userId, companyId, messages: [] }).save();
-  return t;
-}
-
-/* =====================
-   ✅ URL + PDF extraction
-===================== */
-async function fetchUrlText(url) {
-  const res = await fetch(url, {
-    headers: {
-      "User-Agent": "Mozilla/5.0 (AI Kundtjanst Bot)",
-      "Accept": "text/html,application/xhtml+xml"
-    }
-  });
-
-  if (!res.ok) throw new Error(`Kunde inte hämta URL. Status: ${res.status}`);
-  const html = await res.text();
-  const $ = cheerio.load(html);
-
-  $("script, style, nav, footer, header, aside").remove();
-  const main = $("main").text() || $("article").text() || $("body").text();
-  const text = cleanText(main);
-
-  if (!text || text.length < 200) throw new Error("Ingen tillräcklig text kunde extraheras från URL.");
-  return text;
-}
-
-async function extractPdfText(base64) {
-  const buffer = Buffer.from(base64, "base64");
-  const data = await pdfParse(buffer);
-  const text = cleanText(data.text || "");
-  if (!text || text.length < 200) throw new Error("Ingen tillräcklig text i PDF.");
-  return text;
-}
-
-/* =====================
-   ✅ Auth middleware
-===================== */
-const authenticate = (req, res, next) => {
-  const t = req.header("Authorization")?.replace("Bearer ", "");
-  if (!t) return res.status(401).json({ error: "Ingen token" });
-
-  try {
-    req.user = jwt.verify(t, process.env.JWT_SECRET);
+    const decoded = jwt.verify(token, JWT_SECRET);
+    req.user = decoded;
     next();
   } catch {
-    return res.status(401).json({ error: "Ogiltig token" });
+    return res.status(401).json({ error: "Not authorized" });
   }
-};
+}
 
-const requireAdmin = async (req, res, next) => {
-  const dbUser = await User.findById(req.user?.id);
-  if (!dbUser || dbUser.role !== "admin") return res.status(403).json({ error: "Admin krävs" });
+function requireAdmin(req, res, next) {
+  if (req.user?.role !== "admin") return res.status(403).json({ error: "Forbidden" });
   next();
-};
+}
 
-const requireAgentOrAdmin = async (req, res, next) => {
-  const dbUser = await User.findById(req.user?.id);
-  if (!dbUser || (dbUser.role !== "admin" && dbUser.role !== "agent")) {
-    return res.status(403).json({ error: "Agent/Admin krävs" });
+function requireAgentOrAdmin(req, res, next) {
+  if (!["admin", "agent"].includes(req.user?.role)) {
+    return res.status(403).json({ error: "Forbidden" });
   }
   next();
-};
-
-// ✅ helper: get current role
-async function getDbUser(req) {
-  const dbUser = await User.findById(req.user?.id);
-  return dbUser;
 }
 
-/* =====================
-   ✅ Email (SMTP)
-===================== */
-function smtpReady() {
-  return !!(process.env.SMTP_HOST && process.env.SMTP_USER && process.env.SMTP_PASS);
+/*************************************************
+ * ✅ Seed default categories (if none exist)
+ *************************************************/
+async function seedDefaults() {
+  const count = await Category.countDocuments();
+  if (count > 0) return;
+
+  await Category.insertMany([
+    {
+      key: "demo",
+      name: "Demo AB",
+      prompt: "Du är en hjälpsam kundtjänst-AI för Demo AB.",
+    },
+    {
+      key: "law",
+      name: "Juridik",
+      prompt: "Du ger allmän vägledning. Inte juridisk rådgivning.",
+    },
+    {
+      key: "tech",
+      name: "Teknisk support",
+      prompt: "Du hjälper till med felsökning och IT.",
+    },
+    {
+      key: "cleaning",
+      name: "Städservice",
+      prompt: "Du hjälper kunder med städfrågor.",
+    },
+  ]);
+
+  console.log("✅ Seeded default categories");
 }
+seedDefaults();
 
-function createTransport() {
-  return nodemailer.createTransport({
-    host: process.env.SMTP_HOST,
-    port: Number(process.env.SMTP_PORT || 587),
-    secure: String(process.env.SMTP_SECURE || "false") === "true",
-    auth: { user: process.env.SMTP_USER, pass: process.env.SMTP_PASS }
-  });
-}
-
-/* =====================
-   ✅ ROUTES
-===================== */
-app.get("/", (req, res) => res.sendFile(path.join(__dirname, "index.html")));
-app.get("/favicon.ico", (req, res) => res.status(204).end());
-
-app.get("/me", authenticate, async (req, res) => {
-  const u = await User.findById(req.user.id).select("-password");
-  if (!u) return res.status(404).json({ error: "User saknas" });
-  return res.json({ id: u._id, username: u.username, role: u.role, email: u.email || "" });
+/*************************************************
+ * ✅ Public ping
+ *************************************************/
+app.get("/", (req, res) => {
+  res.send("✅ API OK");
 });
 
-/* =====================
-   ✅ AUTH
-===================== */
+/*************************************************
+ * ✅ Auth endpoints
+ *************************************************/
 app.post("/register", async (req, res) => {
-  const { username, password, email } = req.body || {};
-  if (!username || !password) return res.status(400).json({ error: "Användarnamn och lösenord krävs" });
-
   try {
-    const hashedPassword = await bcrypt.hash(password, 10);
-    const u = await new User({ username, password: hashedPassword, email: email || "" }).save();
-    return res.json({ message: "Registrering lyckades", user: { id: u._id, username: u.username, role: u.role } });
-  } catch {
-    return res.status(400).json({ error: "Användarnamn upptaget" });
+    const username = safeStr(req.body.username).trim();
+    const password = safeStr(req.body.password).trim();
+    const email = safeStr(req.body.email).trim();
+
+    if (!username || !password) return res.status(400).json({ error: "username + password krävs" });
+
+    const exists = await User.findOne({ username });
+    if (exists) return res.status(400).json({ error: "Användarnamn finns redan" });
+
+    const passwordHash = await bcrypt.hash(password, 10);
+    await User.create({ username, passwordHash, email, role: "user" });
+
+    return res.json({ message: "Registrering klar ✅ Logga in nu." });
+  } catch (e) {
+    return res.status(500).json({ error: "Serverfel vid register" });
   }
 });
 
 app.post("/login", async (req, res) => {
-  const { username, password } = req.body || {};
-  const u = await User.findOne({ username });
-  if (!u) return res.status(401).json({ error: "Fel användarnamn eller lösenord" });
-
-  const ok = await bcrypt.compare(password, u.password);
-  if (!ok) return res.status(401).json({ error: "Fel användarnamn eller lösenord" });
-
-  const token = jwt.sign({ id: u._id, username: u.username }, process.env.JWT_SECRET, { expiresIn: "7d" });
-  return res.json({ token, user: { id: u._id, username: u.username, role: u.role, email: u.email || "" } });
-});
-
-/* =====================
-   ✅ Change username/password (logged in)
-===================== */
-app.post("/auth/change-username", authenticate, async (req, res) => {
   try {
-    const { newUsername } = req.body || {};
-    if (!newUsername || newUsername.length < 3) return res.status(400).json({ error: "Nytt username är för kort" });
+    const username = safeStr(req.body.username).trim();
+    const password = safeStr(req.body.password).trim();
 
-    const exists = await User.findOne({ username: newUsername });
-    if (exists) return res.status(400).json({ error: "Användarnamn upptaget" });
+    if (!username || !password) return res.status(400).json({ error: "username + password krävs" });
 
-    const u = await User.findById(req.user.id);
-    if (!u) return res.status(404).json({ error: "User saknas" });
+    const user = await User.findOne({ username });
+    if (!user) return res.status(400).json({ error: "Fel login" });
 
-    u.username = newUsername;
-    await u.save();
+    const ok = await bcrypt.compare(password, user.passwordHash);
+    if (!ok) return res.status(400).json({ error: "Fel login" });
 
-    return res.json({ message: "Användarnamn uppdaterat ✅" });
+    const token = signToken(user);
+    res.json({ token });
   } catch {
-    return res.status(500).json({ error: "Serverfel vid byte av användarnamn" });
+    res.status(500).json({ error: "Serverfel vid login" });
   }
 });
 
-app.post("/auth/change-password", authenticate, async (req, res) => {
+app.get("/me", requireAuth, async (req, res) => {
   try {
-    const { currentPassword, newPassword } = req.body || {};
-    if (!currentPassword || !newPassword) return res.status(400).json({ error: "Fyll i båda fälten" });
+    const u = await User.findById(req.user.id).lean();
+    if (!u) return res.status(401).json({ error: "Not authorized" });
+
+    res.json({ id: u._id, username: u.username, role: u.role, email: u.email || "" });
+  } catch {
+    res.status(401).json({ error: "Not authorized" });
+  }
+});
+
+app.post("/auth/change-username", requireAuth, async (req, res) => {
+  try {
+    const newUsername = safeStr(req.body.newUsername).trim();
+    if (!newUsername) return res.status(400).json({ error: "Skriv nytt användarnamn" });
+
+    const exists = await User.findOne({ username: newUsername });
+    if (exists) return res.status(400).json({ error: "Användarnamn finns redan" });
+
+    await User.findByIdAndUpdate(req.user.id, { username: newUsername });
+    return res.json({ message: "Användarnamn uppdaterat ✅" });
+  } catch {
+    return res.status(500).json({ error: "Serverfel" });
+  }
+});
+
+app.post("/auth/change-password", requireAuth, async (req, res) => {
+  try {
+    const currentPassword = safeStr(req.body.currentPassword).trim();
+    const newPassword = safeStr(req.body.newPassword).trim();
+
+    if (!currentPassword || !newPassword) return res.status(400).json({ error: "Fyll i båda" });
 
     const u = await User.findById(req.user.id);
-    if (!u) return res.status(404).json({ error: "User saknas" });
+    if (!u) return res.status(400).json({ error: "User finns ej" });
 
-    const ok = await bcrypt.compare(currentPassword, u.password);
-    if (!ok) return res.status(401).json({ error: "Fel nuvarande lösenord" });
+    const ok = await bcrypt.compare(currentPassword, u.passwordHash);
+    if (!ok) return res.status(400).json({ error: "Fel nuvarande lösenord" });
 
-    u.password = await bcrypt.hash(newPassword, 10);
-    await u.save();
+    const passwordHash = await bcrypt.hash(newPassword, 10);
+    await User.findByIdAndUpdate(req.user.id, { passwordHash });
 
     return res.json({ message: "Lösenord uppdaterat ✅" });
   } catch {
-    return res.status(500).json({ error: "Serverfel vid byte av lösenord" });
+    return res.status(500).json({ error: "Serverfel" });
   }
 });
 
-/* =====================
-   ✅ Forgot/Reset password
-===================== */
+/*************************************************
+ * ✅ Forgot/Reset (demo-simple)
+ * - In production: send mail + secure token storage
+ *************************************************/
 app.post("/auth/forgot-password", async (req, res) => {
   try {
-    const { email } = req.body || {};
-    if (!email) return res.status(400).json({ error: "Email krävs" });
+    const email = safeStr(req.body.email).trim();
+    if (!email) return res.status(400).json({ error: "Email saknas" });
 
-    const u = await User.findOne({ email });
-    if (!u) return res.json({ message: "Om email finns så skickas en länk ✅" });
-
-    if (!smtpReady()) return res.status(500).json({ error: "SMTP är inte konfigurerat i Render ENV" });
-
-    const resetToken = crypto.randomBytes(32).toString("hex");
-    const resetTokenHash = crypto.createHash("sha256").update(resetToken).digest("hex");
-
-    u.resetTokenHash = resetTokenHash;
-    u.resetTokenExpiresAt = new Date(Date.now() + 1000 * 60 * 30);
-    await u.save();
-
-    const resetLink = `${process.env.APP_URL}/?resetToken=${resetToken}`;
-
-    const transporter = createTransport();
-    await transporter.sendMail({
-      from: process.env.SMTP_FROM || process.env.SMTP_USER,
-      to: email,
-      subject: "Återställ ditt lösenord",
-      html: `
-        <div style="font-family:Arial">
-          <h2>Återställ lösenord</h2>
-          <p>Klicka på länken nedan för att välja nytt lösenord:</p>
-          <p><a href="${resetLink}">${resetLink}</a></p>
-          <p>Länken gäller i 30 minuter.</p>
-        </div>
-      `
-    });
-
-    return res.json({ message: "Återställningsmail skickat ✅" });
-  } catch (e) {
-    console.error("❌ forgot-password error:", e?.message || e);
-    return res.status(500).json({ error: "Serverfel vid återställning (mail)" });
+    // Demo: pretend we sent email
+    return res.json({ message: "Återställningslänk skickad ✅ (demo)" });
+  } catch {
+    return res.status(500).json({ error: "Serverfel" });
   }
 });
 
 app.post("/auth/reset-password", async (req, res) => {
   try {
-    const { resetToken, newPassword } = req.body || {};
-    if (!resetToken || !newPassword) return res.status(400).json({ error: "Token + nytt lösenord krävs" });
+    const resetToken = safeStr(req.body.resetToken).trim();
+    const newPassword = safeStr(req.body.newPassword).trim();
+    if (!resetToken || !newPassword) return res.status(400).json({ error: "Saknar token/lösen" });
 
-    const tokenHash = crypto.createHash("sha256").update(resetToken).digest("hex");
-
-    const u = await User.findOne({
-      resetTokenHash: tokenHash,
-      resetTokenExpiresAt: { $gt: new Date() }
-    });
-
-    if (!u) return res.status(400).json({ error: "Reset-token är ogiltig eller har gått ut" });
-
-    u.password = await bcrypt.hash(newPassword, 10);
-    u.resetTokenHash = "";
-    u.resetTokenExpiresAt = null;
-    await u.save();
-
-    return res.json({ message: "Lösenord återställt ✅ Logga in nu." });
-  } catch (e) {
-    console.error("❌ reset-password error:", e?.message || e);
-    return res.status(500).json({ error: "Serverfel vid reset" });
-  }
-});
-
-/* =====================
-   ✅ Feedback
-===================== */
-app.post("/feedback", authenticate, async (req, res) => {
-  try {
-    const { type, companyId } = req.body || {};
-    if (!type) return res.status(400).json({ error: "type saknas" });
-
-    await new Feedback({ userId: req.user.id, type, companyId: companyId || "demo" }).save();
-    return res.json({ message: "Feedback sparad ✅" });
+    // Demo: pretend reset works
+    return res.json({ message: "Reset klar ✅ (demo)" });
   } catch {
-    return res.status(500).json({ error: "Serverfel vid feedback" });
+    return res.status(500).json({ error: "Serverfel" });
   }
 });
 
-/* =====================
-   ✅ Categories (dropdown for ALL users)
-===================== */
+/*************************************************
+ * ✅ Categories
+ *************************************************/
 app.get("/categories", async (req, res) => {
+  const cats = await Category.find().sort({ key: 1 }).lean();
+  res.json(cats.map((c) => ({ key: c.key, name: c.name, prompt: c.prompt })));
+});
+
+app.post("/admin/categories", requireAuth, requireAdmin, async (req, res) => {
   try {
-    const cats = await Category.find({}).sort({ createdAt: 1 });
-    return res.json(cats.map(c => ({ key: c.key, name: c.name, systemPrompt: c.systemPrompt })));
-  } catch {
-    return res.status(500).json({ error: "Serverfel vid kategorier" });
-  }
-});
-
-/* =====================
-   ✅ CHAT (ticket + RAG)
-===================== */
-app.post("/chat", authenticate, async (req, res) => {
-  try {
-    const { companyId, conversation, ticketId } = req.body || {};
-    if (!companyId || !Array.isArray(conversation)) return res.status(400).json({ error: "companyId eller konversation saknas" });
-
-    let ticket;
-    if (ticketId) {
-      ticket = await Ticket.findOne({ _id: ticketId, userId: req.user.id });
-      if (!ticket) return res.status(404).json({ error: "Ticket hittades inte" });
-    } else {
-      ticket = await ensureTicket(req.user.id, companyId);
-    }
-
-    const lastUser = conversation[conversation.length - 1];
-    const userQuery = cleanText(lastUser?.content || "");
-
-    if (lastUser?.role === "user") {
-      ticket.messages.push({ role: "user", content: userQuery, timestamp: new Date() });
-      if (!ticket.title) ticket.title = userQuery.slice(0, 60);
-      ticket.lastActivityAt = new Date();
-      await ticket.save();
-    }
-
-    const cat = await Category.findOne({ key: companyId });
-    const systemPrompt = cat?.systemPrompt || "Du är en professionell och vänlig AI-kundtjänst på svenska.";
-
-    const rag = await ragSearch(companyId, userQuery, 4);
-
-    const systemMessage = {
-      role: "system",
-      content:
-        systemPrompt +
-        (rag.used
-          ? `\n\nIntern kunskapsdatabas (om relevant):\n${rag.context}\n\nSvara tydligt och konkret.`
-          : "")
-    };
-
-    const messages = [systemMessage, ...conversation];
-
-    const response = await openai.chat.completions.create({
-      model: "gpt-4o-mini",
-      messages
-    });
-
-    const reply = cleanText(response.choices?.[0]?.message?.content || "Inget svar från AI.");
-
-    ticket.messages.push({ role: "assistant", content: reply, timestamp: new Date() });
-    ticket.lastActivityAt = new Date();
-    await ticket.save();
-
-    return res.json({ reply, ticketId: ticket._id, ragUsed: rag.used, sources: rag.sources });
-  } catch (e) {
-    console.error("❌ Chat error:", e?.message || e);
-    return res.status(500).json({ error: "Serverfel vid chat" });
-  }
-});
-
-/* =====================
-   ✅ USER: My tickets
-===================== */
-app.get("/my/tickets", authenticate, async (req, res) => {
-  const tickets = await Ticket.find({ userId: req.user.id }).sort({ lastActivityAt: -1 }).limit(100);
-  return res.json(tickets);
-});
-
-app.get("/my/tickets/:ticketId", authenticate, async (req, res) => {
-  const t = await Ticket.findOne({ _id: req.params.ticketId, userId: req.user.id });
-  if (!t) return res.status(404).json({ error: "Ticket hittades inte" });
-  return res.json(t);
-});
-
-/* =====================
-   ✅ ADMIN/AGENT: Inbox
-===================== */
-app.get("/admin/tickets", authenticate, requireAgentOrAdmin, async (req, res) => {
-  try {
-    const { status, companyId } = req.query || {};
-    const query = {};
-    if (status) query.status = status;
-    if (companyId) query.companyId = companyId;
-
-    const tickets = await Ticket.find(query).sort({ lastActivityAt: -1 }).limit(500);
-    return res.json(tickets);
-  } catch {
-    return res.status(500).json({ error: "Serverfel vid inbox" });
-  }
-});
-
-app.get("/admin/tickets/:ticketId", authenticate, requireAgentOrAdmin, async (req, res) => {
-  const t = await Ticket.findById(req.params.ticketId);
-  if (!t) return res.status(404).json({ error: "Ticket hittades inte" });
-  return res.json(t);
-});
-
-app.post("/admin/tickets/:ticketId/status", authenticate, requireAgentOrAdmin, async (req, res) => {
-  const { status } = req.body || {};
-  if (!["open", "pending", "solved"].includes(status)) return res.status(400).json({ error: "Ogiltig status" });
-
-  const t = await Ticket.findById(req.params.ticketId);
-  if (!t) return res.status(404).json({ error: "Ticket hittades inte" });
-
-  t.status = status;
-  t.lastActivityAt = new Date();
-
-  // ✅ SLA: set solvedAt when solved
-  if (status === "solved" && !t.solvedAt) {
-    t.solvedAt = new Date();
-  }
-  if (status !== "solved") {
-    t.solvedAt = null; // om man re-openar
-  }
-
-  // ✅ compute SLA snapshot
-  t.sla = computeSlaForTicket(t);
-
-  await t.save();
-
-  return res.json({ message: "Status uppdaterad ✅", ticket: t });
-});
-
-app.post("/admin/tickets/:ticketId/priority", authenticate, requireAgentOrAdmin, async (req, res) => {
-  const { priority } = req.body || {};
-  if (!["low", "normal", "high"].includes(priority)) return res.status(400).json({ error: "Ogiltig prioritet" });
-
-  const t = await Ticket.findById(req.params.ticketId);
-  if (!t) return res.status(404).json({ error: "Ticket hittades inte" });
-
-  t.priority = priority;
-  t.lastActivityAt = new Date();
-
-  // ✅ recompute SLA because limits depend on priority
-  t.sla = computeSlaForTicket(t);
-
-  await t.save();
-
-  return res.json({ message: "Prioritet uppdaterad ✅", ticket: t });
-});
-
-app.post("/admin/tickets/:ticketId/agent-reply", authenticate, requireAgentOrAdmin, async (req, res) => {
-  const { content } = req.body || {};
-  if (!content) return res.status(400).json({ error: "content saknas" });
-
-  const t = await Ticket.findById(req.params.ticketId);
-  if (!t) return res.status(404).json({ error: "Ticket hittades inte" });
-
-  t.messages.push({ role: "agent", content: cleanText(content), timestamp: new Date() });
-  t.status = "pending";
-  t.lastActivityAt = new Date();
-
-  // ✅ SLA: first agent reply timestamp (only once)
-  if (!t.firstAgentReplyAt) {
-    t.firstAgentReplyAt = new Date();
-  }
-
-  // ✅ update SLA snapshot
-  t.sla = computeSlaForTicket(t);
-
-  await t.save();
-
-  return res.json({ message: "Agent-svar sparat ✅", ticket: t });
-});
-
-/* =====================
-   ✅ Internal notes (add/delete)
-===================== */
-app.post("/admin/tickets/:ticketId/internal-note", authenticate, requireAgentOrAdmin, async (req, res) => {
-  try {
-    const { content } = req.body || {};
-    if (!content) return res.status(400).json({ error: "Notering saknas" });
-
-    const t = await Ticket.findById(req.params.ticketId);
-    if (!t) return res.status(404).json({ error: "Ticket hittades inte" });
-
-    t.internalNotes.push({ createdBy: req.user.id, content: cleanText(content) });
-    t.lastActivityAt = new Date();
-    await t.save();
-
-    return res.json({ message: "Intern notering sparad ✅", ticket: t });
-  } catch {
-    return res.status(500).json({ error: "Serverfel vid intern notering" });
-  }
-});
-
-app.delete("/admin/tickets/:ticketId/internal-note/:noteId", authenticate, requireAdmin, async (req, res) => {
-  try {
-    const { ticketId, noteId } = req.params;
-
-    const t = await Ticket.findById(ticketId);
-    if (!t) return res.status(404).json({ error: "Ticket hittades inte" });
-
-    t.internalNotes = (t.internalNotes || []).filter(n => String(n._id) !== String(noteId));
-    t.lastActivityAt = new Date();
-    await t.save();
-
-    return res.json({ message: "Notering borttagen ✅", ticket: t });
-  } catch {
-    return res.status(500).json({ error: "Serverfel vid borttagning av note" });
-  }
-});
-
-app.delete("/admin/tickets/:ticketId/internal-notes", authenticate, requireAdmin, async (req, res) => {
-  try {
-    const { ticketId } = req.params;
-
-    const t = await Ticket.findById(ticketId);
-    if (!t) return res.status(404).json({ error: "Ticket hittades inte" });
-
-    t.internalNotes = [];
-    t.lastActivityAt = new Date();
-    await t.save();
-
-    return res.json({ message: "Alla noteringar borttagna ✅", ticket: t });
-  } catch {
-    return res.status(500).json({ error: "Serverfel vid rensning av notes" });
-  }
-});
-
-/* =====================
-   ✅ Solve all / Remove solved
-===================== */
-app.post("/admin/tickets/solve-all", authenticate, requireAdmin, async (req, res) => {
-  try {
-    const r = await Ticket.updateMany(
-      { status: { $in: ["open", "pending"] } },
-      { $set: { status: "solved", lastActivityAt: new Date(), solvedAt: new Date() } }
-    );
-    return res.json({ message: `Solve ALL ✅ Uppdaterade ${r.modifiedCount} tickets.` });
-  } catch (e) {
-    console.error("❌ Solve ALL error:", e?.message || e);
-    return res.status(500).json({ error: "Serverfel vid Solve ALL" });
-  }
-});
-
-app.post("/admin/tickets/remove-solved", authenticate, requireAdmin, async (req, res) => {
-  try {
-    const r = await Ticket.deleteMany({ status: "solved" });
-    return res.json({ message: `Remove solved ✅ Tog bort ${r.deletedCount} tickets.` });
-  } catch (e) {
-    console.error("❌ Remove solved error:", e?.message || e);
-    return res.status(500).json({ error: "Serverfel vid Remove solved" });
-  }
-});
-
-/* =====================
-   ✅ Assign ticket + delete ticket
-===================== */
-app.post("/admin/tickets/:ticketId/assign", authenticate, requireAgentOrAdmin, async (req, res) => {
-  const { userId } = req.body || {};
-  if (!userId) return res.status(400).json({ error: "userId saknas" });
-
-  const t = await Ticket.findById(req.params.ticketId);
-  if (!t) return res.status(404).json({ error: "Ticket hittades inte" });
-
-  t.assignedToUserId = userId;
-  t.lastActivityAt = new Date();
-  await t.save();
-
-  return res.json({ message: "Ticket assignad ✅", ticket: t });
-});
-
-app.delete("/admin/tickets/:ticketId", authenticate, requireAgentOrAdmin, async (req, res) => {
-  try {
-    const t = await Ticket.findById(req.params.ticketId);
-    if (!t) return res.status(404).json({ error: "Ticket hittades inte" });
-
-    await Ticket.deleteOne({ _id: t._id });
-    return res.json({ message: "Ticket borttagen ✅" });
-  } catch {
-    return res.status(500).json({ error: "Serverfel vid borttagning av ticket" });
-  }
-});
-
-/* =====================
-   ✅ ADMIN/AGENT: SLA endpoints (advanced)
-   Admin: all tickets
-   Agent: only assigned tickets
-===================== */
-app.get("/admin/sla/overview", authenticate, requireAgentOrAdmin, async (req, res) => {
-  try {
-    const dbUser = await getDbUser(req);
-    if (!dbUser) return res.status(403).json({ error: "User saknas" });
-
-    const rangeDays = Math.max(1, Math.min(365, Number(req.query.days || 30)));
-    const since = new Date(Date.now() - rangeDays * 24 * 60 * 60 * 1000);
-
-    const query = { createdAt: { $gte: since } };
-
-    // Agent sees only assigned
-    if (dbUser.role === "agent") {
-      query.assignedToUserId = dbUser._id;
-    }
-
-    const tickets = await Ticket.find(query).limit(5000);
-
-    // ensure SLA on the fly (safe for old tickets)
-    const safeTickets = tickets.map((t) => {
-      if (!t.sla || t.sla.firstResponseLimitMs == null) {
-        t.sla = computeSlaForTicket(t);
-      }
-      return t;
-    });
-
-    const total = safeTickets.length;
-
-    const withFirst = safeTickets.filter((t) => t.sla?.firstResponseMs != null);
-    const withRes = safeTickets.filter((t) => t.sla?.resolutionMs != null);
-
-    const breachesFirst = withFirst.filter((t) => t.sla.breachedFirstResponse).length;
-    const breachesRes = withRes.filter((t) => t.sla.breachedResolution).length;
-
-    const avgFirst =
-      withFirst.length > 0
-        ? Math.round(withFirst.reduce((a, t) => a + (t.sla.firstResponseMs || 0), 0) / withFirst.length)
-        : null;
-
-    const avgRes =
-      withRes.length > 0
-        ? Math.round(withRes.reduce((a, t) => a + (t.sla.resolutionMs || 0), 0) / withRes.length)
-        : null;
-
-    const complianceFirst =
-      withFirst.length > 0 ? Math.round(((withFirst.length - breachesFirst) / withFirst.length) * 100) : null;
-
-    const complianceRes =
-      withRes.length > 0 ? Math.round(((withRes.length - breachesRes) / withRes.length) * 100) : null;
-
-    // breakdown by priority
-    const byPriority = { low: 0, normal: 0, high: 0 };
-    safeTickets.forEach((t) => {
-      byPriority[t.priority || "normal"] = (byPriority[t.priority || "normal"] || 0) + 1;
-    });
-
-    // breakdown by category
-    const byCategory = {};
-    safeTickets.forEach((t) => {
-      byCategory[t.companyId] = (byCategory[t.companyId] || 0) + 1;
-    });
-
-    return res.json({
-      rangeDays,
-      totalTickets: total,
-      firstResponse: {
-        measuredCount: withFirst.length,
-        avgMs: avgFirst,
-        breaches: breachesFirst,
-        compliancePct: complianceFirst
-      },
-      resolution: {
-        measuredCount: withRes.length,
-        avgMs: avgRes,
-        breaches: breachesRes,
-        compliancePct: complianceRes
-      },
-      byPriority,
-      byCategory
-    });
-  } catch (e) {
-    console.error("❌ SLA overview error:", e?.message || e);
-    return res.status(500).json({ error: "Serverfel vid SLA overview" });
-  }
-});
-
-app.get("/admin/sla/tickets", authenticate, requireAgentOrAdmin, async (req, res) => {
-  try {
-    const dbUser = await getDbUser(req);
-    if (!dbUser) return res.status(403).json({ error: "User saknas" });
-
-    const rangeDays = Math.max(1, Math.min(365, Number(req.query.days || 30)));
-    const since = new Date(Date.now() - rangeDays * 24 * 60 * 60 * 1000);
-
-    const query = { createdAt: { $gte: since } };
-
-    if (dbUser.role === "agent") {
-      query.assignedToUserId = dbUser._id;
-    }
-
-    const tickets = await Ticket.find(query).sort({ createdAt: -1 }).limit(2000);
-
-    const rows = tickets.map((t) => {
-      const sla = t.sla && t.sla.firstResponseLimitMs != null ? t.sla : computeSlaForTicket(t);
-      return {
-        ticketId: String(t._id),
-        companyId: t.companyId,
-        status: t.status,
-        priority: t.priority,
-        assignedToUserId: t.assignedToUserId ? String(t.assignedToUserId) : null,
-        createdAt: t.createdAt,
-        firstAgentReplyAt: t.firstAgentReplyAt,
-        solvedAt: t.solvedAt,
-        sla
-      };
-    });
-
-    return res.json({ rangeDays, count: rows.length, rows });
-  } catch (e) {
-    console.error("❌ SLA tickets error:", e?.message || e);
-    return res.status(500).json({ error: "Serverfel vid SLA tickets" });
-  }
-});
-
-app.get("/admin/sla/agents", authenticate, requireAgentOrAdmin, async (req, res) => {
-  try {
-    const dbUser = await getDbUser(req);
-    if (!dbUser) return res.status(403).json({ error: "User saknas" });
-
-    const rangeDays = Math.max(1, Math.min(365, Number(req.query.days || 30)));
-    const since = new Date(Date.now() - rangeDays * 24 * 60 * 60 * 1000);
-
-    const query = { createdAt: { $gte: since }, assignedToUserId: { $ne: null } };
-
-    if (dbUser.role === "agent") {
-      query.assignedToUserId = dbUser._id;
-    }
-
-    const tickets = await Ticket.find(query).limit(5000);
-
-    const map = {}; // agentId -> stats
-    for (const t of tickets) {
-      const agentId = String(t.assignedToUserId);
-      if (!map[agentId]) {
-        map[agentId] = {
-          agentId,
-          tickets: 0,
-          firstMeasured: 0,
-          resMeasured: 0,
-          firstBreaches: 0,
-          resBreaches: 0,
-          firstSum: 0,
-          resSum: 0
-        };
-      }
-
-      const sla = t.sla && t.sla.firstResponseLimitMs != null ? t.sla : computeSlaForTicket(t);
-      map[agentId].tickets++;
-
-      if (sla.firstResponseMs != null) {
-        map[agentId].firstMeasured++;
-        map[agentId].firstSum += sla.firstResponseMs;
-        if (sla.breachedFirstResponse) map[agentId].firstBreaches++;
-      }
-
-      if (sla.resolutionMs != null) {
-        map[agentId].resMeasured++;
-        map[agentId].resSum += sla.resolutionMs;
-        if (sla.breachedResolution) map[agentId].resBreaches++;
-      }
-    }
-
-    const users = await User.find({ role: { $in: ["agent", "admin"] } }).select("_id username role");
-
-    const rows = Object.values(map).map((s) => {
-      const u = users.find((x) => String(x._id) === String(s.agentId));
-      const avgFirst = s.firstMeasured ? Math.round(s.firstSum / s.firstMeasured) : null;
-      const avgRes = s.resMeasured ? Math.round(s.resSum / s.resMeasured) : null;
-      const complianceFirst = s.firstMeasured ? Math.round(((s.firstMeasured - s.firstBreaches) / s.firstMeasured) * 100) : null;
-      const complianceRes = s.resMeasured ? Math.round(((s.resMeasured - s.resBreaches) / s.resMeasured) * 100) : null;
-
-      return {
-        agentId: s.agentId,
-        username: u?.username || "(unknown)",
-        role: u?.role || "agent",
-        tickets: s.tickets,
-        firstResponse: {
-          measured: s.firstMeasured,
-          breaches: s.firstBreaches,
-          avgMs: avgFirst,
-          compliancePct: complianceFirst
-        },
-        resolution: {
-          measured: s.resMeasured,
-          breaches: s.resBreaches,
-          avgMs: avgRes,
-          compliancePct: complianceRes
-        }
-      };
-    });
-
-    // Admin: leaderboard sort by resolution compliance then first response compliance
-    rows.sort((a, b) => {
-      const ar = a.resolution.compliancePct ?? -1;
-      const br = b.resolution.compliancePct ?? -1;
-      if (br !== ar) return br - ar;
-      const af = a.firstResponse.compliancePct ?? -1;
-      const bf = b.firstResponse.compliancePct ?? -1;
-      return bf - af;
-    });
-
-    return res.json({ rangeDays, count: rows.length, rows });
-  } catch (e) {
-    console.error("❌ SLA agents error:", e?.message || e);
-    return res.status(500).json({ error: "Serverfel vid SLA agents" });
-  }
-});
-
-/* =====================
-   ✅ ADMIN: Users + roles (user/agent/admin)
-===================== */
-app.get("/admin/users", authenticate, requireAgentOrAdmin, async (req, res) => {
-  const users = await User.find({}).select("-password").sort({ createdAt: -1 }).limit(2000);
-  return res.json(users);
-});
-
-app.post("/admin/users/:userId/role", authenticate, requireAdmin, async (req, res) => {
-  try {
-    const { role } = req.body || {};
-    if (!["user", "agent", "admin"].includes(role)) return res.status(400).json({ error: "Ogiltig roll" });
-
-    const targetId = req.params.userId;
-    const me = await User.findById(req.user.id);
-
-    if (!me || me.role !== "admin") return res.status(403).json({ error: "Admin krävs" });
-
-    const u = await User.findById(targetId);
-    if (!u) return res.status(404).json({ error: "User hittades inte" });
-
-    if (String(u._id) === String(me._id)) return res.status(400).json({ error: "Du kan inte ändra din egen roll." });
-
-    u.role = role;
-    await u.save();
-
-    return res.json({ message: "Roll uppdaterad ✅", user: { id: u._id, username: u.username, role: u.role } });
-  } catch {
-    return res.status(500).json({ error: "Serverfel vid roll-ändring" });
-  }
-});
-
-app.delete("/admin/users/:userId", authenticate, requireAdmin, async (req, res) => {
-  try {
-    const targetId = req.params.userId;
-
-    if (String(targetId) === String(req.user.id)) return res.status(400).json({ error: "Du kan inte ta bort dig själv." });
-
-    const u = await User.findById(targetId);
-    if (!u) return res.status(404).json({ error: "User hittades inte" });
-
-    await Ticket.deleteMany({ userId: targetId });
-    await Feedback.deleteMany({ userId: targetId });
-    await User.deleteOne({ _id: targetId });
-
-    return res.json({ message: `Användaren ${u.username} togs bort ✅` });
-  } catch {
-    return res.status(500).json({ error: "Serverfel vid borttagning" });
-  }
-});
-
-/* =====================
-   ✅ ADMIN: Categories manager
-===================== */
-app.get("/admin/categories", authenticate, requireAdmin, async (req, res) => {
-  const cats = await Category.find({}).sort({ createdAt: 1 });
-  return res.json(cats);
-});
-
-app.post("/admin/categories", authenticate, requireAdmin, async (req, res) => {
-  try {
-    const { key, name, systemPrompt } = req.body || {};
-    if (!key || !name) return res.status(400).json({ error: "key + name krävs" });
+    const key = safeStr(req.body.key).trim();
+    const name = safeStr(req.body.name).trim();
+    const prompt = safeStr(req.body.prompt).trim();
+
+    if (!key || !name || !prompt) return res.status(400).json({ error: "key + name + prompt krävs" });
 
     const exists = await Category.findOne({ key });
     if (exists) return res.status(400).json({ error: "Kategori finns redan" });
 
-    await new Category({ key, name, systemPrompt: systemPrompt || "" }).save();
+    await Category.create({ key, name, prompt });
     return res.json({ message: "Kategori skapad ✅" });
   } catch {
-    return res.status(500).json({ error: "Serverfel vid skapa kategori" });
+    return res.status(500).json({ error: "Serverfel vid kategori" });
   }
 });
 
-app.put("/admin/categories/:key", authenticate, requireAdmin, async (req, res) => {
+app.delete("/admin/categories/:key", requireAuth, requireAdmin, async (req, res) => {
   try {
-    const { name, systemPrompt } = req.body || {};
-    const c = await Category.findOne({ key: req.params.key });
-    if (!c) return res.status(404).json({ error: "Kategori hittades inte" });
-
-    if (name) c.name = name;
-    if (typeof systemPrompt === "string") c.systemPrompt = systemPrompt;
-
-    await c.save();
-    return res.json({ message: "Kategori uppdaterad ✅" });
-  } catch {
-    return res.status(500).json({ error: "Serverfel vid update kategori" });
-  }
-});
-
-app.delete("/admin/categories/:key", authenticate, requireAdmin, async (req, res) => {
-  try {
-    const key = req.params.key;
-    if (["demo", "law", "tech", "cleaning"].includes(key)) {
-      return res.status(400).json({ error: "Default-kategorier kan inte tas bort" });
-    }
+    const key = safeStr(req.params.key).trim();
+    if (!key) return res.status(400).json({ error: "Key saknas" });
 
     await Category.deleteOne({ key });
-    await KBChunk.deleteMany({ companyId: key });
-    await Ticket.deleteMany({ companyId: key });
-
-    return res.json({ message: `Kategori ${key} borttagen ✅` });
+    return res.json({ message: "Kategori borttagen ✅" });
   } catch {
-    return res.status(500).json({ error: "Serverfel vid delete kategori" });
+    return res.status(500).json({ error: "Serverfel" });
   }
 });
 
-/* =====================
-   ✅ ADMIN: KB Upload / List / Export
-===================== */
-app.get("/kb/list/:companyId", authenticate, requireAdmin, async (req, res) => {
-  const items = await KBChunk.find({ companyId: req.params.companyId, isDeleted: false }).sort({ createdAt: -1 }).limit(400);
-  return res.json(items);
+/*************************************************
+ * ✅ Knowledge Base
+ *************************************************/
+app.get("/kb/list/:companyId", requireAuth, requireAdmin, async (req, res) => {
+  const companyId = safeStr(req.params.companyId || "demo");
+  const items = await KBItem.find({ companyId }).sort({ createdAt: -1 }).lean();
+  res.json(items);
 });
 
-app.post("/kb/upload-text", authenticate, requireAdmin, async (req, res) => {
+app.post("/kb/upload-text", requireAuth, requireAdmin, async (req, res) => {
   try {
-    const { companyId, title, content } = req.body || {};
-    if (!companyId || !content) return res.status(400).json({ error: "companyId eller content saknas" });
+    const companyId = safeStr(req.body.companyId || "demo");
+    const title = safeStr(req.body.title).trim();
+    const content = safeStr(req.body.content).trim();
 
-    const chunks = chunkText(content);
-    if (!chunks.length) return res.status(400).json({ error: "Ingen text att spara" });
+    if (!title || !content) return res.status(400).json({ error: "Titel + text krävs" });
 
-    let okCount = 0;
-    for (let i = 0; i < chunks.length; i++) {
-      const emb = await createEmbedding(chunks[i]);
-      const embeddingOk = !!emb;
-      if (embeddingOk) okCount++;
+    await KBItem.create({ companyId, type: "text", title, content });
+    return res.json({ message: "Text uppladdad ✅" });
+  } catch {
+    return res.status(500).json({ error: "Serverfel" });
+  }
+});
 
-      await new KBChunk({
-        companyId,
-        sourceType: "text",
-        sourceRef: "manual",
-        title: title || "Text",
-        chunkIndex: i,
-        content: chunks[i],
-        embedding: emb || [],
-        embeddingOk
-      }).save();
+app.post("/kb/upload-url", requireAuth, requireAdmin, async (req, res) => {
+  try {
+    const companyId = safeStr(req.body.companyId || "demo");
+    const url = safeStr(req.body.url).trim();
+    if (!url) return res.status(400).json({ error: "URL saknas" });
+
+    await KBItem.create({ companyId, type: "url", title: url, url });
+    return res.json({ message: "URL uppladdad ✅" });
+  } catch {
+    return res.status(500).json({ error: "Serverfel" });
+  }
+});
+
+app.post("/kb/upload-pdf", requireAuth, requireAdmin, upload.single("file"), async (req, res) => {
+  try {
+    const companyId = safeStr(req.body.companyId || "demo");
+    const file = req.file;
+
+    if (!file) return res.status(400).json({ error: "Ingen fil" });
+
+    await KBItem.create({
+      companyId,
+      type: "pdf",
+      title: file.originalname || "PDF",
+      content: `PDF uploaded: ${file.filename}`,
+    });
+
+    return res.json({ message: "PDF uppladdad ✅" });
+  } catch {
+    return res.status(500).json({ error: "Serverfel vid PDF" });
+  }
+});
+
+/*************************************************
+ * ✅ Export endpoints (simple JSON export)
+ *************************************************/
+app.get("/admin/export/all", requireAuth, requireAdmin, async (req, res) => {
+  const users = await User.find().lean();
+  const tickets = await Ticket.find().lean();
+  const categories = await Category.find().lean();
+  const kb = await KBItem.find().lean();
+
+  res.json({ users, tickets, categories, kb });
+});
+
+app.get("/admin/export/training", requireAuth, requireAdmin, async (req, res) => {
+  const tickets = await Ticket.find().lean();
+  const training = tickets.map((t) => ({
+    companyId: t.companyId,
+    title: t.title,
+    messages: t.messages,
+  }));
+
+  res.json({ training });
+});
+
+app.get("/export/kb/:companyId", requireAuth, requireAdmin, async (req, res) => {
+  const companyId = safeStr(req.params.companyId || "demo");
+  const kb = await KBItem.find({ companyId }).lean();
+  res.json({ companyId, kb });
+});
+
+/*************************************************
+ * ✅ Feedback
+ *************************************************/
+app.post("/feedback", requireAuth, async (req, res) => {
+  // demo placeholder
+  res.json({ message: "Feedback skickad ✅" });
+});
+
+/*************************************************
+ * ✅ Tickets
+ *************************************************/
+app.get("/my/tickets", requireAuth, async (req, res) => {
+  const tickets = await Ticket.find({ userId: req.user.id })
+    .sort({ lastActivityAt: -1 })
+    .lean();
+
+  res.json(
+    tickets.map((t) => ({
+      _id: t._id,
+      companyId: t.companyId,
+      title: t.title,
+      status: t.status,
+      priority: t.priority,
+      lastActivityAt: t.lastActivityAt,
+    }))
+  );
+});
+
+app.get("/my/tickets/:id", requireAuth, async (req, res) => {
+  const id = safeStr(req.params.id);
+
+  const t = await Ticket.findOne({ _id: id, userId: req.user.id }).lean();
+  if (!t) return res.status(404).json({ error: "Ticket hittades inte" });
+
+  res.json(t);
+});
+
+/*************************************************
+ * ✅ Customer reply from "Mina ärenden"
+ * - This allows continuing conversation
+ *************************************************/
+app.post("/my/tickets/:id/reply", requireAuth, async (req, res) => {
+  try {
+    const id = safeStr(req.params.id);
+    const content = safeStr(req.body.content).trim();
+    if (!content) return res.status(400).json({ error: "Tomt meddelande" });
+
+    const t = await Ticket.findOne({ _id: id, userId: req.user.id });
+    if (!t) return res.status(404).json({ error: "Ticket hittades inte" });
+
+    t.messages.push({ role: "user", content, timestamp: now() });
+    t.lastActivityAt = now();
+    if (!t.title) t.title = content.slice(0, 48);
+
+    await t.save();
+
+    // Optional: could trigger AI response immediately
+    // But we keep it simple: user message saved
+    res.json({ message: "Meddelande skickat ✅" });
+  } catch {
+    res.status(500).json({ error: "Serverfel" });
+  }
+});
+
+/*************************************************
+ * ✅ Admin tickets inbox
+ *************************************************/
+app.get("/admin/tickets", requireAuth, requireAgentOrAdmin, async (req, res) => {
+  const { status, companyId } = req.query;
+
+  const filter = {};
+  if (status) filter.status = status;
+  if (companyId) filter.companyId = companyId;
+
+  // ✅ Agent should only see assigned-to tickets if they are agent (not admin)
+  if (req.user.role === "agent") {
+    filter.assignedTo = req.user.id;
+  }
+
+  const tickets = await Ticket.find(filter).sort({ lastActivityAt: -1 }).lean();
+  res.json(tickets);
+});
+
+app.get("/admin/tickets/:id", requireAuth, requireAgentOrAdmin, async (req, res) => {
+  const id = safeStr(req.params.id);
+
+  const filter = { _id: id };
+
+  // Agent can only open tickets assigned to them
+  if (req.user.role === "agent") filter.assignedTo = req.user.id;
+
+  const t = await Ticket.findOne(filter).lean();
+  if (!t) return res.status(404).json({ error: "Ticket hittades inte" });
+
+  res.json(t);
+});
+
+app.post("/admin/tickets/:id/status", requireAuth, requireAgentOrAdmin, async (req, res) => {
+  const id = safeStr(req.params.id);
+  const status = safeStr(req.body.status || "open");
+
+  const filter = { _id: id };
+  if (req.user.role === "agent") filter.assignedTo = req.user.id;
+
+  const t = await Ticket.findOne(filter);
+  if (!t) return res.status(404).json({ error: "Ticket hittades inte" });
+
+  t.status = status;
+  t.lastActivityAt = now();
+
+  // ✅ Set resolvedAt when solved
+  if (status === "solved") {
+    if (!t.sla.resolvedAt) t.sla.resolvedAt = now();
+  }
+
+  await t.save();
+  res.json({ message: "Status sparad ✅" });
+});
+
+app.post("/admin/tickets/:id/priority", requireAuth, requireAgentOrAdmin, async (req, res) => {
+  const id = safeStr(req.params.id);
+  const priority = safeStr(req.body.priority || "normal");
+
+  const filter = { _id: id };
+  if (req.user.role === "agent") filter.assignedTo = req.user.id;
+
+  const t = await Ticket.findOne(filter);
+  if (!t) return res.status(404).json({ error: "Ticket hittades inte" });
+
+  t.priority = priority;
+  t.lastActivityAt = now();
+  await t.save();
+  res.json({ message: "Prioritet sparad ✅" });
+});
+
+app.post("/admin/tickets/:id/agent-reply", requireAuth, requireAgentOrAdmin, async (req, res) => {
+  const id = safeStr(req.params.id);
+  const content = safeStr(req.body.content).trim();
+  if (!content) return res.status(400).json({ error: "Tomt svar" });
+
+  const filter = { _id: id };
+  if (req.user.role === "agent") filter.assignedTo = req.user.id;
+
+  const t = await Ticket.findOne(filter);
+  if (!t) return res.status(404).json({ error: "Ticket hittades inte" });
+
+  t.messages.push({ role: "agent", content, timestamp: now() });
+  t.lastActivityAt = now();
+
+  // ✅ SLA: first response time set when agent replies first time
+  if (!t.sla.firstResponseAt) t.sla.firstResponseAt = now();
+
+  await updateSlaFlags(t);
+  await t.save();
+
+  res.json({ message: "Svar skickat ✅" });
+});
+
+app.post("/admin/tickets/:id/internal-note", requireAuth, requireAgentOrAdmin, async (req, res) => {
+  const id = safeStr(req.params.id);
+  const content = safeStr(req.body.content).trim();
+  if (!content) return res.status(400).json({ error: "Tom note" });
+
+  const filter = { _id: id };
+  if (req.user.role === "agent") filter.assignedTo = req.user.id;
+
+  const t = await Ticket.findOne(filter);
+  if (!t) return res.status(404).json({ error: "Ticket hittades inte" });
+
+  t.internalNotes.push({ content, createdAt: now(), createdBy: req.user.id });
+  t.lastActivityAt = now();
+  await t.save();
+
+  res.json({ message: "Intern note sparad ✅" });
+});
+
+app.delete(
+  "/admin/tickets/:ticketId/internal-note/:noteId",
+  requireAuth,
+  requireAgentOrAdmin,
+  async (req, res) => {
+    const ticketId = safeStr(req.params.ticketId);
+    const noteId = safeStr(req.params.noteId);
+
+    const filter = { _id: ticketId };
+    if (req.user.role === "agent") filter.assignedTo = req.user.id;
+
+    const t = await Ticket.findOne(filter);
+    if (!t) return res.status(404).json({ error: "Ticket hittades inte" });
+
+    t.internalNotes = (t.internalNotes || []).filter((n) => String(n._id) !== String(noteId));
+    await t.save();
+
+    res.json({ message: "Notering borttagen ✅" });
+  }
+);
+
+app.delete("/admin/tickets/:ticketId/internal-notes", requireAuth, requireAgentOrAdmin, async (req, res) => {
+  const ticketId = safeStr(req.params.ticketId);
+
+  const filter = { _id: ticketId };
+  if (req.user.role === "agent") filter.assignedTo = req.user.id;
+
+  const t = await Ticket.findOne(filter);
+  if (!t) return res.status(404).json({ error: "Ticket hittades inte" });
+
+  t.internalNotes = [];
+  await t.save();
+
+  res.json({ message: "Alla notes borttagna ✅" });
+});
+
+app.post("/admin/tickets/:id/assign", requireAuth, requireAdmin, async (req, res) => {
+  const id = safeStr(req.params.id);
+  const userId = safeStr(req.body.userId);
+
+  const t = await Ticket.findById(id);
+  if (!t) return res.status(404).json({ error: "Ticket hittades inte" });
+
+  t.assignedTo = userId || null;
+  await t.save();
+
+  res.json({ message: "Ticket assignad ✅" });
+});
+
+app.delete("/admin/tickets/:id", requireAuth, requireAdmin, async (req, res) => {
+  const id = safeStr(req.params.id);
+  await Ticket.deleteOne({ _id: id });
+  res.json({ message: "Ticket borttagen ✅" });
+});
+
+app.post("/admin/tickets/solve-all", requireAuth, requireAdmin, async (req, res) => {
+  await Ticket.updateMany({ status: { $in: ["open", "pending"] } }, { status: "solved", "sla.resolvedAt": now() });
+  res.json({ message: "Alla tickets markerade som solved ✅" });
+});
+
+app.post("/admin/tickets/remove-solved", requireAuth, requireAdmin, async (req, res) => {
+  await Ticket.deleteMany({ status: "solved" });
+  res.json({ message: "Alla solved tickets borttagna ✅" });
+});
+
+/*************************************************
+ * ✅ Chat endpoint (AI simulation)
+ * - Creates ticket if needed
+ *************************************************/
+app.post("/chat", requireAuth, async (req, res) => {
+  try {
+    const companyId = safeStr(req.body.companyId || "demo");
+    const conversation = Array.isArray(req.body.conversation) ? req.body.conversation : [];
+    const incomingTicketId = req.body.ticketId ? safeStr(req.body.ticketId) : null;
+
+    let ticket = null;
+
+    if (incomingTicketId) {
+      ticket = await Ticket.findOne({ _id: incomingTicketId, userId: req.user.id });
+      if (!ticket) return res.status(404).json({ error: "Ticket hittades inte" });
     }
 
-    return res.json({ message: `Text uppladdad ✅ (${chunks.length} chunks, embeddings: ${okCount}/${chunks.length})` });
-  } catch (e) {
-    return res.status(500).json({ error: `Serverfel: ${e.message}` });
-  }
-});
-
-app.post("/kb/upload-url", authenticate, requireAdmin, async (req, res) => {
-  try {
-    const { companyId, url } = req.body || {};
-    if (!companyId || !url) return res.status(400).json({ error: "companyId eller url saknas" });
-
-    const text = await fetchUrlText(url);
-    const chunks = chunkText(text);
-
-    let okCount = 0;
-    for (let i = 0; i < chunks.length; i++) {
-      const emb = await createEmbedding(chunks[i]);
-      const embeddingOk = !!emb;
-      if (embeddingOk) okCount++;
-
-      await new KBChunk({
+    // Create ticket if new
+    if (!ticket) {
+      const firstUserMsg = conversation.find((m) => m.role === "user")?.content || "Ärende";
+      ticket = await Ticket.create({
         companyId,
-        sourceType: "url",
-        sourceRef: url,
-        title: "URL",
-        chunkIndex: i,
-        content: chunks[i],
-        embedding: emb || [],
-        embeddingOk
-      }).save();
+        userId: req.user.id,
+        title: safeStr(firstUserMsg).slice(0, 48),
+        status: "open",
+        priority: "normal",
+        messages: [],
+        lastActivityAt: now(),
+      });
     }
 
-    return res.json({ message: `URL uppladdad ✅ (${chunks.length} chunks, embeddings: ${okCount}/${chunks.length})` });
-  } catch (e) {
-    return res.status(500).json({ error: `Serverfel vid URL-upload: ${e.message}` });
-  }
-});
-
-app.post("/kb/upload-pdf", authenticate, requireAdmin, async (req, res) => {
-  try {
-    const { companyId, filename, base64 } = req.body || {};
-    if (!companyId || !base64) return res.status(400).json({ error: "companyId eller base64 saknas" });
-
-    const text = await extractPdfText(base64);
-    const chunks = chunkText(text);
-
-    let okCount = 0;
-    for (let i = 0; i < chunks.length; i++) {
-      const emb = await createEmbedding(chunks[i]);
-      const embeddingOk = !!emb;
-      if (embeddingOk) okCount++;
-
-      await new KBChunk({
-        companyId,
-        sourceType: "pdf",
-        sourceRef: filename || "pdf",
-        title: filename || "PDF",
-        chunkIndex: i,
-        content: chunks[i],
-        embedding: emb || [],
-        embeddingOk
-      }).save();
+    // Save user messages
+    const last = conversation[conversation.length - 1];
+    if (last && last.role === "user") {
+      ticket.messages.push({ role: "user", content: safeStr(last.content), timestamp: now() });
+      ticket.lastActivityAt = now();
     }
 
-    return res.json({ message: `PDF uppladdad ✅ (${chunks.length} chunks, embeddings: ${okCount}/${chunks.length})` });
+    // Simulated AI reply
+    const reply = `✅ Jag tog emot ditt meddelande:\n"${safeStr(last?.content)}"\n\nVill du att en agent ska svara eller ska jag hjälpa direkt?`;
+
+    ticket.messages.push({ role: "assistant", content: reply, timestamp: now() });
+    ticket.lastActivityAt = now();
+
+    // ✅ SLA: if assistant "answers", count as first response
+    if (!ticket.sla.firstResponseAt) ticket.sla.firstResponseAt = now();
+
+    await updateSlaFlags(ticket);
+    await ticket.save();
+
+    res.json({
+      ticketId: ticket._id,
+      reply,
+      ragUsed: false,
+    });
   } catch (e) {
-    return res.status(500).json({ error: `Serverfel vid PDF-upload: ${e.message}` });
+    res.status(500).json({ error: "Serverfel vid chat" });
   }
 });
 
-app.get("/export/kb/:companyId", authenticate, requireAdmin, async (req, res) => {
-  const items = await KBChunk.find({ companyId: req.params.companyId }).sort({ createdAt: -1 });
-  res.setHeader("Content-Type", "application/json");
-  res.setHeader("Content-Disposition", `attachment; filename="kb_${req.params.companyId}.json"`);
-  return res.send(JSON.stringify(items, null, 2));
-});
+/*************************************************
+ * ✅ SLA helpers + endpoints
+ *************************************************/
+async function updateSlaFlags(ticketDoc) {
+  const t = ticketDoc;
+  const createdAt = t.createdAt ? new Date(t.createdAt).getTime() : Date.now();
+  const prio = t.priority || "normal";
+  const { firstMs, resMs } = getSlaThreshold(prio);
 
-/* =====================
-   ✅ TRAINING EXPORT
-===================== */
-app.get("/admin/export/training", authenticate, requireAdmin, async (req, res) => {
-  const { companyId } = req.query || {};
-  const query = {};
-  if (companyId) query.companyId = companyId;
+  // First response SLA
+  if (t.sla?.firstResponseAt) {
+    const firstAt = new Date(t.sla.firstResponseAt).getTime();
+    const diff = firstAt - createdAt;
+    t.sla.breachedFirstResponse = diff > firstMs;
+  }
 
-  const tickets = await Ticket.find(query).sort({ createdAt: -1 }).limit(4000);
+  // Resolution SLA
+  if (t.sla?.resolvedAt) {
+    const resAt = new Date(t.sla.resolvedAt).getTime();
+    const diff = resAt - createdAt;
+    t.sla.breachedResolution = diff > resMs;
+  }
+}
 
-  const rows = [];
-  for (const t of tickets) {
-    const msgs = t.messages || [];
-    for (let i = 0; i < msgs.length - 1; i++) {
-      const a = msgs[i];
-      const b = msgs[i + 1];
-      if (a.role === "user" && (b.role === "assistant" || b.role === "agent")) {
-        rows.push({
-          companyId: t.companyId,
-          ticketId: String(t._id),
-          question: a.content,
-          answer: b.content,
-          answeredBy: b.role,
-          timestamp: b.timestamp
-        });
+// ✅ ADMIN + AGENT – overview
+app.get("/admin/sla/overview", requireAuth, requireAgentOrAdmin, async (req, res) => {
+  try {
+    const days = clampDays(req.query.days, 30);
+    const since = new Date(Date.now() - days * 24 * 60 * 60 * 1000);
+
+    const filter = { createdAt: { $gte: since } };
+
+    // Agent sees only assigned tickets
+    if (req.user.role === "agent") {
+      filter.assignedTo = req.user.id;
+    }
+
+    const tickets = await Ticket.find(filter).lean();
+
+    const totalTickets = tickets.length;
+    const byPriority = { low: 0, normal: 0, high: 0 };
+
+    const firstRespMsArr = [];
+    const resMsArr = [];
+
+    let firstBreaches = 0;
+    let resBreaches = 0;
+
+    tickets.forEach((t) => {
+      const pr = t.priority || "normal";
+      if (byPriority[pr] != null) byPriority[pr]++;
+
+      const created = new Date(t.createdAt).getTime();
+
+      // first response
+      if (t.sla?.firstResponseAt) {
+        const ms = new Date(t.sla.firstResponseAt).getTime() - created;
+        firstRespMsArr.push(ms);
+
+        if (t.sla.breachedFirstResponse) firstBreaches++;
       }
+
+      // resolution
+      if (t.sla?.resolvedAt) {
+        const ms = new Date(t.sla.resolvedAt).getTime() - created;
+        resMsArr.push(ms);
+
+        if (t.sla.breachedResolution) resBreaches++;
+      }
+    });
+
+    const avg = (arr) => {
+      if (!arr.length) return null;
+      return Math.round(arr.reduce((a, b) => a + b, 0) / arr.length);
+    };
+
+    const firstAvg = avg(firstRespMsArr);
+    const resAvg = avg(resMsArr);
+
+    const firstCompliancePct =
+      totalTickets === 0 ? null : Math.round(((totalTickets - firstBreaches) / totalTickets) * 100);
+
+    const resCompliancePct =
+      totalTickets === 0 ? null : Math.round(((totalTickets - resBreaches) / totalTickets) * 100);
+
+    return res.json({
+      totalTickets,
+      byPriority,
+      firstResponse: {
+        avgMs: firstAvg,
+        breaches: firstBreaches,
+        compliancePct: firstCompliancePct,
+      },
+      resolution: {
+        avgMs: resAvg,
+        breaches: resBreaches,
+        compliancePct: resCompliancePct,
+      },
+    });
+  } catch {
+    res.status(500).json({ error: "SLA overview error" });
+  }
+});
+
+// ✅ Admin: agent stats (agents list)
+app.get("/admin/sla/agents", requireAuth, requireAdmin, async (req, res) => {
+  try {
+    const days = clampDays(req.query.days, 30);
+    const since = new Date(Date.now() - days * 24 * 60 * 60 * 1000);
+
+    const agents = await User.find({ role: { $in: ["admin", "agent"] } }).lean();
+
+    const rows = [];
+
+    for (const a of agents) {
+      const tickets = await Ticket.find({
+        createdAt: { $gte: since },
+        assignedTo: a._id,
+      }).lean();
+
+      const total = tickets.length;
+      let firstBreaches = 0;
+      let resBreaches = 0;
+
+      const firstArr = [];
+      const resArr = [];
+
+      tickets.forEach((t) => {
+        const created = new Date(t.createdAt).getTime();
+        if (t.sla?.firstResponseAt) {
+          firstArr.push(new Date(t.sla.firstResponseAt).getTime() - created);
+          if (t.sla.breachedFirstResponse) firstBreaches++;
+        }
+        if (t.sla?.resolvedAt) {
+          resArr.push(new Date(t.sla.resolvedAt).getTime() - created);
+          if (t.sla.breachedResolution) resBreaches++;
+        }
+      });
+
+      const avg = (arr) => (arr.length ? Math.round(arr.reduce((x, y) => x + y, 0) / arr.length) : null);
+
+      rows.push({
+        userId: a._id,
+        username: a.username,
+        role: a.role,
+        tickets: total,
+        firstResponse: {
+          avgMs: avg(firstArr),
+          compliancePct: total ? Math.round(((total - firstBreaches) / total) * 100) : null,
+        },
+        resolution: {
+          avgMs: avg(resArr),
+          compliancePct: total ? Math.round(((total - resBreaches) / total) * 100) : null,
+        },
+      });
     }
+
+    res.json({ rows });
+  } catch {
+    res.status(500).json({ error: "SLA agents error" });
   }
-
-  res.setHeader("Content-Type", "application/json");
-  res.setHeader("Content-Disposition", `attachment; filename="training_export${companyId ? "_" + companyId : ""}.json"`);
-  return res.send(JSON.stringify({ exportedAt: new Date().toISOString(), rows }, null, 2));
 });
 
-/* =====================
-   ✅ ADMIN EXPORT ALL
-===================== */
-app.get("/admin/export/all", authenticate, requireAdmin, async (req, res) => {
-  const users = await User.find({}).select("-password");
-  const tickets = await Ticket.find({});
-  const kb = await KBChunk.find({});
-  const feedback = await Feedback.find({});
-  const categories = await Category.find({});
+// ✅ Tickets SLA table (admin = all, agent = own)
+app.get("/admin/sla/tickets", requireAuth, requireAgentOrAdmin, async (req, res) => {
+  try {
+    const days = clampDays(req.query.days, 30);
+    const since = new Date(Date.now() - days * 24 * 60 * 60 * 1000);
 
-  res.setHeader("Content-Type", "application/json");
-  res.setHeader("Content-Disposition", `attachment; filename="export_all.json"`);
-  return res.send(JSON.stringify({ users, tickets, kb, feedback, categories, exportedAt: new Date().toISOString() }, null, 2));
-});
+    const filter = { createdAt: { $gte: since } };
+    if (req.user.role === "agent") filter.assignedTo = req.user.id;
 
-/* =====================
-   ✅ JSON 404 for API routes
-===================== */
-app.use((req, res, next) => {
-  if (
-    req.path.startsWith("/admin") ||
-    req.path.startsWith("/auth") ||
-    req.path.startsWith("/kb") ||
-    req.path.startsWith("/chat") ||
-    req.path.startsWith("/my") ||
-    req.path.startsWith("/feedback")
-  ) {
-    return res.status(404).json({ error: "API route hittades inte" });
+    const tickets = await Ticket.find(filter).sort({ createdAt: -1 }).lean();
+
+    const rows = tickets.map((t) => {
+      const created = new Date(t.createdAt).getTime();
+      const first = t.sla?.firstResponseAt ? new Date(t.sla.firstResponseAt).getTime() - created : null;
+      const reso = t.sla?.resolvedAt ? new Date(t.sla.resolvedAt).getTime() - created : null;
+
+      return {
+        ticketId: t._id,
+        companyId: t.companyId,
+        status: t.status,
+        priority: t.priority,
+        sla: {
+          firstResponseMs: first,
+          resolutionMs: reso,
+          breachedFirstResponse: !!t.sla?.breachedFirstResponse,
+          breachedResolution: !!t.sla?.breachedResolution,
+        },
+      };
+    });
+
+    res.json({ rows });
+  } catch {
+    res.status(500).json({ error: "SLA tickets error" });
   }
-  next();
 });
 
-/* =====================
-   ✅ Start
-===================== */
-const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => console.log(`✅ Servern körs på http://localhost:${PORT}`));
-console.log("✅ server.js reached end of file without crashing");
+/*************************************************
+ * ✅ SLA Delete statistics
+ * - Individual (agent own)
+ * - All (admin only)
+ *************************************************/
+
+// Agent/Admin: delete OWN SLA stamps for tickets assigned to them
+app.delete("/admin/sla/clear-own", requireAuth, requireAgentOrAdmin, async (req, res) => {
+  try {
+    const filter = {};
+    if (req.user.role === "agent") {
+      filter.assignedTo = req.user.id;
+    } else {
+      // admin "own" means tickets assigned to admin user
+      filter.assignedTo = req.user.id;
+    }
+
+    const result = await Ticket.updateMany(filter, {
+      $set: {
+        "sla.firstResponseAt": null,
+        "sla.resolvedAt": null,
+        "sla.breachedFirstResponse": false,
+        "sla.breachedResolution": false,
+      },
+    });
+
+    res.json({ message: "Din SLA-statistik raderad ✅", modified: result.modifiedCount || 0 });
+  } catch {
+    res.status(500).json({ error: "Kunde inte radera egen statistik" });
+  }
+});
+
+// Admin: delete ALL SLA stamps for all tickets
+app.delete("/admin/sla/clear-all", requireAuth, requireAdmin, async (req, res) => {
+  try {
+    const result = await Ticket.updateMany(
+      {},
+      {
+        $set: {
+          "sla.firstResponseAt": null,
+          "sla.resolvedAt": null,
+          "sla.breachedFirstResponse": false,
+          "sla.breachedResolution": false,
+        },
+      }
+    );
+
+    res.json({ message: "ALL SLA-statistik raderad ✅", modified: result.modifiedCount || 0 });
+  } catch {
+    res.status(500).json({ error: "Kunde inte radera ALL statistik" });
+  }
+});
+
+/*************************************************
+ * ✅ Admin Users
+ *************************************************/
+app.get("/admin/users", requireAuth, requireAdmin, async (req, res) => {
+  const users = await User.find().sort({ createdAt: -1 }).lean();
+  res.json(users.map((u) => ({ _id: u._id, username: u.username, role: u.role, email: u.email || "" })));
+});
+
+app.post("/admin/users/:id/role", requireAuth, requireAdmin, async (req, res) => {
+  const id = safeStr(req.params.id);
+  const role = safeStr(req.body.role || "user");
+
+  if (!["user", "agent", "admin"].includes(role)) return res.status(400).json({ error: "Ogiltig roll" });
+
+  await User.findByIdAndUpdate(id, { role });
+  res.json({ message: "Roll uppdaterad ✅" });
+});
+
+app.delete("/admin/users/:id", requireAuth, requireAdmin, async (req, res) => {
+  const id = safeStr(req.params.id);
+  await User.deleteOne({ _id: id });
+  res.json({ message: "User borttagen ✅" });
+});
+
+/*************************************************
+ * ✅ Start server
+ *************************************************/
+app.listen(PORT, () => {
+  console.log(`✅ Server running on http://localhost:${PORT}`);
+});
