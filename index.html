@@ -44,11 +44,6 @@
           <span id="inboxNotifDot" class="notifDot" style="display:none;"></span>
         </button>
 
-        <!-- ✅ SLA MENU BUTTON (fanns i script.js men inte i din HTML) -->
-        <button id="openSlaView" class="menuBtn adminOnly" style="display:none;" type="button">
-          <i class="fa-solid fa-chart-line"></i> SLA
-        </button>
-
         <button id="openAdminView" class="menuBtn adminOnly" style="display:none;" type="button">
           <i class="fa-solid fa-shield-halved"></i> Admin
         </button>
@@ -240,15 +235,6 @@
             <div id="myTicketDetails" class="ticketDetails muted small">
               Välj ett ärende för att se detaljer.
             </div>
-
-            <!-- ✅ NYTT: Kund kan svara direkt i "Mina ärenden" -->
-            <div class="divider"></div>
-            <label>Fortsätt konversationen</label>
-            <textarea id="myTicketReplyText" class="input textarea" placeholder="Skriv ett svar..."></textarea>
-            <button id="sendMyTicketReplyBtn" class="btn primary full" type="button">
-              <i class="fa-solid fa-paper-plane"></i> Skicka svar
-            </button>
-            <div id="myTicketReplyMsg" class="alert" style="display:none;"></div>
           </div>
         </div>
       </section>
@@ -502,11 +488,6 @@
                 <button id="slaRefreshBtn" class="btn ghost small" type="button">
                   <i class="fa-solid fa-rotate"></i> Uppdatera
                 </button>
-
-                <!-- ✅ NYTT: Export CSV -->
-                <button id="slaExportCsvBtn" class="btn ghost small" type="button">
-                  <i class="fa-solid fa-file-csv"></i> Export CSV
-                </button>
               </div>
             </div>
 
@@ -521,80 +502,8 @@
 
             <div class="divider"></div>
 
-            <!-- ✅ NYTT: Trend vecka-för-vecka -->
-            <h3 style="margin:0 0 8px 0;">Trend (vecka för vecka)</h3>
-            <div id="slaTrendBox"></div>
-
-            <div class="divider"></div>
-
-            <!-- ✅ NYTT: Compare perioder/dagar -->
-            <h3 style="margin:0 0 8px 0;">Jämför perioder</h3>
-            <div class="row gap" style="flex-wrap:wrap;">
-              <select id="slaCompareA" class="input smallInput">
-                <option value="7">7 dagar</option>
-                <option value="14">14 dagar</option>
-                <option value="30" selected>30 dagar</option>
-                <option value="90">90 dagar</option>
-              </select>
-
-              <select id="slaCompareB" class="input smallInput">
-                <option value="7">7 dagar</option>
-                <option value="14" selected>14 dagar</option>
-                <option value="30">30 dagar</option>
-                <option value="90">90 dagar</option>
-              </select>
-
-              <button id="slaCompareBtn" class="btn ghost small" type="button">
-                <i class="fa-solid fa-scale-balanced"></i> Jämför
-              </button>
-            </div>
-            <div id="slaCompareBox" style="margin-top:10px;"></div>
-
-            <div class="divider"></div>
-
-            <!-- ✅ NYTT: Breached filter/sort -->
-            <h3 style="margin:0 0 8px 0;">Breached tickets (filter/sort)</h3>
-            <div class="row gap" style="flex-wrap:wrap;">
-              <select id="slaBreachFilter" class="input smallInput">
-                <option value="">Alla</option>
-                <option value="any">Alla breached</option>
-                <option value="first">First response breached</option>
-                <option value="resolution">Resolution breached</option>
-              </select>
-
-              <select id="slaBreachSort" class="input smallInput">
-                <option value="">Ingen sortering</option>
-                <option value="firstResponseMs">Sort: First response</option>
-                <option value="resolutionMs">Sort: Resolution</option>
-              </select>
-
-              <select id="slaBreachDir" class="input smallInput">
-                <option value="desc">Desc</option>
-                <option value="asc">Asc</option>
-              </select>
-
-              <button id="slaTicketsRefreshBtn" class="btn ghost small" type="button">
-                <i class="fa-solid fa-list"></i> Ladda tickets
-              </button>
-            </div>
-
+            <h3 style="margin:0 0 8px 0;">Tickets</h3>
             <div id="slaTicketsBox"></div>
-
-            <div class="divider"></div>
-
-            <!-- ✅ NYTT: Radera statistik -->
-            <h3 style="margin:0 0 8px 0;">Radera SLA statistik</h3>
-            <div class="row gap" style="flex-wrap:wrap;">
-              <input id="slaDeleteAgentId" class="input smallInput" placeholder="agentId (valfritt)" />
-              <button id="slaDeleteAgentBtn" class="btn danger small" type="button">
-                <i class="fa-solid fa-user-xmark"></i> Radera agent stats
-              </button>
-              <button id="slaDeleteAllBtn" class="btn danger small" type="button">
-                <i class="fa-solid fa-trash"></i> Radera ALLA stats
-              </button>
-            </div>
-
-            <div id="slaAdminMsg" class="alert" style="display:none;"></div>
           </div>
         </div>
 
