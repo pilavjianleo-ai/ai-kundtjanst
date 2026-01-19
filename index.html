@@ -44,6 +44,11 @@
           <span id="inboxNotifDot" class="notifDot" style="display:none;"></span>
         </button>
 
+        <!-- ✅ SLA-knapp (Agent/Admin) -->
+        <button id="openSlaView" class="menuBtn adminOnly" style="display:none;" type="button">
+          <i class="fa-solid fa-chart-line"></i> SLA
+        </button>
+
         <button id="openAdminView" class="menuBtn adminOnly" style="display:none;" type="button">
           <i class="fa-solid fa-shield-halved"></i> Admin
         </button>
@@ -239,6 +244,97 @@
         </div>
       </section>
 
+      <!-- ✅ SLA VIEW (ny, men i samma stil/komponenter) -->
+      <section id="slaView" class="view" style="display:none;">
+        <div class="topbar">
+          <div>
+            <div class="title">SLA Dashboard</div>
+            <div class="subtitle muted">SLA, breaches, median, trend och export (agent/admin).</div>
+          </div>
+
+          <div class="topbarActions">
+            <select id="slaDaysSelect" class="input smallInput">
+              <option value="7">7 dagar</option>
+              <option value="14">14 dagar</option>
+              <option value="30" selected>30 dagar</option>
+              <option value="90">90 dagar</option>
+            </select>
+
+            <!-- ✅ Compare periods -->
+            <select id="slaCompareMode" class="input smallInput">
+              <option value="none" selected>Ingen jämförelse</option>
+              <option value="prevPeriod">Jämför med föregående period</option>
+              <option value="prevWeek">Jämför med föregående vecka</option>
+            </select>
+
+            <button id="slaRefreshBtn" class="btn ghost" type="button">
+              <i class="fa-solid fa-rotate"></i> Uppdatera
+            </button>
+
+            <!-- ✅ Export -->
+            <button id="slaExportCsvBtn" class="btn ghost" type="button">
+              <i class="fa-solid fa-file-csv"></i> Export CSV
+            </button>
+
+            <!-- ✅ Clear stats -->
+            <button id="slaClearMyStatsBtn" class="btn danger" type="button">
+              <i class="fa-solid fa-eraser"></i> Radera min statistik
+            </button>
+
+            <button id="slaClearAllStatsBtn" class="btn danger" type="button" style="display:none;">
+              <i class="fa-solid fa-trash"></i> Radera ALL statistik
+            </button>
+          </div>
+        </div>
+
+        <div class="divider"></div>
+
+        <!-- ✅ Overview -->
+        <div id="slaOverviewBox"></div>
+
+        <div class="divider"></div>
+
+        <!-- ✅ Trend week chart -->
+        <h3 style="margin:0 0 8px 0;">Trend vecka för vecka</h3>
+        <div class="panel">
+          <canvas id="slaTrendChart" height="110" style="width:100%;"></canvas>
+          <div class="muted small" id="slaTrendHint" style="margin-top:8px;"></div>
+        </div>
+
+        <div class="divider"></div>
+
+        <!-- ✅ Agents -->
+        <h3 style="margin:0 0 8px 0;">Agents</h3>
+        <div id="slaAgentsBox"></div>
+
+        <div class="divider"></div>
+
+        <!-- ✅ Tickets + breached filter -->
+        <div class="row gap" style="margin-bottom:10px; flex-wrap:wrap;">
+          <b>Tickets</b>
+
+          <select id="slaBreachedFilter" class="input smallInput" style="margin-left:auto;">
+            <option value="all" selected>Alla tickets</option>
+            <option value="breachedOnly">Endast breached</option>
+            <option value="okOnly">Endast OK</option>
+          </select>
+
+          <select id="slaBreachTypeFilter" class="input smallInput">
+            <option value="any" selected>Alla breach-typer</option>
+            <option value="first">First response breach</option>
+            <option value="resolution">Resolution breach</option>
+          </select>
+
+          <select id="slaSortTickets" class="input smallInput">
+            <option value="newest" selected>Sortera: Nyast</option>
+            <option value="oldest">Sortera: Äldst</option>
+            <option value="worstFirst">Sortera: Mest brutet</option>
+          </select>
+        </div>
+
+        <div id="slaTicketsBox"></div>
+      </section>
+
       <!-- INBOX VIEW (Agent/Admin) -->
       <section id="inboxView" class="view" style="display:none;">
         <div class="topbar">
@@ -361,7 +457,7 @@
         <div class="topbar">
           <div>
             <div class="title">Admin Dashboard</div>
-            <div class="subtitle muted">Hantera users, export, KB, SLA och kategorier.</div>
+            <div class="subtitle muted">Hantera users, export, KB och kategorier.</div>
           </div>
           <div class="topbarActions">
             <button id="adminExportAllBtn" class="btn ghost" type="button">
@@ -377,7 +473,7 @@
           <button class="tabBtn active" data-tab="tabUsers" type="button">Users</button>
           <button class="tabBtn" data-tab="tabKB" type="button">Knowledge Base</button>
           <button class="tabBtn" data-tab="tabCats" type="button">Kategorier</button>
-          <button class="tabBtn" data-tab="tabSLA" type="button">SLA</button>
+          <!-- ✅ SLA tab borttagen enligt din begäran -->
         </div>
 
         <!-- Users -->
@@ -468,42 +564,6 @@
                 <div id="catsList" class="list"></div>
               </div>
             </div>
-          </div>
-        </div>
-
-        <!-- ✅ SLA -->
-        <div id="tabSLA" class="tabPanel" style="display:none;">
-          <div class="panel">
-            <div class="panelHead">
-              <b>SLA Dashboard</b>
-
-              <div style="margin-left:auto; display:flex; gap:10px; flex-wrap:wrap;">
-                <select id="slaDaysSelect" class="input smallInput">
-                  <option value="7">7 dagar</option>
-                  <option value="14">14 dagar</option>
-                  <option value="30" selected>30 dagar</option>
-                  <option value="90">90 dagar</option>
-                </select>
-
-                <button id="slaRefreshBtn" class="btn ghost small" type="button">
-                  <i class="fa-solid fa-rotate"></i> Uppdatera
-                </button>
-              </div>
-            </div>
-
-            <div class="divider"></div>
-
-            <div id="slaOverviewBox"></div>
-
-            <div class="divider"></div>
-
-            <h3 style="margin:0 0 8px 0;">Agents</h3>
-            <div id="slaAgentsBox"></div>
-
-            <div class="divider"></div>
-
-            <h3 style="margin:0 0 8px 0;">Tickets</h3>
-            <div id="slaTicketsBox"></div>
           </div>
         </div>
 
