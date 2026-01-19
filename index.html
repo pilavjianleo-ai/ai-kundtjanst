@@ -4,696 +4,403 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>AI Kundtjänst</title>
-
-  <!-- Font Awesome CDN -->
-  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
   <link rel="stylesheet" href="style.css" />
 </head>
-
-<body data-theme="dark">
+<body>
   <div class="app">
-
-    <!-- SIDEBAR -->
-    <aside class="sidebar">
+    <header class="topbar">
       <div class="brand">
-        <div class="logo"><i class="fa-solid fa-headset"></i></div>
-        <div class="brandText">
-          <div class="brandTitle">AI Kundtjänst</div>
-          <div class="brandSub" id="roleBadge">Inte inloggad</div>
+        <div class="logo">AI</div>
+        <div>
+          <div class="title">AI Kundtjänst</div>
+          <div class="subtitle">Chat • Tickets • Admin • SLA</div>
         </div>
       </div>
 
-      <div class="sidebarBlock">
-        <div class="label">AI Kategori</div>
-        <select id="categorySelect" class="input">
-          <option value="demo">demo</option>
-        </select>
+      <div class="top-actions">
+        <div id="meBadge" class="badge hidden"></div>
+        <button id="logoutBtn" class="btn secondary hidden">Logga ut</button>
       </div>
+    </header>
 
-      <nav class="menu">
-        <button id="openChatView" class="menuBtn active" type="button">
-          <i class="fa-solid fa-comments"></i> Chat
-        </button>
+    <main class="layout">
+      <!-- AUTH -->
+      <section id="authView" class="card">
+        <h2>Logga in</h2>
+        <p class="muted">Välj ett konto eller skapa ett nytt.</p>
 
-        <button id="openMyTicketsView" class="menuBtn" type="button">
-          <i class="fa-solid fa-ticket"></i> Mina ärenden
-        </button>
+        <div class="grid-2">
+          <div>
+            <h3>Login</h3>
+            <label>Användarnamn</label>
+            <input id="loginUsername" type="text" placeholder="ex: demo" />
+            <label>Lösenord</label>
+            <input id="loginPassword" type="password" placeholder="••••••••" />
+            <button id="loginBtn" class="btn primary full">Logga in</button>
+          </div>
 
-        <button id="openInboxView" class="menuBtn adminOnly" style="display:none;" type="button">
-          <i class="fa-solid fa-inbox"></i> Inbox (Agent)
-          <span id="inboxNotifDot" class="notifDot" style="display:none;"></span>
-        </button>
+          <div>
+            <h3>Register</h3>
+            <label>Användarnamn</label>
+            <input id="regUsername" type="text" placeholder="ex: nykund" />
+            <label>Email (valfritt men krävs för reset)</label>
+            <input id="regEmail" type="email" placeholder="ex: du@mail.com" />
+            <label>Lösenord</label>
+            <input id="regPassword" type="password" placeholder="••••••••" />
+            <button id="registerBtn" class="btn secondary full">Skapa konto</button>
+          </div>
+        </div>
 
-        <!-- ✅ SLA VIEW BUTTON (Admin + Agent) -->
-        <button id="openSlaView" class="menuBtn adminOnly" style="display:none;" type="button">
-          <i class="fa-solid fa-chart-line"></i> SLA
-        </button>
+        <div class="divider"></div>
 
-        <button id="openAdminView" class="menuBtn adminOnly" style="display:none;" type="button">
-          <i class="fa-solid fa-shield-halved"></i> Admin
-        </button>
+        <h3>Glömt lösenord?</h3>
+        <label>Email</label>
+        <input id="forgotEmail" type="email" placeholder="ex: du@mail.com" />
+        <button id="forgotBtn" class="btn secondary">Skicka reset-länk</button>
 
-        <button id="openSettingsView" class="menuBtn" style="display:none;" type="button">
-          <i class="fa-solid fa-gear"></i> Inställningar
-        </button>
-      </nav>
+        <div id="authMsg" class="msg"></div>
+      </section>
 
-      <div class="sidebarFooter">
-        <button id="themeToggle" class="btn ghost full" type="button">
-          <i class="fa-solid fa-moon"></i> Tema
-        </button>
+      <!-- APP -->
+      <section id="appView" class="hidden">
+        <div class="tabs">
+          <button class="tab active" data-tab="chatTab">Chat</button>
+          <button class="tab" data-tab="myTicketsTab">Mina ärenden</button>
+          <button class="tab hidden" id="inboxTabBtn" data-tab="inboxTab">Inbox</button>
+          <button class="tab hidden" id="slaTabBtn" data-tab="slaTab">SLA</button>
+          <button class="tab hidden" id="adminTabBtn" data-tab="adminTab">Admin</button>
+          <button class="tab" data-tab="settingsTab">Inställningar</button>
+        </div>
 
-        <button id="logoutBtn" class="btn danger full" style="display:none;" type="button">
-          <i class="fa-solid fa-right-from-bracket"></i> Logga ut
-        </button>
-
-        <button id="toggleDebugBtn" class="btn ghost full" type="button">
-          <i class="fa-solid fa-bug"></i> Debug
-        </button>
-      </div>
-
-      <!-- Debug Panel -->
-      <div id="debugPanel" class="debugPanel" style="display:none;">
-        <div><b>API:</b> <span id="dbgApi">-</span></div>
-        <div><b>Inloggad:</b> <span id="dbgLogged">-</span></div>
-        <div><b>Roll:</b> <span id="dbgRole">-</span></div>
-        <div><b>Ticket:</b> <span id="dbgTicket">-</span></div>
-        <div><b>RAG:</b> <span id="dbgRag">-</span></div>
-      </div>
-    </aside>
-
-    <!-- MAIN -->
-    <main class="main">
-
-      <!-- AUTH VIEW -->
-      <section id="authView" class="view">
-        <div class="card authCard">
-          <h2>Logga in</h2>
-          <p class="muted">Logga in för att starta chatt och se dina ärenden.</p>
-
-          <div class="grid2">
+        <!-- CHAT -->
+        <section id="chatTab" class="tabview card">
+          <div class="row space">
             <div>
-              <label>Användarnamn</label>
-              <input id="username" class="input" placeholder="t.ex. leo123" />
+              <h2>Chat</h2>
+              <p class="muted">Chatta med AI och skapa automatiskt ärenden.</p>
             </div>
+
+            <div class="row">
+              <label class="muted small">Kategori</label>
+              <select id="companySelect"></select>
+            </div>
+          </div>
+
+          <div id="chatWindow" class="chatWindow"></div>
+
+          <div class="row">
+            <input id="chatInput" type="text" placeholder="Skriv din fråga..." />
+            <button id="sendBtn" class="btn primary">Skicka</button>
+          </div>
+
+          <div id="chatMeta" class="muted small"></div>
+        </section>
+
+        <!-- MY TICKETS -->
+        <section id="myTicketsTab" class="tabview card hidden">
+          <div class="row space">
             <div>
-              <label>Email (för återställning)</label>
-              <input id="email" class="input" placeholder="email@exempel.se" />
+              <h2>Mina ärenden</h2>
+              <p class="muted">Se historik och svara i ett ärende.</p>
             </div>
+            <button id="refreshMyTicketsBtn" class="btn secondary">Uppdatera</button>
           </div>
 
-          <label>Lösenord</label>
-          <div class="passRow">
-            <input id="password" type="password" class="input" placeholder="••••••••" />
-            <button id="togglePassBtn" class="btn ghost small" type="button">
-              <i class="fa-solid fa-eye"></i>
-            </button>
-          </div>
-
-          <div class="row gap">
-            <button id="loginBtn" class="btn primary" type="button">
-              <i class="fa-solid fa-right-to-bracket"></i> Logga in
-            </button>
-            <button id="registerBtn" class="btn secondary" type="button">
-              <i class="fa-solid fa-user-plus"></i> Registrera
-            </button>
-          </div>
-
-          <div class="row gap" style="margin-top:10px;">
-            <button id="openForgotBtn" class="btn ghost" type="button">
-              <i class="fa-solid fa-key"></i> Glömt lösenord?
-            </button>
-          </div>
-
-          <div id="authMessage" class="alert error" style="display:none;"></div>
-        </div>
-
-        <!-- FORGOT PASSWORD -->
-        <div id="forgotCard" class="card authCard" style="display:none;">
-          <h2>Återställ lösenord</h2>
-          <p class="muted">Skriv din email så skickas en återställningslänk.</p>
-
-          <label>Email</label>
-          <input id="forgotEmail" class="input" placeholder="email@exempel.se" />
-
-          <div class="row gap">
-            <button id="sendForgotBtn" class="btn primary" type="button">
-              <i class="fa-solid fa-paper-plane"></i> Skicka länk
-            </button>
-            <button id="closeForgotBtn" class="btn ghost" type="button">
-              Avbryt
-            </button>
-          </div>
-
-          <div id="forgotMsg" class="alert" style="display:none;"></div>
-        </div>
-
-        <!-- RESET PASSWORD -->
-        <div id="resetCard" class="card authCard" style="display:none;">
-          <h2>Välj nytt lösenord</h2>
-          <p class="muted">Skriv ett nytt lösenord och spara.</p>
-
-          <label>Nytt lösenord</label>
-          <div class="passRow">
-            <input id="resetNewPass" type="password" class="input" placeholder="Nytt lösenord" />
-            <button id="toggleResetPassBtn" class="btn ghost small" type="button">
-              <i class="fa-solid fa-eye"></i>
-            </button>
-          </div>
-
-          <button id="resetSaveBtn" class="btn primary full" style="margin-top:10px;" type="button">
-            <i class="fa-solid fa-floppy-disk"></i> Spara nytt lösenord
-          </button>
-
-          <div id="resetMsg" class="alert" style="display:none;"></div>
-        </div>
-      </section>
-
-      <!-- CHAT VIEW -->
-      <section id="chatView" class="view" style="display:none;">
-        <div class="topbar">
-          <div>
-            <div class="title" id="chatTitle">AI Kundtjänst</div>
-            <div class="subtitle" id="chatSubtitle">Ställ en fråga så hjälper jag dig direkt.</div>
-          </div>
-
-          <div class="topbarActions">
-            <button id="newTicketBtn" class="btn ghost" type="button">
-              <i class="fa-solid fa-circle-plus"></i> Nytt ärende
-            </button>
-            <button id="clearChatBtn" class="btn ghost" type="button">
-              <i class="fa-solid fa-trash"></i> Rensa
-            </button>
-            <button id="exportChatBtn" class="btn ghost" type="button">
-              <i class="fa-solid fa-download"></i> Export
-            </button>
-          </div>
-        </div>
-
-        <div id="messages" class="messages"></div>
-
-        <div class="composer">
-          <input id="messageInput" class="input" placeholder="Skriv ditt meddelande..." />
-          <button id="sendBtn" class="btn primary round" type="button">
-            <i class="fa-solid fa-paper-plane"></i>
-          </button>
-        </div>
-
-        <div class="feedbackRow">
-          <button id="fbUp" class="btn ghost small" type="button">
-            <i class="fa-solid fa-thumbs-up"></i> Bra
-          </button>
-          <button id="fbDown" class="btn ghost small" type="button">
-            <i class="fa-solid fa-thumbs-down"></i> Dåligt
-          </button>
-          <span id="fbMsg" class="muted small"></span>
-        </div>
-      </section>
-
-      <!-- MY TICKETS VIEW -->
-      <section id="myTicketsView" class="view" style="display:none;">
-        <div class="topbar">
-          <div>
-            <div class="title">Mina ärenden</div>
-            <div class="subtitle muted">Se dina tickets och status.</div>
-          </div>
-          <div class="topbarActions">
-            <button id="myTicketsRefreshBtn" class="btn ghost" type="button">
-              <i class="fa-solid fa-rotate"></i> Uppdatera
-            </button>
-          </div>
-        </div>
-
-        <div class="split">
-          <div class="panel">
-            <div class="panelHead">
-              <b>Lista</b>
-              <span class="muted small" id="myTicketsHint"></span>
-            </div>
-            <div id="myTicketsList" class="list"></div>
-          </div>
-
-          <div class="panel">
-            <div class="panelHead">
-              <b>Detaljer</b>
+          <div class="grid-2">
+            <div>
+              <h3>Lista</h3>
+              <div id="myTicketsList" class="list"></div>
             </div>
 
-            <div id="myTicketDetails" class="ticketDetails muted small">
-              Välj ett ärende för att se detaljer.
+            <div>
+              <h3>Valt ärende</h3>
+              <div id="myTicketView" class="ticketView muted">Välj ett ärende…</div>
+
+              <div class="divider"></div>
+
+              <label>Svara</label>
+              <textarea id="myTicketReplyInput" rows="3" placeholder="Skriv ditt svar..."></textarea>
+              <button id="myTicketReplyBtn" class="btn primary full" disabled>Skicka svar</button>
+              <div id="myTicketReplyMsg" class="msg"></div>
+            </div>
+          </div>
+        </section>
+
+        <!-- INBOX -->
+        <section id="inboxTab" class="tabview card hidden">
+          <div class="row space">
+            <div>
+              <h2>Inbox</h2>
+              <p class="muted">Agent/Admin kan hantera tickets och svara.</p>
             </div>
 
-            <!-- ✅ NEW: Customer reply box (continue the conversation) -->
-            <div class="divider"></div>
-            <label>Fortsätt konversationen (Mina ärenden)</label>
-            <textarea id="myTicketReplyText" class="input textarea" placeholder="Skriv ett nytt meddelande..."></textarea>
-            <button id="myTicketReplyBtn" class="btn primary full" type="button">
-              <i class="fa-solid fa-paper-plane"></i> Skicka meddelande
-            </button>
-            <div id="myTicketReplyMsg" class="alert" style="display:none;"></div>
-          </div>
-        </div>
-      </section>
-
-      <!-- INBOX VIEW (Agent/Admin) -->
-      <section id="inboxView" class="view" style="display:none;">
-        <div class="topbar">
-          <div>
-            <div class="title">Inbox</div>
-            <div class="subtitle muted">Hantera inkomna ärenden (agent/admin).</div>
-          </div>
-
-          <div class="topbarActions">
-            <button id="inboxRefreshBtn" class="btn ghost" type="button">
-              <i class="fa-solid fa-rotate"></i> Uppdatera
-            </button>
-
-            <button id="solveAllBtn" class="btn secondary" type="button">
-              <i class="fa-solid fa-check-double"></i> Solve ALL
-            </button>
-
-            <button id="removeSolvedBtn" class="btn danger" type="button">
-              <i class="fa-solid fa-trash"></i> Remove solved
-            </button>
-          </div>
-        </div>
-
-        <div class="split">
-          <div class="panel">
-            <div class="panelHead">
-              <b>Tickets</b>
-            </div>
-
-            <div class="filterBar">
-              <select id="inboxStatusFilter" class="input smallInput">
-                <option value="">Alla status</option>
+            <div class="row">
+              <select id="inboxStatusFilter">
+                <option value="">Alla</option>
                 <option value="open">Open</option>
                 <option value="pending">Pending</option>
                 <option value="solved">Solved</option>
               </select>
-
-              <select id="inboxCategoryFilter" class="input smallInput">
-                <option value="">Alla kategorier</option>
-              </select>
-
-              <input id="inboxSearchInput" class="input smallInput" placeholder="Sök title/ID/kategori..." />
-            </div>
-
-            <div id="inboxMsg" class="alert error" style="display:none;"></div>
-            <div id="inboxTicketsList" class="list"></div>
-          </div>
-
-          <div class="panel">
-            <div class="panelHead">
-              <b>Ticket</b>
-            </div>
-
-            <div id="inboxTicketMsg" class="alert error" style="display:none;"></div>
-
-            <div class="row gap">
-              <button id="setStatusOpen" class="btn ghost small" type="button">Open</button>
-              <button id="setStatusPending" class="btn ghost small" type="button">Pending</button>
-              <button id="setStatusSolved" class="btn ghost small" type="button">Solved</button>
-
-              <select id="ticketPrioritySelect" class="input smallInput" style="margin-left:auto;">
-                <option value="low">Low</option>
-                <option value="normal" selected>Normal</option>
-                <option value="high">High</option>
-              </select>
-
-              <button id="setPriorityBtn" class="btn ghost small" type="button">
-                <i class="fa-solid fa-flag"></i> Prioritet
-              </button>
-            </div>
-
-            <div class="divider"></div>
-
-            <div id="ticketDetails" class="ticketDetails muted small">Välj en ticket.</div>
-
-            <div class="divider"></div>
-
-            <label>Agent-svar (syns för kunden)</label>
-            <textarea id="agentReplyTextInbox" class="input textarea" placeholder="Skriv ett svar..."></textarea>
-            <button id="sendAgentReplyInboxBtn" class="btn primary full" type="button">
-              <i class="fa-solid fa-reply"></i> Skicka svar
-            </button>
-
-            <div class="divider"></div>
-
-            <label>Intern notering (syns ej för kunden)</label>
-            <textarea id="internalNoteText" class="input textarea" placeholder="Intern note..."></textarea>
-            <button id="saveInternalNoteBtn" class="btn secondary full" type="button">
-              <i class="fa-solid fa-note-sticky"></i> Spara note
-            </button>
-            <div id="internalNotesList" style="margin-top:10px;"></div>
-
-            <button id="clearInternalNotesBtn" class="btn danger full" style="margin-top:10px;" type="button">
-              <i class="fa-solid fa-trash"></i> Ta bort alla notes
-            </button>
-
-            <div class="divider"></div>
-
-            <label>Assign ticket till agent</label>
-            <div class="row gap">
-              <select id="assignUserSelect" class="input">
-                <option value="">Välj agent...</option>
-              </select>
-              <button id="assignTicketBtn" class="btn ghost" type="button">
-                <i class="fa-solid fa-user-check"></i> Assign
-              </button>
-            </div>
-
-            <div class="divider"></div>
-
-            <button id="deleteTicketBtn" class="btn danger full" type="button">
-              <i class="fa-solid fa-trash"></i> Ta bort ticket
-            </button>
-          </div>
-        </div>
-      </section>
-
-      <!-- ✅ SLA VIEW (Agent/Admin) -->
-      <section id="slaView" class="view" style="display:none;">
-        <div class="topbar">
-          <div>
-            <div class="title">SLA Dashboard</div>
-            <div class="subtitle muted">Statistik, trender, median, breached filter och export.</div>
-          </div>
-          <div class="topbarActions">
-            <select id="slaDaysSelect" class="input smallInput">
-              <option value="7">7 dagar</option>
-              <option value="14">14 dagar</option>
-              <option value="30" selected>30 dagar</option>
-              <option value="90">90 dagar</option>
-              <option value="180">180 dagar</option>
-            </select>
-
-            <button id="slaRefreshBtn" class="btn ghost" type="button">
-              <i class="fa-solid fa-rotate"></i> Uppdatera
-            </button>
-
-            <!-- ✅ Export CSV -->
-            <button id="slaExportCsvBtn" class="btn ghost" type="button">
-              <i class="fa-solid fa-file-csv"></i> Export CSV
-            </button>
-          </div>
-        </div>
-
-        <div class="divider"></div>
-
-        <div id="slaOverviewBox"></div>
-
-        <div class="divider"></div>
-
-        <h3 style="margin:0 0 8px 0;">Agents (inkl. Pending per agent + Median)</h3>
-        <div id="slaAgentsBox"></div>
-
-        <div class="divider"></div>
-
-        <!-- ✅ Trend graph -->
-        <div class="panel" style="margin-bottom:12px;">
-          <div class="panelHead">
-            <b>Trend vecka för vecka</b>
-            <span class="muted small" style="margin-left:auto;">Compliance % (First/Resolution)</span>
-          </div>
-          <canvas id="slaTrendCanvas" height="120" style="width:100%;"></canvas>
-          <div class="muted small" style="margin-top:8px;">
-            Grafen visar SLA compliance per vecka (baserat på ärenden i intervallet).
-          </div>
-        </div>
-
-        <div class="divider"></div>
-
-        <!-- ✅ Compare periods -->
-        <div class="panel" style="margin-bottom:12px;">
-          <div class="panelHead">
-            <b>Jämför perioder (A/B)</b>
-            <span class="muted small" style="margin-left:auto;">Ex: 30 dagar vs 7 dagar</span>
-          </div>
-
-          <div class="filterBar">
-            <select id="slaCompareA" class="input smallInput">
-              <option value="7">A: 7d</option>
-              <option value="14">A: 14d</option>
-              <option value="30" selected>A: 30d</option>
-              <option value="90">A: 90d</option>
-            </select>
-
-            <select id="slaCompareB" class="input smallInput">
-              <option value="7" selected>B: 7d</option>
-              <option value="14">B: 14d</option>
-              <option value="30">B: 30d</option>
-              <option value="90">B: 90d</option>
-            </select>
-
-            <button id="slaCompareBtn" class="btn secondary small" type="button">
-              <i class="fa-solid fa-code-compare"></i> Jämför
-            </button>
-          </div>
-
-          <div id="slaCompareBox" class="muted small"></div>
-        </div>
-
-        <div class="divider"></div>
-
-        <!-- ✅ Tickets + Breached filter -->
-        <div class="panel">
-          <div class="panelHead">
-            <b>Tickets (SLA)</b>
-            <span class="muted small" style="margin-left:auto;">Filter & sort på breaches</span>
-          </div>
-
-          <div class="filterBar">
-            <select id="slaBreachedFilter" class="input smallInput">
-              <option value="">Alla</option>
-              <option value="breachedOnly">Endast breached</option>
-              <option value="okOnly">Endast OK</option>
-            </select>
-
-            <select id="slaBreachedTypeFilter" class="input smallInput">
-              <option value="">First + Resolution</option>
-              <option value="first">Endast First breached</option>
-              <option value="resolution">Endast Resolution breached</option>
-            </select>
-
-            <select id="slaSortSelect" class="input smallInput">
-              <option value="newest">Sort: Nyast</option>
-              <option value="oldest">Sort: Äldst</option>
-              <option value="worstFirst">Sort: Värst breached först</option>
-            </select>
-          </div>
-
-          <div id="slaTicketsBox"></div>
-        </div>
-
-        <div class="divider"></div>
-
-        <!-- ✅ Clear stats buttons (Admin only, but shown here; script.js hides if not admin) -->
-        <div class="panel">
-          <div class="panelHead">
-            <b>Radera SLA-statistik</b>
-            <span class="muted small" style="margin-left:auto;">Admin</span>
-          </div>
-
-          <div class="filterBar">
-            <select id="slaClearAgentSelect" class="input smallInput">
-              <option value="">Välj agent att radera...</option>
-            </select>
-
-            <button id="slaClearAgentBtn" class="btn danger small" type="button">
-              <i class="fa-solid fa-user-xmark"></i> Radera agent
-            </button>
-
-            <button id="slaClearAllBtn" class="btn danger small" type="button">
-              <i class="fa-solid fa-bomb"></i> Radera ALLT
-            </button>
-          </div>
-
-          <div class="muted small">
-            Detta raderar SLA-snapshot statistik på servern (inte tickets). Tickets påverkas inte.
-          </div>
-        </div>
-      </section>
-
-      <!-- ADMIN VIEW -->
-      <section id="adminView" class="view" style="display:none;">
-        <div class="topbar">
-          <div>
-            <div class="title">Admin Dashboard</div>
-            <div class="subtitle muted">Hantera users, export, KB, SLA och kategorier.</div>
-          </div>
-          <div class="topbarActions">
-            <button id="adminExportAllBtn" class="btn ghost" type="button">
-              <i class="fa-solid fa-file-export"></i> Export All
-            </button>
-            <button id="trainingExportBtn" class="btn ghost" type="button">
-              <i class="fa-solid fa-brain"></i> Training Export
-            </button>
-          </div>
-        </div>
-
-        <div class="tabs">
-          <button class="tabBtn active" data-tab="tabUsers" type="button">Users</button>
-          <button class="tabBtn" data-tab="tabKB" type="button">Knowledge Base</button>
-          <button class="tabBtn" data-tab="tabCats" type="button">Kategorier</button>
-          <button class="tabBtn" data-tab="tabSLA" type="button">SLA</button>
-        </div>
-
-        <!-- Users -->
-        <div id="tabUsers" class="tabPanel">
-          <div class="panel">
-            <div class="panelHead">
-              <b>Användare</b>
-              <button id="adminUsersRefreshBtn" class="btn ghost small" style="margin-left:auto;" type="button">
-                <i class="fa-solid fa-rotate"></i> Uppdatera
-              </button>
-            </div>
-
-            <div id="adminUsersMsg" class="alert error" style="display:none;"></div>
-            <div id="adminUsersList" class="list"></div>
-          </div>
-        </div>
-
-        <!-- KB -->
-        <div id="tabKB" class="tabPanel" style="display:none;">
-          <div class="panel">
-            <div class="panelHead">
-              <b>KB Manager</b>
-              <div style="margin-left:auto; display:flex; gap:10px; flex-wrap:wrap;">
-                <select id="kbCategorySelect" class="input smallInput">
-                  <option value="demo">demo</option>
-                </select>
-                <button id="kbRefreshBtn" class="btn ghost small" type="button">
-                  <i class="fa-solid fa-rotate"></i> Uppdatera
-                </button>
-                <button id="kbExportBtn" class="btn ghost small" type="button">
-                  <i class="fa-solid fa-download"></i> Export KB
-                </button>
-              </div>
-            </div>
-
-            <div id="kbMsg" class="alert error" style="display:none;"></div>
-
-            <div class="kbGrid">
-              <div class="panel soft">
-                <b>Upload text</b>
-                <input id="kbTextTitle" class="input" placeholder="Titel" />
-                <textarea id="kbTextContent" class="input textarea" placeholder="Klistra in text..."></textarea>
-                <button id="kbUploadTextBtn" class="btn primary full" type="button">Ladda upp text</button>
-              </div>
-
-              <div class="panel soft">
-                <b>Upload URL</b>
-                <input id="kbUrlInput" class="input" placeholder="https://..." />
-                <button id="kbUploadUrlBtn" class="btn primary full" type="button">Ladda upp URL</button>
-              </div>
-
-              <div class="panel soft">
-                <b>Upload PDF</b>
-                <input id="kbPdfFile" type="file" class="input" accept="application/pdf" />
-                <button id="kbUploadPdfBtn" class="btn primary full" type="button">Ladda upp PDF</button>
-              </div>
-            </div>
-
-            <div class="divider"></div>
-
-            <div id="kbList" class="list"></div>
-          </div>
-        </div>
-
-        <!-- Categories -->
-        <div id="tabCats" class="tabPanel" style="display:none;">
-          <div class="panel">
-            <div class="panelHead">
-              <b>Kategori Manager</b>
-              <button id="catsRefreshBtn" class="btn ghost small" style="margin-left:auto;" type="button">
-                <i class="fa-solid fa-rotate"></i> Uppdatera
-              </button>
-            </div>
-
-            <div id="catsMsg" class="alert error" style="display:none;"></div>
-
-            <div class="kbGrid">
-              <div class="panel soft">
-                <b>Skapa ny kategori</b>
-                <input id="newCatKey" class="input" placeholder="key (ex: ecommerce)" />
-                <input id="newCatName" class="input" placeholder="Namn (ex: E-handel)" />
-                <textarea id="newCatPrompt" class="input textarea" placeholder="System prompt..."></textarea>
-                <button id="createCatBtn" class="btn primary full" type="button">Skapa</button>
-              </div>
-
-              <div class="panel soft">
-                <b>Lista</b>
-                <div id="catsList" class="list"></div>
-              </div>
+              <button id="refreshInboxBtn" class="btn secondary">Uppdatera</button>
             </div>
           </div>
-        </div>
+
+          <div class="grid-2">
+            <div>
+              <h3>Tickets</h3>
+              <div id="inboxList" class="list"></div>
+            </div>
+
+            <div>
+              <h3>Ticket</h3>
+              <div id="adminTicketView" class="ticketView muted">Välj en ticket…</div>
+
+              <div class="divider"></div>
+
+              <label>Agent-svar</label>
+              <textarea id="agentReplyInput" rows="3" placeholder="Skriv svar till kunden..."></textarea>
+              <button id="agentReplyBtn" class="btn primary full" disabled>Skicka (sätter Pending)</button>
+              <div id="agentReplyMsg" class="msg"></div>
+            </div>
+          </div>
+        </section>
 
         <!-- SLA -->
-        <div id="tabSLA" class="tabPanel" style="display:none;">
-          <div class="panel">
-            <div class="panelHead">
-              <b>SLA (Admin Tab)</b>
-              <div style="margin-left:auto; display:flex; gap:10px; flex-wrap:wrap;">
-                <select id="slaDaysSelectAdmin" class="input smallInput">
-                  <option value="7">7 dagar</option>
-                  <option value="14">14 dagar</option>
-                  <option value="30" selected>30 dagar</option>
-                  <option value="90">90 dagar</option>
-                </select>
+        <section id="slaTab" class="tabview card hidden">
+          <div class="row space">
+            <div>
+              <h2>SLA Dashboard</h2>
+              <p class="muted">Overview, agents, breached tickets, trend & export.</p>
+            </div>
 
-                <button id="slaRefreshBtnAdmin" class="btn ghost small" type="button">
-                  <i class="fa-solid fa-rotate"></i> Uppdatera
-                </button>
+            <div class="row">
+              <label class="muted small">Days</label>
+              <input id="slaDays" type="number" min="1" max="365" value="30" style="width: 90px;" />
+              <button id="slaRefreshBtn" class="btn secondary">Uppdatera</button>
+              <button id="slaExportBtn" class="btn secondary">Export CSV</button>
+            </div>
+          </div>
+
+          <div class="grid-3">
+            <div class="mini card inset">
+              <h3>First response</h3>
+              <div id="slaFirstBox" class="kpi">–</div>
+              <div id="slaFirstMeta" class="muted small"></div>
+            </div>
+
+            <div class="mini card inset">
+              <h3>Resolution</h3>
+              <div id="slaResBox" class="kpi">–</div>
+              <div id="slaResMeta" class="muted small"></div>
+            </div>
+
+            <div class="mini card inset">
+              <h3>Tickets</h3>
+              <div id="slaTicketsBox" class="kpi">–</div>
+              <div id="slaTicketsMeta" class="muted small"></div>
+            </div>
+          </div>
+
+          <div class="divider"></div>
+
+          <div class="grid-2">
+            <div>
+              <h3>Trend (veckor)</h3>
+              <div id="slaTrend" class="list"></div>
+            </div>
+            <div>
+              <h3>Compare</h3>
+              <div class="row">
+                <label class="muted small">A days</label>
+                <input id="cmpA" type="number" min="1" max="365" value="7" style="width: 90px;" />
+                <label class="muted small">B days</label>
+                <input id="cmpB" type="number" min="1" max="365" value="30" style="width: 90px;" />
+                <button id="slaCompareBtn" class="btn secondary">Jämför</button>
               </div>
-            </div>
-
-            <div class="divider"></div>
-
-            <div class="muted small">
-              Den nya SLA-vyn ligger i menyn "SLA" (vänster). Denna flik är kvar för bakåtkompatibilitet ✅
+              <div id="slaCompareBox" class="ticketView muted">Klicka jämför…</div>
             </div>
           </div>
-        </div>
 
-      </section>
+          <div class="divider"></div>
 
-      <!-- SETTINGS VIEW -->
-      <section id="settingsView" class="view" style="display:none;">
-        <div class="topbar">
-          <div>
-            <div class="title">Inställningar</div>
-            <div class="subtitle muted">Uppdatera konto.</div>
-          </div>
-        </div>
-
-        <div class="panel">
-          <div class="panelHead"><b>Mitt konto</b></div>
-
-          <div class="grid2">
+          <div class="grid-2">
             <div>
-              <label>Byt användarnamn</label>
-              <input id="newUsernameInput" class="input" placeholder="Nytt användarnamn" />
-              <button id="changeUsernameBtn" class="btn secondary full" style="margin-top:10px;" type="button">
-                <i class="fa-solid fa-user-pen"></i> Byt användarnamn
-              </button>
+              <div class="row space">
+                <h3>Agents</h3>
+                <button id="slaAgentsBtn" class="btn secondary">Ladda</button>
+              </div>
+              <div id="slaAgents" class="list"></div>
             </div>
 
             <div>
-              <label>Byt lösenord</label>
-              <input id="currentPassInput" type="password" class="input" placeholder="Nuvarande lösenord" />
-              <input id="newPassInput" type="password" class="input" placeholder="Nytt lösenord" style="margin-top:10px;" />
-              <button id="changePasswordBtn" class="btn secondary full" style="margin-top:10px;" type="button">
-                <i class="fa-solid fa-lock"></i> Byt lösenord
-              </button>
+              <div class="row space">
+                <h3>Breached tickets</h3>
+                <div class="row">
+                  <select id="breachFilter">
+                    <option value="">Alla</option>
+                    <option value="any">Any breach</option>
+                    <option value="first">First response breach</option>
+                    <option value="resolution">Resolution breach</option>
+                  </select>
+
+                  <select id="breachSort">
+                    <option value="">Sort</option>
+                    <option value="firstResponseMs">First response</option>
+                    <option value="resolutionMs">Resolution</option>
+                  </select>
+
+                  <select id="breachDir">
+                    <option value="desc">Desc</option>
+                    <option value="asc">Asc</option>
+                  </select>
+
+                  <button id="slaBreachedBtn" class="btn secondary">Ladda</button>
+                </div>
+              </div>
+
+              <div id="slaBreached" class="list"></div>
             </div>
           </div>
 
-          <div id="settingsMsg" class="alert" style="display:none;"></div>
-        </div>
-      </section>
+          <div class="divider"></div>
 
+          <div class="row space">
+            <div>
+              <h3>Rensa statistik (Admin)</h3>
+              <p class="muted small">Tar bort SLAStat-rader (inte tickets).</p>
+            </div>
+            <div class="row">
+              <input id="deleteAgentId" type="text" placeholder="agent userId (valfritt)" style="min-width:240px;" />
+              <button id="deleteAgentStatsBtn" class="btn danger">Radera agent stats</button>
+              <button id="deleteAllStatsBtn" class="btn danger">Radera ALL stats</button>
+            </div>
+          </div>
+
+          <div id="slaMsg" class="msg"></div>
+        </section>
+
+        <!-- ADMIN -->
+        <section id="adminTab" class="tabview card hidden">
+          <div class="row space">
+            <div>
+              <h2>Admin</h2>
+              <p class="muted">Hantera users, kategorier, KB och export.</p>
+            </div>
+            <button id="exportAllBtn" class="btn secondary">Export ALL JSON</button>
+          </div>
+
+          <div class="grid-2">
+            <div>
+              <h3>Users</h3>
+              <button id="loadUsersBtn" class="btn secondary full">Ladda users</button>
+              <div id="usersList" class="list"></div>
+            </div>
+
+            <div>
+              <h3>Kategorier</h3>
+              <button id="loadCatsBtn" class="btn secondary full">Ladda kategorier</button>
+
+              <div id="catsList" class="list"></div>
+
+              <div class="divider"></div>
+
+              <h4>Skapa kategori</h4>
+              <label>Key (companyId)</label>
+              <input id="newCatKey" type="text" placeholder="ex: butik123" />
+              <label>Namn</label>
+              <input id="newCatName" type="text" placeholder="ex: Butik 123" />
+              <label>System prompt</label>
+              <textarea id="newCatPrompt" rows="3" placeholder="Vad ska AI:n vara?"></textarea>
+              <button id="createCatBtn" class="btn primary full">Skapa</button>
+              <div id="catMsg" class="msg"></div>
+            </div>
+          </div>
+
+          <div class="divider"></div>
+
+          <div class="grid-2">
+            <div>
+              <h3>KB Upload</h3>
+
+              <label>Company</label>
+              <select id="kbCompanySelect"></select>
+
+              <label>Text (title + content)</label>
+              <input id="kbTextTitle" type="text" placeholder="Titel..." />
+              <textarea id="kbTextContent" rows="4" placeholder="Klistra in text..."></textarea>
+              <button id="kbUploadTextBtn" class="btn secondary full">Upload Text</button>
+
+              <div class="divider"></div>
+
+              <label>URL</label>
+              <input id="kbUrl" type="text" placeholder="https://..." />
+              <button id="kbUploadUrlBtn" class="btn secondary full">Upload URL</button>
+
+              <div class="divider"></div>
+
+              <label>PDF</label>
+              <input id="kbPdfFile" type="file" accept="application/pdf" />
+              <button id="kbUploadPdfBtn" class="btn secondary full">Upload PDF</button>
+
+              <div id="kbMsg" class="msg"></div>
+            </div>
+
+            <div>
+              <h3>Export training</h3>
+              <label>Company (valfritt)</label>
+              <input id="trainingCompanyId" type="text" placeholder="ex: demo" />
+              <button id="exportTrainingBtn" class="btn secondary full">Export training.json</button>
+
+              <div class="divider"></div>
+
+              <h3>KB list</h3>
+              <button id="kbListBtn" class="btn secondary full">Ladda KB list</button>
+              <div id="kbList" class="list"></div>
+            </div>
+          </div>
+
+          <div id="adminMsg" class="msg"></div>
+        </section>
+
+        <!-- SETTINGS -->
+        <section id="settingsTab" class="tabview card hidden">
+          <h2>Inställningar</h2>
+
+          <div class="grid-2">
+            <div>
+              <h3>Byt användarnamn</h3>
+              <label>Nytt användarnamn</label>
+              <input id="newUsername" type="text" />
+              <button id="changeUsernameBtn" class="btn secondary full">Spara</button>
+              <div id="changeUsernameMsg" class="msg"></div>
+            </div>
+
+            <div>
+              <h3>Byt lösenord</h3>
+              <label>Nuvarande</label>
+              <input id="currentPassword" type="password" />
+              <label>Nytt</label>
+              <input id="newPassword" type="password" />
+              <button id="changePasswordBtn" class="btn secondary full">Spara</button>
+              <div id="changePasswordMsg" class="msg"></div>
+            </div>
+          </div>
+
+          <div class="divider"></div>
+
+          <h3>Reset lösenord via token (om du öppnat länk)</h3>
+          <div class="muted small">Om du har ?resetToken=... i URL, kan du välja nytt lösenord här.</div>
+          <label>Nytt lösenord</label>
+          <input id="resetNewPassword" type="password" />
+          <button id="resetPasswordBtn" class="btn primary">Återställ</button>
+          <div id="resetMsg" class="msg"></div>
+        </section>
+      </section>
     </main>
+
+    <footer class="footer muted small">
+      Byggd med Node + MongoDB + OpenAI • Render-ready
+    </footer>
   </div>
 
   <script src="script.js"></script>
