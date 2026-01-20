@@ -12,6 +12,8 @@
   --danger:#ff4d4d;
   --warn:#ffb020;
   --ok:#37d67a;
+
+  --radius: 16px;
 }
 
 body[data-theme="light"]{
@@ -32,11 +34,32 @@ body[data-theme="light"]{
 
 *{ box-sizing:border-box; }
 
+html, body{
+  height: 100%;
+}
+
 body{
   margin:0;
   font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
   background: var(--bg);
   color: var(--text);
+}
+
+a{ color: inherit; }
+
+::-webkit-scrollbar{
+  width: 10px;
+  height: 10px;
+}
+::-webkit-scrollbar-thumb{
+  background: rgba(255,255,255,0.10);
+  border-radius: 999px;
+}
+body[data-theme="light"] ::-webkit-scrollbar-thumb{
+  background: rgba(0,0,0,0.12);
+}
+::-webkit-scrollbar-track{
+  background: transparent;
 }
 
 .app{
@@ -175,7 +198,7 @@ body{
 .card{
   background: var(--panel);
   border:1px solid var(--border);
-  border-radius:16px;
+  border-radius: var(--radius);
   padding:16px;
   box-shadow: var(--shadow);
 }
@@ -204,8 +227,13 @@ label{
   outline:none;
 }
 
+body[data-theme="light"] .input{
+  background: rgba(0,0,0,0.02);
+}
+
 .input:focus{
   border-color: rgba(76,125,255,0.35);
+  box-shadow: 0 0 0 3px rgba(76,125,255,0.10);
 }
 
 .textarea{
@@ -247,7 +275,7 @@ label{
   border-radius: 12px;
   padding: 10px 12px;
   cursor:pointer;
-  transition: background 0.2s ease, transform 0.05s ease;
+  transition: background 0.2s ease, transform 0.05s ease, border 0.2s ease;
 }
 
 .btn:hover{
@@ -322,7 +350,7 @@ label{
   justify-content:space-between;
   gap:12px;
   padding: 14px 16px;
-  border-radius: 16px;
+  border-radius: var(--radius);
   background: var(--panel);
   border:1px solid var(--border);
   box-shadow: var(--shadow);
@@ -344,7 +372,7 @@ label{
   margin-top:12px;
   background: var(--panel);
   border:1px solid var(--border);
-  border-radius: 16px;
+  border-radius: var(--radius);
   padding: 14px;
   height: calc(100vh - 270px);
   overflow:auto;
@@ -447,7 +475,7 @@ label{
 .panel{
   background: var(--panel);
   border:1px solid var(--border);
-  border-radius:16px;
+  border-radius: var(--radius);
   padding:14px;
   box-shadow: var(--shadow);
 }
@@ -487,11 +515,15 @@ label{
   border-radius:14px;
   cursor:pointer;
   background: rgba(255,255,255,0.02);
-  transition: background 0.2s ease, border 0.2s ease;
+  transition: background 0.2s ease, border 0.2s ease, transform 0.05s ease;
 }
 
 .listItem:hover{
   background: rgba(255,255,255,0.04);
+}
+
+.listItem:active{
+  transform: translateY(1px);
 }
 
 .listItem.selected{
@@ -512,7 +544,10 @@ label{
   border-radius:999px;
   border:1px solid var(--border);
   color: var(--muted);
-  font-weight:600;
+  font-weight:700;
+  display:inline-flex;
+  align-items:center;
+  gap:6px;
 }
 
 .pill.admin{
@@ -521,12 +556,31 @@ label{
   border-color: rgba(76,125,255,0.45);
 }
 
+.pill.ok{
+  background: rgba(55,214,122,0.14);
+  border-color: rgba(55,214,122,0.35);
+  color: var(--ok);
+}
+
+.pill.warn{
+  background: rgba(255,176,32,0.16);
+  border-color: rgba(255,176,32,0.40);
+  color: var(--warn);
+}
+
+.pill.danger{
+  background: rgba(255,77,77,0.14);
+  border-color: rgba(255,77,77,0.35); /* ✅ FIXED BUG */
+  color: var(--danger);
+}
+
 /* =========================
-   TICKET DETAILS
+   TICKET DETAILS + MESSAGES
 ========================= */
 .ticketDetails{
   max-height: 48vh;
   overflow:auto;
+  padding-right: 6px;
 }
 
 .ticketMsg{
@@ -543,6 +597,24 @@ label{
   color: var(--muted);
   font-size:12px;
   margin-bottom:6px;
+}
+
+/* Make roles more readable */
+.ticketMsg.user{
+  border-color: rgba(76,125,255,0.28);
+  background: rgba(76,125,255,0.10);
+}
+.ticketMsg.agent{
+  border-color: rgba(55,214,122,0.25);
+  background: rgba(55,214,122,0.08);
+}
+.ticketMsg.ai{
+  border-color: rgba(255,176,32,0.22);
+  background: rgba(255,176,32,0.06);
+}
+
+.ticketMsgBody{
+  line-height: 1.35;
 }
 
 /* =========================
@@ -562,6 +634,10 @@ label{
   padding:10px 12px;
   border-radius:12px;
   cursor:pointer;
+}
+
+.tabBtn:hover{
+  background: rgba(255,255,255,0.04);
 }
 
 .tabBtn.active{
@@ -595,7 +671,7 @@ label{
 .slaCard{
   background: rgba(255,255,255,0.02);
   border:1px solid var(--border);
-  border-radius:16px;
+  border-radius: var(--radius);
   padding:14px;
 }
 
@@ -607,9 +683,19 @@ label{
 
 .slaValue{
   font-size:22px;
-  font-weight:800;
+  font-weight:900;
+  letter-spacing: 0.2px;
 }
 
+#slaTrendChart{
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  background: rgba(255,255,255,0.02);
+}
+
+/* =========================
+   TABLES
+========================= */
 .tableWrap{
   overflow:auto;
   border:1px solid var(--border);
@@ -627,31 +713,51 @@ label{
   border-bottom:1px solid var(--border);
   text-align:left;
   font-size:13px;
+  vertical-align: top;
 }
 
 .table th{
   color: var(--muted);
-  font-weight:700;
+  font-weight:800;
+  position: sticky;
+  top: 0;
+  background: var(--panel);
+  z-index: 2;
 }
 
-.pill.ok{
-  background: rgba(55,214,122,0.14);
-  border-color: rgba(55,214,122,0.35);
-  color: var(--ok);
+.table tbody tr:nth-child(even){
+  background: rgba(255,255,255,0.02);
 }
 
-.pill.danger{
-  background: rgba(255,77,77,0.14);
-  border-color: rgba(255,77,77,77,0.35);
-  color: var(--danger);
+.table tbody tr:hover{
+  background: rgba(255,255,255,0.04);
 }
 
-@media (max-width: 900px){
-  .slaGrid{
-    grid-template-columns: 1fr;
-  }
+/* =========================
+   INTERNAL NOTES
+========================= */
+.noteList{
+  display:flex;
+  flex-direction:column;
+  gap:10px;
 }
 
+.noteItem{
+  border:1px solid var(--border);
+  border-radius:14px;
+  padding:10px;
+  background: rgba(255,255,255,0.02);
+}
+
+.noteMeta{
+  font-size:12px;
+  color: var(--muted);
+  margin-bottom:6px;
+}
+
+.noteText{
+  line-height: 1.35;
+}
 
 /* =========================
    RESPONSIVE
@@ -726,5 +832,9 @@ label{
   .split{
     grid-template-columns: 1fr;
   }
+
+  .topbar{
+    flex-direction: column;
+    align-items: flex-start;
+  }
 }
-/* 

@@ -28,7 +28,7 @@ app.use(express.static(__dirname));
 const mongoUri = process.env.MONGO_URI || process.env.MONGODB_URI;
 
 console.log("✅ ENV CHECK:");
-console.log("MONGO_URI:", process.env.MONGO_URI ? "OK" : "SAKNAS");
+console.log("MONGO_URI:", process.env.MONGO_URI || process.env.MONGODB_URI ? "OK" : "SAKNAS");
 console.log("JWT_SECRET:", process.env.JWT_SECRET ? "OK" : "SAKNAS");
 console.log("OPENAI_API_KEY:", process.env.OPENAI_API_KEY ? "OK" : "SAKNAS");
 console.log("SMTP_HOST:", process.env.SMTP_HOST ? "OK" : "SAKNAS");
@@ -77,72 +77,186 @@ const messageSchema = new mongoose.Schema({
 });
 
 /* =====================
-   ✅ SLA Defaults (advanced)
-   - by priority
+   ✅ SLA Defaults (advanced + stable)
+   - per priority
+   - supports: first response + resolution
 ===================== */
 function slaLimitsForPriority(priority) {
   const MIN = 60 * 1000;
 
   if (priority === "high") {
     return {
-      firstResponseLimitMs: 60 * MIN,
-      resolutionLimitMs: 24 * 60 * MIN,
+      firstResponseLimitMs: 60 * MIN, // 1h
+      resolutionLimitMs: 24 * 60 * MIN, // 24h
     };
   }
+
   if (priority === "low") {
     return {
-      firstResponseLimitMs: 24 * 60 * MIN,
-      resolutionLimitMs: 7 * 24 * 60 * MIN,
+      firstResponseLimitMs: 24 * 60 * MIN, // 24h
+      resolutionLimitMs: 7 * 24 * 60 * MIN, // 7 dagar
     };
   }
+
+  // normal
   return {
-    firstResponseLimitMs: 8 * 60 * MIN,
-    resolutionLimitMs: 3 * 24 * 60 * MIN,
+    firstResponseLimitMs: 8 * 60 * MIN, // 8h
+    resolutionLimitMs: 3 * 24 * 60 * MIN, // 3 dagar
   };
 }
 
 /* =====================
-   ✅ SLA helpers
+   ✅ SLA Helpers (New Pro)
+   - robust time parsing
+   - paused time (pending)
+   - due dates
+   - live remaining time
 ===================== */
+
+// robust "msBetween"
 function msBetween(a, b) {
   try {
     const A = new Date(a).getTime();
     const B = new Date(b).getTime();
-    if (!A || !B) return null;
+    if (!Number.isFinite(A) || !Number.isFinite(B)) return null;
     return Math.max(0, B - A);
   } catch {
     return null;
   }
 }
 
-function computeSlaForTicket(t) {
+// format durations for debug/logging & potential UI
+function msToPretty(ms) {
+  if (ms == null || !Number.isFinite(ms)) return "";
+  const s = Math.floor(ms / 1000);
+  const m = Math.floor(s / 60);
+  const h = Math.floor(m / 60);
+  const d = Math.floor(h / 24);
+
+  const hh = h % 24;
+  const mm = m % 60;
+
+  if (d > 0) return `${d}d ${hh}h ${mm}m`;
+  if (h > 0) return `${h}h ${mm}m`;
+  if (m > 0) return `${m}m`;
+  return `${s}s`;
+}
+
+/**
+ * ✅ SLA Paus-logik:
+ * - När status är "pending" betyder det ofta att man väntar på kund.
+ * - Då kan SLA räknas "pausad" (valbart), så man inte blir straffad.
+ *
+ * Vi implementerar:
+ * - pendingStartedAt: när vi gick till pending
+ * - pendingTotalMs: ackumulerad pending tid
+ *
+ * SLA effective time:
+ * createdAt -> (solvedAt eller now) minus pendingTotalMs
+ */
+function calcPendingMs(t, now = new Date()) {
+  const pendingTotal = Number(t.pendingTotalMs || 0);
+  if (!t.pendingStartedAt) return pendingTotal;
+
+  // om den fortfarande är pending -> lägg till aktiv pending-tid
+  const active = msBetween(t.pendingStartedAt, now) || 0;
+  return pendingTotal + active;
+}
+
+function calcEffectiveMsFromCreated(t, endAt, now = new Date()) {
+  const createdAt = t.createdAt || now;
+  const end = endAt || now;
+  const total = msBetween(createdAt, end);
+  if (total == null) return null;
+
+  const paused = calcPendingMs(t, now);
+  return Math.max(0, total - paused);
+}
+
+/**
+ * ✅ SLA Engine (improved)
+ * - First response uses real time: created -> firstAgentReplyAt (not paused)
+ * - Resolution uses effective time: created -> solved (paused)
+ * - Adds due dates (firstResponseDueAt, resolutionDueAt)
+ * - Adds remaining times + breached flags
+ */
+function computeSlaForTicket(t, now = new Date()) {
   const limits = slaLimitsForPriority(t.priority || "normal");
 
-  const createdAt = t.createdAt || new Date();
+  const createdAt = t.createdAt || now;
   const firstAgentReplyAt = t.firstAgentReplyAt || null;
   const solvedAt = t.solvedAt || null;
 
+  // First response time (not paused)
   const firstResponseMs = firstAgentReplyAt ? msBetween(createdAt, firstAgentReplyAt) : null;
-  const resolutionMs = solvedAt ? msBetween(createdAt, solvedAt) : null;
 
-  const breachedFirstResponse = firstResponseMs !== null ? firstResponseMs > limits.firstResponseLimitMs : false;
+  // Resolution time (paused if pending)
+  const resolutionMs = solvedAt ? calcEffectiveMsFromCreated(t, solvedAt, now) : null;
 
-  const breachedResolution = resolutionMs !== null ? resolutionMs > limits.resolutionLimitMs : false;
+  // due dates
+  const firstResponseDueAt = new Date(new Date(createdAt).getTime() + limits.firstResponseLimitMs);
+  const resolutionDueAt = new Date(new Date(createdAt).getTime() + limits.resolutionLimitMs);
+
+  // Live timers
+  const nowMs = now.getTime();
+  const firstResponseRemainingMs =
+    firstAgentReplyAt ? 0 : Math.max(0, firstResponseDueAt.getTime() - nowMs);
+
+  const resolutionRemainingMs =
+    solvedAt ? 0 : Math.max(0, resolutionDueAt.getTime() - nowMs);
+
+  // breached?
+  const breachedFirstResponse =
+    firstResponseMs !== null ? firstResponseMs > limits.firstResponseLimitMs : false;
+
+  // resolution breach is based on effective time "so far"
+  const effectiveRunningMs = solvedAt
+    ? resolutionMs
+    : calcEffectiveMsFromCreated(t, now, now);
+
+  const breachedResolution =
+    effectiveRunningMs != null ? effectiveRunningMs > limits.resolutionLimitMs : false;
 
   return {
     firstResponseMs,
     resolutionMs,
+
+    // breaches
     breachedFirstResponse,
     breachedResolution,
+
+    // limits
     firstResponseLimitMs: limits.firstResponseLimitMs,
     resolutionLimitMs: limits.resolutionLimitMs,
+
+    // due
+    firstResponseDueAt,
+    resolutionDueAt,
+
+    // remaining
+    firstResponseRemainingMs,
+    resolutionRemainingMs,
+
+    // extra (nice for UI)
+    effectiveRunningMs: effectiveRunningMs ?? null,
+    pendingTotalMs: calcPendingMs(t, now),
+
+    // Pretty strings for debugging / UI
+    pretty: {
+      firstResponse: msToPretty(firstResponseMs),
+      resolution: msToPretty(resolutionMs),
+      pendingTotal: msToPretty(calcPendingMs(t, now)),
+      effectiveRunning: msToPretty(effectiveRunningMs),
+      firstRemaining: msToPretty(firstResponseRemainingMs),
+      resolutionRemaining: msToPretty(resolutionRemainingMs),
+    },
   };
 }
 
 function safeEnsureSla(t) {
-  if (!t.sla || t.sla.firstResponseLimitMs == null || t.sla.resolutionLimitMs == null) {
-    t.sla = computeSlaForTicket(t);
-  }
+  // Always recompute if missing or outdated fields
+  // (this avoids "buggar likadant" där SLA inte uppdateras)
+  t.sla = computeSlaForTicket(t);
   return t;
 }
 
@@ -156,7 +270,10 @@ function avg(arr) {
 }
 
 function median(arr) {
-  const a = (arr || []).filter((x) => typeof x === "number" && Number.isFinite(x)).slice().sort((x, y) => x - y);
+  const a = (arr || [])
+    .filter((x) => typeof x === "number" && Number.isFinite(x))
+    .slice()
+    .sort((x, y) => x - y);
   if (!a.length) return null;
   const mid = Math.floor(a.length / 2);
   if (a.length % 2 === 0) return Math.round((a[mid - 1] + a[mid]) / 2);
@@ -180,7 +297,7 @@ function toCsv(rows) {
 }
 
 /* =====================
-   ✅ Ticket model
+   ✅ Ticket model (UPGRADED for SLA pause)
 ===================== */
 const ticketSchema = new mongoose.Schema({
   userId: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true },
@@ -206,6 +323,10 @@ const ticketSchema = new mongoose.Schema({
   firstAgentReplyAt: { type: Date, default: null },
   solvedAt: { type: Date, default: null },
 
+  // ✅ NEW SLA pause tracking
+  pendingStartedAt: { type: Date, default: null },
+  pendingTotalMs: { type: Number, default: 0 },
+
   // SLA snapshot
   sla: {
     firstResponseMs: { type: Number, default: null },
@@ -214,6 +335,23 @@ const ticketSchema = new mongoose.Schema({
     breachedResolution: { type: Boolean, default: false },
     firstResponseLimitMs: { type: Number, default: null },
     resolutionLimitMs: { type: Number, default: null },
+
+    // ✅ NEW: due + remaining + debug
+    firstResponseDueAt: { type: Date, default: null },
+    resolutionDueAt: { type: Date, default: null },
+    firstResponseRemainingMs: { type: Number, default: null },
+    resolutionRemainingMs: { type: Number, default: null },
+    effectiveRunningMs: { type: Number, default: null },
+    pendingTotalMs: { type: Number, default: 0 },
+
+    pretty: {
+      firstResponse: { type: String, default: "" },
+      resolution: { type: String, default: "" },
+      pendingTotal: { type: String, default: "" },
+      effectiveRunning: { type: String, default: "" },
+      firstRemaining: { type: String, default: "" },
+      resolutionRemaining: { type: String, default: "" },
+    },
   },
 
   messages: [messageSchema],
@@ -222,6 +360,9 @@ const ticketSchema = new mongoose.Schema({
 });
 const Ticket = mongoose.model("Ticket", ticketSchema);
 
+/* =====================
+   ✅ KB Chunk model
+===================== */
 const kbChunkSchema = new mongoose.Schema({
   companyId: { type: String, required: true },
   sourceType: { type: String, required: true }, // url | text | pdf
@@ -254,7 +395,7 @@ const categorySchema = new mongoose.Schema({
 const Category = mongoose.model("Category", categorySchema);
 
 /* =====================
-   ✅ SLA Stat model
+   ✅ SLA Stat model (kept)
 ===================== */
 const slaStatSchema = new mongoose.Schema({
   scope: { type: String, default: "ticket" }, // ticket | agent | overview
@@ -391,6 +532,8 @@ async function ragSearch(companyId, query, topK = 4) {
 async function ensureTicket(userId, companyId) {
   let t = await Ticket.findOne({ userId, companyId, status: { $ne: "solved" } }).sort({ lastActivityAt: -1 });
   if (!t) t = await new Ticket({ userId, companyId, messages: [] }).save();
+  safeEnsureSla(t);
+  if (!t.sla?.firstResponseLimitMs) await t.save().catch(() => {});
   return t;
 }
 
@@ -661,7 +804,8 @@ app.get("/categories", async (req, res) => {
 app.post("/chat", authenticate, async (req, res) => {
   try {
     const { companyId, conversation, ticketId } = req.body || {};
-    if (!companyId || !Array.isArray(conversation)) return res.status(400).json({ error: "companyId eller konversation saknas" });
+    if (!companyId || !Array.isArray(conversation))
+      return res.status(400).json({ error: "companyId eller konversation saknas" });
 
     let ticket;
     if (ticketId) {
@@ -678,6 +822,16 @@ app.post("/chat", authenticate, async (req, res) => {
       ticket.messages.push({ role: "user", content: userQuery, timestamp: new Date() });
       if (!ticket.title) ticket.title = userQuery.slice(0, 60);
       ticket.lastActivityAt = new Date();
+
+      // Om användaren svarar när ticket är pending => återuppta SLA (stoppa pause)
+      if (ticket.status === "pending" && ticket.pendingStartedAt) {
+        const add = msBetween(ticket.pendingStartedAt, new Date()) || 0;
+        ticket.pendingTotalMs = Number(ticket.pendingTotalMs || 0) + add;
+        ticket.pendingStartedAt = null;
+        ticket.status = "open";
+      }
+
+      safeEnsureSla(ticket);
       await ticket.save();
     }
 
@@ -690,9 +844,7 @@ app.post("/chat", authenticate, async (req, res) => {
       role: "system",
       content:
         systemPrompt +
-        (rag.used
-          ? `\n\nIntern kunskapsdatabas (om relevant):\n${rag.context}\n\nSvara tydligt och konkret.`
-          : ""),
+        (rag.used ? `\n\nIntern kunskapsdatabas (om relevant):\n${rag.context}\n\nSvara tydligt och konkret.` : ""),
     };
 
     const messages = [systemMessage, ...conversation];
@@ -706,6 +858,8 @@ app.post("/chat", authenticate, async (req, res) => {
 
     ticket.messages.push({ role: "assistant", content: reply, timestamp: new Date() });
     ticket.lastActivityAt = new Date();
+
+    safeEnsureSla(ticket);
     await ticket.save();
 
     return res.json({ reply, ticketId: ticket._id, ragUsed: rag.used, sources: rag.sources });
@@ -720,17 +874,19 @@ app.post("/chat", authenticate, async (req, res) => {
 ===================== */
 app.get("/my/tickets", authenticate, async (req, res) => {
   const tickets = await Ticket.find({ userId: req.user.id }).sort({ lastActivityAt: -1 }).limit(100);
+  tickets.forEach((t) => safeEnsureSla(t));
   return res.json(tickets);
 });
 
 app.get("/my/tickets/:ticketId", authenticate, async (req, res) => {
   const t = await Ticket.findOne({ _id: req.params.ticketId, userId: req.user.id });
   if (!t) return res.status(404).json({ error: "Ticket hittades inte" });
+  safeEnsureSla(t);
   return res.json(t);
 });
 
 /* =====================
-   ✅ NEW: USER reply in "Mina ärenden"
+   ✅ USER reply in "Mina ärenden"
 ===================== */
 app.post("/my/tickets/:ticketId/reply", authenticate, async (req, res) => {
   try {
@@ -746,9 +902,14 @@ app.post("/my/tickets/:ticketId/reply", authenticate, async (req, res) => {
     t.status = "open";
     t.lastActivityAt = new Date();
 
-    // SLA safe recompute
-    t.sla = computeSlaForTicket(t);
+    // ✅ Om ticket var pending, stoppa pending timer
+    if (t.pendingStartedAt) {
+      const add = msBetween(t.pendingStartedAt, new Date()) || 0;
+      t.pendingTotalMs = Number(t.pendingTotalMs || 0) + add;
+      t.pendingStartedAt = null;
+    }
 
+    safeEnsureSla(t);
     await t.save();
 
     return res.json({ message: "Svar skickat ✅", ticket: t });
@@ -775,6 +936,7 @@ app.get("/admin/tickets", authenticate, requireAgentOrAdmin, async (req, res) =>
     }
 
     const tickets = await Ticket.find(query).sort({ lastActivityAt: -1 }).limit(500);
+    tickets.forEach((t) => safeEnsureSla(t));
     return res.json(tickets);
   } catch {
     return res.status(500).json({ error: "Serverfel vid inbox" });
@@ -792,8 +954,25 @@ app.get("/admin/tickets/:ticketId", authenticate, requireAgentOrAdmin, async (re
     return res.status(403).json({ error: "Du får bara se dina egna tickets" });
   }
 
+  safeEnsureSla(t);
   return res.json(t);
 });
+
+/* =====================
+   ✅ TICKET status handling (FIXED)
+   - pending starts timer
+   - open stops timer
+===================== */
+function startPendingTimerIfNeeded(t) {
+  if (!t.pendingStartedAt) t.pendingStartedAt = new Date();
+}
+function stopPendingTimerIfNeeded(t) {
+  if (t.pendingStartedAt) {
+    const add = msBetween(t.pendingStartedAt, new Date()) || 0;
+    t.pendingTotalMs = Number(t.pendingTotalMs || 0) + add;
+    t.pendingStartedAt = null;
+  }
+}
 
 app.post("/admin/tickets/:ticketId/status", authenticate, requireAgentOrAdmin, async (req, res) => {
   const { status } = req.body || {};
@@ -808,17 +987,22 @@ app.post("/admin/tickets/:ticketId/status", authenticate, requireAgentOrAdmin, a
     return res.status(403).json({ error: "Du får bara uppdatera dina egna tickets" });
   }
 
+  // pending timer logic
+  if (status === "pending") startPendingTimerIfNeeded(t);
+  if (status === "open") stopPendingTimerIfNeeded(t);
+
   t.status = status;
   t.lastActivityAt = new Date();
 
   if (status === "solved" && !t.solvedAt) {
+    stopPendingTimerIfNeeded(t);
     t.solvedAt = new Date();
   }
   if (status !== "solved") {
     t.solvedAt = null;
   }
 
-  t.sla = computeSlaForTicket(t);
+  safeEnsureSla(t);
   await t.save();
 
   // mirror to SLA stats
@@ -854,7 +1038,7 @@ app.post("/admin/tickets/:ticketId/priority", authenticate, requireAgentOrAdmin,
   t.priority = priority;
   t.lastActivityAt = new Date();
 
-  t.sla = computeSlaForTicket(t);
+  safeEnsureSla(t);
   await t.save();
 
   return res.json({ message: "Prioritet uppdaterad ✅", ticket: t });
@@ -875,18 +1059,19 @@ app.post("/admin/tickets/:ticketId/agent-reply", authenticate, requireAgentOrAdm
 
   t.messages.push({ role: "agent", content: cleanText(content), timestamp: new Date() });
 
-  // pending efter agent reply
+  // pending efter agent reply (pausar resolution SLA)
   t.status = "pending";
   t.lastActivityAt = new Date();
-
-  // pending per agent
   t.agentUserId = dbUser?._id || t.agentUserId || null;
 
   if (!t.firstAgentReplyAt) {
     t.firstAgentReplyAt = new Date();
   }
 
-  t.sla = computeSlaForTicket(t);
+  // start pending timer
+  startPendingTimerIfNeeded(t);
+
+  safeEnsureSla(t);
   await t.save();
 
   // mirror to SLA stats
@@ -925,6 +1110,8 @@ app.post("/admin/tickets/:ticketId/internal-note", authenticate, requireAgentOrA
 
     t.internalNotes.push({ createdBy: req.user.id, content: cleanText(content) });
     t.lastActivityAt = new Date();
+
+    safeEnsureSla(t);
     await t.save();
 
     return res.json({ message: "Intern notering sparad ✅", ticket: t });
@@ -942,6 +1129,8 @@ app.delete("/admin/tickets/:ticketId/internal-note/:noteId", authenticate, requi
 
     t.internalNotes = (t.internalNotes || []).filter((n) => String(n._id) !== String(noteId));
     t.lastActivityAt = new Date();
+
+    safeEnsureSla(t);
     await t.save();
 
     return res.json({ message: "Notering borttagen ✅", ticket: t });
@@ -959,6 +1148,8 @@ app.delete("/admin/tickets/:ticketId/internal-notes", authenticate, requireAdmin
 
     t.internalNotes = [];
     t.lastActivityAt = new Date();
+
+    safeEnsureSla(t);
     await t.save();
 
     return res.json({ message: "Alla noteringar borttagna ✅", ticket: t });
@@ -972,11 +1163,18 @@ app.delete("/admin/tickets/:ticketId/internal-notes", authenticate, requireAdmin
 ===================== */
 app.post("/admin/tickets/solve-all", authenticate, requireAdmin, async (req, res) => {
   try {
-    const r = await Ticket.updateMany(
-      { status: { $in: ["open", "pending"] } },
-      { $set: { status: "solved", lastActivityAt: new Date(), solvedAt: new Date() } }
-    );
-    return res.json({ message: `Solve ALL ✅ Uppdaterade ${r.modifiedCount} tickets.` });
+    const all = await Ticket.find({ status: { $in: ["open", "pending"] } }).limit(50000);
+
+    for (const t of all) {
+      stopPendingTimerIfNeeded(t);
+      t.status = "solved";
+      t.lastActivityAt = new Date();
+      t.solvedAt = new Date();
+      safeEnsureSla(t);
+      await t.save();
+    }
+
+    return res.json({ message: `Solve ALL ✅ Uppdaterade ${all.length} tickets.` });
   } catch (e) {
     console.error("❌ Solve ALL error:", e?.message || e);
     return res.status(500).json({ error: "Serverfel vid Solve ALL" });
@@ -1010,6 +1208,8 @@ app.post("/admin/tickets/:ticketId/assign", authenticate, requireAgentOrAdmin, a
 
   t.assignedToUserId = userId;
   t.lastActivityAt = new Date();
+
+  safeEnsureSla(t);
   await t.save();
 
   return res.json({ message: "Ticket assignad ✅", ticket: t });
@@ -1088,25 +1288,25 @@ app.get("/admin/sla/overview", authenticate, requireAgentOrAdmin, async (req, re
     if (dbUser.role === "agent") query.assignedToUserId = dbUser._id;
 
     const tickets = await Ticket.find(query).limit(8000);
-    const safeTickets = tickets.map((t) => safeEnsureSla(t));
+    tickets.forEach((t) => safeEnsureSla(t));
 
-    const firstArr = safeTickets.map((t) => t.sla?.firstResponseMs).filter((x) => x != null);
-    const resArr = safeTickets.map((t) => t.sla?.resolutionMs).filter((x) => x != null);
+    const firstArr = tickets.map((t) => t.sla?.firstResponseMs).filter((x) => x != null);
+    const resArr = tickets.map((t) => t.sla?.resolutionMs).filter((x) => x != null);
 
-    const breachesFirst = safeTickets.filter((t) => t.sla?.firstResponseMs != null && t.sla.breachedFirstResponse).length;
-    const breachesRes = safeTickets.filter((t) => t.sla?.resolutionMs != null && t.sla.breachedResolution).length;
+    const breachesFirst = tickets.filter((t) => t.sla?.firstResponseMs != null && t.sla.breachedFirstResponse).length;
+    const breachesRes = tickets.filter((t) => t.sla?.effectiveRunningMs != null && t.sla.breachedResolution).length;
 
     const complianceFirst = firstArr.length ? Math.round(((firstArr.length - breachesFirst) / firstArr.length) * 100) : null;
     const complianceRes = resArr.length ? Math.round(((resArr.length - breachesRes) / resArr.length) * 100) : null;
 
     const byPriority = { low: 0, normal: 0, high: 0 };
-    safeTickets.forEach((t) => {
+    tickets.forEach((t) => {
       byPriority[t.priority || "normal"] = (byPriority[t.priority || "normal"] || 0) + 1;
     });
 
     return res.json({
       rangeDays,
-      totalTickets: safeTickets.length,
+      totalTickets: tickets.length,
       byPriority,
       firstResponse: {
         avgMs: avg(firstArr),
@@ -1235,7 +1435,6 @@ app.get("/admin/sla/agents", authenticate, requireAgentOrAdmin, async (req, res)
 
 /* =====================
    ✅ SLA Trend weekly
-   matches script.js: /admin/sla/trend/weekly
 ===================== */
 app.get("/admin/sla/trend/weekly", authenticate, requireAgentOrAdmin, async (req, res) => {
   try {
@@ -1258,7 +1457,6 @@ app.get("/admin/sla/trend/weekly", authenticate, requireAgentOrAdmin, async (req
 
 /* =====================
    ✅ SLA compare
-   matches script.js: /admin/sla/compare?a=30&b=7
 ===================== */
 app.get("/admin/sla/compare", authenticate, requireAgentOrAdmin, async (req, res) => {
   try {
@@ -1279,7 +1477,7 @@ app.get("/admin/sla/compare", authenticate, requireAgentOrAdmin, async (req, res
       const resArr = tickets.map((t) => t.sla?.resolutionMs).filter((x) => x != null);
 
       const breachesFirst = tickets.filter((t) => t.sla?.firstResponseMs != null && t.sla.breachedFirstResponse).length;
-      const breachesRes = tickets.filter((t) => t.sla?.resolutionMs != null && t.sla.breachedResolution).length;
+      const breachesRes = tickets.filter((t) => t.sla?.effectiveRunningMs != null && t.sla.breachedResolution).length;
 
       const firstCompliance = firstArr.length ? Math.round(((firstArr.length - breachesFirst) / firstArr.length) * 100) : null;
       const resCompliance = resArr.length ? Math.round(((resArr.length - breachesRes) / resArr.length) * 100) : null;
@@ -1314,7 +1512,6 @@ app.get("/admin/sla/compare", authenticate, requireAgentOrAdmin, async (req, res
 
 /* =====================
    ✅ SLA Export CSV
-   matches script.js: /admin/sla/export/csv
 ===================== */
 app.get("/admin/sla/export/csv", authenticate, requireAgentOrAdmin, async (req, res) => {
   try {
@@ -1338,6 +1535,8 @@ app.get("/admin/sla/export/csv", authenticate, requireAgentOrAdmin, async (req, 
         createdAt: t.createdAt?.toISOString?.() || "",
         firstResponseMs: t.sla?.firstResponseMs ?? "",
         resolutionMs: t.sla?.resolutionMs ?? "",
+        pendingTotalMs: t.sla?.pendingTotalMs ?? "",
+        effectiveRunningMs: t.sla?.effectiveRunningMs ?? "",
         breachedFirstResponse: t.sla?.breachedFirstResponse ? "YES" : "NO",
         breachedResolution: t.sla?.breachedResolution ? "YES" : "NO",
       };
@@ -1355,10 +1554,82 @@ app.get("/admin/sla/export/csv", authenticate, requireAgentOrAdmin, async (req, 
 });
 
 /* =====================
+   ✅ NEW SLA endpoints (extra features)
+   - Live timers for UI
+   - List breached tickets
+   - Force recalc (fix corrupted data)
+===================== */
+
+// Live SLA for a specific ticket (for fancy UI)
+app.get("/admin/sla/ticket/:ticketId/live", authenticate, requireAgentOrAdmin, async (req, res) => {
+  try {
+    const t = await Ticket.findById(req.params.ticketId);
+    if (!t) return res.status(404).json({ error: "Ticket hittades inte" });
+
+    safeEnsureSla(t);
+    return res.json({
+      ticketId: String(t._id),
+      status: t.status,
+      priority: t.priority,
+      sla: t.sla,
+    });
+  } catch {
+    return res.status(500).json({ error: "Serverfel vid live SLA" });
+  }
+});
+
+// List breached tickets
+app.get("/admin/sla/breached", authenticate, requireAgentOrAdmin, async (req, res) => {
+  try {
+    const dbUser = await getDbUser(req);
+    const rangeDays = Math.max(1, Math.min(365, Number(req.query.days || 30)));
+    const since = new Date(Date.now() - rangeDays * 24 * 60 * 60 * 1000);
+
+    const query = { createdAt: { $gte: since } };
+    if (dbUser.role === "agent") query.assignedToUserId = dbUser._id;
+
+    const tickets = await Ticket.find(query).sort({ createdAt: -1 }).limit(6000);
+    tickets.forEach((t) => safeEnsureSla(t));
+
+    const breached = tickets.filter((t) => t.sla?.breachedFirstResponse || t.sla?.breachedResolution);
+
+    return res.json({
+      rangeDays,
+      count: breached.length,
+      rows: breached.map((t) => ({
+        ticketId: String(t._id),
+        companyId: t.companyId,
+        status: t.status,
+        priority: t.priority,
+        createdAt: t.createdAt,
+        sla: t.sla,
+      })),
+    });
+  } catch {
+    return res.status(500).json({ error: "Serverfel vid breached SLA" });
+  }
+});
+
+// Admin: recalc SLA on all tickets (bugfix tool)
+app.post("/admin/sla/recalc/all", authenticate, requireAdmin, async (req, res) => {
+  try {
+    const tickets = await Ticket.find({}).limit(50000);
+    let updated = 0;
+
+    for (const t of tickets) {
+      safeEnsureSla(t);
+      await t.save().catch(() => {});
+      updated++;
+    }
+
+    return res.json({ message: `SLA recalculated ✅ (${updated} tickets)` });
+  } catch {
+    return res.status(500).json({ error: "Serverfel vid SLA recalc" });
+  }
+});
+
+/* =====================
    ✅ SLA Clear stats
-   matches script.js:
-   - POST /admin/sla/clear/all
-   - POST /admin/sla/clear/agent/:agentId
 ===================== */
 app.post("/admin/sla/clear/all", authenticate, requireAdmin, async (req, res) => {
   try {
