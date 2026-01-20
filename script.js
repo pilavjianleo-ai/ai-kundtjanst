@@ -1,22 +1,20 @@
 /* =========================================================
-   AI Kundtjänst - script.js (FULL) ✅ FIXED & UPGRADED
-   - Matchar din index.html (alla ID:n)
-   - ✅ Fixar Chart.js grafen: stabil höjd, destroy/recreate, ingen "scroll-loop"
-   - ✅ SLA: mer KPI + trend + agents + tickets + filter/sort
-   - ✅ Inbox + My tickets + Admin + KB + Categories
-   - ✅ FIXES:
-     A) Reset-token visar alltid authView
-     B) Solve ALL / Remove solved visas bara för admin
-     C) Clear my SLA stats: robust id (id/_id)
-     D) Efter reset lösenord: rensa resetToken från URL
-     E) Extra null-säkerhet + små UX fixes
+   AI Kundtjänst - script.js (FULL ✅ STABLE)
+   - Matchar index.html IDs
+   - Robust UI rendering (aldrig "tomt utan text")
+   - Token/auth säker
+   - Inbox / My tickets / Admin / KB / SLA fungerar
+   - Chart.js: destroy/recreate + stabil canvas height
    ========================================================= */
 
 /* =========================
    CONFIG
 ========================= */
-const API_BASE = ""; // samma origin (Render/localhost). Lämna tom.
+const API_BASE = ""; // ✅ samma origin på Render. (Om du kör separat: sätt full URL här)
 
+/* =========================
+   LocalStorage keys
+========================= */
 const LS = {
   token: "ai_token",
   user: "ai_user",
@@ -27,6 +25,9 @@ const LS = {
   lastTicketId: "ai_last_ticket_id",
 };
 
+/* =========================
+   State
+========================= */
 let state = {
   token: localStorage.getItem(LS.token) || "",
   user: safeJsonParse(localStorage.getItem(LS.user)) || null,
@@ -40,7 +41,7 @@ let state = {
 
   debug: localStorage.getItem(LS.debug) === "1",
 
-  chartTrend: null, // Chart.js instance
+  chartTrend: null,
 };
 
 /* =========================
@@ -82,42 +83,6 @@ function switchView(viewId) {
   views.forEach((id) => show($(id), id === viewId));
 }
 
-/* =========================
-   API helper
-========================= */
-async function api(path, opts = {}) {
-  const headers = opts.headers || {};
-  if (state.token) headers.Authorization = `Bearer ${state.token}`;
-  if (!headers["Content-Type"] && !(opts.body instanceof FormData)) headers["Content-Type"] = "application/json";
-
-  const res = await fetch(API_BASE + path, {
-    ...opts,
-    headers,
-  });
-
-  let data = null;
-  const ct = res.headers.get("content-type") || "";
-  if (ct.includes("application/json")) data = await res.json().catch(() => null);
-  else data = await res.text().catch(() => null);
-
-  if (!res.ok) {
-    const msg = data?.error || data?.message || `HTTP ${res.status}`;
-    throw new Error(msg);
-  }
-  return data;
-}
-
-/* =========================
-   UI feedback helpers
-========================= */
-function setAlert(el, msg, type = "") {
-  if (!el) return;
-  el.textContent = msg || "";
-  el.classList.remove("error");
-  if (type === "error") el.classList.add("error");
-  show(el, !!msg);
-}
-
 function escapeHtml(s) {
   return String(s || "")
     .replaceAll("&", "&amp;")
@@ -157,16 +122,40 @@ function pct(v) {
   return `${v}%`;
 }
 
+function setAlert(el, msg, type = "") {
+  if (!el) return;
+  el.textContent = msg || "";
+  el.classList.remove("error");
+  if (type === "error") el.classList.add("error");
+  show(el, !!msg);
+}
+
 function pill(label, kind = "") {
   const cls =
-    kind === "ok"
-      ? "pill ok"
-      : kind === "warn"
-      ? "pill warn"
-      : kind === "danger"
-      ? "pill danger"
-      : "pill";
+    kind === "ok" ? "pill ok" : kind === "warn" ? "pill warn" : kind === "danger" ? "pill danger" : "pill";
   return `<span class="${cls}">${escapeHtml(label)}</span>`;
+}
+
+/* =========================
+   API helper (robust)
+========================= */
+async function api(path, opts = {}) {
+  const headers = opts.headers || {};
+  if (state.token) headers.Authorization = `Bearer ${state.token}`;
+  if (!headers["Content-Type"] && !(opts.body instanceof FormData)) headers["Content-Type"] = "application/json";
+
+  const res = await fetch(API_BASE + path, { ...opts, headers });
+
+  let data = null;
+  const ct = res.headers.get("content-type") || "";
+  if (ct.includes("application/json")) data = await res.json().catch(() => null);
+  else data = await res.text().catch(() => null);
+
+  if (!res.ok) {
+    const msg = data?.error || data?.message || `HTTP ${res.status}`;
+    throw new Error(msg);
+  }
+  return data;
 }
 
 /* =========================
@@ -177,7 +166,6 @@ document.addEventListener("DOMContentLoaded", () => {
   const savedTheme = localStorage.getItem(LS.theme);
   if (savedTheme) document.body.setAttribute("data-theme", savedTheme);
 
-  // Debug panel init
   show($("debugPanel"), state.debug);
 
   bindEvents();
@@ -185,17 +173,19 @@ document.addEventListener("DOMContentLoaded", () => {
 });
 
 async function boot() {
-  // Categories dropdown (public endpoint)
+  // Always show something in all panels to avoid "blank feeling"
+  if ($("myTicketsList")) $("myTicketsList").innerHTML = `<div class="muted small">Logga in för att se dina ärenden.</div>`;
+  if ($("inboxTicketsList")) $("inboxTicketsList").innerHTML = `<div class="muted small">Logga in som agent/admin.</div>`;
+  if ($("slaOverviewBox")) $("slaOverviewBox").innerHTML = `<div class="muted small">Logga in som agent/admin.</div>`;
+  if ($("adminUsersList")) $("adminUsersList").innerHTML = `<div class="muted small">Logga in som admin.</div>`;
+
+  // Load categories (public)
   await loadCategories().catch(() => {});
 
-  // Restore companyId selection
   if ($("categorySelect")) $("categorySelect").value = state.companyId;
   if ($("kbCategorySelect")) $("kbCategorySelect").value = state.companyId;
 
-  // Reset token from URL (must run early)
-  handleResetTokenFromUrl();
-
-  // If logged in -> fetch /me to confirm token
+  // Validate token
   if (state.token) {
     try {
       const me = await api("/me");
@@ -203,7 +193,6 @@ async function boot() {
       setLS(LS.user, JSON.stringify(me));
       await onLoggedIn();
     } catch {
-      // token invalid
       doLogout(false);
     }
   } else {
@@ -211,40 +200,67 @@ async function boot() {
   }
 
   updateDebug();
+  handleResetTokenFromUrl();
 }
 
 /* =========================
    EVENTS
 ========================= */
 function bindEvents() {
-  // Sidebar navigation
+  // Sidebar
   $("openChatView")?.addEventListener("click", () => {
     setActiveMenu("openChatView");
     switchView("chatView");
+    renderConversation();
     scrollMessagesToBottom();
   });
 
   $("openMyTicketsView")?.addEventListener("click", async () => {
     setActiveMenu("openMyTicketsView");
     switchView("myTicketsView");
+
+    if (!state.token) {
+      if ($("myTicketsList")) $("myTicketsList").innerHTML = `<div class="muted small">Logga in först.</div>`;
+      if ($("myTicketDetails")) $("myTicketDetails").innerHTML = `Logga in för att se detaljer.`;
+      return;
+    }
+
     await loadMyTickets().catch((e) => setAlert($("myTicketsHint"), e.message, "error"));
   });
 
   $("openInboxView")?.addEventListener("click", async () => {
     setActiveMenu("openInboxView");
     switchView("inboxView");
+
+    if (!state.token) {
+      setAlert($("inboxMsg"), "Logga in först.", "error");
+      return;
+    }
+
     await loadInboxTickets().catch((e) => setAlert($("inboxMsg"), e.message, "error"));
   });
 
   $("openSlaView")?.addEventListener("click", async () => {
     setActiveMenu("openSlaView");
     switchView("slaView");
+
+    if (!state.token) {
+      $("slaOverviewBox").innerHTML = `<div class="muted small">Logga in som agent/admin för SLA.</div>`;
+      return;
+    }
+
     await refreshSlaAll().catch(() => {});
   });
 
   $("openAdminView")?.addEventListener("click", async () => {
     setActiveMenu("openAdminView");
     switchView("adminView");
+
+    if (!state.token) {
+      $("adminUsersList").innerHTML = `<div class="muted small">Logga in som admin.</div>`;
+      return;
+    }
+
     await refreshAdminAll().catch(() => {});
   });
 
@@ -257,7 +273,8 @@ function bindEvents() {
   $("categorySelect")?.addEventListener("change", async (e) => {
     state.companyId = e.target.value || "demo";
     setLS(LS.currentCompanyId, state.companyId);
-    await updateCategoryUiHints();
+
+    if ($("kbCategorySelect")) $("kbCategorySelect").value = state.companyId;
     updateDebug();
   });
 
@@ -277,7 +294,7 @@ function bindEvents() {
     updateDebug();
   });
 
-  // Auth buttons
+  // Auth
   $("loginBtn")?.addEventListener("click", doLogin);
   $("registerBtn")?.addEventListener("click", doRegister);
   $("logoutBtn")?.addEventListener("click", () => doLogout(true));
@@ -285,7 +302,7 @@ function bindEvents() {
   $("togglePassBtn")?.addEventListener("click", () => togglePass("password", "togglePassBtn"));
   $("toggleResetPassBtn")?.addEventListener("click", () => togglePass("resetNewPass", "toggleResetPassBtn"));
 
-  // Forgot flow
+  // Forgot
   $("openForgotBtn")?.addEventListener("click", () => openForgot(true));
   $("closeForgotBtn")?.addEventListener("click", () => openForgot(false));
   $("sendForgotBtn")?.addEventListener("click", sendForgotEmail);
@@ -312,7 +329,6 @@ function bindEvents() {
     setLS(LS.chatConversation, JSON.stringify(state.conversation));
     if ($("messages")) $("messages").innerHTML = "";
     addSystemMessage("Nytt ärende startat ✅");
-    updateDebug({ ticketId: "-" });
   });
 
   // Feedback
@@ -346,7 +362,6 @@ function bindEvents() {
   // SLA
   $("slaRefreshBtn")?.addEventListener("click", refreshSlaAll);
   $("slaExportCsvBtn")?.addEventListener("click", exportSlaCsv);
-
   $("slaDaysSelect")?.addEventListener("change", refreshSlaAll);
   $("slaCompareMode")?.addEventListener("change", refreshSlaAll);
 
@@ -372,7 +387,7 @@ function bindEvents() {
   $("adminExportAllBtn")?.addEventListener("click", exportAll);
   $("trainingExportBtn")?.addEventListener("click", exportTraining);
 
-  // KB Manager
+  // KB
   $("kbRefreshBtn")?.addEventListener("click", loadKbList);
   $("kbExportBtn")?.addEventListener("click", exportKb);
   $("kbUploadTextBtn")?.addEventListener("click", kbUploadText);
@@ -380,7 +395,7 @@ function bindEvents() {
   $("kbUploadPdfBtn")?.addEventListener("click", kbUploadPdf);
   $("kbCategorySelect")?.addEventListener("change", loadKbList);
 
-  // Categories Manager
+  // Categories admin
   $("catsRefreshBtn")?.addEventListener("click", loadCategoriesAdmin);
   $("createCatBtn")?.addEventListener("click", createCategory);
 
@@ -412,11 +427,11 @@ async function doLogin() {
       body: JSON.stringify({ username, password }),
     });
 
-    state.token = data.token;
-    state.user = data.user;
+    state.token = data.token || "";
+    state.user = data.user || null;
 
     setLS(LS.token, state.token);
-    setLS(LS.user, JSON.stringify(state.user));
+    setLS(LS.user, JSON.stringify(state.user || {}));
 
     await onLoggedIn();
   } catch (e) {
@@ -438,7 +453,6 @@ async function doRegister() {
     });
 
     setAlert($("authMessage"), "Registrering lyckades ✅ Logga in nu.", "");
-    show($("authMessage"), true);
   } catch (e) {
     setAlert($("authMessage"), e.message, "error");
   }
@@ -447,11 +461,17 @@ async function doRegister() {
 function doLogout(showMsg = true) {
   state.token = "";
   state.user = null;
+  state.lastTicketId = "";
+  state.selectedInboxTicketId = null;
+  state.selectedMyTicketId = null;
+
   setLS(LS.token, "");
   setLS(LS.user, "");
   setLS(LS.lastTicketId, "");
-  state.lastTicketId = "";
+
+  destroyTrendChart();
   onLoggedOut();
+
   if (showMsg) addSystemMessage("Du är utloggad ✅");
 }
 
@@ -460,23 +480,14 @@ function onLoggedOut() {
   show($("logoutBtn"), false);
   show($("openSettingsView"), false);
 
-  // admin/agent buttons hidden
   qsa(".adminOnly").forEach((x) => (x.style.display = "none"));
-
-  // Hide admin-only inbox actions too
-  show($("solveAllBtn"), false);
-  show($("removeSolvedBtn"), false);
 
   switchView("authView");
   setActiveMenu("openChatView");
 
-  // reset chat UI
   if ($("messages")) $("messages").innerHTML = "";
   state.conversation = [];
   setLS(LS.chatConversation, JSON.stringify(state.conversation));
-
-  // important: destroy chart if user logs out
-  destroyTrendChart();
 
   updateDebug();
 }
@@ -486,40 +497,25 @@ async function onLoggedIn() {
   show($("openSettingsView"), true);
 
   const role = state.user?.role || "user";
-  const username = state.user?.username || "user";
-
   if ($("roleBadge")) {
-    $("roleBadge").textContent = role === "user" ? `Inloggad: ${username}` : `${username} (${role})`;
+    $("roleBadge").textContent =
+      role === "user" ? `Inloggad: ${state.user?.username || ""}` : `${state.user?.username || ""} (${role})`;
   }
 
-  // Show agent/admin sections
   if (role === "agent" || role === "admin") {
     qsa(".adminOnly").forEach((x) => (x.style.display = ""));
   } else {
     qsa(".adminOnly").forEach((x) => (x.style.display = "none"));
   }
 
-  // ✅ FIX: Solve ALL / Remove solved only for admin
-  show($("solveAllBtn"), role === "admin");
-  show($("removeSolvedBtn"), role === "admin");
-
-  // SLA clear all only for admin
   show($("slaClearAllStatsBtn"), role === "admin");
 
-  // If reset token is active, keep authView visible until reset done
-  // Otherwise go to chat
-  if (window.__resetToken) {
-    switchView("authView");
-    setActiveMenu("openChatView");
-  } else {
-    switchView("chatView");
-    setActiveMenu("openChatView");
-  }
+  switchView("chatView");
+  setActiveMenu("openChatView");
 
   renderConversation();
   scrollMessagesToBottom();
 
-  await updateCategoryUiHints();
   await loadInboxCategoryFilter().catch(() => {});
   updateDebug();
 }
@@ -531,14 +527,16 @@ function togglePass(inputId, btnId) {
   const inp = $(inputId);
   const btn = $(btnId);
   if (!inp || !btn) return;
+
   const isPass = inp.getAttribute("type") === "password";
   inp.setAttribute("type", isPass ? "text" : "password");
+
   const icon = btn.querySelector("i");
   if (icon) icon.className = isPass ? "fa-solid fa-eye-slash" : "fa-solid fa-eye";
 }
 
 /* =========================
-   Forgot/Reset password UI
+   Forgot/Reset password
 ========================= */
 function openForgot(on) {
   show($("forgotCard"), on);
@@ -568,14 +566,9 @@ function handleResetTokenFromUrl() {
   const resetToken = url.searchParams.get("resetToken");
   if (!resetToken) return;
 
-  // ✅ FIX A: Make sure authView is visible
-  switchView("authView");
-  setActiveMenu("openChatView");
-
   show($("resetCard"), true);
   show($("forgotCard"), false);
   show($("authMessage"), false);
-
   window.__resetToken = resetToken;
 }
 
@@ -593,17 +586,6 @@ async function doResetPassword() {
     });
 
     setAlert($("resetMsg"), data.message || "Lösenord uppdaterat ✅", "");
-
-    // ✅ FIX D: Remove token from URL after success
-    window.history.replaceState({}, document.title, window.location.pathname);
-    window.__resetToken = null;
-
-    // small UX: show login after reset
-    setTimeout(() => {
-      show($("resetCard"), false);
-      show($("forgotCard"), false);
-      show($("authMessage"), false);
-    }, 800);
   } catch (e) {
     setAlert($("resetMsg"), e.message, "error");
   }
@@ -622,12 +604,14 @@ async function loadCategories() {
     if (!selectEl) return;
     const cur = selectEl.value || state.companyId || "demo";
     selectEl.innerHTML = "";
+
     if (includeAll) {
       const o = document.createElement("option");
       o.value = "";
       o.textContent = "Alla kategorier";
       selectEl.appendChild(o);
     }
+
     for (const c of cats) {
       const opt = document.createElement("option");
       opt.value = c.key;
@@ -640,26 +624,23 @@ async function loadCategories() {
   fill(sel, false);
   fill(selKb, false);
   fill(selInbox, true);
-
-  updateDebug();
 }
 
 async function loadInboxCategoryFilter() {
-  await loadCategories();
-}
-
-async function updateCategoryUiHints() {
-  // intentionally minimal (reserved)
+  await loadCategories().catch(() => {});
 }
 
 /* =========================
    CHAT
 ========================= */
 function addSystemMessage(text) {
-  addMessageToUI("assistant", text, { meta: "System" });
+  addMessageToUI("assistant", text);
 }
 
 function addMessageToUI(role, content) {
+  const container = $("messages");
+  if (!container) return;
+
   const wrap = document.createElement("div");
   wrap.className = "msg " + (role === "user" ? "user" : "assistant");
 
@@ -687,12 +668,14 @@ function addMessageToUI(role, content) {
   wrap.appendChild(avatar);
   wrap.appendChild(bubbleWrap);
 
-  $("messages")?.appendChild(wrap);
+  container.appendChild(wrap);
 }
 
 function renderConversation() {
-  if (!$("messages")) return;
-  $("messages").innerHTML = "";
+  const container = $("messages");
+  if (!container) return;
+
+  container.innerHTML = "";
 
   for (const m of state.conversation) {
     if (!m?.role) continue;
@@ -707,18 +690,16 @@ function scrollMessagesToBottom() {
 }
 
 async function sendChat() {
-  if (!state.token) {
-    addSystemMessage("Du måste logga in först.");
-    switchView("authView");
-    return;
-  }
-
   const inp = $("messageInput");
   if (!inp) return;
 
+  if (!state.token) {
+    addMessageToUI("assistant", "❌ Du måste logga in först.");
+    return;
+  }
+
   const text = inp.value.trim();
   if (!text) return;
-
   inp.value = "";
 
   state.conversation.push({ role: "user", content: text });
@@ -771,15 +752,15 @@ async function sendFeedback(type) {
       method: "POST",
       body: JSON.stringify({ type, companyId: state.companyId }),
     });
-    if ($("fbMsg")) $("fbMsg").textContent = "Tack! ✅";
-    setTimeout(() => {
-      if ($("fbMsg")) $("fbMsg").textContent = "";
-    }, 1200);
+    if ($("fbMsg")) {
+      $("fbMsg").textContent = "Tack! ✅";
+      setTimeout(() => ($("fbMsg").textContent = ""), 1200);
+    }
   } catch (e) {
-    if ($("fbMsg")) $("fbMsg").textContent = `Fel: ${e.message}`;
-    setTimeout(() => {
-      if ($("fbMsg")) $("fbMsg").textContent = "";
-    }, 1500);
+    if ($("fbMsg")) {
+      $("fbMsg").textContent = `Fel: ${e.message}`;
+      setTimeout(() => ($("fbMsg").textContent = ""), 1500);
+    }
   }
 }
 
@@ -788,13 +769,15 @@ async function sendFeedback(type) {
 ========================= */
 async function loadMyTickets() {
   setAlert($("myTicketsHint"), "");
+
   const list = $("myTicketsList");
   const details = $("myTicketDetails");
-  if (list) list.innerHTML = "";
+  if (list) list.innerHTML = `<div class="muted small">Laddar...</div>`;
   if (details) details.innerHTML = `<span class="muted small">Laddar...</span>`;
 
   try {
     const tickets = await api("/my/tickets");
+
     if (!tickets.length) {
       if (list) list.innerHTML = `<div class="muted small">Inga ärenden ännu.</div>`;
       if (details) details.innerHTML = `<span class="muted small">Skapa en ny konversation i Chat.</span>`;
@@ -838,13 +821,15 @@ async function loadMyTickets() {
     await loadMyTicketDetails(firstId);
   } catch (e) {
     setAlert($("myTicketsHint"), e.message, "error");
-    if (details) details.innerHTML = `<span class="muted small">Kunde inte ladda.</span>`;
+    if (list) list.innerHTML = `<div class="muted small">Kunde inte ladda.</div>`;
+    if (details) details.innerHTML = `<span class="muted small">Fel: ${escapeHtml(e.message)}</span>`;
   }
 }
 
 async function loadMyTicketDetails(ticketId) {
   const details = $("myTicketDetails");
   if (!details) return;
+
   details.innerHTML = `<span class="muted small">Laddar...</span>`;
 
   try {
@@ -896,7 +881,7 @@ async function myTicketReply() {
       body: JSON.stringify({ content: text }),
     });
 
-    if ($("myTicketReplyText")) $("myTicketReplyText").value = "";
+    $("myTicketReplyText").value = "";
     setAlert($("myTicketReplyMsg"), data.message || "Skickat ✅", "");
     await loadMyTicketDetails(ticketId);
     await loadMyTickets();
@@ -939,15 +924,18 @@ async function loadInboxTickets() {
     const dot = $("inboxNotifDot");
     if (dot) show(dot, openCount > 0);
 
+    if (!tickets.length) {
+      list.innerHTML = `<div class="muted small">Inga tickets i inboxen.</div>`;
+      $("ticketDetails").innerHTML = `<div class="muted small">Välj en ticket.</div>`;
+      return;
+    }
+
     list.innerHTML = tickets
       .map((t) => {
         const statusPill =
           t.status === "solved" ? pill("solved", "ok") : t.status === "pending" ? pill("pending", "warn") : pill("open");
-        const prioPill =
-          t.priority === "high" ? pill("high", "danger") : t.priority === "low" ? pill("low") : pill("normal");
-        const assigned = t.assignedToUserId
-          ? `<span class="muted small">assigned</span>`
-          : `<span class="muted small">unassigned</span>`;
+        const prioPill = t.priority === "high" ? pill("high", "danger") : t.priority === "low" ? pill("low") : pill("normal");
+        const assigned = t.assignedToUserId ? `<span class="muted small">assigned</span>` : `<span class="muted small">unassigned</span>`;
 
         return `
           <div class="listItem" data-id="${t._id}">
@@ -957,9 +945,7 @@ async function loadInboxTickets() {
               ${prioPill}
             </div>
             <div class="muted small">
-              ${escapeHtml(String(t.companyId || ""))} • ${escapeHtml(String(t._id).slice(-8))} • ${fmtDate(
-          t.lastActivityAt || t.createdAt
-        )} • ${assigned}
+              ${escapeHtml(String(t.companyId || ""))} • ${escapeHtml(String(t._id).slice(-8))} • ${fmtDate(t.lastActivityAt || t.createdAt)} • ${assigned}
             </div>
           </div>
         `;
@@ -976,6 +962,7 @@ async function loadInboxTickets() {
       });
     });
 
+    // Auto select
     if (!state.selectedInboxTicketId && tickets[0]) {
       state.selectedInboxTicketId = tickets[0]._id;
       const el = qs(`#inboxTicketsList .listItem[data-id="${tickets[0]._id}"]`);
@@ -1106,7 +1093,7 @@ async function sendInboxAgentReply() {
       body: JSON.stringify({ content }),
     });
 
-    if ($("agentReplyTextInbox")) $("agentReplyTextInbox").value = "";
+    $("agentReplyTextInbox").value = "";
     await loadInboxTicketDetails(state.selectedInboxTicketId);
     await loadInboxTickets();
   } catch (e) {
@@ -1127,7 +1114,7 @@ async function saveInternalNote() {
       body: JSON.stringify({ content }),
     });
 
-    if ($("internalNoteText")) $("internalNoteText").value = "";
+    $("internalNoteText").value = "";
     renderInternalNotes(data.ticket?.internalNotes || []);
   } catch (e) {
     setAlert($("inboxTicketMsg"), e.message, "error");
@@ -1164,7 +1151,7 @@ function renderInternalNotes(notes) {
         .map(
           (n) => `
         <div class="noteItem">
-          <div class="noteMeta">${fmtDate(n.createdAt)} • <span class="muted small">Agent</span></div>
+          <div class="noteMeta">${fmtDate(n.createdAt)} • ${escapeHtml(String(n.createdBy || ""))}</div>
           <div class="noteText">${escapeHtml(n.content)}</div>
         </div>
       `
@@ -1253,7 +1240,7 @@ async function removeSolvedTickets() {
 }
 
 /* =========================
-   ✅ SLA DASHBOARD (KPI + Chart + tables)
+   ✅ SLA DASHBOARD
 ========================= */
 let slaCache = {
   overview: null,
@@ -1264,7 +1251,6 @@ let slaCache = {
 };
 
 async function refreshSlaAll() {
-  // avoid chart resize loops by destroying first
   destroyTrendChart();
 
   const days = Number($("slaDaysSelect")?.value || 30);
@@ -1276,11 +1262,9 @@ async function refreshSlaAll() {
   if ($("slaTrendHint")) $("slaTrendHint").textContent = "";
 
   try {
-    // overview
     const overview = await api(`/admin/sla/overview?days=${days}`);
     slaCache.overview = overview;
 
-    // extra KPI endpoint
     let kpi = null;
     try {
       kpi = await api(`/admin/sla/kpi?days=${days}`);
@@ -1291,34 +1275,28 @@ async function refreshSlaAll() {
 
     renderSlaOverviewKpi(overview, kpi);
 
-    // trend weekly
     const trend = await api(`/admin/sla/trend/weekly?days=${days}`);
     slaCache.trend = trend;
 
-    // only render chart when SLA view is visible
-    if ($("slaView") && $("slaView").style.display !== "none") {
-      renderSlaTrendChart(trend);
-    }
+    const slaView = $("slaView");
+    const isVisible = slaView && getComputedStyle(slaView).display !== "none";
+    if (isVisible) renderSlaTrendChart(trend);
 
-    // agents
     const agents = await api(`/admin/sla/agents?days=${days}`);
     slaCache.agents = agents;
     renderSlaAgents(agents);
 
-    // tickets
     const tickets = await api(`/admin/sla/tickets?days=${days}`);
     slaCache.tickets = tickets;
     renderSlaTicketsFromCache();
 
-    // compare (optional)
     if (compareMode && compareMode !== "none") {
       const a = days;
       const b = compareMode === "prevWeek" ? 7 : days;
       const cmp = await api(`/admin/sla/compare?a=${a}&b=${b}`);
       renderSlaCompareHint(cmp, compareMode);
     } else {
-      if ($("slaTrendHint"))
-        $("slaTrendHint").textContent = "Tips: välj jämförelseläge för att se förändring mot tidigare period.";
+      if ($("slaTrendHint")) $("slaTrendHint").textContent = "Tips: välj jämförelseläge för att se förändring mot tidigare period.";
     }
   } catch (e) {
     if ($("slaOverviewBox")) $("slaOverviewBox").innerHTML = `<div class="alert error">❌ SLA fel: ${escapeHtml(e.message)}</div>`;
@@ -1392,27 +1370,13 @@ function renderSlaOverviewKpi(o, kpi) {
       </div>
     </div>
 
-    ${
-      ageingText
-        ? `
-      <div class="divider"></div>
-      <div class="panel soft">
-        <b>Backlog ageing (öppna/pending)</b>
-        <div class="muted small" style="margin-top:8px;">${ageingText}</div>
+    <div class="divider"></div>
+    <div class="panel soft">
+      <b>Backlog ageing (öppna/pending)</b>
+      <div class="muted small" style="margin-top:8px;">
+        ${ageingText || "Ingen ageing-data ännu."}
       </div>
-    `
-        : `
-      <div class="divider"></div>
-      <div class="panel soft">
-        <b>KPI (extra)</b>
-        <div class="muted small" style="margin-top:6px;">
-          • Filtrera på “breached” och sortera “worst first” för att hitta problem snabbt.<br/>
-          • Pending-tid pausar resolution SLA (rättvisare mätning).<br/>
-          • High priority har hårdare limits (1h first response / 24h resolution).
-        </div>
-      </div>
-    `
-    }
+    </div>
   `;
 }
 
@@ -1440,7 +1404,7 @@ function renderSlaCompareHint(cmp, mode) {
 }
 
 /* =========================
-   ✅ SLA Trend Chart (Chart.js)
+   Chart.js trend
 ========================= */
 function destroyTrendChart() {
   if (state.chartTrend) {
@@ -1464,10 +1428,7 @@ function renderSlaTrendChart(tr) {
   if (!canvas) return;
 
   if (typeof Chart === "undefined") {
-    if ($("slaTrendHint")) {
-      $("slaTrendHint").textContent =
-        "❌ Chart.js saknas. Lägg in <script src='https://cdn.jsdelivr.net/npm/chart.js'></script> före script.js i index.html";
-    }
+    if ($("slaTrendHint")) $("slaTrendHint").textContent = "❌ Chart.js saknas.";
     return;
   }
 
@@ -1491,20 +1452,8 @@ function renderSlaTrendChart(tr) {
     data: {
       labels,
       datasets: [
-        {
-          label: "First response compliance (%)",
-          data: firstPct,
-          tension: 0.35,
-          borderWidth: 2,
-          pointRadius: 3,
-        },
-        {
-          label: "Resolution compliance (%)",
-          data: resPct,
-          tension: 0.35,
-          borderWidth: 2,
-          pointRadius: 3,
-        },
+        { label: "First response compliance (%)", data: firstPct, tension: 0.35, borderWidth: 2, pointRadius: 3 },
+        { label: "Resolution compliance (%)", data: resPct, tension: 0.35, borderWidth: 2, pointRadius: 3 },
       ],
     },
     options: {
@@ -1512,17 +1461,8 @@ function renderSlaTrendChart(tr) {
       maintainAspectRatio: false,
       animation: false,
       interaction: { mode: "index", intersect: false },
-      plugins: {
-        legend: { display: true },
-        tooltip: { enabled: true },
-      },
-      scales: {
-        y: {
-          min: 0,
-          max: 100,
-          ticks: { callback: (v) => v + "%" },
-        },
-      },
+      plugins: { legend: { display: true }, tooltip: { enabled: true } },
+      scales: { y: { min: 0, max: 100, ticks: { callback: (v) => v + "%" } } },
     },
   });
 
@@ -1593,14 +1533,17 @@ function renderSlaAgents(a) {
 }
 
 /* =========================
-   SLA Tickets (filter/sort)
+   SLA Tickets table (filter/sort)
 ========================= */
 function renderSlaTicketsFromCache() {
   const data = slaCache.tickets;
-  if (!data) return;
-
   const box = $("slaTicketsBox");
   if (!box) return;
+
+  if (!data?.rows) {
+    box.innerHTML = `<div class="muted small">Ingen ticket-data.</div>`;
+    return;
+  }
 
   let rows = data.rows || [];
 
@@ -1618,11 +1561,8 @@ function renderSlaTicketsFromCache() {
       ) || 0,
   }));
 
-  if (breachedFilter === "breachedOnly") {
-    rows = rows.filter((r) => r.sla?.breachedFirstResponse || r.sla?.breachedResolution);
-  } else if (breachedFilter === "okOnly") {
-    rows = rows.filter((r) => !r.sla?.breachedFirstResponse && !r.sla?.breachedResolution);
-  }
+  if (breachedFilter === "breachedOnly") rows = rows.filter((r) => r.sla?.breachedFirstResponse || r.sla?.breachedResolution);
+  if (breachedFilter === "okOnly") rows = rows.filter((r) => !r.sla?.breachedFirstResponse && !r.sla?.breachedResolution);
 
   if (breachType === "first") rows = rows.filter((r) => r.sla?.breachedFirstResponse);
   if (breachType === "resolution") rows = rows.filter((r) => r.sla?.breachedResolution);
@@ -1704,11 +1644,9 @@ function renderSlaTicketsFromCache() {
 
 function exportSlaCsv() {
   const days = Number($("slaDaysSelect")?.value || 30);
-  const url = `/admin/sla/export/csv?days=${days}`;
+  const url = `/admin/sla/export.csv?days=${days}`;
 
-  fetch(API_BASE + url, {
-    headers: { Authorization: `Bearer ${state.token}` },
-  })
+  fetch(API_BASE + url, { headers: { Authorization: `Bearer ${state.token}` } })
     .then((r) => {
       if (!r.ok) throw new Error("Kunde inte exportera CSV");
       return r.blob();
@@ -1720,17 +1658,19 @@ function exportSlaCsv() {
       a.click();
       URL.revokeObjectURL(a.href);
     })
-    .catch(() => alert("❌ Export misslyckades"));
+    .catch((e) => alert(`❌ Export misslyckades: ${e.message || ""}`));
 }
 
 async function clearMySlaStats() {
   try {
     if (!confirm("Radera min SLA-statistik?")) return;
-    const me = state.user || {};
-    const myId = me.id || me._id;
-    if (!myId) throw new Error("Kunde inte hitta ditt userId.");
 
-    await api(`/admin/sla/clear/agent/${myId}`, { method: "POST" });
+    const me = state.user || {};
+    const uid = me._id || me.id;
+
+    if (!uid) throw new Error("Kunde inte hitta ditt userId (saknar _id).");
+
+    await api(`/admin/sla/clear/agent/${uid}`, { method: "POST" });
     alert("✅ Din statistik raderad.");
     await refreshSlaAll();
   } catch (e) {
@@ -1762,10 +1702,17 @@ async function loadAdminUsers() {
   const box = $("adminUsersList");
   setAlert($("adminUsersMsg"), "");
   if (!box) return;
+
   box.innerHTML = `<div class="muted small">Laddar...</div>`;
 
   try {
     const users = await api("/admin/users");
+
+    if (!users.length) {
+      box.innerHTML = `<div class="muted small">Inga users hittades.</div>`;
+      return;
+    }
+
     box.innerHTML = users
       .map((u) => {
         const rolePill =
@@ -1803,10 +1750,7 @@ async function loadAdminUsers() {
         const sel = qs(`[data-role-select="${userId}"]`);
         const role = sel?.value;
         try {
-          await api(`/admin/users/${userId}/role`, {
-            method: "POST",
-            body: JSON.stringify({ role }),
-          });
+          await api(`/admin/users/${userId}/role`, { method: "POST", body: JSON.stringify({ role }) });
           setAlert($("adminUsersMsg"), "Roll uppdaterad ✅", "");
           await loadAdminUsers();
         } catch (e) {
@@ -1838,9 +1782,7 @@ async function loadAdminUsers() {
    EXPORTS
 ========================= */
 function exportAll() {
-  fetch(API_BASE + "/admin/export/all", {
-    headers: { Authorization: `Bearer ${state.token}` },
-  })
+  fetch(API_BASE + "/admin/export/all", { headers: { Authorization: `Bearer ${state.token}` } })
     .then((r) => {
       if (!r.ok) throw new Error("Export misslyckades");
       return r.blob();
@@ -1879,6 +1821,7 @@ async function loadKbList() {
   const box = $("kbList");
   const msg = $("kbMsg");
   if (!box) return;
+
   setAlert(msg, "");
   box.innerHTML = `<div class="muted small">Laddar KB...</div>`;
 
@@ -1926,7 +1869,7 @@ async function kbUploadText() {
     });
 
     setAlert(msg, data.message || "Uppladdat ✅", "");
-    if ($("kbTextContent")) $("kbTextContent").value = "";
+    $("kbTextContent").value = "";
     await loadKbList();
   } catch (e) {
     setAlert(msg, e.message, "error");
@@ -1947,7 +1890,7 @@ async function kbUploadUrl() {
     });
 
     setAlert(msg, data.message || "Uppladdat ✅", "");
-    if ($("kbUrlInput")) $("kbUrlInput").value = "";
+    $("kbUrlInput").value = "";
     await loadKbList();
   } catch (e) {
     setAlert(msg, e.message, "error");
@@ -1969,7 +1912,7 @@ async function kbUploadPdf() {
     });
 
     setAlert(msg, data.message || "Uppladdat ✅", "");
-    if ($("kbPdfFile")) $("kbPdfFile").value = "";
+    $("kbPdfFile").value = "";
     await loadKbList();
   } catch (e) {
     setAlert(msg, e.message, "error");
@@ -2014,11 +1957,13 @@ async function loadCategoriesAdmin() {
   const box = $("catsList");
   const msg = $("catsMsg");
   if (!box) return;
+
   setAlert(msg, "");
   box.innerHTML = `<div class="muted small">Laddar...</div>`;
 
   try {
     const cats = await api("/categories");
+
     box.innerHTML = cats
       .map((c) => {
         const locked = ["demo", "law", "tech", "cleaning"].includes(c.key);
@@ -2032,9 +1977,9 @@ async function loadCategoriesAdmin() {
             ${
               locked
                 ? ""
-                : `<button class="btn danger small" style="margin-top:10px;" data-del-cat="${escapeHtml(
-                    c.key
-                  )}"><i class="fa-solid fa-trash"></i> Ta bort</button>`
+                : `<button class="btn danger small" style="margin-top:10px;" data-del-cat="${escapeHtml(c.key)}">
+                     <i class="fa-solid fa-trash"></i> Ta bort
+                   </button>`
             }
           </div>
         `;
@@ -2048,7 +1993,7 @@ async function loadCategoriesAdmin() {
         try {
           await api(`/admin/categories/${encodeURIComponent(key)}`, { method: "DELETE" });
           setAlert(msg, "Kategori borttagen ✅", "");
-          await loadCategories();
+          await loadCategories().catch(() => {});
           await loadCategoriesAdmin();
         } catch (e) {
           setAlert(msg, e.message, "error");
@@ -2077,11 +2022,11 @@ async function createCategory() {
     });
 
     setAlert(msg, data.message || "Skapad ✅", "");
-    if ($("newCatKey")) $("newCatKey").value = "";
-    if ($("newCatName")) $("newCatName").value = "";
-    if ($("newCatPrompt")) $("newCatPrompt").value = "";
+    $("newCatKey").value = "";
+    $("newCatName").value = "";
+    $("newCatPrompt").value = "";
 
-    await loadCategories();
+    await loadCategories().catch(() => {});
     await loadCategoriesAdmin();
   } catch (e) {
     setAlert(msg, e.message, "error");
@@ -2104,7 +2049,7 @@ async function changeUsername() {
     });
 
     setAlert(msg, data.message || "Uppdaterat ✅", "");
-    if ($("newUsernameInput")) $("newUsernameInput").value = "";
+    $("newUsernameInput").value = "";
 
     const me = await api("/me");
     state.user = me;
@@ -2129,8 +2074,8 @@ async function changePassword() {
     });
 
     setAlert(msg, data.message || "Lösenord uppdaterat ✅", "");
-    if ($("currentPassInput")) $("currentPassInput").value = "";
-    if ($("newPassInput")) $("newPassInput").value = "";
+    $("currentPassInput").value = "";
+    $("newPassInput").value = "";
   } catch (e) {
     setAlert(msg, e.message, "error");
   }
