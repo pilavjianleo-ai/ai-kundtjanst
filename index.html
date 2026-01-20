@@ -7,10 +7,6 @@
 
   <!-- Font Awesome CDN -->
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
-
-  <!-- ✅ Chart.js (för SLA trend graf) -->
-  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-
   <link rel="stylesheet" href="style.css" />
 </head>
 
@@ -246,7 +242,6 @@
               Välj ett ärende för att se detaljer.
             </div>
 
-            <!-- ✅ NYTT: fortsätt konversation under "Mina ärenden" -->
             <div class="divider"></div>
 
             <label>Skicka meddelande (fortsätt konversation)</label>
@@ -266,7 +261,7 @@
         <div class="topbar">
           <div>
             <div class="title">SLA Dashboard</div>
-            <div class="subtitle muted">SLA, breaches, median, trend och export (agent/admin).</div>
+            <div class="subtitle muted">SLA, KPI, breaches, median, trend och export (agent/admin).</div>
           </div>
 
           <div class="topbarActions">
@@ -616,7 +611,10 @@
     </main>
   </div>
 
-  <!-- ✅ Script -->
+  <!-- ✅ Chart.js (KRÄVS för grafen) -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+  <!-- Din app -->
   <script src="script.js"></script>
 </body>
 </html>
