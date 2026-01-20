@@ -1,3 +1,5 @@
+alert("script.js laddad ✅");
+
 /* =========================================================
    AI Kundtjänst - script.js (FULL ✅ STABLE)
    - Matchar index.html IDs
