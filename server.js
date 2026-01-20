@@ -1,129 +1,60 @@
-require("dotenv").config();
+/* =========================================================
+   AI Kundtjänst - script.js (UPGRADED)
+   - Full app controller
+   - Auth + Views + Tickets + Inbox + Admin + KB + Categories
+   - SLA Dashboard: Overview + KPI + Agents + Tickets + Trend (daily/weekly) + Breached
+========================================================= */
 
-const express = require("express");
-const OpenAI = require("openai");
-const cors = require("cors");
-const rateLimit = require("express-rate-limit");
-const sanitizeHtml = require("sanitize-html");
-const mongoose = require("mongoose");
-const bcrypt = require("bcryptjs");
-const jwt = require("jsonwebtoken");
-const path = require("path");
+/* =========================
+   CONFIG
+========================= */
+const API_BASE = ""; // same origin
 
-const cheerio = require("cheerio");
-const pdfParse = require("pdf-parse");
-const nodemailer = require("nodemailer");
-const crypto = require("crypto");
+/* =========================
+   HELPERS
+========================= */
+const $ = (id) => document.getElementById(id);
 
-const app = express();
-app.set("trust proxy", 1);
-
-app.use(express.json({ limit: "18mb" }));
-app.use(cors());
-app.use(express.static(__dirname));
-
-/* =====================
-   ✅ ENV
-===================== */
-const mongoUri = process.env.MONGO_URI || process.env.MONGODB_URI;
-
-console.log("✅ ENV CHECK:");
-console.log("MONGO_URI:", process.env.MONGO_URI || process.env.MONGODB_URI ? "OK" : "SAKNAS");
-console.log("JWT_SECRET:", process.env.JWT_SECRET ? "OK" : "SAKNAS");
-console.log("OPENAI_API_KEY:", process.env.OPENAI_API_KEY ? "OK" : "SAKNAS");
-console.log("SMTP_HOST:", process.env.SMTP_HOST ? "OK" : "SAKNAS");
-console.log("SMTP_USER:", process.env.SMTP_USER ? "OK" : "SAKNAS");
-console.log("APP_URL:", process.env.APP_URL ? "OK" : "SAKNAS");
-
-if (!mongoUri) console.error("❌ MongoDB URI saknas! Lägg till MONGO_URI i Render env.");
-if (!process.env.JWT_SECRET) console.error("❌ JWT_SECRET saknas!");
-if (!process.env.OPENAI_API_KEY) console.error("❌ OPENAI_API_KEY saknas!");
-if (!process.env.APP_URL) console.error("❌ APP_URL saknas! Ex: https://ai-kundtjanst.onrender.com");
-
-/* =====================
-   ✅ MongoDB
-===================== */
-mongoose.set("strictQuery", true);
-
-mongoose
-  .connect(mongoUri)
-  .then(() => console.log("✅ MongoDB ansluten"))
-  .catch((err) => console.error("❌ MongoDB-fel:", err.message));
-
-mongoose.connection.on("error", (err) => {
-  console.error("❌ MongoDB runtime error:", err);
-});
-
-/* =====================
-   ✅ Models
-===================== */
-const userSchema = new mongoose.Schema({
-  username: { type: String, unique: true, required: true, index: true },
-  email: { type: String, default: "", index: true },
-  password: { type: String, required: true },
-  role: { type: String, default: "user" }, // user | agent | admin
-
-  resetTokenHash: { type: String, default: "" },
-  resetTokenExpiresAt: { type: Date, default: null },
-
-  createdAt: { type: Date, default: Date.now },
-});
-const User = mongoose.model("User", userSchema);
-
-const messageSchema = new mongoose.Schema({
-  role: String, // user | assistant | agent
-  content: String,
-  timestamp: { type: Date, default: Date.now },
-});
-
-/* =====================
-   ✅ SLA Defaults
-===================== */
-function slaLimitsForPriority(priority) {
-  const MIN = 60 * 1000;
-
-  if (priority === "high") {
-    return {
-      firstResponseLimitMs: 60 * MIN, // 1h
-      resolutionLimitMs: 24 * 60 * MIN, // 24h
-    };
-  }
-
-  if (priority === "low") {
-    return {
-      firstResponseLimitMs: 24 * 60 * MIN, // 24h
-      resolutionLimitMs: 7 * 24 * 60 * MIN, // 7 dagar
-    };
-  }
-
-  // normal
-  return {
-    firstResponseLimitMs: 8 * 60 * MIN, // 8h
-    resolutionLimitMs: 3 * 24 * 60 * MIN, // 3 dagar
-  };
+function show(el) {
+  if (!el) return;
+  el.style.display = "";
 }
 
-/* =====================
-   ✅ SLA Helpers
-===================== */
-function msBetween(a, b) {
+function hide(el) {
+  if (!el) return;
+  el.style.display = "none";
+}
+
+function setText(el, text) {
+  if (!el) return;
+  el.textContent = text ?? "";
+}
+
+function setHTML(el, html) {
+  if (!el) return;
+  el.innerHTML = html ?? "";
+}
+
+function clamp(n, a, b) {
+  return Math.max(a, Math.min(b, n));
+}
+
+function fmtDate(d) {
   try {
-    const A = new Date(a).getTime();
-    const B = new Date(b).getTime();
-    if (!Number.isFinite(A) || !Number.isFinite(B)) return null;
-    return Math.max(0, B - A);
+    const dt = new Date(d);
+    if (isNaN(dt.getTime())) return "-";
+    return dt.toLocaleString("sv-SE");
   } catch {
-    return null;
+    return "-";
   }
 }
 
 function msToPretty(ms) {
-  if (ms == null || !Number.isFinite(ms)) return "";
+  if (ms == null || !Number.isFinite(ms)) return "-";
   const s = Math.floor(ms / 1000);
   const m = Math.floor(s / 60);
   const h = Math.floor(m / 60);
   const d = Math.floor(h / 24);
-
   const hh = h % 24;
   const mm = m % 60;
 
@@ -133,1986 +64,2294 @@ function msToPretty(ms) {
   return `${s}s`;
 }
 
-// ✅ pending pause SLA
-function calcPendingMs(t, now = new Date()) {
-  const pendingTotal = Number(t.pendingTotalMs || 0);
-  if (!t.pendingStartedAt) return pendingTotal;
-  const active = msBetween(t.pendingStartedAt, now) || 0;
-  return pendingTotal + active;
+function pillClassFromState(state) {
+  if (state === "ok") return "pill ok";
+  if (state === "breached") return "pill danger";
+  if (state === "at_risk") return "pill warn";
+  return "pill";
 }
 
-function calcEffectiveMsFromCreated(t, endAt, now = new Date()) {
-  const createdAt = t.createdAt || now;
-  const end = endAt || now;
-  const total = msBetween(createdAt, end);
-  if (total == null) return null;
-
-  const paused = calcPendingMs(t, now);
-  return Math.max(0, total - paused);
-}
-
-/**
- * ✅ SLA Engine (UPGRADED)
- * Adds states:
- * - waiting (no reply yet / not solved)
- * - ok
- * - at_risk (under limit but close)
- * - breached
- *
- * Risk threshold default: 80% of limit
- */
-function computeSlaForTicket(t, now = new Date()) {
-  const limits = slaLimitsForPriority(t.priority || "normal");
-  const createdAt = t.createdAt || now;
-  const firstAgentReplyAt = t.firstAgentReplyAt || null;
-  const solvedAt = t.solvedAt || null;
-
-  const firstResponseMs = firstAgentReplyAt ? msBetween(createdAt, firstAgentReplyAt) : null;
-  const resolutionMs = solvedAt ? calcEffectiveMsFromCreated(t, solvedAt, now) : null;
-
-  const firstResponseDueAt = new Date(new Date(createdAt).getTime() + limits.firstResponseLimitMs);
-  const resolutionDueAt = new Date(new Date(createdAt).getTime() + limits.resolutionLimitMs);
-
-  const nowMs = now.getTime();
-
-  const firstResponseRemainingMs =
-    firstAgentReplyAt ? 0 : Math.max(0, firstResponseDueAt.getTime() - nowMs);
-
-  const resolutionRemainingMs = solvedAt ? 0 : Math.max(0, resolutionDueAt.getTime() - nowMs);
-
-  const breachedFirstResponse =
-    firstResponseMs !== null ? firstResponseMs > limits.firstResponseLimitMs : false;
-
-  const effectiveRunningMs = solvedAt ? resolutionMs : calcEffectiveMsFromCreated(t, now, now);
-
-  const breachedResolution =
-    effectiveRunningMs != null ? effectiveRunningMs > limits.resolutionLimitMs : false;
-
-  // ✅ states
-  const riskPct = 0.8;
-
-  function stateFirst() {
-    if (!firstAgentReplyAt) {
-      if (firstResponseRemainingMs <= 0) return "breached";
-      const used = limits.firstResponseLimitMs - firstResponseRemainingMs;
-      if (used >= limits.firstResponseLimitMs * riskPct) return "at_risk";
-      return "waiting";
-    }
-    return breachedFirstResponse ? "breached" : "ok";
-  }
-
-  function stateRes() {
-    if (!solvedAt) {
-      if (resolutionRemainingMs <= 0) return "breached";
-      const used = limits.resolutionLimitMs - resolutionRemainingMs;
-      if (used >= limits.resolutionLimitMs * riskPct) return "at_risk";
-      return "waiting";
-    }
-    return breachedResolution ? "breached" : "ok";
-  }
-
-  return {
-    firstResponseMs,
-    resolutionMs,
-
-    breachedFirstResponse,
-    breachedResolution,
-
-    firstResponseLimitMs: limits.firstResponseLimitMs,
-    resolutionLimitMs: limits.resolutionLimitMs,
-
-    firstResponseDueAt,
-    resolutionDueAt,
-
-    firstResponseRemainingMs,
-    resolutionRemainingMs,
-
-    effectiveRunningMs: effectiveRunningMs ?? null,
-    pendingTotalMs: calcPendingMs(t, now),
-
-    // ✅ NEW for frontend states
-    firstResponseState: stateFirst(),
-    resolutionState: stateRes(),
-
-    // pretty text
-    pretty: {
-      firstResponse: msToPretty(firstResponseMs),
-      resolution: msToPretty(resolutionMs),
-      pendingTotal: msToPretty(calcPendingMs(t, now)),
-      effectiveRunning: msToPretty(effectiveRunningMs),
-      firstRemaining: msToPretty(firstResponseRemainingMs),
-      resolutionRemaining: msToPretty(resolutionRemainingMs),
-    },
-  };
-}
-
-function safeEnsureSla(t) {
-  t.sla = computeSlaForTicket(t);
-  return t;
-}
-
-/* =====================
-   ✅ Math helpers
-===================== */
-function avg(arr) {
-  const a = (arr || []).filter((x) => typeof x === "number" && Number.isFinite(x));
-  if (!a.length) return null;
-  return Math.round(a.reduce((s, n) => s + n, 0) / a.length);
-}
-
-function median(arr) {
-  const a = (arr || [])
-    .filter((x) => typeof x === "number" && Number.isFinite(x))
-    .slice()
-    .sort((x, y) => x - y);
-  if (!a.length) return null;
-  const mid = Math.floor(a.length / 2);
-  if (a.length % 2 === 0) return Math.round((a[mid - 1] + a[mid]) / 2);
-  return Math.round(a[mid]);
-}
-
-function percentile(arr, p = 90) {
-  const a = (arr || [])
-    .filter((x) => typeof x === "number" && Number.isFinite(x))
-    .slice()
-    .sort((x, y) => x - y);
-  if (!a.length) return null;
-  const idx = Math.ceil((p / 100) * a.length) - 1;
-  const i = Math.max(0, Math.min(a.length - 1, idx));
-  return Math.round(a[i]);
-}
-
-function toCsv(rows) {
-  if (!rows || !rows.length) return "";
-  const headers = Object.keys(rows[0]);
-  const esc = (v) => {
-    const s = String(v ?? "");
-    if (s.includes('"') || s.includes(",") || s.includes("\n")) return `"${s.replaceAll('"', '""')}"`;
-    return s;
-  };
-  const lines = [];
-  lines.push(headers.join(","));
-  for (const r of rows) lines.push(headers.map((h) => esc(r[h])).join(","));
-  return lines.join("\n");
-}
-
-/* =====================
-   ✅ Ticket model
-===================== */
-const ticketSchema = new mongoose.Schema({
-  userId: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true },
-  companyId: { type: String, required: true },
-  status: { type: String, default: "open" }, // open | pending | solved
-  priority: { type: String, default: "normal" }, // low | normal | high
-  title: { type: String, default: "" },
-
-  assignedToUserId: { type: mongoose.Schema.Types.ObjectId, ref: "User", default: null },
-  agentUserId: { type: mongoose.Schema.Types.ObjectId, ref: "User", default: null },
-
-  internalNotes: [
-    {
-      createdBy: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
-      content: String,
-      createdAt: { type: Date, default: Date.now },
-    },
-  ],
-
-  firstAgentReplyAt: { type: Date, default: null },
-  solvedAt: { type: Date, default: null },
-
-  pendingStartedAt: { type: Date, default: null },
-  pendingTotalMs: { type: Number, default: 0 },
-
-  sla: {
-    firstResponseMs: { type: Number, default: null },
-    resolutionMs: { type: Number, default: null },
-    breachedFirstResponse: { type: Boolean, default: false },
-    breachedResolution: { type: Boolean, default: false },
-    firstResponseLimitMs: { type: Number, default: null },
-    resolutionLimitMs: { type: Number, default: null },
-
-    firstResponseDueAt: { type: Date, default: null },
-    resolutionDueAt: { type: Date, default: null },
-    firstResponseRemainingMs: { type: Number, default: null },
-    resolutionRemainingMs: { type: Number, default: null },
-    effectiveRunningMs: { type: Number, default: null },
-    pendingTotalMs: { type: Number, default: 0 },
-
-    // ✅ NEW
-    firstResponseState: { type: String, default: "" },
-    resolutionState: { type: String, default: "" },
-
-    pretty: {
-      firstResponse: { type: String, default: "" },
-      resolution: { type: String, default: "" },
-      pendingTotal: { type: String, default: "" },
-      effectiveRunning: { type: String, default: "" },
-      firstRemaining: { type: String, default: "" },
-      resolutionRemaining: { type: String, default: "" },
-    },
-  },
-
-  messages: [messageSchema],
-  lastActivityAt: { type: Date, default: Date.now },
-  createdAt: { type: Date, default: Date.now },
-});
-ticketSchema.index({ createdAt: -1 });
-ticketSchema.index({ lastActivityAt: -1 });
-ticketSchema.index({ status: 1, createdAt: -1 });
-ticketSchema.index({ assignedToUserId: 1, createdAt: -1 });
-ticketSchema.index({ companyId: 1, createdAt: -1 });
-
-const Ticket = mongoose.model("Ticket", ticketSchema);
-
-/* =====================
-   ✅ KB Chunk model
-===================== */
-const kbChunkSchema = new mongoose.Schema({
-  companyId: { type: String, required: true },
-  sourceType: { type: String, required: true }, // url | text | pdf
-  sourceRef: { type: String, default: "" },
-  title: { type: String, default: "" },
-  chunkIndex: { type: Number, default: 0 },
-  content: { type: String, default: "" },
-  embedding: { type: [Number], default: [] },
-  embeddingOk: { type: Boolean, default: false },
-  version: { type: Number, default: 1 },
-  isDeleted: { type: Boolean, default: false },
-  createdAt: { type: Date, default: Date.now },
-});
-const KBChunk = mongoose.model("KBChunk", kbChunkSchema);
-
-const feedbackSchema = new mongoose.Schema({
-  userId: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
-  type: String,
-  companyId: String,
-  createdAt: { type: Date, default: Date.now },
-});
-const Feedback = mongoose.model("Feedback", feedbackSchema);
-
-const categorySchema = new mongoose.Schema({
-  key: { type: String, unique: true, required: true, index: true },
-  name: { type: String, default: "" },
-  systemPrompt: { type: String, default: "" },
-  createdAt: { type: Date, default: Date.now },
-});
-const Category = mongoose.model("Category", categorySchema);
-
-/* =====================
-   ✅ SLA Stat model
-===================== */
-const slaStatSchema = new mongoose.Schema({
-  scope: { type: String, default: "ticket" }, // ticket | agent | overview
-  agentUserId: { type: mongoose.Schema.Types.ObjectId, ref: "User", default: null },
-  ticketId: { type: mongoose.Schema.Types.ObjectId, ref: "Ticket", default: null },
-
-  createdAt: { type: Date, default: Date.now },
-
-  firstResponseMs: { type: Number, default: null },
-  resolutionMs: { type: Number, default: null },
-  breachedFirstResponse: { type: Boolean, default: false },
-  breachedResolution: { type: Boolean, default: false },
-
-  priority: { type: String, default: "normal" },
-  companyId: { type: String, default: "" },
-});
-slaStatSchema.index({ createdAt: -1 });
-slaStatSchema.index({ agentUserId: 1, createdAt: -1 });
-const SLAStat = mongoose.model("SLAStat", slaStatSchema);
-
-/* =====================
-   ✅ Default categories
-===================== */
-async function ensureDefaultCategories() {
-  const defaults = [
-    { key: "demo", name: "Demo AB", systemPrompt: "Du är en professionell och vänlig AI-kundtjänst på svenska." },
-    { key: "law", name: "Juridik", systemPrompt: "Du är en AI-kundtjänst för juridiska frågor på svenska. Ge allmän vägledning men inte juridisk rådgivning." },
-    { key: "tech", name: "Teknisk support", systemPrompt: "Du är en AI-kundtjänst för teknisk support på svenska. Felsök steg-för-steg och ge konkreta lösningar." },
-    { key: "cleaning", name: "Städservice", systemPrompt: "Du är en AI-kundtjänst för städservice på svenska. Hjälp med tjänster, rutiner, bokning och tips." },
-  ];
-
-  for (const c of defaults) await Category.updateOne({ key: c.key }, { $setOnInsert: c }, { upsert: true });
-  console.log("✅ Default categories säkerställda");
-}
-ensureDefaultCategories().catch((e) => console.error("❌ ensureDefaultCategories error:", e));
-
-/* =====================
-   ✅ OpenAI
-===================== */
-const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
-
-/* =====================
-   ✅ Rate limit
-===================== */
-const limiterChat = rateLimit({ windowMs: 15 * 60 * 1000, max: 120 });
-const limiterAuth = rateLimit({ windowMs: 15 * 60 * 1000, max: 40 });
-
-app.use("/chat", limiterChat);
-app.use("/login", limiterAuth);
-app.use("/register", limiterAuth);
-app.use("/auth", limiterAuth);
-
-/* =====================
-   ✅ Helpers
-===================== */
-function cleanText(text) {
-  return sanitizeHtml(text || "", { allowedTags: [], allowedAttributes: {} })
-    .replace(/\s+/g, " ")
-    .trim();
-}
-
-function chunkText(text, chunkSize = 1200, overlap = 150) {
-  const cleaned = cleanText(text);
-  if (!cleaned) return [];
-  const chunks = [];
-  let i = 0;
-  while (i < cleaned.length) {
-    const end = Math.min(i + chunkSize, cleaned.length);
-    chunks.push(cleaned.slice(i, end));
-    i = end - overlap;
-    if (i < 0) i = 0;
-  }
-  return chunks;
-}
-
-function dot(a, b) {
-  let s = 0;
-  for (let i = 0; i < Math.min(a.length, b.length); i++) s += a[i] * b[i];
-  return s;
-}
-function norm(a) {
-  return Math.sqrt(dot(a, a));
-}
-function cosineSim(a, b) {
-  const na = norm(a);
-  const nb = norm(b);
-  if (!na || !nb) return 0;
-  return dot(a, b) / (na * nb);
-}
-
-async function createEmbedding(text) {
+function safeJsonParse(s, fallback) {
   try {
-    const r = await openai.embeddings.create({
-      model: "text-embedding-3-small",
-      input: text,
+    return JSON.parse(s);
+  } catch {
+    return fallback;
+  }
+}
+
+function debounce(fn, wait = 250) {
+  let t = null;
+  return (...args) => {
+    clearTimeout(t);
+    t = setTimeout(() => fn(...args), wait);
+  };
+}
+
+function downloadText(filename, text) {
+  const blob = new Blob([text], { type: "text/plain;charset=utf-8" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  URL.revokeObjectURL(url);
+}
+
+/* =========================
+   STATE
+========================= */
+const state = {
+  token: localStorage.getItem("token") || "",
+  user: null,
+
+  companyId: localStorage.getItem("companyId") || "demo",
+
+  conversation: [], // for chat view
+  currentTicketId: null,
+
+  myTickets: [],
+  selectedMyTicket: null,
+
+  inboxTickets: [],
+  selectedInboxTicket: null,
+
+  categories: [],
+
+  debugOn: false,
+
+  // SLA
+  slaDays: Number(localStorage.getItem("slaDays") || 30),
+  slaCompareMode: localStorage.getItem("slaCompareMode") || "none",
+  slaTrendMode: localStorage.getItem("slaTrendMode") || "weekly", // weekly | daily
+};
+
+/* =========================
+   API
+========================= */
+async function apiFetch(path, { method = "GET", body, auth = true } = {}) {
+  const headers = { "Content-Type": "application/json" };
+  if (auth && state.token) headers.Authorization = `Bearer ${state.token}`;
+
+  const res = await fetch(API_BASE + path, {
+    method,
+    headers,
+    body: body ? JSON.stringify(body) : undefined,
+  });
+
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) {
+    const msg = data?.error || `HTTP ${res.status}`;
+    throw new Error(msg);
+  }
+  return data;
+}
+
+/* =========================
+   DOM refs
+========================= */
+// Views
+const authView = $("authView");
+const chatView = $("chatView");
+const myTicketsView = $("myTicketsView");
+const inboxView = $("inboxView");
+const adminView = $("adminView");
+const settingsView = $("settingsView");
+const slaView = $("slaView");
+
+// Sidebar
+const roleBadge = $("roleBadge");
+const categorySelect = $("categorySelect");
+const openChatViewBtn = $("openChatView");
+const openMyTicketsViewBtn = $("openMyTicketsView");
+const openInboxViewBtn = $("openInboxView");
+const openAdminViewBtn = $("openAdminView");
+const openSettingsViewBtn = $("openSettingsView");
+const openSlaViewBtn = $("openSlaView");
+const inboxNotifDot = $("inboxNotifDot");
+
+// Auth
+const usernameInput = $("username");
+const emailInput = $("email");
+const passwordInput = $("password");
+const togglePassBtn = $("togglePassBtn");
+const loginBtn = $("loginBtn");
+const registerBtn = $("registerBtn");
+const authMessage = $("authMessage");
+
+const openForgotBtn = $("openForgotBtn");
+const forgotCard = $("forgotCard");
+const forgotEmail = $("forgotEmail");
+const sendForgotBtn = $("sendForgotBtn");
+const closeForgotBtn = $("closeForgotBtn");
+const forgotMsg = $("forgotMsg");
+
+const resetCard = $("resetCard");
+const resetNewPass = $("resetNewPass");
+const toggleResetPassBtn = $("toggleResetPassBtn");
+const resetSaveBtn = $("resetSaveBtn");
+const resetMsg = $("resetMsg");
+
+// Chat
+const chatTitle = $("chatTitle");
+const chatSubtitle = $("chatSubtitle");
+const messagesBox = $("messages");
+const messageInput = $("messageInput");
+const sendBtn = $("sendBtn");
+const clearChatBtn = $("clearChatBtn");
+const exportChatBtn = $("exportChatBtn");
+const newTicketBtn = $("newTicketBtn");
+const fbUpBtn = $("fbUp");
+const fbDownBtn = $("fbDown");
+const fbMsg = $("fbMsg");
+
+// My tickets
+const myTicketsList = $("myTicketsList");
+const myTicketDetails = $("myTicketDetails");
+const myTicketsRefreshBtn = $("myTicketsRefreshBtn");
+const myTicketsHint = $("myTicketsHint");
+const myTicketReplyText = $("myTicketReplyText");
+const myTicketReplyBtn = $("myTicketReplyBtn");
+const myTicketReplyMsg = $("myTicketReplyMsg");
+
+// Inbox
+const inboxRefreshBtn = $("inboxRefreshBtn");
+const solveAllBtn = $("solveAllBtn");
+const removeSolvedBtn = $("removeSolvedBtn");
+const inboxStatusFilter = $("inboxStatusFilter");
+const inboxCategoryFilter = $("inboxCategoryFilter");
+const inboxSearchInput = $("inboxSearchInput");
+const inboxMsg = $("inboxMsg");
+const inboxTicketsList = $("inboxTicketsList");
+
+const ticketDetails = $("ticketDetails");
+const inboxTicketMsg = $("inboxTicketMsg");
+
+const setStatusOpenBtn = $("setStatusOpen");
+const setStatusPendingBtn = $("setStatusPending");
+const setStatusSolvedBtn = $("setStatusSolved");
+
+const ticketPrioritySelect = $("ticketPrioritySelect");
+const setPriorityBtn = $("setPriorityBtn");
+
+const agentReplyTextInbox = $("agentReplyTextInbox");
+const sendAgentReplyInboxBtn = $("sendAgentReplyInboxBtn");
+
+const internalNoteText = $("internalNoteText");
+const saveInternalNoteBtn = $("saveInternalNoteBtn");
+const internalNotesList = $("internalNotesList");
+const clearInternalNotesBtn = $("clearInternalNotesBtn");
+
+const assignUserSelect = $("assignUserSelect");
+const assignTicketBtn = $("assignTicketBtn");
+const deleteTicketBtn = $("deleteTicketBtn");
+
+// Admin
+const adminExportAllBtn = $("adminExportAllBtn");
+const trainingExportBtn = $("trainingExportBtn");
+const adminUsersRefreshBtn = $("adminUsersRefreshBtn");
+const adminUsersMsg = $("adminUsersMsg");
+const adminUsersList = $("adminUsersList");
+
+const kbCategorySelect = $("kbCategorySelect");
+const kbRefreshBtn = $("kbRefreshBtn");
+const kbExportBtn = $("kbExportBtn");
+const kbMsg = $("kbMsg");
+const kbList = $("kbList");
+
+const kbTextTitle = $("kbTextTitle");
+const kbTextContent = $("kbTextContent");
+const kbUploadTextBtn = $("kbUploadTextBtn");
+
+const kbUrlInput = $("kbUrlInput");
+const kbUploadUrlBtn = $("kbUploadUrlBtn");
+
+const kbPdfFile = $("kbPdfFile");
+const kbUploadPdfBtn = $("kbUploadPdfBtn");
+
+const catsRefreshBtn = $("catsRefreshBtn");
+const catsMsg = $("catsMsg");
+const newCatKey = $("newCatKey");
+const newCatName = $("newCatName");
+const newCatPrompt = $("newCatPrompt");
+const createCatBtn = $("createCatBtn");
+const catsList = $("catsList");
+
+// Tabs
+const tabBtns = Array.from(document.querySelectorAll(".tabBtn"));
+const tabPanels = {
+  tabUsers: $("tabUsers"),
+  tabKB: $("tabKB"),
+  tabCats: $("tabCats"),
+};
+
+// Settings
+const newUsernameInput = $("newUsernameInput");
+const changeUsernameBtn = $("changeUsernameBtn");
+const currentPassInput = $("currentPassInput");
+const newPassInput = $("newPassInput");
+const changePasswordBtn = $("changePasswordBtn");
+const settingsMsg = $("settingsMsg");
+
+// Sidebar footer
+const themeToggle = $("themeToggle");
+const logoutBtn = $("logoutBtn");
+const toggleDebugBtn = $("toggleDebugBtn");
+
+// Debug panel
+const debugPanel = $("debugPanel");
+const dbgApi = $("dbgApi");
+const dbgLogged = $("dbgLogged");
+const dbgRole = $("dbgRole");
+const dbgTicket = $("dbgTicket");
+const dbgRag = $("dbgRag");
+
+// SLA
+const slaDaysSelect = $("slaDaysSelect");
+const slaCompareModeSelect = $("slaCompareMode");
+const slaRefreshBtn = $("slaRefreshBtn");
+const slaExportCsvBtn = $("slaExportCsvBtn");
+const slaClearMyStatsBtn = $("slaClearMyStatsBtn");
+const slaClearAllStatsBtn = $("slaClearAllStatsBtn");
+
+const slaOverviewBox = $("slaOverviewBox");
+const slaTrendChart = $("slaTrendChart");
+const slaTrendHint = $("slaTrendHint");
+const slaAgentsBox = $("slaAgentsBox");
+const slaTicketsBox = $("slaTicketsBox");
+
+const slaBreachedFilter = $("slaBreachedFilter");
+const slaBreachTypeFilter = $("slaBreachTypeFilter");
+const slaSortTickets = $("slaSortTickets");
+
+/* =========================
+   INIT
+========================= */
+document.addEventListener("DOMContentLoaded", initApp);
+
+async function initApp() {
+  bindEvents();
+  applyThemeFromStorage();
+  syncSlaControls();
+  await loadCategories();
+
+  // Handle resetToken in URL
+  handleResetTokenFlow();
+
+  if (state.token) {
+    await tryLoadMe();
+  }
+
+  // Default view
+  if (state.user) {
+    showAppForLoggedIn();
+    openView("chat");
+  } else {
+    openView("auth");
+  }
+
+  refreshDebug();
+  startInboxNotifPolling();
+}
+
+/* =========================
+   EVENTS
+========================= */
+function bindEvents() {
+  // Sidebar view buttons
+  openChatViewBtn?.addEventListener("click", () => openView("chat"));
+  openMyTicketsViewBtn?.addEventListener("click", () => openView("myTickets"));
+  openInboxViewBtn?.addEventListener("click", () => openView("inbox"));
+  openAdminViewBtn?.addEventListener("click", () => openView("admin"));
+  openSettingsViewBtn?.addEventListener("click", () => openView("settings"));
+  openSlaViewBtn?.addEventListener("click", () => openView("sla"));
+
+  categorySelect?.addEventListener("change", async () => {
+    state.companyId = categorySelect.value;
+    localStorage.setItem("companyId", state.companyId);
+    setText(chatTitle, "AI Kundtjänst");
+    setText(chatSubtitle, `Kategori: ${state.companyId}`);
+    await reloadAllViews();
+  });
+
+  // Auth
+  togglePassBtn?.addEventListener("click", () => togglePassword(passwordInput, togglePassBtn));
+  toggleResetPassBtn?.addEventListener("click", () => togglePassword(resetNewPass, toggleResetPassBtn));
+  loginBtn?.addEventListener("click", onLogin);
+  registerBtn?.addEventListener("click", onRegister);
+
+  openForgotBtn?.addEventListener("click", () => {
+    hide(authMessage);
+    show(forgotCard);
+    hide(resetCard);
+  });
+  closeForgotBtn?.addEventListener("click", () => {
+    hide(forgotMsg);
+    hide(forgotCard);
+  });
+  sendForgotBtn?.addEventListener("click", onForgotPassword);
+  resetSaveBtn?.addEventListener("click", onResetPassword);
+
+  // Chat
+  sendBtn?.addEventListener("click", onSendChat);
+  messageInput?.addEventListener("keydown", (e) => {
+    if (e.key === "Enter") onSendChat();
+  });
+  clearChatBtn?.addEventListener("click", clearChat);
+  exportChatBtn?.addEventListener("click", exportChat);
+  newTicketBtn?.addEventListener("click", startNewTicket);
+  fbUpBtn?.addEventListener("click", () => sendFeedback("up"));
+  fbDownBtn?.addEventListener("click", () => sendFeedback("down"));
+
+  // My tickets
+  myTicketsRefreshBtn?.addEventListener("click", loadMyTickets);
+  myTicketReplyBtn?.addEventListener("click", onMyTicketReply);
+
+  // Inbox
+  inboxRefreshBtn?.addEventListener("click", loadInboxTickets);
+  solveAllBtn?.addEventListener("click", solveAllTickets);
+  removeSolvedBtn?.addEventListener("click", removeSolvedTickets);
+
+  inboxStatusFilter?.addEventListener("change", renderInboxTicketsFiltered);
+  inboxCategoryFilter?.addEventListener("change", renderInboxTicketsFiltered);
+  inboxSearchInput?.addEventListener("input", debounce(renderInboxTicketsFiltered, 200));
+
+  setStatusOpenBtn?.addEventListener("click", () => setTicketStatus("open"));
+  setStatusPendingBtn?.addEventListener("click", () => setTicketStatus("pending"));
+  setStatusSolvedBtn?.addEventListener("click", () => setTicketStatus("solved"));
+
+  setPriorityBtn?.addEventListener("click", onSetPriority);
+
+  sendAgentReplyInboxBtn?.addEventListener("click", onAgentReplyInbox);
+
+  saveInternalNoteBtn?.addEventListener("click", onSaveInternalNote);
+  clearInternalNotesBtn?.addEventListener("click", onClearInternalNotes);
+
+  assignTicketBtn?.addEventListener("click", onAssignTicket);
+  deleteTicketBtn?.addEventListener("click", onDeleteTicket);
+
+  // Admin tabs
+  tabBtns.forEach((b) => {
+    b.addEventListener("click", () => {
+      tabBtns.forEach((x) => x.classList.remove("active"));
+      b.classList.add("active");
+
+      Object.values(tabPanels).forEach((p) => hide(p));
+      show(tabPanels[b.dataset.tab]);
     });
-    return r.data?.[0]?.embedding || null;
+  });
+
+  // Admin actions
+  adminExportAllBtn?.addEventListener("click", () => window.open("/admin/export/all", "_blank"));
+  trainingExportBtn?.addEventListener("click", () => {
+    const cid = state.companyId || "demo";
+    window.open(`/admin/export/training?companyId=${encodeURIComponent(cid)}`, "_blank");
+  });
+
+  adminUsersRefreshBtn?.addEventListener("click", loadAdminUsers);
+
+  kbRefreshBtn?.addEventListener("click", loadKbList);
+  kbExportBtn?.addEventListener("click", () => {
+    const cid = kbCategorySelect?.value || state.companyId;
+    window.open(`/export/kb/${encodeURIComponent(cid)}`, "_blank");
+  });
+  kbUploadTextBtn?.addEventListener("click", kbUploadText);
+  kbUploadUrlBtn?.addEventListener("click", kbUploadUrl);
+  kbUploadPdfBtn?.addEventListener("click", kbUploadPdf);
+
+  catsRefreshBtn?.addEventListener("click", loadCatsList);
+  createCatBtn?.addEventListener("click", createCategory);
+
+  // Settings
+  changeUsernameBtn?.addEventListener("click", changeUsername);
+  changePasswordBtn?.addEventListener("click", changePassword);
+
+  // Theme + logout + debug
+  themeToggle?.addEventListener("click", toggleTheme);
+  logoutBtn?.addEventListener("click", logout);
+  toggleDebugBtn?.addEventListener("click", () => {
+    state.debugOn = !state.debugOn;
+    debugPanel.style.display = state.debugOn ? "" : "none";
+    refreshDebug();
+  });
+
+  // SLA controls
+  slaDaysSelect?.addEventListener("change", () => {
+    state.slaDays = Number(slaDaysSelect.value || 30);
+    localStorage.setItem("slaDays", String(state.slaDays));
+  });
+
+  slaCompareModeSelect?.addEventListener("change", () => {
+    state.slaCompareMode = slaCompareModeSelect.value || "none";
+    localStorage.setItem("slaCompareMode", state.slaCompareMode);
+  });
+
+  slaRefreshBtn?.addEventListener("click", loadSlaDashboard);
+
+  slaExportCsvBtn?.addEventListener("click", () => {
+    const days = state.slaDays || 30;
+    window.open(`/admin/sla/export.csv?days=${days}`, "_blank");
+  });
+
+  slaClearMyStatsBtn?.addEventListener("click", clearMyStats);
+  slaClearAllStatsBtn?.addEventListener("click", clearAllStats);
+
+  slaBreachedFilter?.addEventListener("change", loadSlaTicketsTable);
+  slaBreachTypeFilter?.addEventListener("change", loadSlaTicketsTable);
+  slaSortTickets?.addEventListener("change", loadSlaTicketsTable);
+}
+
+/* =========================
+   THEME
+========================= */
+function applyThemeFromStorage() {
+  const saved = localStorage.getItem("theme") || "dark";
+  document.body.setAttribute("data-theme", saved);
+}
+
+function toggleTheme() {
+  const current = document.body.getAttribute("data-theme") || "dark";
+  const next = current === "dark" ? "light" : "dark";
+  document.body.setAttribute("data-theme", next);
+  localStorage.setItem("theme", next);
+}
+
+function togglePassword(input, btn) {
+  if (!input || !btn) return;
+  input.type = input.type === "password" ? "text" : "password";
+  const icon = btn.querySelector("i");
+  if (icon) icon.className = input.type === "password" ? "fa-solid fa-eye" : "fa-solid fa-eye-slash";
+}
+
+/* =========================
+   RESET TOKEN FLOW
+========================= */
+function handleResetTokenFlow() {
+  const params = new URLSearchParams(window.location.search);
+  const resetToken = params.get("resetToken");
+  if (!resetToken) return;
+
+  // Show reset card
+  hide(forgotCard);
+  show(resetCard);
+  openView("auth");
+
+  resetSaveBtn.dataset.resetToken = resetToken;
+}
+
+/* =========================
+   AUTH
+========================= */
+async function onLogin() {
+  hide(authMessage);
+  try {
+    const username = usernameInput.value.trim();
+    const password = passwordInput.value.trim();
+    if (!username || !password) throw new Error("Fyll i användarnamn + lösenord");
+
+    const data = await apiFetch("/login", { method: "POST", auth: false, body: { username, password } });
+    state.token = data.token;
+    localStorage.setItem("token", state.token);
+
+    await tryLoadMe();
+    showAppForLoggedIn();
+    openView("chat");
   } catch (e) {
-    console.error("❌ Embedding error:", e?.message || e);
-    return null;
+    showAuthError(e.message);
   }
 }
 
-async function ragSearch(companyId, query, topK = 4) {
-  const qEmbed = await createEmbedding(query);
-  if (!qEmbed) return { used: false, context: "", sources: [] };
+async function onRegister() {
+  hide(authMessage);
+  try {
+    const username = usernameInput.value.trim();
+    const password = passwordInput.value.trim();
+    const email = emailInput.value.trim();
 
-  const chunks = await KBChunk.find({ companyId, embeddingOk: true, isDeleted: false }).limit(1500);
-  if (!chunks.length) return { used: false, context: "", sources: [] };
+    if (!username || username.length < 3) throw new Error("Username måste vara minst 3 tecken");
+    if (!password || password.length < 4) throw new Error("Lösenord måste vara minst 4 tecken");
 
-  const scored = chunks
-    .filter((c) => c.embedding?.length)
-    .map((c) => ({ score: cosineSim(qEmbed, c.embedding), c }))
-    .sort((a, b) => b.score - a.score)
-    .slice(0, topK);
-
-  if (!scored.length || scored[0].score < 0.2) return { used: false, context: "", sources: [] };
-
-  const context = scored
-    .map((s, i) => `KÄLLA ${i + 1}: ${s.c.title || s.c.sourceRef}\n${s.c.content}`)
-    .join("\n\n");
-
-  const sources = scored.map((s) => ({
-    title: s.c.title || s.c.sourceRef || "KB",
-    sourceType: s.c.sourceType,
-    sourceRef: s.c.sourceRef,
-  }));
-
-  return { used: true, context, sources };
+    const data = await apiFetch("/register", { method: "POST", auth: false, body: { username, password, email } });
+    setText(authMessage, data.message || "Registrerad ✅");
+    authMessage.className = "alert";
+    show(authMessage);
+  } catch (e) {
+    showAuthError(e.message);
+  }
 }
 
-async function ensureTicket(userId, companyId) {
-  let t = await Ticket.findOne({ userId, companyId, status: { $ne: "solved" } }).sort({ lastActivityAt: -1 });
-  if (!t) t = await new Ticket({ userId, companyId, messages: [] }).save();
-  safeEnsureSla(t);
-  if (!t.sla?.firstResponseLimitMs) await t.save().catch(() => {});
-  return t;
+async function onForgotPassword() {
+  hide(forgotMsg);
+  try {
+    const email = forgotEmail.value.trim();
+    if (!email) throw new Error("Fyll i email");
+
+    const data = await apiFetch("/auth/forgot-password", { method: "POST", auth: false, body: { email } });
+    setText(forgotMsg, data.message || "Skickat ✅");
+    forgotMsg.className = "alert";
+    show(forgotMsg);
+  } catch (e) {
+    setText(forgotMsg, e.message);
+    forgotMsg.className = "alert error";
+    show(forgotMsg);
+  }
 }
 
-/* =====================
-   ✅ URL + PDF extraction
-===================== */
-async function fetchUrlText(url) {
-  const res = await fetch(url, {
-    headers: {
-      "User-Agent": "Mozilla/5.0 (AI Kundtjanst Bot)",
-      Accept: "text/html,application/xhtml+xml",
-    },
+async function onResetPassword() {
+  hide(resetMsg);
+  try {
+    const resetToken = resetSaveBtn.dataset.resetToken || "";
+    const newPassword = resetNewPass.value.trim();
+    if (!resetToken) throw new Error("Reset-token saknas");
+    if (!newPassword || newPassword.length < 4) throw new Error("Välj ett starkare lösenord");
+
+    const data = await apiFetch("/auth/reset-password", { method: "POST", auth: false, body: { resetToken, newPassword } });
+    setText(resetMsg, data.message || "Lösenord uppdaterat ✅");
+    resetMsg.className = "alert";
+    show(resetMsg);
+
+    // Clean URL
+    const url = new URL(window.location.href);
+    url.searchParams.delete("resetToken");
+    window.history.replaceState({}, "", url.toString());
+  } catch (e) {
+    setText(resetMsg, e.message);
+    resetMsg.className = "alert error";
+    show(resetMsg);
+  }
+}
+
+function showAuthError(msg) {
+  setText(authMessage, msg);
+  authMessage.className = "alert error";
+  show(authMessage);
+}
+
+async function tryLoadMe() {
+  try {
+    const me = await apiFetch("/me");
+    state.user = me;
+    updateRoleUI();
+  } catch {
+    state.user = null;
+    state.token = "";
+    localStorage.removeItem("token");
+  }
+}
+
+function logout() {
+  state.token = "";
+  state.user = null;
+  localStorage.removeItem("token");
+
+  // reset app
+  state.conversation = [];
+  state.currentTicketId = null;
+  messagesBox.innerHTML = "";
+
+  showAppForLoggedOut();
+  openView("auth");
+}
+
+function updateRoleUI() {
+  const role = state.user?.role || "user";
+  setText(roleBadge, role === "admin" ? "Admin" : role === "agent" ? "Agent" : "Användare");
+
+  // show/hide admin-only menu buttons
+  const adminOnly = document.querySelectorAll(".adminOnly");
+  adminOnly.forEach((el) => {
+    el.style.display = role === "admin" || role === "agent" ? "" : "none";
   });
 
-  if (!res.ok) throw new Error(`Kunde inte hämta URL. Status: ${res.status}`);
-  const html = await res.text();
-  const $ = cheerio.load(html);
+  // Settings available once logged in
+  if (state.user) show(openSettingsViewBtn);
 
-  $("script, style, nav, footer, header, aside").remove();
-  const main = $("main").text() || $("article").text() || $("body").text();
-  const text = cleanText(main);
+  // Show logout
+  if (state.user) show(logoutBtn);
+  else hide(logoutBtn);
 
-  if (!text || text.length < 200) throw new Error("Ingen tillräcklig text kunde extraheras från URL.");
-  return text;
+  // SLA clear ALL visible only for admin
+  if (slaClearAllStatsBtn) {
+    slaClearAllStatsBtn.style.display = role === "admin" ? "" : "none";
+  }
 }
 
-async function extractPdfText(base64) {
-  const buffer = Buffer.from(base64, "base64");
-  const data = await pdfParse(buffer);
-  const text = cleanText(data.text || "");
-  if (!text || text.length < 200) throw new Error("Ingen tillräcklig text i PDF.");
-  return text;
+/* =========================
+   VIEW SWITCH
+========================= */
+function openView(name) {
+  // hide all
+  [authView, chatView, myTicketsView, inboxView, adminView, settingsView, slaView].forEach(hide);
+
+  // menu active
+  document.querySelectorAll(".menuBtn").forEach((b) => b.classList.remove("active"));
+
+  // show selected
+  if (name === "auth") {
+    show(authView);
+  } else if (name === "chat") {
+    show(chatView);
+    openChatViewBtn?.classList.add("active");
+    ensureChatStarter();
+  } else if (name === "myTickets") {
+    show(myTicketsView);
+    openMyTicketsViewBtn?.classList.add("active");
+    loadMyTickets();
+  } else if (name === "inbox") {
+    show(inboxView);
+    openInboxViewBtn?.classList.add("active");
+    loadInboxTickets();
+  } else if (name === "admin") {
+    show(adminView);
+    openAdminViewBtn?.classList.add("active");
+    loadAdminUsers();
+    loadKbList();
+    loadCatsList();
+  } else if (name === "settings") {
+    show(settingsView);
+    openSettingsViewBtn?.classList.add("active");
+  } else if (name === "sla") {
+    show(slaView);
+    openSlaViewBtn?.classList.add("active");
+    loadSlaDashboard();
+  }
+
+  refreshDebug();
 }
 
-/* =====================
-   ✅ Auth middleware
-===================== */
-const authenticate = (req, res, next) => {
-  const t = req.header("Authorization")?.replace("Bearer ", "");
-  if (!t) return res.status(401).json({ error: "Ingen token" });
+function showAppForLoggedIn() {
+  // hide auth message cards
+  hide(forgotCard);
+  hide(resetCard);
+
+  // show main views toggles
+  show(openSettingsViewBtn);
+  show(logoutBtn);
+
+  updateRoleUI();
+}
+
+function showAppForLoggedOut() {
+  // hide admin/agent views
+  document.querySelectorAll(".adminOnly").forEach((el) => (el.style.display = "none"));
+  hide(openSettingsViewBtn);
+  hide(logoutBtn);
+}
+
+async function reloadAllViews() {
+  // Refresh things that depends on category
+  clearChat();
+  if (state.user) {
+    await loadMyTickets().catch(() => {});
+    await loadInboxTickets().catch(() => {});
+    await loadSlaDashboard().catch(() => {});
+    await loadKbList().catch(() => {});
+  }
+}
+
+/* =========================
+   CATEGORIES
+========================= */
+async function loadCategories() {
+  try {
+    const cats = await apiFetch("/categories", { auth: false });
+    state.categories = cats;
+
+    // Fill dropdown
+    if (categorySelect) {
+      categorySelect.innerHTML = "";
+      cats.forEach((c) => {
+        const opt = document.createElement("option");
+        opt.value = c.key;
+        opt.textContent = c.name ? `${c.name} (${c.key})` : c.key;
+        categorySelect.appendChild(opt);
+      });
+
+      // select stored
+      const found = cats.some((c) => c.key === state.companyId);
+      categorySelect.value = found ? state.companyId : (cats[0]?.key || "demo");
+      state.companyId = categorySelect.value;
+      localStorage.setItem("companyId", state.companyId);
+    }
+
+    // Admin KB category select too
+    if (kbCategorySelect) {
+      kbCategorySelect.innerHTML = "";
+      cats.forEach((c) => {
+        const opt = document.createElement("option");
+        opt.value = c.key;
+        opt.textContent = c.name ? `${c.name} (${c.key})` : c.key;
+        kbCategorySelect.appendChild(opt);
+      });
+      kbCategorySelect.value = state.companyId;
+      kbCategorySelect.addEventListener("change", () => loadKbList());
+    }
+  } catch (e) {
+    console.warn("Categories load failed:", e.message);
+  }
+}
+
+/* =========================
+   CHAT VIEW
+========================= */
+function ensureChatStarter() {
+  if (!state.user) return;
+
+  setText(chatTitle, "AI Kundtjänst");
+  setText(chatSubtitle, `Kategori: ${state.companyId}`);
+
+  if (!state.conversation.length) {
+    addMessageUI("assistant", "Hej! 👋 Skriv din fråga så hjälper jag dig direkt.");
+  }
+}
+
+function addMessageUI(role, text, meta = "") {
+  const wrap = document.createElement("div");
+  wrap.className = `msg ${role === "user" ? "user" : ""}`;
+
+  const avatar = document.createElement("div");
+  avatar.className = "avatar";
+  avatar.innerHTML = role === "user" ? `<i class="fa-solid fa-user"></i>` : `<i class="fa-solid fa-robot"></i>`;
+
+  const bubble = document.createElement("div");
+  bubble.className = "bubble";
+  bubble.textContent = text;
+
+  const metaEl = document.createElement("div");
+  metaEl.className = "msgMeta";
+  metaEl.textContent = meta || "";
+
+  const contentCol = document.createElement("div");
+  contentCol.appendChild(bubble);
+  if (meta) contentCol.appendChild(metaEl);
+
+  wrap.appendChild(avatar);
+  wrap.appendChild(contentCol);
+
+  messagesBox.appendChild(wrap);
+  messagesBox.scrollTop = messagesBox.scrollHeight;
+}
+
+function clearChat() {
+  state.conversation = [];
+  state.currentTicketId = null;
+  messagesBox.innerHTML = "";
+  ensureChatStarter();
+  refreshDebug();
+}
+
+function exportChat() {
+  const lines = state.conversation.map((m) => `[${m.role}] ${m.content}`);
+  const text = lines.join("\n\n");
+  downloadText(`chat_${state.companyId}_${new Date().toISOString().slice(0, 10)}.txt`, text);
+}
+
+function startNewTicket() {
+  // New ticket = reset currentTicketId so backend creates a new open ticket on next message
+  state.currentTicketId = null;
+  state.conversation = [];
+  messagesBox.innerHTML = "";
+  addMessageUI("assistant", "Okej ✅ Nytt ärende startat. Skriv din fråga!");
+  refreshDebug();
+}
+
+async function onSendChat() {
+  if (!state.user) return;
+
+  const text = messageInput.value.trim();
+  if (!text) return;
+
+  messageInput.value = "";
+  addMessageUI("user", text, fmtDate(new Date()));
+
+  const msgObj = { role: "user", content: text };
+  state.conversation.push(msgObj);
+
+  // Make assistant feel responsive
+  addMessageUI("assistant", "Skriver...", "");
 
   try {
-    req.user = jwt.verify(t, process.env.JWT_SECRET);
-    next();
+    const data = await apiFetch("/chat", {
+      method: "POST",
+      body: {
+        companyId: state.companyId,
+        conversation: state.conversation,
+        ticketId: state.currentTicketId,
+      },
+    });
+
+    // remove "Skriver..." bubble (last assistant msg)
+    messagesBox.removeChild(messagesBox.lastElementChild);
+
+    state.currentTicketId = data.ticketId || state.currentTicketId;
+
+    const reply = data.reply || "Inget svar.";
+    state.conversation.push({ role: "assistant", content: reply });
+
+    const meta = [];
+    meta.push(fmtDate(new Date()));
+    if (data.ragUsed) meta.push("RAG: ON");
+    if (Array.isArray(data.sources) && data.sources.length) meta.push(`Källor: ${data.sources.length}`);
+
+    addMessageUI("assistant", reply, meta.join(" • "));
+    dbgRag && setText(dbgRag, data.ragUsed ? "ON" : "OFF");
+  } catch (e) {
+    // remove "Skriver..." bubble
+    messagesBox.removeChild(messagesBox.lastElementChild);
+    addMessageUI("assistant", `❌ Fel: ${e.message}`);
+  }
+
+  refreshDebug();
+}
+
+async function sendFeedback(type) {
+  if (!state.user) return;
+  try {
+    await apiFetch("/feedback", { method: "POST", body: { type, companyId: state.companyId } });
+    setText(fbMsg, "Tack för feedback! ✅");
+    setTimeout(() => setText(fbMsg, ""), 2500);
   } catch {
-    return res.status(401).json({ error: "Ogiltig token" });
+    setText(fbMsg, "Kunde inte skicka feedback.");
+    setTimeout(() => setText(fbMsg, ""), 2500);
   }
-};
-
-const requireAdmin = async (req, res, next) => {
-  const dbUser = await User.findById(req.user?.id);
-  if (!dbUser || dbUser.role !== "admin") return res.status(403).json({ error: "Admin krävs" });
-  next();
-};
-
-const requireAgentOrAdmin = async (req, res, next) => {
-  const dbUser = await User.findById(req.user?.id);
-  if (!dbUser || (dbUser.role !== "admin" && dbUser.role !== "agent")) {
-    return res.status(403).json({ error: "Agent/Admin krävs" });
-  }
-  next();
-};
-
-async function getDbUser(req) {
-  return await User.findById(req.user?.id);
 }
 
-/* =====================
-   ✅ Email (SMTP)
-===================== */
-function smtpReady() {
-  return !!(process.env.SMTP_HOST && process.env.SMTP_USER && process.env.SMTP_PASS);
+/* =========================
+   MY TICKETS
+========================= */
+async function loadMyTickets() {
+  if (!state.user) return;
+  try {
+    const data = await apiFetch("/my/tickets");
+    state.myTickets = data || [];
+
+    setText(myTicketsHint, `${state.myTickets.length} ärenden`);
+
+    renderMyTicketsList();
+  } catch (e) {
+    setText(myTicketsHint, e.message);
+  }
 }
 
-function createTransport() {
-  return nodemailer.createTransport({
-    host: process.env.SMTP_HOST,
-    port: Number(process.env.SMTP_PORT || 587),
-    secure: String(process.env.SMTP_SECURE || "false") === "true",
-    auth: { user: process.env.SMTP_USER, pass: process.env.SMTP_PASS },
+function renderMyTicketsList() {
+  myTicketsList.innerHTML = "";
+
+  if (!state.myTickets.length) {
+    myTicketsList.innerHTML = `<div class="muted small">Inga ärenden ännu.</div>`;
+    setHTML(myTicketDetails, `<div class="muted small">Välj ett ärende för att se detaljer.</div>`);
+    state.selectedMyTicket = null;
+    return;
+  }
+
+  state.myTickets.forEach((t) => {
+    const item = document.createElement("div");
+    item.className = "listItem";
+
+    const selected = state.selectedMyTicket && String(state.selectedMyTicket._id) === String(t._id);
+    if (selected) item.classList.add("selected");
+
+    const title = t.title || "(utan titel)";
+    const status = t.status || "open";
+    const prio = t.priority || "normal";
+
+    item.innerHTML = `
+      <div class="listItemTitle">
+        <i class="fa-solid fa-ticket"></i>
+        <span>${escapeHtml(title)}</span>
+        <span class="pill">${escapeHtml(status)}</span>
+        <span class="pill">${escapeHtml(prio)}</span>
+      </div>
+      <div class="muted small" style="margin-top:6px;">Senast: ${fmtDate(t.lastActivityAt)}</div>
+    `;
+
+    item.addEventListener("click", async () => {
+      const full = await apiFetch(`/my/tickets/${t._id}`);
+      state.selectedMyTicket = full;
+      renderMyTicketsList();
+      renderMyTicketDetails();
+    });
+
+    myTicketsList.appendChild(item);
   });
+
+  if (!state.selectedMyTicket) {
+    state.selectedMyTicket = state.myTickets[0];
+    renderMyTicketDetails();
+    renderMyTicketsList();
+  }
 }
 
-/* =====================
-   ✅ ROUTES
-===================== */
-app.get("/", (req, res) => res.sendFile(path.join(__dirname, "index.html")));
-app.get("/favicon.ico", (req, res) => res.status(204).end());
-
-app.get("/me", authenticate, async (req, res) => {
-  const u = await User.findById(req.user.id).select("-password");
-  if (!u) return res.status(404).json({ error: "User saknas" });
-  return res.json({ id: u._id, username: u.username, role: u.role, email: u.email || "" });
-});
-
-/* =====================
-   ✅ AUTH
-===================== */
-app.post("/register", async (req, res) => {
-  const { username, password, email } = req.body || {};
-  if (!username || !password) return res.status(400).json({ error: "Användarnamn och lösenord krävs" });
-
-  try {
-    const hashedPassword = await bcrypt.hash(password, 10);
-    const u = await new User({ username, password: hashedPassword, email: email || "" }).save();
-    return res.json({ message: "Registrering lyckades", user: { id: u._id, username: u.username, role: u.role } });
-  } catch {
-    return res.status(400).json({ error: "Användarnamn upptaget" });
+function renderMyTicketDetails() {
+  const t = state.selectedMyTicket;
+  if (!t) {
+    setHTML(myTicketDetails, `<div class="muted small">Välj ett ärende för att se detaljer.</div>`);
+    return;
   }
-});
 
-app.post("/login", async (req, res) => {
-  const { username, password } = req.body || {};
-  const u = await User.findOne({ username });
-  if (!u) return res.status(401).json({ error: "Fel användarnamn eller lösenord" });
+  const msgs = t.messages || [];
+  const parts = [];
 
-  const ok = await bcrypt.compare(password, u.password);
-  if (!ok) return res.status(401).json({ error: "Fel användarnamn eller lösenord" });
+  parts.push(`<div><b>${escapeHtml(t.title || "(utan titel)")}</b></div>`);
+  parts.push(`<div class="muted small">Ticket: ${escapeHtml(String(t._id))}</div>`);
+  parts.push(`<div class="muted small">Status: ${escapeHtml(t.status || "-")} • Prio: ${escapeHtml(t.priority || "-")}</div>`);
+  parts.push(`<div class="divider"></div>`);
 
-  const token = jwt.sign({ id: u._id, username: u.username }, process.env.JWT_SECRET, { expiresIn: "7d" });
-  return res.json({ token, user: { id: u._id, username: u.username, role: u.role, email: u.email || "" } });
-});
-
-/* =====================
-   ✅ Change username/password
-===================== */
-app.post("/auth/change-username", authenticate, async (req, res) => {
-  try {
-    const { newUsername } = req.body || {};
-    if (!newUsername || newUsername.length < 3) return res.status(400).json({ error: "Nytt username är för kort" });
-
-    const exists = await User.findOne({ username: newUsername });
-    if (exists) return res.status(400).json({ error: "Användarnamn upptaget" });
-
-    const u = await User.findById(req.user.id);
-    if (!u) return res.status(404).json({ error: "User saknas" });
-
-    u.username = newUsername;
-    await u.save();
-
-    return res.json({ message: "Användarnamn uppdaterat ✅" });
-  } catch {
-    return res.status(500).json({ error: "Serverfel vid byte av användarnamn" });
-  }
-});
-
-app.post("/auth/change-password", authenticate, async (req, res) => {
-  try {
-    const { currentPassword, newPassword } = req.body || {};
-    if (!currentPassword || !newPassword) return res.status(400).json({ error: "Fyll i båda fälten" });
-
-    const u = await User.findById(req.user.id);
-    if (!u) return res.status(404).json({ error: "User saknas" });
-
-    const ok = await bcrypt.compare(currentPassword, u.password);
-    if (!ok) return res.status(401).json({ error: "Fel nuvarande lösenord" });
-
-    u.password = await bcrypt.hash(newPassword, 10);
-    await u.save();
-
-    return res.json({ message: "Lösenord uppdaterat ✅" });
-  } catch {
-    return res.status(500).json({ error: "Serverfel vid byte av lösenord" });
-  }
-});
-
-/* =====================
-   ✅ Forgot/Reset password
-===================== */
-app.post("/auth/forgot-password", async (req, res) => {
-  try {
-    const { email } = req.body || {};
-    if (!email) return res.status(400).json({ error: "Email krävs" });
-
-    const u = await User.findOne({ email });
-    if (!u) return res.json({ message: "Om email finns så skickas en länk ✅" });
-
-    if (!smtpReady()) return res.status(500).json({ error: "SMTP är inte konfigurerat i Render ENV" });
-
-    const resetToken = crypto.randomBytes(32).toString("hex");
-    const resetTokenHash = crypto.createHash("sha256").update(resetToken).digest("hex");
-
-    u.resetTokenHash = resetTokenHash;
-    u.resetTokenExpiresAt = new Date(Date.now() + 1000 * 60 * 30);
-    await u.save();
-
-    const resetLink = `${process.env.APP_URL}/?resetToken=${resetToken}`;
-
-    const transporter = createTransport();
-    await transporter.sendMail({
-      from: process.env.SMTP_FROM || process.env.SMTP_USER,
-      to: email,
-      subject: "Återställ ditt lösenord",
-      html: `
-        <div style="font-family:Arial">
-          <h2>Återställ lösenord</h2>
-          <p>Klicka på länken nedan för att välja nytt lösenord:</p>
-          <p><a href="${resetLink}">${resetLink}</a></p>
-          <p>Länken gäller i 30 minuter.</p>
+  if (!msgs.length) {
+    parts.push(`<div class="muted small">Inga meddelanden ännu.</div>`);
+  } else {
+    for (const m of msgs) {
+      const who = m.role === "user" ? "Du" : m.role === "agent" ? "Agent" : "AI";
+      parts.push(`
+        <div class="ticketMsg">
+          <div class="ticketMsgHead">
+            <span>${escapeHtml(who)}</span>
+            <span>${fmtDate(m.timestamp)}</span>
+          </div>
+          <div>${escapeHtml(m.content)}</div>
         </div>
-      `,
+      `);
+    }
+  }
+
+  setHTML(myTicketDetails, parts.join(""));
+}
+
+async function onMyTicketReply() {
+  hide(myTicketReplyMsg);
+  try {
+    const t = state.selectedMyTicket;
+    if (!t) throw new Error("Välj ett ärende först");
+
+    const content = myTicketReplyText.value.trim();
+    if (!content) throw new Error("Skriv ett meddelande");
+
+    const data = await apiFetch(`/my/tickets/${t._id}/reply`, {
+      method: "POST",
+      body: { content },
     });
 
-    return res.json({ message: "Återställningsmail skickat ✅" });
+    myTicketReplyText.value = "";
+    state.selectedMyTicket = data.ticket;
+    await loadMyTickets();
+
+    setText(myTicketReplyMsg, data.message || "Skickat ✅");
+    myTicketReplyMsg.className = "alert";
+    show(myTicketReplyMsg);
+
+    renderMyTicketDetails();
   } catch (e) {
-    console.error("❌ forgot-password error:", e?.message || e);
-    return res.status(500).json({ error: "Serverfel vid återställning (mail)" });
+    setText(myTicketReplyMsg, e.message);
+    myTicketReplyMsg.className = "alert error";
+    show(myTicketReplyMsg);
   }
-});
+}
 
-app.post("/auth/reset-password", async (req, res) => {
+/* =========================
+   INBOX
+========================= */
+async function loadInboxTickets() {
+  if (!state.user) return;
+  if (!["admin", "agent"].includes(state.user.role)) return;
+
+  hide(inboxMsg);
+
   try {
-    const { resetToken, newPassword } = req.body || {};
-    if (!resetToken || !newPassword) return res.status(400).json({ error: "Token + nytt lösenord krävs" });
+    // For inbox view we load all statuses by default
+    const data = await apiFetch(`/admin/tickets?companyId=${encodeURIComponent(state.companyId)}`);
+    state.inboxTickets = data || [];
 
-    const tokenHash = crypto.createHash("sha256").update(resetToken).digest("hex");
+    // populate category filter from categories
+    if (inboxCategoryFilter) {
+      inboxCategoryFilter.innerHTML = `<option value="">Alla kategorier</option>`;
+      state.categories.forEach((c) => {
+        const opt = document.createElement("option");
+        opt.value = c.key;
+        opt.textContent = c.name ? `${c.name} (${c.key})` : c.key;
+        inboxCategoryFilter.appendChild(opt);
+      });
+    }
 
-    const u = await User.findOne({
-      resetTokenHash: tokenHash,
-      resetTokenExpiresAt: { $gt: new Date() },
+    renderInboxTicketsFiltered();
+    updateInboxNotifDot();
+  } catch (e) {
+    setText(inboxMsg, e.message);
+    show(inboxMsg);
+  }
+}
+
+function updateInboxNotifDot() {
+  if (!inboxNotifDot || !openInboxViewBtn) return;
+
+  const openCount = (state.inboxTickets || []).filter((t) => t.status === "open").length;
+  if (openCount > 0) {
+    inboxNotifDot.style.display = "";
+    openInboxViewBtn.classList.add("hasNotif");
+  } else {
+    inboxNotifDot.style.display = "none";
+    openInboxViewBtn.classList.remove("hasNotif");
+  }
+}
+
+function renderInboxTicketsFiltered() {
+  inboxTicketsList.innerHTML = "";
+
+  const status = inboxStatusFilter?.value || "";
+  const cat = inboxCategoryFilter?.value || "";
+  const q = (inboxSearchInput?.value || "").trim().toLowerCase();
+
+  let list = [...(state.inboxTickets || [])];
+
+  if (status) list = list.filter((t) => t.status === status);
+  if (cat) list = list.filter((t) => t.companyId === cat);
+  if (q) {
+    list = list.filter((t) => {
+      const title = String(t.title || "").toLowerCase();
+      const id = String(t._id || "").toLowerCase();
+      const company = String(t.companyId || "").toLowerCase();
+      return title.includes(q) || id.includes(q) || company.includes(q);
+    });
+  }
+
+  if (!list.length) {
+    inboxTicketsList.innerHTML = `<div class="muted small">Inga tickets.</div>`;
+    return;
+  }
+
+  list.forEach((t) => {
+    const item = document.createElement("div");
+    item.className = "listItem";
+
+    if (state.selectedInboxTicket && String(state.selectedInboxTicket._id) === String(t._id)) {
+      item.classList.add("selected");
+    }
+
+    const badge = t.status === "open" ? `<span class="pill">Open</span>` : t.status === "pending" ? `<span class="pill">Pending</span>` : `<span class="pill">Solved</span>`;
+    const prio = `<span class="pill">${escapeHtml(t.priority || "normal")}</span>`;
+
+    const sla = t.sla || {};
+    const s1 = sla.firstResponseState || "";
+    const s2 = sla.resolutionState || "";
+    const slaBadges = `
+      <span class="${pillClassFromState(s1)}">FR: ${escapeHtml(s1 || "-")}</span>
+      <span class="${pillClassFromState(s2)}">RES: ${escapeHtml(s2 || "-")}</span>
+    `;
+
+    item.innerHTML = `
+      <div class="listItemTitle">
+        <i class="fa-solid fa-inbox"></i>
+        <span>${escapeHtml(t.title || "(utan titel)")}</span>
+      </div>
+      <div class="muted small" style="margin-top:6px;">
+        ${badge} ${prio} ${slaBadges}
+      </div>
+      <div class="muted small" style="margin-top:6px;">
+        ${escapeHtml(String(t._id).slice(-8))} • ${escapeHtml(t.companyId || "-")} • ${fmtDate(t.lastActivityAt)}
+      </div>
+    `;
+
+    item.addEventListener("click", async () => {
+      const full = await apiFetch(`/admin/tickets/${t._id}`);
+      state.selectedInboxTicket = full;
+      renderInboxTicketsFiltered();
+      renderInboxTicketDetails();
+      await loadAssignUsers();
     });
 
-    if (!u) return res.status(400).json({ error: "Reset-token är ogiltig eller har gått ut" });
+    inboxTicketsList.appendChild(item);
+  });
 
-    u.password = await bcrypt.hash(newPassword, 10);
-    u.resetTokenHash = "";
-    u.resetTokenExpiresAt = null;
-    await u.save();
+  if (!state.selectedInboxTicket && list[0]) {
+    state.selectedInboxTicket = list[0];
+    renderInboxTicketDetails();
+    loadAssignUsers().catch(() => {});
+  }
+}
 
-    return res.json({ message: "Lösenord återställt ✅ Logga in nu." });
+function renderInboxTicketDetails() {
+  const t = state.selectedInboxTicket;
+  if (!t) {
+    setHTML(ticketDetails, `<div class="muted small">Välj en ticket.</div>`);
+    return;
+  }
+
+  hide(inboxTicketMsg);
+
+  const sla = t.sla || {};
+
+  const head = `
+    <div><b>${escapeHtml(t.title || "(utan titel)")}</b></div>
+    <div class="muted small">Ticket: ${escapeHtml(String(t._id))}</div>
+    <div class="muted small">Status: ${escapeHtml(t.status)} • Prio: ${escapeHtml(t.priority || "normal")} • Kategori: ${escapeHtml(t.companyId)}</div>
+
+    <div class="divider"></div>
+
+    <div class="row gap" style="flex-wrap:wrap;">
+      <span class="${pillClassFromState(sla.firstResponseState)}">First response: ${escapeHtml(sla.firstResponseState || "-")}</span>
+      <span class="${pillClassFromState(sla.resolutionState)}">Resolution: ${escapeHtml(sla.resolutionState || "-")}</span>
+      <span class="pill">FR kvar: ${escapeHtml(msToPretty(sla.firstResponseRemainingMs))}</span>
+      <span class="pill">RES kvar: ${escapeHtml(msToPretty(sla.resolutionRemainingMs))}</span>
+      <span class="pill">Pending: ${escapeHtml(msToPretty(sla.pendingTotalMs))}</span>
+    </div>
+
+    <div class="divider"></div>
+  `;
+
+  const msgs = t.messages || [];
+  const parts = [head];
+
+  if (!msgs.length) {
+    parts.push(`<div class="muted small">Inga meddelanden.</div>`);
+  } else {
+    for (const m of msgs) {
+      const who = m.role === "user" ? "Kund" : m.role === "agent" ? "Agent" : "AI";
+      parts.push(`
+        <div class="ticketMsg">
+          <div class="ticketMsgHead">
+            <span>${escapeHtml(who)}</span>
+            <span>${fmtDate(m.timestamp)}</span>
+          </div>
+          <div>${escapeHtml(m.content)}</div>
+        </div>
+      `);
+    }
+  }
+
+  // internal notes
+  const notes = t.internalNotes || [];
+  const notesHtml = notes.length
+    ? notes
+        .slice()
+        .reverse()
+        .map((n) => {
+          return `
+            <div class="ticketMsg">
+              <div class="ticketMsgHead">
+                <span>Note</span>
+                <span>${fmtDate(n.createdAt)}</span>
+              </div>
+              <div>${escapeHtml(n.content)}</div>
+            </div>
+          `;
+        })
+        .join("")
+    : `<div class="muted small">Inga interna notes.</div>`;
+
+  setHTML(ticketDetails, parts.join(""));
+  setHTML(internalNotesList, notesHtml);
+
+  // set priority select
+  if (ticketPrioritySelect) ticketPrioritySelect.value = t.priority || "normal";
+}
+
+async function setTicketStatus(status) {
+  try {
+    const t = state.selectedInboxTicket;
+    if (!t) throw new Error("Välj en ticket");
+
+    const data = await apiFetch(`/admin/tickets/${t._id}/status`, { method: "POST", body: { status } });
+    state.selectedInboxTicket = data.ticket;
+
+    // refresh list
+    await loadInboxTickets();
+    renderInboxTicketDetails();
   } catch (e) {
-    console.error("❌ reset-password error:", e?.message || e);
-    return res.status(500).json({ error: "Serverfel vid reset" });
+    setText(inboxTicketMsg, e.message);
+    show(inboxTicketMsg);
   }
-});
+}
 
-/* =====================
-   ✅ Feedback
-===================== */
-app.post("/feedback", authenticate, async (req, res) => {
+async function onSetPriority() {
   try {
-    const { type, companyId } = req.body || {};
-    if (!type) return res.status(400).json({ error: "type saknas" });
+    const t = state.selectedInboxTicket;
+    if (!t) throw new Error("Välj en ticket");
 
-    await new Feedback({ userId: req.user.id, type, companyId: companyId || "demo" }).save();
-    return res.json({ message: "Feedback sparad ✅" });
-  } catch {
-    return res.status(500).json({ error: "Serverfel vid feedback" });
+    const priority = ticketPrioritySelect.value || "normal";
+    const data = await apiFetch(`/admin/tickets/${t._id}/priority`, { method: "POST", body: { priority } });
+    state.selectedInboxTicket = data.ticket;
+
+    await loadInboxTickets();
+    renderInboxTicketDetails();
+  } catch (e) {
+    setText(inboxTicketMsg, e.message);
+    show(inboxTicketMsg);
   }
-});
+}
 
-/* =====================
-   ✅ Categories
-===================== */
-app.get("/categories", async (req, res) => {
+async function onAgentReplyInbox() {
   try {
-    const cats = await Category.find({}).sort({ createdAt: 1 });
-    return res.json(cats.map((c) => ({ key: c.key, name: c.name, systemPrompt: c.systemPrompt })));
-  } catch {
-    return res.status(500).json({ error: "Serverfel vid kategorier" });
+    const t = state.selectedInboxTicket;
+    if (!t) throw new Error("Välj en ticket");
+
+    const content = agentReplyTextInbox.value.trim();
+    if (!content) throw new Error("Skriv ett svar");
+
+    const data = await apiFetch(`/admin/tickets/${t._id}/agent-reply`, { method: "POST", body: { content } });
+    state.selectedInboxTicket = data.ticket;
+
+    agentReplyTextInbox.value = "";
+    await loadInboxTickets();
+    renderInboxTicketDetails();
+  } catch (e) {
+    setText(inboxTicketMsg, e.message);
+    show(inboxTicketMsg);
   }
-});
+}
 
-/* =====================
-   ✅ CHAT (ticket + RAG)
-===================== */
-app.post("/chat", authenticate, async (req, res) => {
+async function onSaveInternalNote() {
   try {
-    const { companyId, conversation, ticketId } = req.body || {};
-    if (!companyId || !Array.isArray(conversation))
-      return res.status(400).json({ error: "companyId eller konversation saknas" });
+    const t = state.selectedInboxTicket;
+    if (!t) throw new Error("Välj en ticket");
 
-    let ticket;
-    if (ticketId) {
-      ticket = await Ticket.findOne({ _id: ticketId, userId: req.user.id });
-      if (!ticket) return res.status(404).json({ error: "Ticket hittades inte" });
-    } else {
-      ticket = await ensureTicket(req.user.id, companyId);
+    const content = internalNoteText.value.trim();
+    if (!content) throw new Error("Skriv en notering");
+
+    const data = await apiFetch(`/admin/tickets/${t._id}/internal-note`, { method: "POST", body: { content } });
+    state.selectedInboxTicket = data.ticket;
+
+    internalNoteText.value = "";
+    renderInboxTicketDetails();
+  } catch (e) {
+    setText(inboxTicketMsg, e.message);
+    show(inboxTicketMsg);
+  }
+}
+
+async function onClearInternalNotes() {
+  try {
+    const t = state.selectedInboxTicket;
+    if (!t) throw new Error("Välj en ticket");
+    await apiFetch(`/admin/tickets/${t._id}/internal-notes`, { method: "DELETE" });
+    await loadInboxTickets();
+    renderInboxTicketDetails();
+  } catch (e) {
+    setText(inboxTicketMsg, e.message);
+    show(inboxTicketMsg);
+  }
+}
+
+async function loadAssignUsers() {
+  // only admin can assign
+  if (!state.user || state.user.role !== "admin") return;
+
+  const users = await apiFetch("/admin/users");
+  const agents = (users || []).filter((u) => u.role === "agent" || u.role === "admin");
+
+  assignUserSelect.innerHTML = `<option value="">Välj agent...</option>`;
+  agents.forEach((u) => {
+    const opt = document.createElement("option");
+    opt.value = u._id;
+    opt.textContent = `${u.username} (${u.role})`;
+    assignUserSelect.appendChild(opt);
+  });
+}
+
+async function onAssignTicket() {
+  try {
+    if (!state.user || state.user.role !== "admin") throw new Error("Endast admin kan assigna");
+    const t = state.selectedInboxTicket;
+    if (!t) throw new Error("Välj en ticket");
+
+    const userId = assignUserSelect.value;
+    if (!userId) throw new Error("Välj en agent");
+
+    const data = await apiFetch(`/admin/tickets/${t._id}/assign`, { method: "POST", body: { userId } });
+    state.selectedInboxTicket = data.ticket;
+    await loadInboxTickets();
+    renderInboxTicketDetails();
+  } catch (e) {
+    setText(inboxTicketMsg, e.message);
+    show(inboxTicketMsg);
+  }
+}
+
+async function onDeleteTicket() {
+  try {
+    const t = state.selectedInboxTicket;
+    if (!t) throw new Error("Välj en ticket");
+
+    await apiFetch(`/admin/tickets/${t._id}`, { method: "DELETE" });
+
+    state.selectedInboxTicket = null;
+    await loadInboxTickets();
+    setHTML(ticketDetails, `<div class="muted small">Välj en ticket.</div>`);
+  } catch (e) {
+    setText(inboxTicketMsg, e.message);
+    show(inboxTicketMsg);
+  }
+}
+
+async function solveAllTickets() {
+  try {
+    if (!state.user || state.user.role !== "admin") throw new Error("Endast admin");
+    await apiFetch(`/admin/tickets/solve-all`, { method: "POST" });
+    await loadInboxTickets();
+  } catch (e) {
+    setText(inboxMsg, e.message);
+    show(inboxMsg);
+  }
+}
+
+async function removeSolvedTickets() {
+  try {
+    if (!state.user || state.user.role !== "admin") throw new Error("Endast admin");
+    await apiFetch(`/admin/tickets/remove-solved`, { method: "POST" });
+    await loadInboxTickets();
+  } catch (e) {
+    setText(inboxMsg, e.message);
+    show(inboxMsg);
+  }
+}
+
+/* =========================
+   ADMIN: USERS + KB + CATS
+========================= */
+async function loadAdminUsers() {
+  if (!state.user || !["admin", "agent"].includes(state.user.role)) return;
+
+  hide(adminUsersMsg);
+
+  try {
+    const users = await apiFetch("/admin/users");
+    renderAdminUsers(users || []);
+  } catch (e) {
+    setText(adminUsersMsg, e.message);
+    show(adminUsersMsg);
+  }
+}
+
+function renderAdminUsers(users) {
+  adminUsersList.innerHTML = "";
+
+  if (!users.length) {
+    adminUsersList.innerHTML = `<div class="muted small">Inga users.</div>`;
+    return;
+  }
+
+  users.forEach((u) => {
+    const item = document.createElement("div");
+    item.className = "listItem";
+
+    item.innerHTML = `
+      <div class="listItemTitle">
+        <i class="fa-solid fa-user"></i>
+        <span>${escapeHtml(u.username)}</span>
+        <span class="pill ${u.role === "admin" ? "admin" : ""}">${escapeHtml(u.role)}</span>
+      </div>
+      <div class="muted small" style="margin-top:6px;">Email: ${escapeHtml(u.email || "-")}</div>
+    `;
+
+    // Admin controls
+    if (state.user?.role === "admin" && String(u._id) !== String(state.user.id)) {
+      const actions = document.createElement("div");
+      actions.className = "bubbleActions";
+
+      const roleSelect = document.createElement("select");
+      roleSelect.className = "input smallInput";
+      roleSelect.innerHTML = `
+        <option value="user">user</option>
+        <option value="agent">agent</option>
+        <option value="admin">admin</option>
+      `;
+      roleSelect.value = u.role;
+
+      const saveBtn = document.createElement("button");
+      saveBtn.className = "btn ghost small";
+      saveBtn.innerHTML = `<i class="fa-solid fa-floppy-disk"></i> Spara roll`;
+
+      saveBtn.addEventListener("click", async () => {
+        try {
+          await apiFetch(`/admin/users/${u._id}/role`, { method: "POST", body: { role: roleSelect.value } });
+          await loadAdminUsers();
+        } catch (e) {
+          alert(e.message);
+        }
+      });
+
+      const delBtn = document.createElement("button");
+      delBtn.className = "btn danger small";
+      delBtn.innerHTML = `<i class="fa-solid fa-trash"></i> Ta bort`;
+
+      delBtn.addEventListener("click", async () => {
+        if (!confirm(`Ta bort ${u.username}?`)) return;
+        try {
+          await apiFetch(`/admin/users/${u._id}`, { method: "DELETE" });
+          await loadAdminUsers();
+        } catch (e) {
+          alert(e.message);
+        }
+      });
+
+      actions.appendChild(roleSelect);
+      actions.appendChild(saveBtn);
+      actions.appendChild(delBtn);
+      item.appendChild(actions);
     }
 
-    const lastUser = conversation[conversation.length - 1];
-    const userQuery = cleanText(lastUser?.content || "");
+    adminUsersList.appendChild(item);
+  });
+}
 
-    if (lastUser?.role === "user") {
-      ticket.messages.push({ role: "user", content: userQuery, timestamp: new Date() });
-      if (!ticket.title) ticket.title = userQuery.slice(0, 60);
-      ticket.lastActivityAt = new Date();
+async function loadKbList() {
+  if (!state.user || state.user.role !== "admin") return;
+  hide(kbMsg);
 
-      // ✅ If user replies while pending => resume SLA
-      if (ticket.status === "pending" && ticket.pendingStartedAt) {
-        const add = msBetween(ticket.pendingStartedAt, new Date()) || 0;
-        ticket.pendingTotalMs = Number(ticket.pendingTotalMs || 0) + add;
-        ticket.pendingStartedAt = null;
-        ticket.status = "open";
-      }
+  const cid = kbCategorySelect?.value || state.companyId || "demo";
 
-      safeEnsureSla(ticket);
-      await ticket.save();
+  try {
+    const items = await apiFetch(`/kb/list/${encodeURIComponent(cid)}`);
+    kbList.innerHTML = "";
+
+    if (!items.length) {
+      kbList.innerHTML = `<div class="muted small">Ingen KB ännu.</div>`;
+      return;
     }
 
-    const cat = await Category.findOne({ key: companyId });
-    const systemPrompt = cat?.systemPrompt || "Du är en professionell och vänlig AI-kundtjänst på svenska.";
+    items.forEach((it) => {
+      const row = document.createElement("div");
+      row.className = "listItem";
 
-    const rag = await ragSearch(companyId, userQuery, 4);
+      row.innerHTML = `
+        <div class="listItemTitle">
+          <i class="fa-solid fa-book"></i>
+          <span>${escapeHtml(it.title || it.sourceRef || "KB")}</span>
+          <span class="pill">${escapeHtml(it.sourceType)}</span>
+        </div>
+        <div class="muted small" style="margin-top:6px;">
+          Chunk #${it.chunkIndex} • ${fmtDate(it.createdAt)} • ${it.embeddingOk ? "embedding✅" : "embedding❌"}
+        </div>
+      `;
+      kbList.appendChild(row);
+    });
+  } catch (e) {
+    setText(kbMsg, e.message);
+    show(kbMsg);
+  }
+}
 
-    const systemMessage = {
-      role: "system",
-      content:
-        systemPrompt +
-        (rag.used ? `\n\nIntern kunskapsdatabas (om relevant):\n${rag.context}\n\nSvara tydligt och konkret.` : ""),
-    };
+async function kbUploadText() {
+  hide(kbMsg);
+  try {
+    const companyId = kbCategorySelect.value;
+    const title = kbTextTitle.value.trim();
+    const content = kbTextContent.value.trim();
+    if (!content) throw new Error("Klistra in text");
 
-    const messages = [systemMessage, ...conversation];
+    const data = await apiFetch("/kb/upload-text", { method: "POST", body: { companyId, title, content } });
+    setText(kbMsg, data.message || "Uppladdad ✅");
+    kbMsg.className = "alert";
+    show(kbMsg);
+    kbTextContent.value = "";
+    await loadKbList();
+  } catch (e) {
+    setText(kbMsg, e.message);
+    kbMsg.className = "alert error";
+    show(kbMsg);
+  }
+}
 
-    const response = await openai.chat.completions.create({
-      model: "gpt-4o-mini",
-      messages,
+async function kbUploadUrl() {
+  hide(kbMsg);
+  try {
+    const companyId = kbCategorySelect.value;
+    const url = kbUrlInput.value.trim();
+    if (!url) throw new Error("Skriv en URL");
+
+    const data = await apiFetch("/kb/upload-url", { method: "POST", body: { companyId, url } });
+    setText(kbMsg, data.message || "Uppladdad ✅");
+    kbMsg.className = "alert";
+    show(kbMsg);
+    kbUrlInput.value = "";
+    await loadKbList();
+  } catch (e) {
+    setText(kbMsg, e.message);
+    kbMsg.className = "alert error";
+    show(kbMsg);
+  }
+}
+
+async function kbUploadPdf() {
+  hide(kbMsg);
+  try {
+    const companyId = kbCategorySelect.value;
+    const file = kbPdfFile.files?.[0];
+    if (!file) throw new Error("Välj en PDF-fil");
+
+    const base64 = await fileToBase64(file);
+    const data = await apiFetch("/kb/upload-pdf", {
+      method: "POST",
+      body: { companyId, filename: file.name, base64: base64.split(",")[1] },
     });
 
-    const reply = cleanText(response.choices?.[0]?.message?.content || "Inget svar från AI.");
-
-    ticket.messages.push({ role: "assistant", content: reply, timestamp: new Date() });
-    ticket.lastActivityAt = new Date();
-
-    safeEnsureSla(ticket);
-    await ticket.save();
-
-    return res.json({ reply, ticketId: ticket._id, ragUsed: rag.used, sources: rag.sources });
+    setText(kbMsg, data.message || "Uppladdad ✅");
+    kbMsg.className = "alert";
+    show(kbMsg);
+    kbPdfFile.value = "";
+    await loadKbList();
   } catch (e) {
-    console.error("❌ Chat error:", e?.message || e);
-    return res.status(500).json({ error: "Serverfel vid chat" });
+    setText(kbMsg, e.message);
+    kbMsg.className = "alert error";
+    show(kbMsg);
   }
-});
+}
 
-/* =====================
-   ✅ USER: My tickets
-===================== */
-app.get("/my/tickets", authenticate, async (req, res) => {
-  const tickets = await Ticket.find({ userId: req.user.id }).sort({ lastActivityAt: -1 }).limit(100);
-  tickets.forEach((t) => safeEnsureSla(t));
-  return res.json(tickets);
-});
+async function loadCatsList() {
+  if (!state.user || state.user.role !== "admin") return;
+  hide(catsMsg);
 
-app.get("/my/tickets/:ticketId", authenticate, async (req, res) => {
-  const t = await Ticket.findOne({ _id: req.params.ticketId, userId: req.user.id });
-  if (!t) return res.status(404).json({ error: "Ticket hittades inte" });
-  safeEnsureSla(t);
-  return res.json(t);
-});
-
-app.post("/my/tickets/:ticketId/reply", authenticate, async (req, res) => {
   try {
-    const { content } = req.body || {};
-    if (!content) return res.status(400).json({ error: "content saknas" });
+    const cats = await apiFetch("/categories", { auth: false });
+    renderCatsList(cats || []);
+  } catch (e) {
+    setText(catsMsg, e.message);
+    show(catsMsg);
+  }
+}
 
-    const t = await Ticket.findOne({ _id: req.params.ticketId, userId: req.user.id });
-    if (!t) return res.status(404).json({ error: "Ticket hittades inte" });
+function renderCatsList(cats) {
+  catsList.innerHTML = "";
+  cats.forEach((c) => {
+    const item = document.createElement("div");
+    item.className = "listItem";
+    item.innerHTML = `
+      <div class="listItemTitle">
+        <i class="fa-solid fa-layer-group"></i>
+        <span>${escapeHtml(c.name || c.key)}</span>
+        <span class="pill">${escapeHtml(c.key)}</span>
+      </div>
+      <div class="muted small" style="margin-top:6px;">Prompt: ${escapeHtml((c.systemPrompt || "").slice(0, 90))}${(c.systemPrompt || "").length > 90 ? "..." : ""}</div>
+    `;
 
-    t.messages.push({ role: "user", content: cleanText(content), timestamp: new Date() });
-
-    t.status = "open";
-    t.lastActivityAt = new Date();
-
-    if (t.pendingStartedAt) {
-      const add = msBetween(t.pendingStartedAt, new Date()) || 0;
-      t.pendingTotalMs = Number(t.pendingTotalMs || 0) + add;
-      t.pendingStartedAt = null;
+    if (!["demo", "law", "tech", "cleaning"].includes(c.key)) {
+      const del = document.createElement("button");
+      del.className = "btn danger small";
+      del.style.marginTop = "10px";
+      del.innerHTML = `<i class="fa-solid fa-trash"></i> Ta bort kategori`;
+      del.addEventListener("click", async () => {
+        if (!confirm(`Ta bort kategori ${c.key}?`)) return;
+        try {
+          await apiFetch(`/admin/categories/${c.key}`, { method: "DELETE" });
+          await loadCategories();
+          await loadCatsList();
+        } catch (e) {
+          alert(e.message);
+        }
+      });
+      item.appendChild(del);
     }
 
-    safeEnsureSla(t);
-    await t.save();
+    catsList.appendChild(item);
+  });
+}
 
-    return res.json({ message: "Svar skickat ✅", ticket: t });
+async function createCategory() {
+  hide(catsMsg);
+  try {
+    const key = newCatKey.value.trim();
+    const name = newCatName.value.trim();
+    const systemPrompt = newCatPrompt.value.trim();
+
+    if (!key || !name) throw new Error("Key + namn krävs");
+
+    const data = await apiFetch("/admin/categories", { method: "POST", body: { key, name, systemPrompt } });
+    setText(catsMsg, data.message || "Skapad ✅");
+    catsMsg.className = "alert";
+    show(catsMsg);
+
+    newCatKey.value = "";
+    newCatName.value = "";
+    newCatPrompt.value = "";
+
+    await loadCategories();
+    await loadCatsList();
   } catch (e) {
-    console.error("❌ my ticket reply error:", e?.message || e);
-    return res.status(500).json({ error: "Serverfel vid svar i ticket" });
-  }
-});
-
-/* =====================
-   ✅ ADMIN/AGENT: Inbox
-===================== */
-app.get("/admin/tickets", authenticate, requireAgentOrAdmin, async (req, res) => {
-  try {
-    const dbUser = await getDbUser(req);
-    const { status, companyId } = req.query || {};
-    const query = {};
-    if (status) query.status = status;
-    if (companyId) query.companyId = companyId;
-
-    if (dbUser?.role === "agent") query.assignedToUserId = dbUser._id;
-
-    const tickets = await Ticket.find(query).sort({ lastActivityAt: -1 }).limit(500);
-    tickets.forEach((t) => safeEnsureSla(t));
-    return res.json(tickets);
-  } catch {
-    return res.status(500).json({ error: "Serverfel vid inbox" });
-  }
-});
-
-app.get("/admin/tickets/:ticketId", authenticate, requireAgentOrAdmin, async (req, res) => {
-  const dbUser = await getDbUser(req);
-
-  const t = await Ticket.findById(req.params.ticketId);
-  if (!t) return res.status(404).json({ error: "Ticket hittades inte" });
-
-  if (dbUser?.role === "agent" && String(t.assignedToUserId || "") !== String(dbUser._id)) {
-    return res.status(403).json({ error: "Du får bara se dina egna tickets" });
-  }
-
-  safeEnsureSla(t);
-  return res.json(t);
-});
-
-/* =====================
-   ✅ Pending timer logic
-===================== */
-function startPendingTimerIfNeeded(t) {
-  if (!t.pendingStartedAt) t.pendingStartedAt = new Date();
-}
-function stopPendingTimerIfNeeded(t) {
-  if (t.pendingStartedAt) {
-    const add = msBetween(t.pendingStartedAt, new Date()) || 0;
-    t.pendingTotalMs = Number(t.pendingTotalMs || 0) + add;
-    t.pendingStartedAt = null;
+    setText(catsMsg, e.message);
+    catsMsg.className = "alert error";
+    show(catsMsg);
   }
 }
 
-/* =====================
-   ✅ Ticket actions
-===================== */
-app.post("/admin/tickets/:ticketId/status", authenticate, requireAgentOrAdmin, async (req, res) => {
-  const { status } = req.body || {};
-  if (!["open", "pending", "solved"].includes(status)) return res.status(400).json({ error: "Ogiltig status" });
-
-  const dbUser = await getDbUser(req);
-
-  const t = await Ticket.findById(req.params.ticketId);
-  if (!t) return res.status(404).json({ error: "Ticket hittades inte" });
-
-  if (dbUser?.role === "agent" && String(t.assignedToUserId || "") !== String(dbUser._id)) {
-    return res.status(403).json({ error: "Du får bara uppdatera dina egna tickets" });
-  }
-
-  if (status === "pending") startPendingTimerIfNeeded(t);
-  if (status === "open") stopPendingTimerIfNeeded(t);
-
-  t.status = status;
-  t.lastActivityAt = new Date();
-
-  if (status === "solved" && !t.solvedAt) {
-    stopPendingTimerIfNeeded(t);
-    t.solvedAt = new Date();
-  }
-  if (status !== "solved") t.solvedAt = null;
-
-  safeEnsureSla(t);
-  await t.save();
-
-  await SLAStat.create({
-    scope: "ticket",
-    agentUserId: t.agentUserId || t.assignedToUserId || null,
-    ticketId: t._id,
-    createdAt: new Date(),
-    firstResponseMs: t.sla?.firstResponseMs ?? null,
-    resolutionMs: t.sla?.resolutionMs ?? null,
-    breachedFirstResponse: !!t.sla?.breachedFirstResponse,
-    breachedResolution: !!t.sla?.breachedResolution,
-    priority: t.priority || "normal",
-    companyId: t.companyId || "",
-  }).catch(() => {});
-
-  return res.json({ message: "Status uppdaterad ✅", ticket: t });
-});
-
-app.post("/admin/tickets/:ticketId/priority", authenticate, requireAgentOrAdmin, async (req, res) => {
-  const { priority } = req.body || {};
-  if (!["low", "normal", "high"].includes(priority)) return res.status(400).json({ error: "Ogiltig prioritet" });
-
-  const dbUser = await getDbUser(req);
-
-  const t = await Ticket.findById(req.params.ticketId);
-  if (!t) return res.status(404).json({ error: "Ticket hittades inte" });
-
-  if (dbUser?.role === "agent" && String(t.assignedToUserId || "") !== String(dbUser._id)) {
-    return res.status(403).json({ error: "Du får bara ändra prio på dina egna tickets" });
-  }
-
-  t.priority = priority;
-  t.lastActivityAt = new Date();
-
-  safeEnsureSla(t);
-  await t.save();
-
-  return res.json({ message: "Prioritet uppdaterad ✅", ticket: t });
-});
-
-app.post("/admin/tickets/:ticketId/agent-reply", authenticate, requireAgentOrAdmin, async (req, res) => {
-  const { content } = req.body || {};
-  if (!content) return res.status(400).json({ error: "content saknas" });
-
-  const dbUser = await getDbUser(req);
-
-  const t = await Ticket.findById(req.params.ticketId);
-  if (!t) return res.status(404).json({ error: "Ticket hittades inte" });
-
-  if (dbUser?.role === "agent" && String(t.assignedToUserId || "") !== String(dbUser._id)) {
-    return res.status(403).json({ error: "Du får bara svara på dina egna tickets" });
-  }
-
-  t.messages.push({ role: "agent", content: cleanText(content), timestamp: new Date() });
-
-  t.status = "pending";
-  t.lastActivityAt = new Date();
-  t.agentUserId = dbUser?._id || t.agentUserId || null;
-
-  if (!t.firstAgentReplyAt) t.firstAgentReplyAt = new Date();
-
-  startPendingTimerIfNeeded(t);
-
-  safeEnsureSla(t);
-  await t.save();
-
-  await SLAStat.create({
-    scope: "ticket",
-    agentUserId: t.agentUserId || t.assignedToUserId || null,
-    ticketId: t._id,
-    createdAt: new Date(),
-    firstResponseMs: t.sla?.firstResponseMs ?? null,
-    resolutionMs: t.sla?.resolutionMs ?? null,
-    breachedFirstResponse: !!t.sla?.breachedFirstResponse,
-    breachedResolution: !!t.sla?.breachedResolution,
-    priority: t.priority || "normal",
-    companyId: t.companyId || "",
-  }).catch(() => {});
-
-  return res.json({ message: "Agent-svar sparat ✅", ticket: t });
-});
-
-/* =====================
-   ✅ Internal notes
-===================== */
-app.post("/admin/tickets/:ticketId/internal-note", authenticate, requireAgentOrAdmin, async (req, res) => {
+/* =========================
+   SETTINGS
+========================= */
+async function changeUsername() {
+  hide(settingsMsg);
   try {
-    const { content } = req.body || {};
-    if (!content) return res.status(400).json({ error: "Notering saknas" });
+    const newUsername = newUsernameInput.value.trim();
+    if (!newUsername || newUsername.length < 3) throw new Error("Minst 3 tecken");
 
-    const dbUser = await getDbUser(req);
+    const data = await apiFetch("/auth/change-username", { method: "POST", body: { newUsername } });
+    setText(settingsMsg, data.message || "Uppdaterat ✅");
+    settingsMsg.className = "alert";
+    show(settingsMsg);
 
-    const t = await Ticket.findById(req.params.ticketId);
-    if (!t) return res.status(404).json({ error: "Ticket hittades inte" });
-
-    if (dbUser?.role === "agent" && String(t.assignedToUserId || "") !== String(dbUser._id)) {
-      return res.status(403).json({ error: "Du får bara skriva notes på dina egna tickets" });
-    }
-
-    t.internalNotes.push({ createdBy: req.user.id, content: cleanText(content) });
-    t.lastActivityAt = new Date();
-
-    safeEnsureSla(t);
-    await t.save();
-
-    return res.json({ message: "Intern notering sparad ✅", ticket: t });
-  } catch {
-    return res.status(500).json({ error: "Serverfel vid intern notering" });
-  }
-});
-
-app.delete("/admin/tickets/:ticketId/internal-note/:noteId", authenticate, requireAdmin, async (req, res) => {
-  try {
-    const { ticketId, noteId } = req.params;
-
-    const t = await Ticket.findById(ticketId);
-    if (!t) return res.status(404).json({ error: "Ticket hittades inte" });
-
-    t.internalNotes = (t.internalNotes || []).filter((n) => String(n._id) !== String(noteId));
-    t.lastActivityAt = new Date();
-
-    safeEnsureSla(t);
-    await t.save();
-
-    return res.json({ message: "Notering borttagen ✅", ticket: t });
-  } catch {
-    return res.status(500).json({ error: "Serverfel vid borttagning av note" });
-  }
-});
-
-app.delete("/admin/tickets/:ticketId/internal-notes", authenticate, requireAdmin, async (req, res) => {
-  try {
-    const { ticketId } = req.params;
-
-    const t = await Ticket.findById(ticketId);
-    if (!t) return res.status(404).json({ error: "Ticket hittades inte" });
-
-    t.internalNotes = [];
-    t.lastActivityAt = new Date();
-
-    safeEnsureSla(t);
-    await t.save();
-
-    return res.json({ message: "Alla noteringar borttagna ✅", ticket: t });
-  } catch {
-    return res.status(500).json({ error: "Serverfel vid rensning av notes" });
-  }
-});
-
-/* =====================
-   ✅ Solve all / Remove solved
-===================== */
-app.post("/admin/tickets/solve-all", authenticate, requireAdmin, async (req, res) => {
-  try {
-    const all = await Ticket.find({ status: { $in: ["open", "pending"] } }).limit(50000);
-
-    for (const t of all) {
-      stopPendingTimerIfNeeded(t);
-      t.status = "solved";
-      t.lastActivityAt = new Date();
-      t.solvedAt = new Date();
-      safeEnsureSla(t);
-      await t.save();
-    }
-
-    return res.json({ message: `Solve ALL ✅ Uppdaterade ${all.length} tickets.` });
+    await tryLoadMe();
+    updateRoleUI();
   } catch (e) {
-    console.error("❌ Solve ALL error:", e?.message || e);
-    return res.status(500).json({ error: "Serverfel vid Solve ALL" });
+    setText(settingsMsg, e.message);
+    settingsMsg.className = "alert error";
+    show(settingsMsg);
   }
-});
+}
 
-app.post("/admin/tickets/remove-solved", authenticate, requireAdmin, async (req, res) => {
+async function changePassword() {
+  hide(settingsMsg);
   try {
-    const r = await Ticket.deleteMany({ status: "solved" });
-    return res.json({ message: `Remove solved ✅ Tog bort ${r.deletedCount} tickets.` });
+    const currentPassword = currentPassInput.value.trim();
+    const newPassword = newPassInput.value.trim();
+    if (!currentPassword || !newPassword) throw new Error("Fyll i båda fälten");
+
+    const data = await apiFetch("/auth/change-password", { method: "POST", body: { currentPassword, newPassword } });
+    setText(settingsMsg, data.message || "Uppdaterat ✅");
+    settingsMsg.className = "alert";
+    show(settingsMsg);
+
+    currentPassInput.value = "";
+    newPassInput.value = "";
   } catch (e) {
-    console.error("❌ Remove solved error:", e?.message || e);
-    return res.status(500).json({ error: "Serverfel vid Remove solved" });
+    setText(settingsMsg, e.message);
+    settingsMsg.className = "alert error";
+    show(settingsMsg);
   }
-});
+}
 
-/* =====================
-   ✅ Assign + Delete
-===================== */
-app.post("/admin/tickets/:ticketId/assign", authenticate, requireAgentOrAdmin, async (req, res) => {
-  const { userId } = req.body || {};
-  if (!userId) return res.status(400).json({ error: "userId saknas" });
+/* =========================
+   SLA DASHBOARD (BIG UPGRADE)
+========================= */
+function syncSlaControls() {
+  if (slaDaysSelect) slaDaysSelect.value = String(state.slaDays);
+  if (slaCompareModeSelect) slaCompareModeSelect.value = state.slaCompareMode;
+}
 
-  const dbUser = await getDbUser(req);
+async function loadSlaDashboard() {
+  if (!state.user || !["admin", "agent"].includes(state.user.role)) return;
 
-  const t = await Ticket.findById(req.params.ticketId);
-  if (!t) return res.status(404).json({ error: "Ticket hittades inte" });
+  syncSlaControls();
 
-  if (dbUser?.role === "agent") return res.status(403).json({ error: "Endast admin kan assigna" });
+  // Make SLA view look alive immediately
+  setHTML(slaOverviewBox, `<div class="muted small">Laddar SLA...</div>`);
+  setHTML(slaAgentsBox, `<div class="muted small">Laddar agents...</div>`);
+  setHTML(slaTicketsBox, `<div class="muted small">Laddar tickets...</div>`);
+  setText(slaTrendHint, "Laddar trend...");
 
-  t.assignedToUserId = userId;
-  t.lastActivityAt = new Date();
+  await Promise.allSettled([
+    loadSlaOverviewAndKpi(),
+    loadSlaTrend(),
+    loadSlaAgents(),
+    loadSlaTicketsTable(),
+  ]);
+}
 
-  safeEnsureSla(t);
-  await t.save();
+async function loadSlaOverviewAndKpi() {
+  const days = state.slaDays || 30;
 
-  return res.json({ message: "Ticket assignad ✅", ticket: t });
-});
+  const [overviewRes, kpiRes] = await Promise.all([
+    apiFetch(`/admin/sla/overview?days=${days}`),
+    apiFetch(`/admin/sla/kpi?days=${days}`),
+  ]);
 
-app.delete("/admin/tickets/:ticketId", authenticate, requireAgentOrAdmin, async (req, res) => {
-  try {
-    const dbUser = await getDbUser(req);
+  renderSlaOverviewAndKpi(overviewRes, kpiRes);
 
-    const t = await Ticket.findById(req.params.ticketId);
-    if (!t) return res.status(404).json({ error: "Ticket hittades inte" });
+  // optional compare
+  if (state.slaCompareMode !== "none") {
+    let a = days;
+    let b = 7;
+    if (state.slaCompareMode === "prevPeriod") b = days;
+    if (state.slaCompareMode === "prevWeek") b = 7;
 
-    if (dbUser?.role === "agent" && String(t.assignedToUserId || "") !== String(dbUser._id)) {
-      return res.status(403).json({ error: "Du får bara ta bort dina egna tickets" });
+    try {
+      const cmp = await apiFetch(`/admin/sla/compare?a=${a}&b=${b}`);
+      renderSlaCompareBlock(cmp);
+    } catch {
+      // ignore compare errors
     }
-
-    await Ticket.deleteOne({ _id: t._id });
-    return res.json({ message: "Ticket borttagen ✅" });
-  } catch {
-    return res.status(500).json({ error: "Serverfel vid borttagning av ticket" });
   }
-});
-
-/* =====================
-   ✅ SLA Trend weekly + daily + KPI + ageing
-===================== */
-function weekKey(d) {
-  const dt = new Date(d);
-  if (!dt || isNaN(dt.getTime())) return "unknown";
-  const onejan = new Date(dt.getFullYear(), 0, 1);
-  const day = Math.floor((dt - onejan) / (24 * 60 * 60 * 1000));
-  const week = Math.ceil((day + onejan.getDay() + 1) / 7);
-  return `${dt.getFullYear()}-W${String(week).padStart(2, "0")}`;
 }
 
-function dayKey(d) {
-  const dt = new Date(d);
-  if (!dt || isNaN(dt.getTime())) return "unknown";
-  const y = dt.getFullYear();
-  const m = String(dt.getMonth() + 1).padStart(2, "0");
-  const dd = String(dt.getDate()).padStart(2, "0");
-  return `${y}-${m}-${dd}`;
+function renderSlaOverviewAndKpi(overview, kpi) {
+  const o = overview || {};
+  const k = kpi || {};
+
+  const fr = o.firstResponse || {};
+  const rs = o.resolution || {};
+
+  const totals = k.totals || {};
+  const health = k.slaHealth || {};
+  const distFR = k.distribution?.firstResponse || {};
+  const distRS = k.distribution?.resolution || {};
+  const ageing = Array.isArray(k.ageing) ? k.ageing : [];
+  const byCat = Array.isArray(k.byCategory) ? k.byCategory : [];
+
+  const overviewCards = `
+    <div class="slaGrid">
+      <div class="slaCard">
+        <div class="slaLabel">Tickets (period)</div>
+        <div class="slaValue">${o.totalTickets ?? "-"}</div>
+        <div class="muted small">Low: ${(o.byPriority?.low ?? 0)} • Normal: ${(o.byPriority?.normal ?? 0)} • High: ${(o.byPriority?.high ?? 0)}</div>
+      </div>
+
+      <div class="slaCard">
+        <div class="slaLabel">First response compliance</div>
+        <div class="slaValue">${fr.compliancePct ?? "-"}%</div>
+        <div class="muted small">
+          Avg: ${msToPretty(fr.avgMs)} • Median: ${msToPretty(fr.medianMs)} • P90: ${msToPretty(fr.p90Ms)}
+        </div>
+        <div class="muted small">
+          Breaches: ${fr.breaches ?? 0} • At-risk: ${fr.atRisk ?? 0}
+        </div>
+      </div>
+
+      <div class="slaCard">
+        <div class="slaLabel">Resolution compliance</div>
+        <div class="slaValue">${rs.compliancePct ?? "-"}%</div>
+        <div class="muted small">
+          Avg: ${msToPretty(rs.avgMs)} • Median: ${msToPretty(rs.medianMs)} • P90: ${msToPretty(rs.p90Ms)}
+        </div>
+        <div class="muted small">
+          Breaches: ${rs.breaches ?? 0} • At-risk: ${rs.atRisk ?? 0}
+        </div>
+      </div>
+    </div>
+  `;
+
+  const kpiCards = `
+    <div class="divider"></div>
+    <h3 style="margin:0 0 8px 0;">KPI Dashboard</h3>
+
+    <div class="slaGrid">
+      <div class="slaCard">
+        <div class="slaLabel">Backlog (open + pending)</div>
+        <div class="slaValue">${(totals.open ?? 0) + (totals.pending ?? 0)}</div>
+        <div class="muted small">Open: ${totals.open ?? 0} • Pending: ${totals.pending ?? 0}</div>
+      </div>
+
+      <div class="slaCard">
+        <div class="slaLabel">Solve rate</div>
+        <div class="slaValue">${totals.solveRatePct ?? "-"}%</div>
+        <div class="muted small">Solved: ${totals.solved ?? 0} av ${totals.total ?? 0}</div>
+      </div>
+
+      <div class="slaCard">
+        <div class="slaLabel">SLA Health</div>
+        <div class="slaValue">${health.breachedPct ?? "-"}%</div>
+        <div class="muted small">Breached: ${health.breachedAny ?? 0} • Risk: ${health.riskAny ?? 0} (${health.riskPct ?? "-"}%)</div>
+      </div>
+    </div>
+
+    <div class="divider"></div>
+
+    <div class="split">
+      <div class="panel">
+        <div class="panelHead"><b>Ageing (backlog)</b></div>
+        ${
+          ageing.length
+            ? ageing
+                .map(
+                  (b) => `
+                <div class="row" style="justify-content:space-between; margin:8px 0;">
+                  <span class="muted small">${escapeHtml(b.key)}</span>
+                  <span class="pill">${b.count}</span>
+                </div>
+              `
+                )
+                .join("")
+            : `<div class="muted small">Ingen data.</div>`
+        }
+      </div>
+
+      <div class="panel">
+        <div class="panelHead"><b>Kategori KPI</b></div>
+        ${
+          byCat.length
+            ? `
+          <div class="tableWrap">
+            <table class="table">
+              <thead>
+                <tr>
+                  <th>Kategori</th>
+                  <th>Total</th>
+                  <th>Solved%</th>
+                  <th>Breached%</th>
+                  <th>Open</th>
+                  <th>Pending</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${byCat
+                  .slice(0, 12)
+                  .map(
+                    (r) => `
+                    <tr>
+                      <td>${escapeHtml(r.companyId)}</td>
+                      <td>${r.total ?? 0}</td>
+                      <td>${r.solvedPct ?? "-"}%</td>
+                      <td>${r.breachedPct ?? "-"}%</td>
+                      <td>${r.open ?? 0}</td>
+                      <td>${r.pending ?? 0}</td>
+                    </tr>
+                  `
+                  )
+                  .join("")}
+              </tbody>
+            </table>
+          </div>
+          <div class="muted small" style="margin-top:8px;">Visar topp 12 kategorier i perioden.</div>
+          `
+            : `<div class="muted small">Ingen kategori-data.</div>`
+        }
+      </div>
+    </div>
+  `;
+
+  const distBlock = `
+    <div class="divider"></div>
+    <h3 style="margin:0 0 8px 0;">Distribution (KPI)</h3>
+
+    <div class="slaGrid">
+      <div class="slaCard">
+        <div class="slaLabel">First Response (KPI)</div>
+        <div class="slaValue">${msToPretty(distFR.medianMs)}</div>
+        <div class="muted small">Avg: ${msToPretty(distFR.avgMs)} • P90: ${msToPretty(distFR.p90Ms)}</div>
+      </div>
+
+      <div class="slaCard">
+        <div class="slaLabel">Resolution (KPI)</div>
+        <div class="slaValue">${msToPretty(distRS.medianMs)}</div>
+        <div class="muted small">Avg: ${msToPretty(distRS.avgMs)} • P90: ${msToPretty(distRS.p90Ms)}</div>
+      </div>
+
+      <div class="slaCard">
+        <div class="slaLabel">Period</div>
+        <div class="slaValue">${k.rangeDays ?? "-"}</div>
+        <div class="muted small">Dagar i urval</div>
+      </div>
+    </div>
+  `;
+
+  setHTML(slaOverviewBox, overviewCards + kpiCards + distBlock);
 }
 
-function buildTrendWeekly(tickets) {
-  const map = {};
-  for (const t of tickets) {
-    safeEnsureSla(t);
-    const wk = weekKey(t.createdAt);
+function renderSlaCompareBlock(cmp) {
+  const a = cmp?.a;
+  const b = cmp?.b;
+  if (!a || !b) return;
 
-    if (!map[wk]) map[wk] = { week: wk, total: 0, firstOk: 0, resOk: 0 };
-    map[wk].total++;
+  const block = `
+    <div class="divider"></div>
+    <h3 style="margin:0 0 8px 0;">Jämförelse</h3>
 
-    const b1 = !!t.sla?.breachedFirstResponse;
-    const b2 = !!t.sla?.breachedResolution;
+    <div class="tableWrap">
+      <table class="table">
+        <thead>
+          <tr>
+            <th>Period</th>
+            <th>Tickets</th>
+            <th>FR compliance</th>
+            <th>FR breaches</th>
+            <th>RES compliance</th>
+            <th>RES breaches</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>${a.rangeDays} dagar</td>
+            <td>${a.totalTickets ?? 0}</td>
+            <td>${a.firstResponse?.compliancePct ?? "-"}%</td>
+            <td>${a.firstResponse?.breaches ?? 0}</td>
+            <td>${a.resolution?.compliancePct ?? "-"}%</td>
+            <td>${a.resolution?.breaches ?? 0}</td>
+          </tr>
+          <tr>
+            <td>${b.rangeDays} dagar</td>
+            <td>${b.totalTickets ?? 0}</td>
+            <td>${b.firstResponse?.compliancePct ?? "-"}%</td>
+            <td>${b.firstResponse?.breaches ?? 0}</td>
+            <td>${b.resolution?.compliancePct ?? "-"}%</td>
+            <td>${b.resolution?.breaches ?? 0}</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="muted small" style="margin-top:8px;">Jämförelsen använder din backend endpoint <code>/admin/sla/compare</code>.</div>
+  `;
 
-    if (t.sla?.firstResponseMs != null && !b1) map[wk].firstOk++;
-    if (t.sla?.resolutionMs != null && !b2) map[wk].resOk++;
+  // Append under overview box
+  slaOverviewBox.insertAdjacentHTML("beforeend", block);
+}
+
+async function loadSlaTrend() {
+  const days = state.slaDays || 30;
+
+  // Toggle mode button inside hint area
+  const toggleHtml = `
+    <span class="pill" style="cursor:pointer;" id="slaTrendToggle">
+      Trend: ${state.slaTrendMode === "weekly" ? "Weekly" : "Daily"} (klicka för att ändra)
+    </span>
+  `;
+  setHTML(slaTrendHint, toggleHtml);
+
+  const toggle = $("slaTrendToggle");
+  toggle?.addEventListener("click", async () => {
+    state.slaTrendMode = state.slaTrendMode === "weekly" ? "daily" : "weekly";
+    localStorage.setItem("slaTrendMode", state.slaTrendMode);
+    await loadSlaTrend();
+  });
+
+  const endpoint =
+    state.slaTrendMode === "daily"
+      ? `/admin/sla/trend/daily?days=${clamp(days, 1, 120)}`
+      : `/admin/sla/trend/weekly?days=${days}`;
+
+  const data = await apiFetch(endpoint);
+  const rows = data.rows || [];
+
+  renderSlaTrendChart(rows, state.slaTrendMode);
+}
+
+let slaChartInstance = null;
+
+function renderSlaTrendChart(rows, mode) {
+  if (!slaTrendChart) return;
+  if (!window.Chart) {
+    setText(slaTrendHint, "Chart.js saknas (lägg in CDN om du vill ha graf).");
+    return;
   }
 
-  const rows = Object.values(map).sort((a, b) => String(a.week).localeCompare(String(b.week)));
-  return rows.map((r) => ({
-    week: r.week,
-    tickets: r.total,
-    firstCompliancePct: r.total ? Math.round((r.firstOk / r.total) * 100) : 0,
-    resolutionCompliancePct: r.total ? Math.round((r.resOk / r.total) * 100) : 0,
-  }));
-}
+  const labels = rows.map((r) => (mode === "daily" ? r.day : r.week));
+  const fr = rows.map((r) => r.firstCompliancePct ?? 0);
+  const rs = rows.map((r) => r.resolutionCompliancePct ?? 0);
 
-function buildTrendDaily(tickets) {
-  const map = {};
-  for (const t of tickets) {
-    safeEnsureSla(t);
-    const dk = dayKey(t.createdAt);
-
-    if (!map[dk]) map[dk] = { day: dk, total: 0, firstOk: 0, resOk: 0 };
-    map[dk].total++;
-
-    const b1 = !!t.sla?.breachedFirstResponse;
-    const b2 = !!t.sla?.breachedResolution;
-
-    if (t.sla?.firstResponseMs != null && !b1) map[dk].firstOk++;
-    if (t.sla?.resolutionMs != null && !b2) map[dk].resOk++;
+  if (slaChartInstance) {
+    slaChartInstance.destroy();
+    slaChartInstance = null;
   }
 
-  const rows = Object.values(map).sort((a, b) => String(a.day).localeCompare(String(b.day)));
-  return rows.map((r) => ({
-    day: r.day,
-    tickets: r.total,
-    firstCompliancePct: r.total ? Math.round((r.firstOk / r.total) * 100) : 0,
-    resolutionCompliancePct: r.total ? Math.round((r.resOk / r.total) * 100) : 0,
-  }));
-}
-
-function calcAgeingBuckets(openTickets) {
-  const now = Date.now();
-  const buckets = [
-    { key: "0-4h", from: 0, to: 4 * 3600 * 1000, count: 0 },
-    { key: "4-24h", from: 4 * 3600 * 1000, to: 24 * 3600 * 1000, count: 0 },
-    { key: "1-3d", from: 24 * 3600 * 1000, to: 3 * 24 * 3600 * 1000, count: 0 },
-    { key: "3-7d", from: 3 * 24 * 3600 * 1000, to: 7 * 24 * 3600 * 1000, count: 0 },
-    { key: "7d+", from: 7 * 24 * 3600 * 1000, to: Infinity, count: 0 },
-  ];
-
-  for (const t of openTickets) {
-    const age = now - new Date(t.createdAt).getTime();
-    const b = buckets.find((x) => age >= x.from && age < x.to);
-    if (b) b.count++;
-  }
-  return buckets;
-}
-
-function safePct(part, total) {
-  if (!total) return null;
-  return Math.round((part / total) * 100);
-}
-
-/* =====================
-   ✅ SLA endpoints
-===================== */
-app.get("/admin/sla/overview", authenticate, requireAgentOrAdmin, async (req, res) => {
-  try {
-    const dbUser = await getDbUser(req);
-    if (!dbUser) return res.status(403).json({ error: "User saknas" });
-
-    const rangeDays = Math.max(1, Math.min(365, Number(req.query.days || 30)));
-    const since = new Date(Date.now() - rangeDays * 24 * 60 * 60 * 1000);
-
-    const query = { createdAt: { $gte: since } };
-    if (dbUser.role === "agent") query.assignedToUserId = dbUser._id;
-
-    const tickets = await Ticket.find(query).limit(9000);
-    tickets.forEach((t) => safeEnsureSla(t));
-
-    const firstArr = tickets.map((t) => t.sla?.firstResponseMs).filter((x) => x != null);
-    const resArr = tickets.map((t) => t.sla?.resolutionMs).filter((x) => x != null);
-
-    const breachesFirst = tickets.filter((t) => t.sla?.firstResponseMs != null && t.sla.breachedFirstResponse).length;
-    const breachesRes = tickets.filter((t) => t.sla?.effectiveRunningMs != null && t.sla.breachedResolution).length;
-
-    const complianceFirst = firstArr.length ? Math.round(((firstArr.length - breachesFirst) / firstArr.length) * 100) : null;
-    const complianceRes = resArr.length ? Math.round(((resArr.length - breachesRes) / resArr.length) * 100) : null;
-
-    const atRiskFirst = tickets.filter((t) => t.sla?.firstResponseState === "at_risk").length;
-    const atRiskRes = tickets.filter((t) => t.sla?.resolutionState === "at_risk").length;
-
-    const byPriority = { low: 0, normal: 0, high: 0 };
-    tickets.forEach((t) => {
-      byPriority[t.priority || "normal"] = (byPriority[t.priority || "normal"] || 0) + 1;
-    });
-
-    // trend from tickets
-    const trendWeeks = buildTrendWeekly(tickets);
-
-    return res.json({
-      rangeDays,
-      totalTickets: tickets.length,
-      byPriority,
-      trendWeeks,
-
-      firstResponse: {
-        avgMs: avg(firstArr),
-        medianMs: median(firstArr),
-        p90Ms: percentile(firstArr, 90),
-        breaches: breachesFirst,
-        compliancePct: complianceFirst,
-        atRisk: atRiskFirst,
+  const ctx = slaTrendChart.getContext("2d");
+  slaChartInstance = new Chart(ctx, {
+    type: "line",
+    data: {
+      labels,
+      datasets: [
+        { label: "First response %", data: fr, tension: 0.35 },
+        { label: "Resolution %", data: rs, tension: 0.35 },
+      ],
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: { legend: { display: true } },
+      scales: {
+        y: { min: 0, max: 100, ticks: { callback: (v) => v + "%" } },
       },
-      resolution: {
-        avgMs: avg(resArr),
-        medianMs: median(resArr),
-        p90Ms: percentile(resArr, 90),
-        breaches: breachesRes,
-        compliancePct: complianceRes,
-        atRisk: atRiskRes,
-      },
+    },
+  });
+
+  // keep hint toggle visible
+  const toggleHtml = `
+    <span class="pill" style="cursor:pointer;" id="slaTrendToggle">
+      Trend: ${state.slaTrendMode === "weekly" ? "Weekly" : "Daily"} (klicka för att ändra)
+    </span>
+    <span class="muted small" style="margin-left:10px;">Punkter: ${rows.length}</span>
+  `;
+  setHTML(slaTrendHint, toggleHtml);
+  $("slaTrendToggle")?.addEventListener("click", async () => {
+    state.slaTrendMode = state.slaTrendMode === "weekly" ? "daily" : "weekly";
+    localStorage.setItem("slaTrendMode", state.slaTrendMode);
+    await loadSlaTrend();
+  });
+}
+
+async function loadSlaAgents() {
+  const days = state.slaDays || 30;
+  const data = await apiFetch(`/admin/sla/agents?days=${days}`);
+  const rows = data.rows || [];
+
+  if (!rows.length) {
+    setHTML(slaAgentsBox, `<div class="muted small">Ingen agentdata.</div>`);
+    return;
+  }
+
+  const html = `
+    <div class="tableWrap">
+      <table class="table">
+        <thead>
+          <tr>
+            <th>Agent</th>
+            <th>Tickets</th>
+            <th>Open</th>
+            <th>Pending</th>
+            <th>Solved</th>
+            <th>FR median</th>
+            <th>FR %</th>
+            <th>RES median</th>
+            <th>RES %</th>
+            <th>Risk</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${rows
+            .sort((a, b) => (b.tickets || 0) - (a.tickets || 0))
+            .map((r) => {
+              const fr = r.firstResponse || {};
+              const rs = r.resolution || {};
+              const risk = (r.firstRisk || 0) + (r.resRisk || 0);
+
+              return `
+                <tr>
+                  <td>${escapeHtml(r.username)} <span class="pill ${r.role === "admin" ? "admin" : ""}">${escapeHtml(r.role)}</span></td>
+                  <td>${r.tickets ?? 0}</td>
+                  <td>${r.open ?? 0}</td>
+                  <td>${r.pending ?? 0}</td>
+                  <td>${r.solved ?? 0}</td>
+                  <td>${escapeHtml(msToPretty(fr.medianMs))}</td>
+                  <td>${fr.compliancePct ?? "-"}%</td>
+                  <td>${escapeHtml(msToPretty(rs.medianMs))}</td>
+                  <td>${rs.compliancePct ?? "-"}%</td>
+                  <td><span class="pill">${risk}</span></td>
+                </tr>
+              `;
+            })
+            .join("")}
+        </tbody>
+      </table>
+    </div>
+    <div class="muted small" style="margin-top:8px;">Agents KPI inkluderar även open/pending/solved + risk-count.</div>
+  `;
+
+  setHTML(slaAgentsBox, html);
+}
+
+async function loadSlaTicketsTable() {
+  const days = state.slaDays || 30;
+  const data = await apiFetch(`/admin/sla/tickets?days=${days}`);
+  let rows = data.rows || [];
+
+  // Apply filters
+  const breachedFilter = slaBreachedFilter?.value || "all";
+  const breachType = slaBreachTypeFilter?.value || "any";
+  const sortMode = slaSortTickets?.value || "newest";
+
+  if (breachedFilter !== "all") {
+    rows = rows.filter((r) => {
+      const s = r.sla || {};
+      const breachedAny = !!s.breachedFirstResponse || !!s.breachedResolution;
+
+      if (breachedFilter === "breachedOnly") return breachedAny;
+      if (breachedFilter === "okOnly") return !breachedAny;
+      return true;
     });
-  } catch (e) {
-    console.error("❌ SLA overview error:", e?.message || e);
-    return res.status(500).json({ error: "Serverfel vid SLA overview" });
   }
-});
 
-app.get("/admin/sla/tickets", authenticate, requireAgentOrAdmin, async (req, res) => {
-  try {
-    const dbUser = await getDbUser(req);
-    if (!dbUser) return res.status(403).json({ error: "User saknas" });
-
-    const rangeDays = Math.max(1, Math.min(365, Number(req.query.days || 30)));
-    const since = new Date(Date.now() - rangeDays * 24 * 60 * 60 * 1000);
-
-    const query = { createdAt: { $gte: since } };
-    if (dbUser.role === "agent") query.assignedToUserId = dbUser._id;
-
-    const tickets = await Ticket.find(query).sort({ createdAt: -1 }).limit(6000);
-
-    const rows = tickets.map((t) => {
-      safeEnsureSla(t);
-      return {
-        ticketId: String(t._id),
-        companyId: t.companyId,
-        status: t.status,
-        priority: t.priority,
-        createdAt: t.createdAt,
-        sla: t.sla,
-      };
+  if (breachType !== "any") {
+    rows = rows.filter((r) => {
+      const s = r.sla || {};
+      if (breachType === "first") return !!s.breachedFirstResponse;
+      if (breachType === "resolution") return !!s.breachedResolution;
+      return true;
     });
-
-    return res.json({ rangeDays, count: rows.length, rows });
-  } catch (e) {
-    console.error("❌ SLA tickets error:", e?.message || e);
-    return res.status(500).json({ error: "Serverfel vid SLA tickets" });
   }
-});
 
-app.get("/admin/sla/agents", authenticate, requireAgentOrAdmin, async (req, res) => {
-  try {
-    const dbUser = await getDbUser(req);
-    if (!dbUser) return res.status(403).json({ error: "User saknas" });
-
-    const rangeDays = Math.max(1, Math.min(365, Number(req.query.days || 30)));
-    const since = new Date(Date.now() - rangeDays * 24 * 60 * 60 * 1000);
-
-    const query = { createdAt: { $gte: since }, assignedToUserId: { $ne: null } };
-    if (dbUser.role === "agent") query.assignedToUserId = dbUser._id;
-
-    const tickets = await Ticket.find(query).limit(12000);
-    const users = await User.find({ role: { $in: ["agent", "admin"] } }).select("_id username role");
-
-    const map = {};
-    for (const t of tickets) {
-      safeEnsureSla(t);
-      const agentId = String(t.assignedToUserId);
-
-      if (!map[agentId]) {
-        map[agentId] = {
-          agentId,
-          tickets: 0,
-          pending: 0,
-          open: 0,
-          solved: 0,
-          firstArr: [],
-          resArr: [],
-          firstBreaches: 0,
-          resBreaches: 0,
-          firstRisk: 0,
-          resRisk: 0,
-        };
-      }
-
-      map[agentId].tickets++;
-      if (t.status === "pending") map[agentId].pending++;
-      if (t.status === "open") map[agentId].open++;
-      if (t.status === "solved") map[agentId].solved++;
-
-      if (t.sla?.firstResponseMs != null) {
-        map[agentId].firstArr.push(t.sla.firstResponseMs);
-        if (t.sla.breachedFirstResponse) map[agentId].firstBreaches++;
-      }
-      if (t.sla?.resolutionMs != null) {
-        map[agentId].resArr.push(t.sla.resolutionMs);
-        if (t.sla.breachedResolution) map[agentId].resBreaches++;
-      }
-
-      if (t.sla?.firstResponseState === "at_risk") map[agentId].firstRisk++;
-      if (t.sla?.resolutionState === "at_risk") map[agentId].resRisk++;
-    }
-
-    let rows = Object.values(map).map((s) => {
-      const u = users.find((x) => String(x._id) === String(s.agentId));
-      const firstCompliance = s.firstArr.length ? Math.round(((s.firstArr.length - s.firstBreaches) / s.firstArr.length) * 100) : null;
-      const resCompliance = s.resArr.length ? Math.round(((s.resArr.length - s.resBreaches) / s.resArr.length) * 100) : null;
-
-      return {
-        agentId: s.agentId,
-        username: u?.username || "(unknown)",
-        role: u?.role || "agent",
-        tickets: s.tickets,
-        open: s.open,
-        pending: s.pending,
-        solved: s.solved,
-        firstRisk: s.firstRisk,
-        resRisk: s.resRisk,
-        firstResponse: {
-          avgMs: avg(s.firstArr),
-          medianMs: median(s.firstArr),
-          p90Ms: percentile(s.firstArr, 90),
-          breaches: s.firstBreaches,
-          compliancePct: firstCompliance,
-        },
-        resolution: {
-          avgMs: avg(s.resArr),
-          medianMs: median(s.resArr),
-          p90Ms: percentile(s.resArr, 90),
-          breaches: s.resBreaches,
-          compliancePct: resCompliance,
-        },
-      };
+  if (sortMode === "newest") rows.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+  if (sortMode === "oldest") rows.sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt));
+  if (sortMode === "worstFirst") {
+    rows.sort((a, b) => {
+      const sa = a.sla || {};
+      const sb = b.sla || {};
+      const aBad = (sa.breachedFirstResponse ? 1 : 0) + (sa.breachedResolution ? 1 : 0);
+      const bBad = (sb.breachedFirstResponse ? 1 : 0) + (sb.breachedResolution ? 1 : 0);
+      return bBad - aBad;
     });
-
-    if (dbUser.role === "agent") rows = rows.filter((r) => String(r.agentId) === String(dbUser._id));
-
-    return res.json({ rangeDays, count: rows.length, rows });
-  } catch (e) {
-    console.error("❌ SLA agents error:", e?.message || e);
-    return res.status(500).json({ error: "Serverfel vid SLA agents" });
   }
-});
 
-app.get("/admin/sla/trend/weekly", authenticate, requireAgentOrAdmin, async (req, res) => {
+  const html = `
+    <div class="tableWrap">
+      <table class="table">
+        <thead>
+          <tr>
+            <th>Ticket</th>
+            <th>Status</th>
+            <th>Prio</th>
+            <th>Skapad</th>
+            <th>FR</th>
+            <th>RES</th>
+            <th>FR kvar</th>
+            <th>RES kvar</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${rows
+            .slice(0, 300)
+            .map((r) => {
+              const s = r.sla || {};
+              const frState = s.firstResponseState || "-";
+              const resState = s.resolutionState || "-";
+
+              return `
+                <tr>
+                  <td>
+                    <span class="pill">${escapeHtml(String(r.ticketId).slice(-8))}</span>
+                    <span class="muted small">${escapeHtml(r.companyId || "")}</span>
+                  </td>
+                  <td>${escapeHtml(r.status || "-")}</td>
+                  <td>${escapeHtml(r.priority || "-")}</td>
+                  <td>${fmtDate(r.createdAt)}</td>
+                  <td><span class="${pillClassFromState(frState)}">${escapeHtml(frState)}</span></td>
+                  <td><span class="${pillClassFromState(resState)}">${escapeHtml(resState)}</span></td>
+                  <td>${escapeHtml(msToPretty(s.firstResponseRemainingMs))}</td>
+                  <td>${escapeHtml(msToPretty(s.resolutionRemainingMs))}</td>
+                </tr>
+              `;
+            })
+            .join("")}
+        </tbody>
+      </table>
+    </div>
+    <div class="muted small" style="margin-top:8px;">
+      Visar max 300 tickets (filtrera/period för fler). Totalt efter filter: ${rows.length}
+    </div>
+
+    <div class="divider"></div>
+
+    <button class="btn secondary" type="button" id="slaShowBreachedBtn">
+      <i class="fa-solid fa-triangle-exclamation"></i> Visa breached-lista
+    </button>
+
+    <div id="slaBreachedListBox" style="margin-top:10px;"></div>
+  `;
+
+  setHTML(slaTicketsBox, html);
+
+  $("slaShowBreachedBtn")?.addEventListener("click", loadSlaBreachedList);
+}
+
+async function loadSlaBreachedList() {
+  const box = $("slaBreachedListBox");
+  if (!box) return;
+
+  setHTML(box, `<div class="muted small">Laddar breached...</div>`);
+
   try {
-    const dbUser = await getDbUser(req);
-    const rangeDays = Math.max(1, Math.min(365, Number(req.query.days || 30)));
-    const since = new Date(Date.now() - rangeDays * 24 * 60 * 60 * 1000);
+    const days = state.slaDays || 30;
+    const data = await apiFetch(`/admin/sla/breached?days=${days}`);
+    const rows = data.rows || [];
 
-    const query = { createdAt: { $gte: since } };
-    if (dbUser.role === "agent") query.assignedToUserId = dbUser._id;
-
-    const tickets = await Ticket.find(query).limit(12000);
-    const rows = buildTrendWeekly(tickets);
-
-    return res.json({ rangeDays, count: rows.length, rows });
-  } catch (e) {
-    console.error("❌ SLA trend weekly error:", e?.message || e);
-    return res.status(500).json({ error: "Serverfel vid SLA trend weekly" });
-  }
-});
-
-// ✅ NEW: daily trend
-app.get("/admin/sla/trend/daily", authenticate, requireAgentOrAdmin, async (req, res) => {
-  try {
-    const dbUser = await getDbUser(req);
-    const rangeDays = Math.max(1, Math.min(120, Number(req.query.days || 30)));
-    const since = new Date(Date.now() - rangeDays * 24 * 60 * 60 * 1000);
-
-    const query = { createdAt: { $gte: since } };
-    if (dbUser.role === "agent") query.assignedToUserId = dbUser._id;
-
-    const tickets = await Ticket.find(query).limit(12000);
-    const rows = buildTrendDaily(tickets);
-    return res.json({ rangeDays, count: rows.length, rows });
-  } catch (e) {
-    console.error("❌ SLA trend daily error:", e?.message || e);
-    return res.status(500).json({ error: "Serverfel vid SLA trend daily" });
-  }
-});
-
-// ✅ NEW: KPI endpoint (more stats)
-app.get("/admin/sla/kpi", authenticate, requireAgentOrAdmin, async (req, res) => {
-  try {
-    const dbUser = await getDbUser(req);
-    const rangeDays = Math.max(1, Math.min(365, Number(req.query.days || 30)));
-    const since = new Date(Date.now() - rangeDays * 24 * 60 * 60 * 1000);
-
-    const baseQuery = { createdAt: { $gte: since } };
-    if (dbUser.role === "agent") baseQuery.assignedToUserId = dbUser._id;
-
-    const tickets = await Ticket.find(baseQuery).limit(15000);
-    tickets.forEach((t) => safeEnsureSla(t));
-
-    const total = tickets.length;
-
-    const open = tickets.filter((t) => t.status === "open").length;
-    const pending = tickets.filter((t) => t.status === "pending").length;
-    const solved = tickets.filter((t) => t.status === "solved").length;
-
-    const breachedAny = tickets.filter((t) => t.sla?.breachedFirstResponse || t.sla?.breachedResolution).length;
-    const riskAny = tickets.filter((t) => t.sla?.firstResponseState === "at_risk" || t.sla?.resolutionState === "at_risk").length;
-
-    const firstArr = tickets.map((t) => t.sla?.firstResponseMs).filter((x) => x != null);
-    const resArr = tickets.map((t) => t.sla?.resolutionMs).filter((x) => x != null);
-
-    // KPIs per category
-    const byCategory = {};
-    for (const t of tickets) {
-      const k = t.companyId || "unknown";
-      if (!byCategory[k]) {
-        byCategory[k] = { companyId: k, total: 0, breached: 0, risk: 0, solved: 0, open: 0, pending: 0 };
-      }
-      byCategory[k].total++;
-      if (t.status === "solved") byCategory[k].solved++;
-      if (t.status === "open") byCategory[k].open++;
-      if (t.status === "pending") byCategory[k].pending++;
-      if (t.sla?.breachedFirstResponse || t.sla?.breachedResolution) byCategory[k].breached++;
-      if (t.sla?.firstResponseState === "at_risk" || t.sla?.resolutionState === "at_risk") byCategory[k].risk++;
+    if (!rows.length) {
+      setHTML(box, `<div class="muted small">Inga breached tickets 🎉</div>`);
+      return;
     }
 
-    const catRows = Object.values(byCategory).map((r) => ({
-      ...r,
-      breachedPct: safePct(r.breached, r.total),
-      solvedPct: safePct(r.solved, r.total),
-    }));
+    const html = `
+      <div class="panel soft">
+        <div class="panelHead">
+          <b>Breached tickets</b>
+          <span class="muted small" style="margin-left:auto;">${rows.length} st</span>
+        </div>
+        ${rows
+          .slice(0, 120)
+          .map((r) => {
+            const s = r.sla || {};
+            const b1 = s.breachedFirstResponse ? "FR" : "";
+            const b2 = s.breachedResolution ? "RES" : "";
+            const which = [b1, b2].filter(Boolean).join(" + ") || "Breach";
 
-    // backlog ageing uses open+pending (active)
-    const activeTickets = tickets.filter((t) => t.status !== "solved");
-    const ageing = calcAgeingBuckets(activeTickets);
-
-    // solve rate: solved / total in period
-    const solveRatePct = safePct(solved, total);
-
-    return res.json({
-      rangeDays,
-      totals: {
-        total,
-        open,
-        pending,
-        solved,
-        solveRatePct,
-      },
-      slaHealth: {
-        breachedAny,
-        breachedPct: safePct(breachedAny, total),
-        riskAny,
-        riskPct: safePct(riskAny, total),
-      },
-      distribution: {
-        firstResponse: {
-          avgMs: avg(firstArr),
-          medianMs: median(firstArr),
-          p90Ms: percentile(firstArr, 90),
-        },
-        resolution: {
-          avgMs: avg(resArr),
-          medianMs: median(resArr),
-          p90Ms: percentile(resArr, 90),
-        },
-      },
-      ageing,
-      byCategory: catRows.sort((a, b) => (b.total || 0) - (a.total || 0)),
-    });
+            return `
+              <div class="listItem" style="cursor:default;">
+                <div class="listItemTitle">
+                  <i class="fa-solid fa-triangle-exclamation"></i>
+                  <span>${escapeHtml(String(r.ticketId).slice(-8))}</span>
+                  <span class="pill danger">${escapeHtml(which)}</span>
+                  <span class="pill">${escapeHtml(r.priority || "normal")}</span>
+                  <span class="pill">${escapeHtml(r.status || "-")}</span>
+                </div>
+                <div class="muted small" style="margin-top:6px;">
+                  ${escapeHtml(r.companyId || "")} • Skapad: ${fmtDate(r.createdAt)}
+                </div>
+              </div>
+            `;
+          })
+          .join("")}
+        ${rows.length > 120 ? `<div class="muted small">Visar 120 av ${rows.length}</div>` : ""}
+      </div>
+    `;
+    setHTML(box, html);
   } catch (e) {
-    console.error("❌ SLA KPI error:", e?.message || e);
-    return res.status(500).json({ error: "Serverfel vid SLA KPI" });
+    setHTML(box, `<div class="alert error">${escapeHtml(e.message)}</div>`);
   }
-});
+}
 
-/* =====================
-   ✅ SLA compare
-===================== */
-app.get("/admin/sla/compare", authenticate, requireAgentOrAdmin, async (req, res) => {
+async function clearMyStats() {
   try {
-    const dbUser = await getDbUser(req);
-
-    const a = Math.max(1, Math.min(365, Number(req.query.a || 30)));
-    const b = Math.max(1, Math.min(365, Number(req.query.b || 7)));
-
-    async function build(days) {
-      const since = new Date(Date.now() - days * 24 * 60 * 60 * 1000);
-      const query = { createdAt: { $gte: since } };
-      if (dbUser.role === "agent") query.assignedToUserId = dbUser._id;
-
-      const tickets = await Ticket.find(query).limit(15000);
-      tickets.forEach((t) => safeEnsureSla(t));
-
-      const firstArr = tickets.map((t) => t.sla?.firstResponseMs).filter((x) => x != null);
-      const resArr = tickets.map((t) => t.sla?.resolutionMs).filter((x) => x != null);
-
-      const breachesFirst = tickets.filter((t) => t.sla?.firstResponseMs != null && t.sla.breachedFirstResponse).length;
-      const breachesRes = tickets.filter((t) => t.sla?.effectiveRunningMs != null && t.sla.breachedResolution).length;
-
-      const firstCompliance = firstArr.length ? Math.round(((firstArr.length - breachesFirst) / firstArr.length) * 100) : null;
-      const resCompliance = resArr.length ? Math.round(((resArr.length - breachesRes) / resArr.length) * 100) : null;
-
-      const atRiskFirst = tickets.filter((t) => t.sla?.firstResponseState === "at_risk").length;
-      const atRiskRes = tickets.filter((t) => t.sla?.resolutionState === "at_risk").length;
-
-      return {
-        rangeDays: days,
-        totalTickets: tickets.length,
-        firstResponse: {
-          avgMs: avg(firstArr),
-          medianMs: median(firstArr),
-          p90Ms: percentile(firstArr, 90),
-          breaches: breachesFirst,
-          compliancePct: firstCompliance,
-          atRisk: atRiskFirst,
-        },
-        resolution: {
-          avgMs: avg(resArr),
-          medianMs: median(resArr),
-          p90Ms: percentile(resArr, 90),
-          breaches: breachesRes,
-          compliancePct: resCompliance,
-          atRisk: atRiskRes,
-        },
-      };
+    if (!state.user || state.user.role !== "admin") {
+      alert("Just nu kan bara admin radera statistik i backend (kräver agentId).");
+      return;
     }
 
-    const A = await build(a);
-    const B = await build(b);
-
-    return res.json({ a: A, b: B });
+    // Admin can clear own stats by agentId
+    await apiFetch(`/admin/sla/clear/agent/${state.user.id}`, { method: "POST" });
+    await loadSlaDashboard();
   } catch (e) {
-    console.error("❌ SLA compare error:", e?.message || e);
-    return res.status(500).json({ error: "Serverfel vid compare" });
+    alert(e.message);
   }
-});
+}
 
-/* =====================
-   ✅ SLA Export CSV
-   ✅ Frontend wants: /admin/sla/export.csv
-===================== */
-app.get("/admin/sla/export.csv", authenticate, requireAgentOrAdmin, async (req, res) => {
+async function clearAllStats() {
   try {
-    const dbUser = await getDbUser(req);
-    const rangeDays = Math.max(1, Math.min(365, Number(req.query.days || 30)));
-    const since = new Date(Date.now() - rangeDays * 24 * 60 * 60 * 1000);
-
-    const query = { createdAt: { $gte: since } };
-    if (dbUser.role === "agent") query.assignedToUserId = dbUser._id;
-
-    const tickets = await Ticket.find(query).sort({ createdAt: -1 }).limit(10000);
-
-    const rows = tickets.map((t) => {
-      safeEnsureSla(t);
-      return {
-        ticketId: String(t._id),
-        companyId: t.companyId,
-        status: t.status,
-        priority: t.priority,
-        assignedTo: t.assignedToUserId ? String(t.assignedToUserId) : "",
-        createdAt: t.createdAt?.toISOString?.() || "",
-        firstResponseMs: t.sla?.firstResponseMs ?? "",
-        resolutionMs: t.sla?.resolutionMs ?? "",
-        pendingTotalMs: t.sla?.pendingTotalMs ?? "",
-        effectiveRunningMs: t.sla?.effectiveRunningMs ?? "",
-        firstState: t.sla?.firstResponseState ?? "",
-        resState: t.sla?.resolutionState ?? "",
-        breachedFirstResponse: t.sla?.breachedFirstResponse ? "YES" : "NO",
-        breachedResolution: t.sla?.breachedResolution ? "YES" : "NO",
-      };
-    });
-
-    const csv = toCsv(rows);
-
-    res.setHeader("Content-Type", "text/csv; charset=utf-8");
-    res.setHeader("Content-Disposition", `attachment; filename="sla_export_${rangeDays}d.csv"`);
-    return res.send(csv);
+    if (!state.user || state.user.role !== "admin") throw new Error("Endast admin");
+    if (!confirm("Radera ALL SLA-statistik?")) return;
+    await apiFetch(`/admin/sla/clear/all`, { method: "POST" });
+    await loadSlaDashboard();
   } catch (e) {
-    console.error("❌ SLA CSV export error:", e?.message || e);
-    return res.status(500).json({ error: "Serverfel vid SLA export CSV" });
+    alert(e.message);
   }
-});
+}
 
-/* =====================
-   ✅ Existing endpoint kept (backward compat)
-===================== */
-app.get("/admin/sla/export/csv", authenticate, requireAgentOrAdmin, async (req, res) => {
-  // just forward to new endpoint for compat
-  req.url = "/admin/sla/export.csv";
-  return app._router.handle(req, res, () => {});
-});
+/* =========================
+   DEBUG
+========================= */
+function refreshDebug() {
+  if (!dbgApi) return;
+  setText(dbgApi, location.origin);
+  setText(dbgLogged, state.user ? "YES" : "NO");
+  setText(dbgRole, state.user?.role || "-");
+  setText(dbgTicket, state.currentTicketId ? String(state.currentTicketId).slice(-8) : "-");
+  // dbgRag is set after chat response
+}
 
-/* =====================
-   ✅ SLA extra tools
-===================== */
-app.get("/admin/sla/ticket/:ticketId/live", authenticate, requireAgentOrAdmin, async (req, res) => {
-  try {
-    const t = await Ticket.findById(req.params.ticketId);
-    if (!t) return res.status(404).json({ error: "Ticket hittades inte" });
-
-    safeEnsureSla(t);
-    return res.json({
-      ticketId: String(t._id),
-      status: t.status,
-      priority: t.priority,
-      sla: t.sla,
-    });
-  } catch {
-    return res.status(500).json({ error: "Serverfel vid live SLA" });
-  }
-});
-
-app.get("/admin/sla/breached", authenticate, requireAgentOrAdmin, async (req, res) => {
-  try {
-    const dbUser = await getDbUser(req);
-    const rangeDays = Math.max(1, Math.min(365, Number(req.query.days || 30)));
-    const since = new Date(Date.now() - rangeDays * 24 * 60 * 60 * 1000);
-
-    const query = { createdAt: { $gte: since } };
-    if (dbUser.role === "agent") query.assignedToUserId = dbUser._id;
-
-    const tickets = await Ticket.find(query).sort({ createdAt: -1 }).limit(10000);
-    tickets.forEach((t) => safeEnsureSla(t));
-
-    const breached = tickets.filter((t) => t.sla?.breachedFirstResponse || t.sla?.breachedResolution);
-
-    return res.json({
-      rangeDays,
-      count: breached.length,
-      rows: breached.map((t) => ({
-        ticketId: String(t._id),
-        companyId: t.companyId,
-        status: t.status,
-        priority: t.priority,
-        createdAt: t.createdAt,
-        sla: t.sla,
-      })),
-    });
-  } catch {
-    return res.status(500).json({ error: "Serverfel vid breached SLA" });
-  }
-});
-
-app.post("/admin/sla/recalc/all", authenticate, requireAdmin, async (req, res) => {
-  try {
-    const tickets = await Ticket.find({}).limit(50000);
-    let updated = 0;
-
-    for (const t of tickets) {
-      safeEnsureSla(t);
-      await t.save().catch(() => {});
-      updated++;
+/* =========================
+   INBOX NOTIF POLLING
+========================= */
+function startInboxNotifPolling() {
+  // light polling to refresh notif dot
+  setInterval(async () => {
+    if (!state.user || !["admin", "agent"].includes(state.user.role)) return;
+    try {
+      const data = await apiFetch(`/admin/tickets?companyId=${encodeURIComponent(state.companyId)}`);
+      state.inboxTickets = data || [];
+      updateInboxNotifDot();
+    } catch {
+      // ignore
     }
+  }, 15000);
+}
 
-    return res.json({ message: `SLA recalculated ✅ (${updated} tickets)` });
-  } catch {
-    return res.status(500).json({ error: "Serverfel vid SLA recalc" });
-  }
-});
+/* =========================
+   UTIL
+========================= */
+function escapeHtml(str) {
+  const s = String(str ?? "");
+  return s
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("'", "&#039;");
+}
 
-app.post("/admin/sla/clear/all", authenticate, requireAdmin, async (req, res) => {
-  try {
-    const r = await SLAStat.deleteMany({});
-    return res.json({ message: `SLA statistik raderad ✅ (${r.deletedCount} rows)` });
-  } catch {
-    return res.status(500).json({ error: "Serverfel vid radera statistik" });
-  }
-});
-
-app.post("/admin/sla/clear/agent/:agentId", authenticate, requireAdmin, async (req, res) => {
-  try {
-    const agentId = req.params.agentId;
-    const r = await SLAStat.deleteMany({ agentUserId: agentId });
-    return res.json({ message: `Agent statistik raderad ✅ (${r.deletedCount} rows)` });
-  } catch {
-    return res.status(500).json({ error: "Serverfel vid radera agent statistik" });
-  }
-});
-
-/* =====================
-   ✅ ADMIN: Users + roles
-===================== */
-app.get("/admin/users", authenticate, requireAgentOrAdmin, async (req, res) => {
-  const users = await User.find({}).select("-password").sort({ createdAt: -1 }).limit(2000);
-  return res.json(users);
-});
-
-app.post("/admin/users/:userId/role", authenticate, requireAdmin, async (req, res) => {
-  try {
-    const { role } = req.body || {};
-    if (!["user", "agent", "admin"].includes(role)) return res.status(400).json({ error: "Ogiltig roll" });
-
-    const targetId = req.params.userId;
-    const me = await User.findById(req.user.id);
-
-    if (!me || me.role !== "admin") return res.status(403).json({ error: "Admin krävs" });
-
-    const u = await User.findById(targetId);
-    if (!u) return res.status(404).json({ error: "User hittades inte" });
-
-    if (String(u._id) === String(me._id)) return res.status(400).json({ error: "Du kan inte ändra din egen roll." });
-
-    u.role = role;
-    await u.save();
-
-    return res.json({ message: "Roll uppdaterad ✅", user: { id: u._id, username: u.username, role: u.role } });
-  } catch {
-    return res.status(500).json({ error: "Serverfel vid roll-ändring" });
-  }
-});
-
-app.delete("/admin/users/:userId", authenticate, requireAdmin, async (req, res) => {
-  try {
-    const targetId = req.params.userId;
-
-    if (String(targetId) === String(req.user.id)) return res.status(400).json({ error: "Du kan inte ta bort dig själv." });
-
-    const u = await User.findById(targetId);
-    if (!u) return res.status(404).json({ error: "User hittades inte" });
-
-    await Ticket.deleteMany({ userId: targetId });
-    await Feedback.deleteMany({ userId: targetId });
-    await SLAStat.deleteMany({ agentUserId: targetId });
-
-    await User.deleteOne({ _id: targetId });
-
-    return res.json({ message: `Användaren ${u.username} togs bort ✅` });
-  } catch {
-    return res.status(500).json({ error: "Serverfel vid borttagning" });
-  }
-});
-
-/* =====================
-   ✅ ADMIN: Categories manager
-===================== */
-app.post("/admin/categories", authenticate, requireAdmin, async (req, res) => {
-  try {
-    const { key, name, systemPrompt } = req.body || {};
-    if (!key || !name) return res.status(400).json({ error: "key + name krävs" });
-
-    const exists = await Category.findOne({ key });
-    if (exists) return res.status(400).json({ error: "Kategori finns redan" });
-
-    await new Category({ key, name, systemPrompt: systemPrompt || "" }).save();
-    return res.json({ message: "Kategori skapad ✅" });
-  } catch {
-    return res.status(500).json({ error: "Serverfel vid skapa kategori" });
-  }
-});
-
-app.delete("/admin/categories/:key", authenticate, requireAdmin, async (req, res) => {
-  try {
-    const key = req.params.key;
-    if (["demo", "law", "tech", "cleaning"].includes(key)) {
-      return res.status(400).json({ error: "Default-kategorier kan inte tas bort" });
-    }
-
-    await Category.deleteOne({ key });
-    await KBChunk.deleteMany({ companyId: key });
-    await Ticket.deleteMany({ companyId: key });
-
-    return res.json({ message: `Kategori ${key} borttagen ✅` });
-  } catch {
-    return res.status(500).json({ error: "Serverfel vid delete kategori" });
-  }
-});
-
-/* =====================
-   ✅ ADMIN: KB Upload / List / Export
-===================== */
-app.get("/kb/list/:companyId", authenticate, requireAdmin, async (req, res) => {
-  const items = await KBChunk.find({ companyId: req.params.companyId, isDeleted: false })
-    .sort({ createdAt: -1 })
-    .limit(400);
-  return res.json(items);
-});
-
-app.post("/kb/upload-text", authenticate, requireAdmin, async (req, res) => {
-  try {
-    const { companyId, title, content } = req.body || {};
-    if (!companyId || !content) return res.status(400).json({ error: "companyId eller content saknas" });
-
-    const chunks = chunkText(content);
-    if (!chunks.length) return res.status(400).json({ error: "Ingen text att spara" });
-
-    let okCount = 0;
-    for (let i = 0; i < chunks.length; i++) {
-      const emb = await createEmbedding(chunks[i]);
-      const embeddingOk = !!emb;
-      if (embeddingOk) okCount++;
-
-      await new KBChunk({
-        companyId,
-        sourceType: "text",
-        sourceRef: "manual",
-        title: title || "Text",
-        chunkIndex: i,
-        content: chunks[i],
-        embedding: emb || [],
-        embeddingOk,
-      }).save();
-    }
-
-    return res.json({ message: `Text uppladdad ✅ (${chunks.length} chunks, embeddings: ${okCount}/${chunks.length})` });
-  } catch (e) {
-    return res.status(500).json({ error: `Serverfel: ${e.message}` });
-  }
-});
-
-app.post("/kb/upload-url", authenticate, requireAdmin, async (req, res) => {
-  try {
-    const { companyId, url } = req.body || {};
-    if (!companyId || !url) return res.status(400).json({ error: "companyId eller url saknas" });
-
-    const text = await fetchUrlText(url);
-    const chunks = chunkText(text);
-
-    let okCount = 0;
-    for (let i = 0; i < chunks.length; i++) {
-      const emb = await createEmbedding(chunks[i]);
-      const embeddingOk = !!emb;
-      if (embeddingOk) okCount++;
-
-      await new KBChunk({
-        companyId,
-        sourceType: "url",
-        sourceRef: url,
-        title: "URL",
-        chunkIndex: i,
-        content: chunks[i],
-        embedding: emb || [],
-        embeddingOk,
-      }).save();
-    }
-
-    return res.json({ message: `URL uppladdad ✅ (${chunks.length} chunks, embeddings: ${okCount}/${chunks.length})` });
-  } catch (e) {
-    return res.status(500).json({ error: `Serverfel vid URL-upload: ${e.message}` });
-  }
-});
-
-app.post("/kb/upload-pdf", authenticate, requireAdmin, async (req, res) => {
-  try {
-    const { companyId, filename, base64 } = req.body || {};
-    if (!companyId || !base64) return res.status(400).json({ error: "companyId eller base64 saknas" });
-
-    const text = await extractPdfText(base64);
-    const chunks = chunkText(text);
-
-    let okCount = 0;
-    for (let i = 0; i < chunks.length; i++) {
-      const emb = await createEmbedding(chunks[i]);
-      const embeddingOk = !!emb;
-      if (embeddingOk) okCount++;
-
-      await new KBChunk({
-        companyId,
-        sourceType: "pdf",
-        sourceRef: filename || "pdf",
-        title: filename || "PDF",
-        chunkIndex: i,
-        content: chunks[i],
-        embedding: emb || [],
-        embeddingOk,
-      }).save();
-    }
-
-    return res.json({ message: `PDF uppladdad ✅ (${chunks.length} chunks, embeddings: ${okCount}/${chunks.length})` });
-  } catch (e) {
-    return res.status(500).json({ error: `Serverfel vid PDF-upload: ${e.message}` });
-  }
-});
-
-app.get("/export/kb/:companyId", authenticate, requireAdmin, async (req, res) => {
-  const items = await KBChunk.find({ companyId: req.params.companyId }).sort({ createdAt: -1 });
-  res.setHeader("Content-Type", "application/json");
-  res.setHeader("Content-Disposition", `attachment; filename="kb_${req.params.companyId}.json"`);
-  return res.send(JSON.stringify(items, null, 2));
-});
-
-/* =====================
-   ✅ EXPORT ALL
-===================== */
-app.get("/admin/export/all", authenticate, requireAdmin, async (req, res) => {
-  const users = await User.find({}).select("-password");
-  const tickets = await Ticket.find({});
-  const kb = await KBChunk.find({});
-  const feedback = await Feedback.find({});
-  const categories = await Category.find({});
-  const slaStats = await SLAStat.find({}).limit(20000);
-
-  res.setHeader("Content-Type", "application/json");
-  res.setHeader("Content-Disposition", `attachment; filename="export_all.json"`);
-  return res.send(
-    JSON.stringify(
-      { users, tickets, kb, feedback, categories, slaStats, exportedAt: new Date().toISOString() },
-      null,
-      2
-    )
-  );
-});
-
-/* =====================
-   ✅ TRAINING EXPORT
-===================== */
-app.get("/admin/export/training", authenticate, requireAdmin, async (req, res) => {
-  const { companyId } = req.query || {};
-  const query = {};
-  if (companyId) query.companyId = companyId;
-
-  const tickets = await Ticket.find(query).sort({ createdAt: -1 }).limit(4000);
-
-  const rows = [];
-  for (const t of tickets) {
-    const msgs = t.messages || [];
-    for (let i = 0; i < msgs.length - 1; i++) {
-      const a = msgs[i];
-      const b = msgs[i + 1];
-      if (a.role === "user" && (b.role === "assistant" || b.role === "agent")) {
-        rows.push({
-          companyId: t.companyId,
-          ticketId: String(t._id),
-          question: a.content,
-          answer: b.content,
-          answeredBy: b.role,
-          timestamp: b.timestamp,
-        });
-      }
-    }
-  }
-
-  res.setHeader("Content-Type", "application/json");
-  res.setHeader(
-    "Content-Disposition",
-    `attachment; filename="training_export${companyId ? "_" + companyId : ""}.json"`
-  );
-  return res.send(JSON.stringify({ exportedAt: new Date().toISOString(), rows }, null, 2));
-});
-
-/* =====================
-   ✅ JSON 404 for API routes
-===================== */
-app.use((req, res, next) => {
-  if (
-    req.path.startsWith("/admin") ||
-    req.path.startsWith("/auth") ||
-    req.path.startsWith("/kb") ||
-    req.path.startsWith("/chat") ||
-    req.path.startsWith("/my") ||
-    req.path.startsWith("/feedback")
-  ) {
-    return res.status(404).json({ error: "API route hittades inte" });
-  }
-  next();
-});
-
-/* =====================
-   ✅ Start
-===================== */
-const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => console.log(`✅ Servern körs på http://localhost:${PORT}`));
-console.log("✅ server.js reached end of file without crashing");
+function fileToBase64(file) {
+  return new Promise((resolve, reject) => {
+    const r = new FileReader();
+    r.onload = () => resolve(String(r.result || ""));
+    r.onerror = reject;
+    r.readAsDataURL(file);
+  });
+}

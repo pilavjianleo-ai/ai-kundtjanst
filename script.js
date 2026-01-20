@@ -1,133 +1,51 @@
 /* =========================================================
-   AI Kundtjänst - script.js (FULL)
-   - Matchar din index.html (alla ID:n)
-   - Fixar Chart.js grafen (destroy/recreate)
-   - SLA: KPI + trend + agents + tickets + filter/sort
-   - Inbox + My tickets + Admin + KB + Categories
-   ========================================================= */
+   AI Kundtjänst - script.js (UPGRADED)
+   - Full app controller
+   - Auth + Views + Tickets + Inbox + Admin + KB + Categories
+   - SLA Dashboard: Overview + KPI + Agents + Tickets + Trend (daily/weekly) + Breached
+========================================================= */
 
 /* =========================
    CONFIG
 ========================= */
-const API_BASE = ""; // samma origin (Render/localhost). Lämna tom.
-
-const LS = {
-  token: "ai_token",
-  user: "ai_user",
-  theme: "ai_theme",
-  debug: "ai_debug",
-  chatConversation: "ai_chat_conversation",
-  currentCompanyId: "ai_company_id",
-  lastTicketId: "ai_last_ticket_id",
-};
-
-let state = {
-  token: localStorage.getItem(LS.token) || "",
-  user: safeJsonParse(localStorage.getItem(LS.user)) || null,
-  companyId: localStorage.getItem(LS.currentCompanyId) || "demo",
-
-  conversation: safeJsonParse(localStorage.getItem(LS.chatConversation)) || [],
-  lastTicketId: localStorage.getItem(LS.lastTicketId) || "",
-
-  selectedMyTicketId: null,
-  selectedInboxTicketId: null,
-
-  debug: localStorage.getItem(LS.debug) === "1",
-
-  chartTrend: null, // Chart.js instance
-};
+const API_BASE = ""; // same origin
 
 /* =========================
-   DOM helpers
+   HELPERS
 ========================= */
 const $ = (id) => document.getElementById(id);
-const qs = (sel) => document.querySelector(sel);
-const qsa = (sel) => Array.from(document.querySelectorAll(sel));
 
-function safeJsonParse(str) {
-  try {
-    return JSON.parse(str);
-  } catch {
-    return null;
-  }
-}
-
-function setLS(key, value) {
-  if (value === null || value === undefined) localStorage.removeItem(key);
-  else localStorage.setItem(key, value);
-}
-
-function show(el, on = true) {
+function show(el) {
   if (!el) return;
-  el.style.display = on ? "" : "none";
+  el.style.display = "";
 }
 
-function setActiveMenu(btnId) {
-  const ids = ["openChatView", "openMyTicketsView", "openInboxView", "openSlaView", "openAdminView", "openSettingsView"];
-  ids.forEach((id) => {
-    const b = $(id);
-    if (!b) return;
-    b.classList.toggle("active", id === btnId);
-  });
-}
-
-function switchView(viewId) {
-  const views = ["authView", "chatView", "myTicketsView", "inboxView", "slaView", "adminView", "settingsView"];
-  views.forEach((id) => show($(id), id === viewId));
-}
-
-/* =========================
-   API helper
-========================= */
-async function api(path, opts = {}) {
-  const headers = opts.headers || {};
-  if (state.token) headers.Authorization = `Bearer ${state.token}`;
-  if (!headers["Content-Type"] && !(opts.body instanceof FormData)) headers["Content-Type"] = "application/json";
-
-  const res = await fetch(API_BASE + path, {
-    ...opts,
-    headers,
-  });
-
-  let data = null;
-  const ct = res.headers.get("content-type") || "";
-  if (ct.includes("application/json")) data = await res.json().catch(() => null);
-  else data = await res.text().catch(() => null);
-
-  if (!res.ok) {
-    const msg = data?.error || data?.message || `HTTP ${res.status}`;
-    throw new Error(msg);
-  }
-  return data;
-}
-
-/* =========================
-   UI feedback helpers
-========================= */
-function setAlert(el, msg, type = "") {
+function hide(el) {
   if (!el) return;
-  el.textContent = msg || "";
-  el.classList.remove("error");
-  if (type === "error") el.classList.add("error");
-  show(el, !!msg);
+  el.style.display = "none";
 }
 
-function escapeHtml(s) {
-  return String(s || "")
-    .replaceAll("&", "&amp;")
-    .replaceAll("<", "&lt;")
-    .replaceAll(">", "&gt;")
-    .replaceAll('"', "&quot;")
-    .replaceAll("'", "&#039;");
+function setText(el, text) {
+  if (!el) return;
+  el.textContent = text ?? "";
+}
+
+function setHTML(el, html) {
+  if (!el) return;
+  el.innerHTML = html ?? "";
+}
+
+function clamp(n, a, b) {
+  return Math.max(a, Math.min(b, n));
 }
 
 function fmtDate(d) {
   try {
     const dt = new Date(d);
-    if (isNaN(dt.getTime())) return "";
+    if (isNaN(dt.getTime())) return "-";
     return dt.toLocaleString("sv-SE");
   } catch {
-    return "";
+    return "-";
   }
 }
 
@@ -146,431 +64,689 @@ function msToPretty(ms) {
   return `${s}s`;
 }
 
-function pct(v) {
-  if (v == null) return "-";
-  return `${v}%`;
+function pillClassFromState(state) {
+  if (state === "ok") return "pill ok";
+  if (state === "breached") return "pill danger";
+  if (state === "at_risk") return "pill warn";
+  return "pill";
 }
 
-function pill(label, kind = "") {
-  const cls =
-    kind === "ok"
-      ? "pill ok"
-      : kind === "warn"
-      ? "pill warn"
-      : kind === "danger"
-      ? "pill danger"
-      : "pill";
-  return `<span class="${cls}">${escapeHtml(label)}</span>`;
+function safeJsonParse(s, fallback) {
+  try {
+    return JSON.parse(s);
+  } catch {
+    return fallback;
+  }
 }
+
+function debounce(fn, wait = 250) {
+  let t = null;
+  return (...args) => {
+    clearTimeout(t);
+    t = setTimeout(() => fn(...args), wait);
+  };
+}
+
+function downloadText(filename, text) {
+  const blob = new Blob([text], { type: "text/plain;charset=utf-8" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  URL.revokeObjectURL(url);
+}
+
+/* =========================
+   STATE
+========================= */
+const state = {
+  token: localStorage.getItem("token") || "",
+  user: null,
+
+  companyId: localStorage.getItem("companyId") || "demo",
+
+  conversation: [], // for chat view
+  currentTicketId: null,
+
+  myTickets: [],
+  selectedMyTicket: null,
+
+  inboxTickets: [],
+  selectedInboxTicket: null,
+
+  categories: [],
+
+  debugOn: false,
+
+  // SLA
+  slaDays: Number(localStorage.getItem("slaDays") || 30),
+  slaCompareMode: localStorage.getItem("slaCompareMode") || "none",
+  slaTrendMode: localStorage.getItem("slaTrendMode") || "weekly", // weekly | daily
+};
+
+/* =========================
+   API
+========================= */
+async function apiFetch(path, { method = "GET", body, auth = true } = {}) {
+  const headers = { "Content-Type": "application/json" };
+  if (auth && state.token) headers.Authorization = `Bearer ${state.token}`;
+
+  const res = await fetch(API_BASE + path, {
+    method,
+    headers,
+    body: body ? JSON.stringify(body) : undefined,
+  });
+
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) {
+    const msg = data?.error || `HTTP ${res.status}`;
+    throw new Error(msg);
+  }
+  return data;
+}
+
+/* =========================
+   DOM refs
+========================= */
+// Views
+const authView = $("authView");
+const chatView = $("chatView");
+const myTicketsView = $("myTicketsView");
+const inboxView = $("inboxView");
+const adminView = $("adminView");
+const settingsView = $("settingsView");
+const slaView = $("slaView");
+
+// Sidebar
+const roleBadge = $("roleBadge");
+const categorySelect = $("categorySelect");
+const openChatViewBtn = $("openChatView");
+const openMyTicketsViewBtn = $("openMyTicketsView");
+const openInboxViewBtn = $("openInboxView");
+const openAdminViewBtn = $("openAdminView");
+const openSettingsViewBtn = $("openSettingsView");
+const openSlaViewBtn = $("openSlaView");
+const inboxNotifDot = $("inboxNotifDot");
+
+// Auth
+const usernameInput = $("username");
+const emailInput = $("email");
+const passwordInput = $("password");
+const togglePassBtn = $("togglePassBtn");
+const loginBtn = $("loginBtn");
+const registerBtn = $("registerBtn");
+const authMessage = $("authMessage");
+
+const openForgotBtn = $("openForgotBtn");
+const forgotCard = $("forgotCard");
+const forgotEmail = $("forgotEmail");
+const sendForgotBtn = $("sendForgotBtn");
+const closeForgotBtn = $("closeForgotBtn");
+const forgotMsg = $("forgotMsg");
+
+const resetCard = $("resetCard");
+const resetNewPass = $("resetNewPass");
+const toggleResetPassBtn = $("toggleResetPassBtn");
+const resetSaveBtn = $("resetSaveBtn");
+const resetMsg = $("resetMsg");
+
+// Chat
+const chatTitle = $("chatTitle");
+const chatSubtitle = $("chatSubtitle");
+const messagesBox = $("messages");
+const messageInput = $("messageInput");
+const sendBtn = $("sendBtn");
+const clearChatBtn = $("clearChatBtn");
+const exportChatBtn = $("exportChatBtn");
+const newTicketBtn = $("newTicketBtn");
+const fbUpBtn = $("fbUp");
+const fbDownBtn = $("fbDown");
+const fbMsg = $("fbMsg");
+
+// My tickets
+const myTicketsList = $("myTicketsList");
+const myTicketDetails = $("myTicketDetails");
+const myTicketsRefreshBtn = $("myTicketsRefreshBtn");
+const myTicketsHint = $("myTicketsHint");
+const myTicketReplyText = $("myTicketReplyText");
+const myTicketReplyBtn = $("myTicketReplyBtn");
+const myTicketReplyMsg = $("myTicketReplyMsg");
+
+// Inbox
+const inboxRefreshBtn = $("inboxRefreshBtn");
+const solveAllBtn = $("solveAllBtn");
+const removeSolvedBtn = $("removeSolvedBtn");
+const inboxStatusFilter = $("inboxStatusFilter");
+const inboxCategoryFilter = $("inboxCategoryFilter");
+const inboxSearchInput = $("inboxSearchInput");
+const inboxMsg = $("inboxMsg");
+const inboxTicketsList = $("inboxTicketsList");
+
+const ticketDetails = $("ticketDetails");
+const inboxTicketMsg = $("inboxTicketMsg");
+
+const setStatusOpenBtn = $("setStatusOpen");
+const setStatusPendingBtn = $("setStatusPending");
+const setStatusSolvedBtn = $("setStatusSolved");
+
+const ticketPrioritySelect = $("ticketPrioritySelect");
+const setPriorityBtn = $("setPriorityBtn");
+
+const agentReplyTextInbox = $("agentReplyTextInbox");
+const sendAgentReplyInboxBtn = $("sendAgentReplyInboxBtn");
+
+const internalNoteText = $("internalNoteText");
+const saveInternalNoteBtn = $("saveInternalNoteBtn");
+const internalNotesList = $("internalNotesList");
+const clearInternalNotesBtn = $("clearInternalNotesBtn");
+
+const assignUserSelect = $("assignUserSelect");
+const assignTicketBtn = $("assignTicketBtn");
+const deleteTicketBtn = $("deleteTicketBtn");
+
+// Admin
+const adminExportAllBtn = $("adminExportAllBtn");
+const trainingExportBtn = $("trainingExportBtn");
+const adminUsersRefreshBtn = $("adminUsersRefreshBtn");
+const adminUsersMsg = $("adminUsersMsg");
+const adminUsersList = $("adminUsersList");
+
+const kbCategorySelect = $("kbCategorySelect");
+const kbRefreshBtn = $("kbRefreshBtn");
+const kbExportBtn = $("kbExportBtn");
+const kbMsg = $("kbMsg");
+const kbList = $("kbList");
+
+const kbTextTitle = $("kbTextTitle");
+const kbTextContent = $("kbTextContent");
+const kbUploadTextBtn = $("kbUploadTextBtn");
+
+const kbUrlInput = $("kbUrlInput");
+const kbUploadUrlBtn = $("kbUploadUrlBtn");
+
+const kbPdfFile = $("kbPdfFile");
+const kbUploadPdfBtn = $("kbUploadPdfBtn");
+
+const catsRefreshBtn = $("catsRefreshBtn");
+const catsMsg = $("catsMsg");
+const newCatKey = $("newCatKey");
+const newCatName = $("newCatName");
+const newCatPrompt = $("newCatPrompt");
+const createCatBtn = $("createCatBtn");
+const catsList = $("catsList");
+
+// Tabs
+const tabBtns = Array.from(document.querySelectorAll(".tabBtn"));
+const tabPanels = {
+  tabUsers: $("tabUsers"),
+  tabKB: $("tabKB"),
+  tabCats: $("tabCats"),
+};
+
+// Settings
+const newUsernameInput = $("newUsernameInput");
+const changeUsernameBtn = $("changeUsernameBtn");
+const currentPassInput = $("currentPassInput");
+const newPassInput = $("newPassInput");
+const changePasswordBtn = $("changePasswordBtn");
+const settingsMsg = $("settingsMsg");
+
+// Sidebar footer
+const themeToggle = $("themeToggle");
+const logoutBtn = $("logoutBtn");
+const toggleDebugBtn = $("toggleDebugBtn");
+
+// Debug panel
+const debugPanel = $("debugPanel");
+const dbgApi = $("dbgApi");
+const dbgLogged = $("dbgLogged");
+const dbgRole = $("dbgRole");
+const dbgTicket = $("dbgTicket");
+const dbgRag = $("dbgRag");
+
+// SLA
+const slaDaysSelect = $("slaDaysSelect");
+const slaCompareModeSelect = $("slaCompareMode");
+const slaRefreshBtn = $("slaRefreshBtn");
+const slaExportCsvBtn = $("slaExportCsvBtn");
+const slaClearMyStatsBtn = $("slaClearMyStatsBtn");
+const slaClearAllStatsBtn = $("slaClearAllStatsBtn");
+
+const slaOverviewBox = $("slaOverviewBox");
+const slaTrendChart = $("slaTrendChart");
+const slaTrendHint = $("slaTrendHint");
+const slaAgentsBox = $("slaAgentsBox");
+const slaTicketsBox = $("slaTicketsBox");
+
+const slaBreachedFilter = $("slaBreachedFilter");
+const slaBreachTypeFilter = $("slaBreachTypeFilter");
+const slaSortTickets = $("slaSortTickets");
 
 /* =========================
    INIT
 ========================= */
-document.addEventListener("DOMContentLoaded", () => {
-  // Theme init
-  const savedTheme = localStorage.getItem(LS.theme);
-  if (savedTheme) document.body.setAttribute("data-theme", savedTheme);
+document.addEventListener("DOMContentLoaded", initApp);
 
-  // Debug panel init
-  show($("debugPanel"), state.debug);
-
+async function initApp() {
   bindEvents();
-  boot();
-});
+  applyThemeFromStorage();
+  syncSlaControls();
+  await loadCategories();
 
-async function boot() {
-  // Categories dropdown (public endpoint)
-  await loadCategories().catch(() => {});
+  // Handle resetToken in URL
+  handleResetTokenFlow();
 
-  // Restore companyId selection
-  if ($("categorySelect")) $("categorySelect").value = state.companyId;
-  if ($("kbCategorySelect")) $("kbCategorySelect").value = state.companyId;
-  if ($("inboxCategoryFilter")) {
-    // will be filled via loadInboxCategoryFilter()
-  }
-
-  // If logged in -> fetch /me to confirm token
   if (state.token) {
-    try {
-      const me = await api("/me");
-      state.user = me;
-      setLS(LS.user, JSON.stringify(me));
-      onLoggedIn();
-    } catch (e) {
-      // token invalid
-      doLogout(false);
-    }
-  } else {
-    onLoggedOut();
+    await tryLoadMe();
   }
 
-  updateDebug();
+  // Default view
+  if (state.user) {
+    showAppForLoggedIn();
+    openView("chat");
+  } else {
+    openView("auth");
+  }
+
+  refreshDebug();
+  startInboxNotifPolling();
 }
 
 /* =========================
    EVENTS
 ========================= */
 function bindEvents() {
-  // Sidebar navigation
-  $("openChatView")?.addEventListener("click", () => {
-    setActiveMenu("openChatView");
-    switchView("chatView");
-    scrollMessagesToBottom();
+  // Sidebar view buttons
+  openChatViewBtn?.addEventListener("click", () => openView("chat"));
+  openMyTicketsViewBtn?.addEventListener("click", () => openView("myTickets"));
+  openInboxViewBtn?.addEventListener("click", () => openView("inbox"));
+  openAdminViewBtn?.addEventListener("click", () => openView("admin"));
+  openSettingsViewBtn?.addEventListener("click", () => openView("settings"));
+  openSlaViewBtn?.addEventListener("click", () => openView("sla"));
+
+  categorySelect?.addEventListener("change", async () => {
+    state.companyId = categorySelect.value;
+    localStorage.setItem("companyId", state.companyId);
+    setText(chatTitle, "AI Kundtjänst");
+    setText(chatSubtitle, `Kategori: ${state.companyId}`);
+    await reloadAllViews();
   });
 
-  $("openMyTicketsView")?.addEventListener("click", async () => {
-    setActiveMenu("openMyTicketsView");
-    switchView("myTicketsView");
-    await loadMyTickets().catch((e) => setAlert($("myTicketsHint"), e.message, "error"));
+  // Auth
+  togglePassBtn?.addEventListener("click", () => togglePassword(passwordInput, togglePassBtn));
+  toggleResetPassBtn?.addEventListener("click", () => togglePassword(resetNewPass, toggleResetPassBtn));
+  loginBtn?.addEventListener("click", onLogin);
+  registerBtn?.addEventListener("click", onRegister);
+
+  openForgotBtn?.addEventListener("click", () => {
+    hide(authMessage);
+    show(forgotCard);
+    hide(resetCard);
   });
-
-  $("openInboxView")?.addEventListener("click", async () => {
-    setActiveMenu("openInboxView");
-    switchView("inboxView");
-    await loadInboxTickets().catch((e) => setAlert($("inboxMsg"), e.message, "error"));
+  closeForgotBtn?.addEventListener("click", () => {
+    hide(forgotMsg);
+    hide(forgotCard);
   });
-
-  $("openSlaView")?.addEventListener("click", async () => {
-    setActiveMenu("openSlaView");
-    switchView("slaView");
-    await refreshSlaAll().catch(() => {});
-  });
-
-  $("openAdminView")?.addEventListener("click", async () => {
-    setActiveMenu("openAdminView");
-    switchView("adminView");
-    await refreshAdminAll().catch(() => {});
-  });
-
-  $("openSettingsView")?.addEventListener("click", () => {
-    setActiveMenu("openSettingsView");
-    switchView("settingsView");
-  });
-
-  // Category select
-  $("categorySelect")?.addEventListener("change", async (e) => {
-    state.companyId = e.target.value || "demo";
-    setLS(LS.currentCompanyId, state.companyId);
-    // update chat subtitle/title maybe
-    await updateCategoryUiHints();
-    updateDebug();
-  });
-
-  // Theme toggle
-  $("themeToggle")?.addEventListener("click", () => {
-    const cur = document.body.getAttribute("data-theme") || "dark";
-    const next = cur === "dark" ? "light" : "dark";
-    document.body.setAttribute("data-theme", next);
-    localStorage.setItem(LS.theme, next);
-  });
-
-  // Debug toggle
-  $("toggleDebugBtn")?.addEventListener("click", () => {
-    state.debug = !state.debug;
-    localStorage.setItem(LS.debug, state.debug ? "1" : "0");
-    show($("debugPanel"), state.debug);
-    updateDebug();
-  });
-
-  // Auth buttons
-  $("loginBtn")?.addEventListener("click", doLogin);
-  $("registerBtn")?.addEventListener("click", doRegister);
-  $("logoutBtn")?.addEventListener("click", () => doLogout(true));
-
-  $("togglePassBtn")?.addEventListener("click", () => togglePass("password", "togglePassBtn"));
-  $("toggleResetPassBtn")?.addEventListener("click", () => togglePass("resetNewPass", "toggleResetPassBtn"));
-
-  // Forgot flow
-  $("openForgotBtn")?.addEventListener("click", () => openForgot(true));
-  $("closeForgotBtn")?.addEventListener("click", () => openForgot(false));
-  $("sendForgotBtn")?.addEventListener("click", sendForgotEmail);
-  $("resetSaveBtn")?.addEventListener("click", doResetPassword);
+  sendForgotBtn?.addEventListener("click", onForgotPassword);
+  resetSaveBtn?.addEventListener("click", onResetPassword);
 
   // Chat
-  $("sendBtn")?.addEventListener("click", sendChat);
-  $("messageInput")?.addEventListener("keydown", (e) => {
-    if (e.key === "Enter") sendChat();
+  sendBtn?.addEventListener("click", onSendChat);
+  messageInput?.addEventListener("keydown", (e) => {
+    if (e.key === "Enter") onSendChat();
   });
-
-  $("clearChatBtn")?.addEventListener("click", () => {
-    state.conversation = [];
-    setLS(LS.chatConversation, JSON.stringify(state.conversation));
-    $("messages").innerHTML = "";
-  });
-
-  $("exportChatBtn")?.addEventListener("click", exportChat);
-
-  $("newTicketBtn")?.addEventListener("click", () => {
-    state.lastTicketId = "";
-    setLS(LS.lastTicketId, "");
-    state.conversation = [];
-    setLS(LS.chatConversation, JSON.stringify(state.conversation));
-    $("messages").innerHTML = "";
-    addSystemMessage("Nytt ärende startat ✅");
-  });
-
-  // Feedback
-  $("fbUp")?.addEventListener("click", () => sendFeedback("up"));
-  $("fbDown")?.addEventListener("click", () => sendFeedback("down"));
+  clearChatBtn?.addEventListener("click", clearChat);
+  exportChatBtn?.addEventListener("click", exportChat);
+  newTicketBtn?.addEventListener("click", startNewTicket);
+  fbUpBtn?.addEventListener("click", () => sendFeedback("up"));
+  fbDownBtn?.addEventListener("click", () => sendFeedback("down"));
 
   // My tickets
-  $("myTicketsRefreshBtn")?.addEventListener("click", loadMyTickets);
-  $("myTicketReplyBtn")?.addEventListener("click", myTicketReply);
+  myTicketsRefreshBtn?.addEventListener("click", loadMyTickets);
+  myTicketReplyBtn?.addEventListener("click", onMyTicketReply);
 
   // Inbox
-  $("inboxRefreshBtn")?.addEventListener("click", loadInboxTickets);
-  $("solveAllBtn")?.addEventListener("click", solveAllTickets);
-  $("removeSolvedBtn")?.addEventListener("click", removeSolvedTickets);
+  inboxRefreshBtn?.addEventListener("click", loadInboxTickets);
+  solveAllBtn?.addEventListener("click", solveAllTickets);
+  removeSolvedBtn?.addEventListener("click", removeSolvedTickets);
 
-  $("inboxStatusFilter")?.addEventListener("change", loadInboxTickets);
-  $("inboxCategoryFilter")?.addEventListener("change", loadInboxTickets);
-  $("inboxSearchInput")?.addEventListener("input", debounce(loadInboxTickets, 250));
+  inboxStatusFilter?.addEventListener("change", renderInboxTicketsFiltered);
+  inboxCategoryFilter?.addEventListener("change", renderInboxTicketsFiltered);
+  inboxSearchInput?.addEventListener("input", debounce(renderInboxTicketsFiltered, 200));
 
-  $("setStatusOpen")?.addEventListener("click", () => setInboxTicketStatus("open"));
-  $("setStatusPending")?.addEventListener("click", () => setInboxTicketStatus("pending"));
-  $("setStatusSolved")?.addEventListener("click", () => setInboxTicketStatus("solved"));
-  $("setPriorityBtn")?.addEventListener("click", setInboxPriority);
+  setStatusOpenBtn?.addEventListener("click", () => setTicketStatus("open"));
+  setStatusPendingBtn?.addEventListener("click", () => setTicketStatus("pending"));
+  setStatusSolvedBtn?.addEventListener("click", () => setTicketStatus("solved"));
 
-  $("sendAgentReplyInboxBtn")?.addEventListener("click", sendInboxAgentReply);
-  $("saveInternalNoteBtn")?.addEventListener("click", saveInternalNote);
-  $("clearInternalNotesBtn")?.addEventListener("click", clearInternalNotes);
-  $("assignTicketBtn")?.addEventListener("click", assignTicketToAgent);
-  $("deleteTicketBtn")?.addEventListener("click", deleteSelectedInboxTicket);
+  setPriorityBtn?.addEventListener("click", onSetPriority);
 
-  // SLA
-  $("slaRefreshBtn")?.addEventListener("click", refreshSlaAll);
-  $("slaExportCsvBtn")?.addEventListener("click", exportSlaCsv);
+  sendAgentReplyInboxBtn?.addEventListener("click", onAgentReplyInbox);
 
-  $("slaDaysSelect")?.addEventListener("change", refreshSlaAll);
-  $("slaCompareMode")?.addEventListener("change", refreshSlaAll);
+  saveInternalNoteBtn?.addEventListener("click", onSaveInternalNote);
+  clearInternalNotesBtn?.addEventListener("click", onClearInternalNotes);
 
-  $("slaBreachedFilter")?.addEventListener("change", renderSlaTicketsFromCache);
-  $("slaBreachTypeFilter")?.addEventListener("change", renderSlaTicketsFromCache);
-  $("slaSortTickets")?.addEventListener("change", renderSlaTicketsFromCache);
-
-  $("slaClearMyStatsBtn")?.addEventListener("click", clearMySlaStats);
-  $("slaClearAllStatsBtn")?.addEventListener("click", clearAllSlaStats);
+  assignTicketBtn?.addEventListener("click", onAssignTicket);
+  deleteTicketBtn?.addEventListener("click", onDeleteTicket);
 
   // Admin tabs
-  qsa(".tabBtn").forEach((b) => {
+  tabBtns.forEach((b) => {
     b.addEventListener("click", () => {
-      qsa(".tabBtn").forEach((x) => x.classList.remove("active"));
+      tabBtns.forEach((x) => x.classList.remove("active"));
       b.classList.add("active");
-      const tab = b.getAttribute("data-tab");
-      qsa(".tabPanel").forEach((p) => show(p, p.id === tab));
+
+      Object.values(tabPanels).forEach((p) => hide(p));
+      show(tabPanels[b.dataset.tab]);
     });
   });
 
   // Admin actions
-  $("adminUsersRefreshBtn")?.addEventListener("click", loadAdminUsers);
-  $("adminExportAllBtn")?.addEventListener("click", exportAll);
-  $("trainingExportBtn")?.addEventListener("click", exportTraining);
+  adminExportAllBtn?.addEventListener("click", () => window.open("/admin/export/all", "_blank"));
+  trainingExportBtn?.addEventListener("click", () => {
+    const cid = state.companyId || "demo";
+    window.open(`/admin/export/training?companyId=${encodeURIComponent(cid)}`, "_blank");
+  });
 
-  // KB Manager
-  $("kbRefreshBtn")?.addEventListener("click", loadKbList);
-  $("kbExportBtn")?.addEventListener("click", exportKb);
-  $("kbUploadTextBtn")?.addEventListener("click", kbUploadText);
-  $("kbUploadUrlBtn")?.addEventListener("click", kbUploadUrl);
-  $("kbUploadPdfBtn")?.addEventListener("click", kbUploadPdf);
-  $("kbCategorySelect")?.addEventListener("change", loadKbList);
+  adminUsersRefreshBtn?.addEventListener("click", loadAdminUsers);
 
-  // Categories Manager
-  $("catsRefreshBtn")?.addEventListener("click", loadCategoriesAdmin);
-  $("createCatBtn")?.addEventListener("click", createCategory);
+  kbRefreshBtn?.addEventListener("click", loadKbList);
+  kbExportBtn?.addEventListener("click", () => {
+    const cid = kbCategorySelect?.value || state.companyId;
+    window.open(`/export/kb/${encodeURIComponent(cid)}`, "_blank");
+  });
+  kbUploadTextBtn?.addEventListener("click", kbUploadText);
+  kbUploadUrlBtn?.addEventListener("click", kbUploadUrl);
+  kbUploadPdfBtn?.addEventListener("click", kbUploadPdf);
+
+  catsRefreshBtn?.addEventListener("click", loadCatsList);
+  createCatBtn?.addEventListener("click", createCategory);
 
   // Settings
-  $("changeUsernameBtn")?.addEventListener("click", changeUsername);
-  $("changePasswordBtn")?.addEventListener("click", changePassword);
+  changeUsernameBtn?.addEventListener("click", changeUsername);
+  changePasswordBtn?.addEventListener("click", changePassword);
 
-  // Reset token from URL
-  handleResetTokenFromUrl();
+  // Theme + logout + debug
+  themeToggle?.addEventListener("click", toggleTheme);
+  logoutBtn?.addEventListener("click", logout);
+  toggleDebugBtn?.addEventListener("click", () => {
+    state.debugOn = !state.debugOn;
+    debugPanel.style.display = state.debugOn ? "" : "none";
+    refreshDebug();
+  });
+
+  // SLA controls
+  slaDaysSelect?.addEventListener("change", () => {
+    state.slaDays = Number(slaDaysSelect.value || 30);
+    localStorage.setItem("slaDays", String(state.slaDays));
+  });
+
+  slaCompareModeSelect?.addEventListener("change", () => {
+    state.slaCompareMode = slaCompareModeSelect.value || "none";
+    localStorage.setItem("slaCompareMode", state.slaCompareMode);
+  });
+
+  slaRefreshBtn?.addEventListener("click", loadSlaDashboard);
+
+  slaExportCsvBtn?.addEventListener("click", () => {
+    const days = state.slaDays || 30;
+    window.open(`/admin/sla/export.csv?days=${days}`, "_blank");
+  });
+
+  slaClearMyStatsBtn?.addEventListener("click", clearMyStats);
+  slaClearAllStatsBtn?.addEventListener("click", clearAllStats);
+
+  slaBreachedFilter?.addEventListener("change", loadSlaTicketsTable);
+  slaBreachTypeFilter?.addEventListener("change", loadSlaTicketsTable);
+  slaSortTickets?.addEventListener("change", loadSlaTicketsTable);
 }
 
-function debounce(fn, delay) {
-  let t;
-  return (...args) => {
-    clearTimeout(t);
-    t = setTimeout(() => fn(...args), delay);
-  };
+/* =========================
+   THEME
+========================= */
+function applyThemeFromStorage() {
+  const saved = localStorage.getItem("theme") || "dark";
+  document.body.setAttribute("data-theme", saved);
+}
+
+function toggleTheme() {
+  const current = document.body.getAttribute("data-theme") || "dark";
+  const next = current === "dark" ? "light" : "dark";
+  document.body.setAttribute("data-theme", next);
+  localStorage.setItem("theme", next);
+}
+
+function togglePassword(input, btn) {
+  if (!input || !btn) return;
+  input.type = input.type === "password" ? "text" : "password";
+  const icon = btn.querySelector("i");
+  if (icon) icon.className = input.type === "password" ? "fa-solid fa-eye" : "fa-solid fa-eye-slash";
+}
+
+/* =========================
+   RESET TOKEN FLOW
+========================= */
+function handleResetTokenFlow() {
+  const params = new URLSearchParams(window.location.search);
+  const resetToken = params.get("resetToken");
+  if (!resetToken) return;
+
+  // Show reset card
+  hide(forgotCard);
+  show(resetCard);
+  openView("auth");
+
+  resetSaveBtn.dataset.resetToken = resetToken;
 }
 
 /* =========================
    AUTH
 ========================= */
-async function doLogin() {
-  setAlert($("authMessage"), "");
+async function onLogin() {
+  hide(authMessage);
   try {
-    const username = $("username")?.value?.trim();
-    const password = $("password")?.value || "";
-    if (!username || !password) throw new Error("Fyll i användarnamn och lösenord");
+    const username = usernameInput.value.trim();
+    const password = passwordInput.value.trim();
+    if (!username || !password) throw new Error("Fyll i användarnamn + lösenord");
 
-    const data = await api("/login", {
-      method: "POST",
-      body: JSON.stringify({ username, password }),
-    });
-
+    const data = await apiFetch("/login", { method: "POST", auth: false, body: { username, password } });
     state.token = data.token;
-    state.user = data.user;
+    localStorage.setItem("token", state.token);
 
-    setLS(LS.token, state.token);
-    setLS(LS.user, JSON.stringify(state.user));
-
-    onLoggedIn();
+    await tryLoadMe();
+    showAppForLoggedIn();
+    openView("chat");
   } catch (e) {
-    setAlert($("authMessage"), e.message, "error");
+    showAuthError(e.message);
   }
 }
 
-async function doRegister() {
-  setAlert($("authMessage"), "");
+async function onRegister() {
+  hide(authMessage);
   try {
-    const username = $("username")?.value?.trim();
-    const password = $("password")?.value || "";
-    const email = $("email")?.value?.trim() || "";
-    if (!username || !password) throw new Error("Fyll i användarnamn och lösenord");
+    const username = usernameInput.value.trim();
+    const password = passwordInput.value.trim();
+    const email = emailInput.value.trim();
 
-    await api("/register", {
-      method: "POST",
-      body: JSON.stringify({ username, password, email }),
-    });
+    if (!username || username.length < 3) throw new Error("Username måste vara minst 3 tecken");
+    if (!password || password.length < 4) throw new Error("Lösenord måste vara minst 4 tecken");
 
-    setAlert($("authMessage"), "Registrering lyckades ✅ Logga in nu.", "");
-    show($("authMessage"), true);
+    const data = await apiFetch("/register", { method: "POST", auth: false, body: { username, password, email } });
+    setText(authMessage, data.message || "Registrerad ✅");
+    authMessage.className = "alert";
+    show(authMessage);
   } catch (e) {
-    setAlert($("authMessage"), e.message, "error");
+    showAuthError(e.message);
   }
 }
 
-function doLogout(showMsg = true) {
+async function onForgotPassword() {
+  hide(forgotMsg);
+  try {
+    const email = forgotEmail.value.trim();
+    if (!email) throw new Error("Fyll i email");
+
+    const data = await apiFetch("/auth/forgot-password", { method: "POST", auth: false, body: { email } });
+    setText(forgotMsg, data.message || "Skickat ✅");
+    forgotMsg.className = "alert";
+    show(forgotMsg);
+  } catch (e) {
+    setText(forgotMsg, e.message);
+    forgotMsg.className = "alert error";
+    show(forgotMsg);
+  }
+}
+
+async function onResetPassword() {
+  hide(resetMsg);
+  try {
+    const resetToken = resetSaveBtn.dataset.resetToken || "";
+    const newPassword = resetNewPass.value.trim();
+    if (!resetToken) throw new Error("Reset-token saknas");
+    if (!newPassword || newPassword.length < 4) throw new Error("Välj ett starkare lösenord");
+
+    const data = await apiFetch("/auth/reset-password", { method: "POST", auth: false, body: { resetToken, newPassword } });
+    setText(resetMsg, data.message || "Lösenord uppdaterat ✅");
+    resetMsg.className = "alert";
+    show(resetMsg);
+
+    // Clean URL
+    const url = new URL(window.location.href);
+    url.searchParams.delete("resetToken");
+    window.history.replaceState({}, "", url.toString());
+  } catch (e) {
+    setText(resetMsg, e.message);
+    resetMsg.className = "alert error";
+    show(resetMsg);
+  }
+}
+
+function showAuthError(msg) {
+  setText(authMessage, msg);
+  authMessage.className = "alert error";
+  show(authMessage);
+}
+
+async function tryLoadMe() {
+  try {
+    const me = await apiFetch("/me");
+    state.user = me;
+    updateRoleUI();
+  } catch {
+    state.user = null;
+    state.token = "";
+    localStorage.removeItem("token");
+  }
+}
+
+function logout() {
   state.token = "";
   state.user = null;
-  setLS(LS.token, "");
-  setLS(LS.user, "");
-  setLS(LS.lastTicketId, "");
-  state.lastTicketId = "";
-  onLoggedOut();
-  if (showMsg) addSystemMessage("Du är utloggad ✅");
-}
+  localStorage.removeItem("token");
 
-function onLoggedOut() {
-  $("roleBadge").textContent = "Inte inloggad";
-  show($("logoutBtn"), false);
-  show($("openSettingsView"), false);
-
-  // admin/agent buttons hidden
-  qsa(".adminOnly").forEach((x) => (x.style.display = "none"));
-
-  switchView("authView");
-  setActiveMenu("openChatView");
-
-  // reset chat UI
-  $("messages").innerHTML = "";
+  // reset app
   state.conversation = [];
-  setLS(LS.chatConversation, JSON.stringify(state.conversation));
+  state.currentTicketId = null;
+  messagesBox.innerHTML = "";
 
-  updateDebug();
+  showAppForLoggedOut();
+  openView("auth");
 }
 
-async function onLoggedIn() {
-  show($("logoutBtn"), true);
-  show($("openSettingsView"), true);
-
-  // agent/admin visible?
+function updateRoleUI() {
   const role = state.user?.role || "user";
-  $("roleBadge").textContent = role === "user" ? `Inloggad: ${state.user.username}` : `${state.user.username} (${role})`;
+  setText(roleBadge, role === "admin" ? "Admin" : role === "agent" ? "Agent" : "Användare");
 
-  if (role === "agent" || role === "admin") {
-    qsa(".adminOnly").forEach((x) => (x.style.display = ""));
-  } else {
-    qsa(".adminOnly").forEach((x) => (x.style.display = "none"));
-  }
+  // show/hide admin-only menu buttons
+  const adminOnly = document.querySelectorAll(".adminOnly");
+  adminOnly.forEach((el) => {
+    el.style.display = role === "admin" || role === "agent" ? "" : "none";
+  });
 
-  // SLA clear all only for admin
-  show($("slaClearAllStatsBtn"), role === "admin");
+  // Settings available once logged in
+  if (state.user) show(openSettingsViewBtn);
 
-  // default view
-  switchView("chatView");
-  setActiveMenu("openChatView");
+  // Show logout
+  if (state.user) show(logoutBtn);
+  else hide(logoutBtn);
 
-  // load initial chat conversation
-  renderConversation();
-  scrollMessagesToBottom();
-
-  // Update dropdowns
-  await updateCategoryUiHints();
-  await loadInboxCategoryFilter().catch(() => {});
-  updateDebug();
-}
-
-/* =========================
-   Password toggles
-========================= */
-function togglePass(inputId, btnId) {
-  const inp = $(inputId);
-  const btn = $(btnId);
-  if (!inp || !btn) return;
-  const isPass = inp.getAttribute("type") === "password";
-  inp.setAttribute("type", isPass ? "text" : "password");
-  const icon = btn.querySelector("i");
-  if (icon) icon.className = isPass ? "fa-solid fa-eye-slash" : "fa-solid fa-eye";
-}
-
-/* =========================
-   Forgot/Reset password UI
-========================= */
-function openForgot(on) {
-  show($("forgotCard"), on);
-  show($("resetCard"), false);
-  show($("authMessage"), false);
-}
-
-async function sendForgotEmail() {
-  setAlert($("forgotMsg"), "");
-  try {
-    const email = $("forgotEmail")?.value?.trim();
-    if (!email) throw new Error("Skriv en email");
-
-    const data = await api("/auth/forgot-password", {
-      method: "POST",
-      body: JSON.stringify({ email }),
-    });
-
-    setAlert($("forgotMsg"), data.message || "Skickat ✅", "");
-  } catch (e) {
-    setAlert($("forgotMsg"), e.message, "error");
+  // SLA clear ALL visible only for admin
+  if (slaClearAllStatsBtn) {
+    slaClearAllStatsBtn.style.display = role === "admin" ? "" : "none";
   }
 }
 
-function handleResetTokenFromUrl() {
-  const url = new URL(window.location.href);
-  const resetToken = url.searchParams.get("resetToken");
-  if (!resetToken) return;
+/* =========================
+   VIEW SWITCH
+========================= */
+function openView(name) {
+  // hide all
+  [authView, chatView, myTicketsView, inboxView, adminView, settingsView, slaView].forEach(hide);
 
-  // show reset UI
-  show($("resetCard"), true);
-  show($("forgotCard"), false);
-  show($("authMessage"), false);
+  // menu active
+  document.querySelectorAll(".menuBtn").forEach((b) => b.classList.remove("active"));
 
-  // store token in memory (not localStorage)
-  window.__resetToken = resetToken;
+  // show selected
+  if (name === "auth") {
+    show(authView);
+  } else if (name === "chat") {
+    show(chatView);
+    openChatViewBtn?.classList.add("active");
+    ensureChatStarter();
+  } else if (name === "myTickets") {
+    show(myTicketsView);
+    openMyTicketsViewBtn?.classList.add("active");
+    loadMyTickets();
+  } else if (name === "inbox") {
+    show(inboxView);
+    openInboxViewBtn?.classList.add("active");
+    loadInboxTickets();
+  } else if (name === "admin") {
+    show(adminView);
+    openAdminViewBtn?.classList.add("active");
+    loadAdminUsers();
+    loadKbList();
+    loadCatsList();
+  } else if (name === "settings") {
+    show(settingsView);
+    openSettingsViewBtn?.classList.add("active");
+  } else if (name === "sla") {
+    show(slaView);
+    openSlaViewBtn?.classList.add("active");
+    loadSlaDashboard();
+  }
+
+  refreshDebug();
 }
 
-async function doResetPassword() {
-  setAlert($("resetMsg"), "");
-  try {
-    const token = window.__resetToken;
-    const newPassword = $("resetNewPass")?.value || "";
-    if (!token) throw new Error("Reset token saknas i URL");
-    if (!newPassword || newPassword.length < 6) throw new Error("Lösenord måste vara minst 6 tecken");
+function showAppForLoggedIn() {
+  // hide auth message cards
+  hide(forgotCard);
+  hide(resetCard);
 
-    const data = await api("/auth/reset-password", {
-      method: "POST",
-      body: JSON.stringify({ resetToken: token, newPassword }),
-    });
+  // show main views toggles
+  show(openSettingsViewBtn);
+  show(logoutBtn);
 
-    setAlert($("resetMsg"), data.message || "Lösenord uppdaterat ✅", "");
-  } catch (e) {
-    setAlert($("resetMsg"), e.message, "error");
+  updateRoleUI();
+}
+
+function showAppForLoggedOut() {
+  // hide admin/agent views
+  document.querySelectorAll(".adminOnly").forEach((el) => (el.style.display = "none"));
+  hide(openSettingsViewBtn);
+  hide(logoutBtn);
+}
+
+async function reloadAllViews() {
+  // Refresh things that depends on category
+  clearChat();
+  if (state.user) {
+    await loadMyTickets().catch(() => {});
+    await loadInboxTickets().catch(() => {});
+    await loadSlaDashboard().catch(() => {});
+    await loadKbList().catch(() => {});
   }
 }
 
@@ -578,57 +754,61 @@ async function doResetPassword() {
    CATEGORIES
 ========================= */
 async function loadCategories() {
-  const cats = await api("/categories");
-  const sel = $("categorySelect");
-  const selKb = $("kbCategorySelect");
-  const selInbox = $("inboxCategoryFilter");
+  try {
+    const cats = await apiFetch("/categories", { auth: false });
+    state.categories = cats;
 
-  function fill(selectEl, includeAll = false) {
-    if (!selectEl) return;
-    const cur = selectEl.value || state.companyId || "demo";
-    selectEl.innerHTML = "";
-    if (includeAll) {
-      const o = document.createElement("option");
-      o.value = "";
-      o.textContent = "Alla kategorier";
-      selectEl.appendChild(o);
+    // Fill dropdown
+    if (categorySelect) {
+      categorySelect.innerHTML = "";
+      cats.forEach((c) => {
+        const opt = document.createElement("option");
+        opt.value = c.key;
+        opt.textContent = c.name ? `${c.name} (${c.key})` : c.key;
+        categorySelect.appendChild(opt);
+      });
+
+      // select stored
+      const found = cats.some((c) => c.key === state.companyId);
+      categorySelect.value = found ? state.companyId : (cats[0]?.key || "demo");
+      state.companyId = categorySelect.value;
+      localStorage.setItem("companyId", state.companyId);
     }
-    for (const c of cats) {
-      const opt = document.createElement("option");
-      opt.value = c.key;
-      opt.textContent = c.key === c.name ? c.key : `${c.name} (${c.key})`;
-      selectEl.appendChild(opt);
+
+    // Admin KB category select too
+    if (kbCategorySelect) {
+      kbCategorySelect.innerHTML = "";
+      cats.forEach((c) => {
+        const opt = document.createElement("option");
+        opt.value = c.key;
+        opt.textContent = c.name ? `${c.name} (${c.key})` : c.key;
+        kbCategorySelect.appendChild(opt);
+      });
+      kbCategorySelect.value = state.companyId;
+      kbCategorySelect.addEventListener("change", () => loadKbList());
     }
-    selectEl.value = cur || "demo";
+  } catch (e) {
+    console.warn("Categories load failed:", e.message);
   }
-
-  fill(sel, false);
-  fill(selKb, false);
-  fill(selInbox, true);
-
-  updateDebug();
-}
-
-async function loadInboxCategoryFilter() {
-  // just ensure categories exist
-  await loadCategories();
-}
-
-async function updateCategoryUiHints() {
-  // Optional: could update chatTitle/subtitle based on category
-  // We'll keep it simple
 }
 
 /* =========================
-   CHAT
+   CHAT VIEW
 ========================= */
-function addSystemMessage(text) {
-  addMessageToUI("assistant", text, { meta: "System" });
+function ensureChatStarter() {
+  if (!state.user) return;
+
+  setText(chatTitle, "AI Kundtjänst");
+  setText(chatSubtitle, `Kategori: ${state.companyId}`);
+
+  if (!state.conversation.length) {
+    addMessageUI("assistant", "Hej! 👋 Skriv din fråga så hjälper jag dig direkt.");
+  }
 }
 
-function addMessageToUI(role, content, opts = {}) {
+function addMessageUI(role, text, meta = "") {
   const wrap = document.createElement("div");
-  wrap.className = "msg " + (role === "user" ? "user" : "assistant");
+  wrap.className = `msg ${role === "user" ? "user" : ""}`;
 
   const avatar = document.createElement("div");
   avatar.className = "avatar";
@@ -636,119 +816,104 @@ function addMessageToUI(role, content, opts = {}) {
 
   const bubble = document.createElement("div");
   bubble.className = "bubble";
-  bubble.textContent = content || "";
+  bubble.textContent = text;
 
-  const meta = document.createElement("div");
-  meta.className = "msgMeta";
-  meta.textContent = opts.meta || (role === "user" ? "Du" : "AI");
+  const metaEl = document.createElement("div");
+  metaEl.className = "msgMeta";
+  metaEl.textContent = meta || "";
 
-  const bubbleWrap = document.createElement("div");
-  bubbleWrap.appendChild(bubble);
-
-  // Actions for assistant messages
-  if (role !== "user") {
-    const actions = document.createElement("div");
-    actions.className = "bubbleActions";
-    actions.innerHTML = `
-      <button class="actionBtn" type="button"><i class="fa-solid fa-copy"></i> Kopiera</button>
-    `;
-    actions.querySelector("button")?.addEventListener("click", () => {
-      navigator.clipboard.writeText(content || "").catch(() => {});
-    });
-    bubbleWrap.appendChild(actions);
-  }
+  const contentCol = document.createElement("div");
+  contentCol.appendChild(bubble);
+  if (meta) contentCol.appendChild(metaEl);
 
   wrap.appendChild(avatar);
-  wrap.appendChild(bubbleWrap);
+  wrap.appendChild(contentCol);
 
-  $("messages")?.appendChild(wrap);
+  messagesBox.appendChild(wrap);
+  messagesBox.scrollTop = messagesBox.scrollHeight;
 }
 
-function renderConversation() {
-  if (!$("messages")) return;
-  $("messages").innerHTML = "";
-
-  // render conversation stored
-  for (const m of state.conversation) {
-    if (!m?.role) continue;
-    addMessageToUI(m.role, m.content || "", { meta: m.role === "user" ? "Du" : "AI" });
-  }
-}
-
-function scrollMessagesToBottom() {
-  const el = $("messages");
-  if (!el) return;
-  el.scrollTop = el.scrollHeight;
-}
-
-async function sendChat() {
-  const inp = $("messageInput");
-  if (!inp) return;
-
-  const text = inp.value.trim();
-  if (!text) return;
-
-  inp.value = "";
-
-  // push user message locally
-  state.conversation.push({ role: "user", content: text });
-  setLS(LS.chatConversation, JSON.stringify(state.conversation));
-  addMessageToUI("user", text, { meta: "Du" });
-  scrollMessagesToBottom();
-
-  try {
-    // call API
-    const payload = {
-      companyId: state.companyId,
-      conversation: state.conversation,
-    };
-
-    if (state.lastTicketId) payload.ticketId = state.lastTicketId;
-
-    const data = await api("/chat", {
-      method: "POST",
-      body: JSON.stringify(payload),
-    });
-
-    const reply = data.reply || "Inget svar.";
-    state.lastTicketId = data.ticketId || state.lastTicketId || "";
-    setLS(LS.lastTicketId, state.lastTicketId);
-
-    state.conversation.push({ role: "assistant", content: reply });
-    setLS(LS.chatConversation, JSON.stringify(state.conversation));
-
-    addMessageToUI("assistant", reply, { meta: data.ragUsed ? "AI (RAG)" : "AI" });
-
-    // Debug update
-    updateDebug({ ragUsed: !!data.ragUsed, ticketId: state.lastTicketId });
-    scrollMessagesToBottom();
-  } catch (e) {
-    addMessageToUI("assistant", `❌ Fel: ${e.message}`, { meta: "System" });
-    scrollMessagesToBottom();
-  }
+function clearChat() {
+  state.conversation = [];
+  state.currentTicketId = null;
+  messagesBox.innerHTML = "";
+  ensureChatStarter();
+  refreshDebug();
 }
 
 function exportChat() {
-  const rows = state.conversation.map((m) => `${m.role.toUpperCase()}: ${m.content}`);
-  const blob = new Blob([rows.join("\n\n")], { type: "text/plain;charset=utf-8" });
-  const a = document.createElement("a");
-  a.href = URL.createObjectURL(blob);
-  a.download = `chat_export_${new Date().toISOString().slice(0, 10)}.txt`;
-  a.click();
-  URL.revokeObjectURL(a.href);
+  const lines = state.conversation.map((m) => `[${m.role}] ${m.content}`);
+  const text = lines.join("\n\n");
+  downloadText(`chat_${state.companyId}_${new Date().toISOString().slice(0, 10)}.txt`, text);
+}
+
+function startNewTicket() {
+  // New ticket = reset currentTicketId so backend creates a new open ticket on next message
+  state.currentTicketId = null;
+  state.conversation = [];
+  messagesBox.innerHTML = "";
+  addMessageUI("assistant", "Okej ✅ Nytt ärende startat. Skriv din fråga!");
+  refreshDebug();
+}
+
+async function onSendChat() {
+  if (!state.user) return;
+
+  const text = messageInput.value.trim();
+  if (!text) return;
+
+  messageInput.value = "";
+  addMessageUI("user", text, fmtDate(new Date()));
+
+  const msgObj = { role: "user", content: text };
+  state.conversation.push(msgObj);
+
+  // Make assistant feel responsive
+  addMessageUI("assistant", "Skriver...", "");
+
+  try {
+    const data = await apiFetch("/chat", {
+      method: "POST",
+      body: {
+        companyId: state.companyId,
+        conversation: state.conversation,
+        ticketId: state.currentTicketId,
+      },
+    });
+
+    // remove "Skriver..." bubble (last assistant msg)
+    messagesBox.removeChild(messagesBox.lastElementChild);
+
+    state.currentTicketId = data.ticketId || state.currentTicketId;
+
+    const reply = data.reply || "Inget svar.";
+    state.conversation.push({ role: "assistant", content: reply });
+
+    const meta = [];
+    meta.push(fmtDate(new Date()));
+    if (data.ragUsed) meta.push("RAG: ON");
+    if (Array.isArray(data.sources) && data.sources.length) meta.push(`Källor: ${data.sources.length}`);
+
+    addMessageUI("assistant", reply, meta.join(" • "));
+    dbgRag && setText(dbgRag, data.ragUsed ? "ON" : "OFF");
+  } catch (e) {
+    // remove "Skriver..." bubble
+    messagesBox.removeChild(messagesBox.lastElementChild);
+    addMessageUI("assistant", `❌ Fel: ${e.message}`);
+  }
+
+  refreshDebug();
 }
 
 async function sendFeedback(type) {
+  if (!state.user) return;
   try {
-    await api("/feedback", {
-      method: "POST",
-      body: JSON.stringify({ type, companyId: state.companyId }),
-    });
-    $("fbMsg").textContent = "Tack! ✅";
-    setTimeout(() => ($("fbMsg").textContent = ""), 1200);
-  } catch (e) {
-    $("fbMsg").textContent = `Fel: ${e.message}`;
-    setTimeout(() => ($("fbMsg").textContent = ""), 1500);
+    await apiFetch("/feedback", { method: "POST", body: { type, companyId: state.companyId } });
+    setText(fbMsg, "Tack för feedback! ✅");
+    setTimeout(() => setText(fbMsg, ""), 2500);
+  } catch {
+    setText(fbMsg, "Kunde inte skicka feedback.");
+    setTimeout(() => setText(fbMsg, ""), 2500);
   }
 }
 
@@ -756,1229 +921,753 @@ async function sendFeedback(type) {
    MY TICKETS
 ========================= */
 async function loadMyTickets() {
-  setAlert($("myTicketsHint"), "");
-  const list = $("myTicketsList");
-  const details = $("myTicketDetails");
-  if (list) list.innerHTML = "";
-  if (details) details.innerHTML = `<span class="muted small">Laddar...</span>`;
-
+  if (!state.user) return;
   try {
-    const tickets = await api("/my/tickets");
-    if (!tickets.length) {
-      if (list) list.innerHTML = `<div class="muted small">Inga ärenden ännu.</div>`;
-      if (details) details.innerHTML = `<span class="muted small">Skapa en ny konversation i Chat.</span>`;
-      return;
-    }
+    const data = await apiFetch("/my/tickets");
+    state.myTickets = data || [];
 
-    if (list) {
-      list.innerHTML = tickets
-        .map((t) => {
-          const status = t.status || "open";
-          const prio = t.priority || "normal";
-          const title = t.title || "(utan titel)";
-          return `
-            <div class="listItem" data-id="${t._id}">
-              <div class="listItemTitle">
-                ${escapeHtml(title)}
-                ${pill(status, status === "solved" ? "ok" : status === "pending" ? "warn" : "")}
-                ${pill(prio)}
-              </div>
-              <div class="muted small">${escapeHtml(String(t._id).slice(-8))} • ${fmtDate(t.lastActivityAt || t.createdAt)}</div>
-            </div>
-          `;
-        })
-        .join("");
+    setText(myTicketsHint, `${state.myTickets.length} ärenden`);
 
-      qsa("#myTicketsList .listItem").forEach((item) => {
-        item.addEventListener("click", async () => {
-          qsa("#myTicketsList .listItem").forEach((x) => x.classList.remove("selected"));
-          item.classList.add("selected");
-          const id = item.getAttribute("data-id");
-          state.selectedMyTicketId = id;
-          await loadMyTicketDetails(id);
-        });
-      });
-    }
-
-    // auto select first
-    const firstId = tickets[0]._id;
-    state.selectedMyTicketId = firstId;
-    const firstEl = qs(`#myTicketsList .listItem[data-id="${firstId}"]`);
-    if (firstEl) firstEl.classList.add("selected");
-    await loadMyTicketDetails(firstId);
+    renderMyTicketsList();
   } catch (e) {
-    setAlert($("myTicketsHint"), e.message, "error");
-    if (details) details.innerHTML = `<span class="muted small">Kunde inte ladda.</span>`;
+    setText(myTicketsHint, e.message);
   }
 }
 
-async function loadMyTicketDetails(ticketId) {
-  const details = $("myTicketDetails");
-  if (!details) return;
-  details.innerHTML = `<span class="muted small">Laddar...</span>`;
+function renderMyTicketsList() {
+  myTicketsList.innerHTML = "";
 
-  try {
-    const t = await api(`/my/tickets/${ticketId}`);
-    const msgs = t.messages || [];
+  if (!state.myTickets.length) {
+    myTicketsList.innerHTML = `<div class="muted small">Inga ärenden ännu.</div>`;
+    setHTML(myTicketDetails, `<div class="muted small">Välj ett ärende för att se detaljer.</div>`);
+    state.selectedMyTicket = null;
+    return;
+  }
 
-    const header = `
-      <div style="margin-bottom:10px;">
-        <div><b>${escapeHtml(t.title || "Ärende")}</b></div>
-        <div class="muted small">
-          Status: ${escapeHtml(t.status)} • Prio: ${escapeHtml(t.priority)} • Skapad: ${fmtDate(t.createdAt)}
-        </div>
+  state.myTickets.forEach((t) => {
+    const item = document.createElement("div");
+    item.className = "listItem";
+
+    const selected = state.selectedMyTicket && String(state.selectedMyTicket._id) === String(t._id);
+    if (selected) item.classList.add("selected");
+
+    const title = t.title || "(utan titel)";
+    const status = t.status || "open";
+    const prio = t.priority || "normal";
+
+    item.innerHTML = `
+      <div class="listItemTitle">
+        <i class="fa-solid fa-ticket"></i>
+        <span>${escapeHtml(title)}</span>
+        <span class="pill">${escapeHtml(status)}</span>
+        <span class="pill">${escapeHtml(prio)}</span>
       </div>
+      <div class="muted small" style="margin-top:6px;">Senast: ${fmtDate(t.lastActivityAt)}</div>
     `;
 
-    const body = msgs
-      .map((m) => {
-        const r = m.role;
-        const cls = r === "user" ? "ticketMsg user" : r === "agent" ? "ticketMsg agent" : "ticketMsg ai";
-        return `
-          <div class="${cls}">
-            <div class="ticketMsgHead">
-              <span>${escapeHtml(r)}</span>
-              <span>${fmtDate(m.timestamp)}</span>
-            </div>
-            <div class="ticketMsgBody">${escapeHtml(m.content)}</div>
-          </div>
-        `;
-      })
-      .join("");
+    item.addEventListener("click", async () => {
+      const full = await apiFetch(`/my/tickets/${t._id}`);
+      state.selectedMyTicket = full;
+      renderMyTicketsList();
+      renderMyTicketDetails();
+    });
 
-    details.innerHTML = header + body;
-  } catch (e) {
-    details.innerHTML = `<span class="muted small">Fel: ${escapeHtml(e.message)}</span>`;
+    myTicketsList.appendChild(item);
+  });
+
+  if (!state.selectedMyTicket) {
+    state.selectedMyTicket = state.myTickets[0];
+    renderMyTicketDetails();
+    renderMyTicketsList();
   }
 }
 
-async function myTicketReply() {
-  setAlert($("myTicketReplyMsg"), "");
+function renderMyTicketDetails() {
+  const t = state.selectedMyTicket;
+  if (!t) {
+    setHTML(myTicketDetails, `<div class="muted small">Välj ett ärende för att se detaljer.</div>`);
+    return;
+  }
+
+  const msgs = t.messages || [];
+  const parts = [];
+
+  parts.push(`<div><b>${escapeHtml(t.title || "(utan titel)")}</b></div>`);
+  parts.push(`<div class="muted small">Ticket: ${escapeHtml(String(t._id))}</div>`);
+  parts.push(`<div class="muted small">Status: ${escapeHtml(t.status || "-")} • Prio: ${escapeHtml(t.priority || "-")}</div>`);
+  parts.push(`<div class="divider"></div>`);
+
+  if (!msgs.length) {
+    parts.push(`<div class="muted small">Inga meddelanden ännu.</div>`);
+  } else {
+    for (const m of msgs) {
+      const who = m.role === "user" ? "Du" : m.role === "agent" ? "Agent" : "AI";
+      parts.push(`
+        <div class="ticketMsg">
+          <div class="ticketMsgHead">
+            <span>${escapeHtml(who)}</span>
+            <span>${fmtDate(m.timestamp)}</span>
+          </div>
+          <div>${escapeHtml(m.content)}</div>
+        </div>
+      `);
+    }
+  }
+
+  setHTML(myTicketDetails, parts.join(""));
+}
+
+async function onMyTicketReply() {
+  hide(myTicketReplyMsg);
   try {
-    const ticketId = state.selectedMyTicketId;
-    if (!ticketId) throw new Error("Välj ett ärende först.");
+    const t = state.selectedMyTicket;
+    if (!t) throw new Error("Välj ett ärende först");
 
-    const text = $("myTicketReplyText")?.value?.trim();
-    if (!text) throw new Error("Skriv ett meddelande.");
+    const content = myTicketReplyText.value.trim();
+    if (!content) throw new Error("Skriv ett meddelande");
 
-    const data = await api(`/my/tickets/${ticketId}/reply`, {
+    const data = await apiFetch(`/my/tickets/${t._id}/reply`, {
       method: "POST",
-      body: JSON.stringify({ content: text }),
+      body: { content },
     });
 
-    $("myTicketReplyText").value = "";
-    setAlert($("myTicketReplyMsg"), data.message || "Skickat ✅", "");
-    await loadMyTicketDetails(ticketId);
+    myTicketReplyText.value = "";
+    state.selectedMyTicket = data.ticket;
     await loadMyTickets();
+
+    setText(myTicketReplyMsg, data.message || "Skickat ✅");
+    myTicketReplyMsg.className = "alert";
+    show(myTicketReplyMsg);
+
+    renderMyTicketDetails();
   } catch (e) {
-    setAlert($("myTicketReplyMsg"), e.message, "error");
+    setText(myTicketReplyMsg, e.message);
+    myTicketReplyMsg.className = "alert error";
+    show(myTicketReplyMsg);
   }
 }
 
 /* =========================
-   INBOX (Agent/Admin)
+   INBOX
 ========================= */
 async function loadInboxTickets() {
-  setAlert($("inboxMsg"), "");
-  const list = $("inboxTicketsList");
-  if (!list) return;
+  if (!state.user) return;
+  if (!["admin", "agent"].includes(state.user.role)) return;
 
-  list.innerHTML = `<div class="muted small">Laddar...</div>`;
-
-  const status = $("inboxStatusFilter")?.value || "";
-  const companyId = $("inboxCategoryFilter")?.value || "";
-  const search = $("inboxSearchInput")?.value?.trim().toLowerCase() || "";
+  hide(inboxMsg);
 
   try {
-    const url = new URL(location.origin + "/admin/tickets");
-    if (status) url.searchParams.set("status", status);
-    if (companyId) url.searchParams.set("companyId", companyId);
+    // For inbox view we load all statuses by default
+    const data = await apiFetch(`/admin/tickets?companyId=${encodeURIComponent(state.companyId)}`);
+    state.inboxTickets = data || [];
 
-    let tickets = await api(url.pathname + url.search);
-
-    // client search
-    if (search) {
-      tickets = tickets.filter((t) => {
-        const id = String(t._id || "").toLowerCase();
-        const title = String(t.title || "").toLowerCase();
-        const cat = String(t.companyId || "").toLowerCase();
-        return id.includes(search) || title.includes(search) || cat.includes(search);
+    // populate category filter from categories
+    if (inboxCategoryFilter) {
+      inboxCategoryFilter.innerHTML = `<option value="">Alla kategorier</option>`;
+      state.categories.forEach((c) => {
+        const opt = document.createElement("option");
+        opt.value = c.key;
+        opt.textContent = c.name ? `${c.name} (${c.key})` : c.key;
+        inboxCategoryFilter.appendChild(opt);
       });
     }
 
-    // notif dot: open tickets exist
-    const openCount = tickets.filter((t) => t.status === "open").length;
-    const dot = $("inboxNotifDot");
-    if (dot) show(dot, openCount > 0);
+    renderInboxTicketsFiltered();
+    updateInboxNotifDot();
+  } catch (e) {
+    setText(inboxMsg, e.message);
+    show(inboxMsg);
+  }
+}
 
-    list.innerHTML = tickets
-      .map((t) => {
-        const statusPill = t.status === "solved" ? pill("solved", "ok") : t.status === "pending" ? pill("pending", "warn") : pill("open");
-        const prioPill =
-          t.priority === "high" ? pill("high", "danger") : t.priority === "low" ? pill("low") : pill("normal");
-        const assigned = t.assignedToUserId ? `<span class="muted small">assigned</span>` : `<span class="muted small">unassigned</span>`;
+function updateInboxNotifDot() {
+  if (!inboxNotifDot || !openInboxViewBtn) return;
 
-        return `
-          <div class="listItem" data-id="${t._id}">
-            <div class="listItemTitle">
-              ${escapeHtml(t.title || "(utan titel)")}
-              ${statusPill}
-              ${prioPill}
-            </div>
-            <div class="muted small">
-              ${escapeHtml(String(t.companyId || ""))} • ${escapeHtml(String(t._id).slice(-8))} • ${fmtDate(t.lastActivityAt || t.createdAt)} • ${assigned}
-            </div>
-          </div>
-        `;
-      })
-      .join("");
+  const openCount = (state.inboxTickets || []).filter((t) => t.status === "open").length;
+  if (openCount > 0) {
+    inboxNotifDot.style.display = "";
+    openInboxViewBtn.classList.add("hasNotif");
+  } else {
+    inboxNotifDot.style.display = "none";
+    openInboxViewBtn.classList.remove("hasNotif");
+  }
+}
 
-    qsa("#inboxTicketsList .listItem").forEach((item) => {
-      item.addEventListener("click", async () => {
-        qsa("#inboxTicketsList .listItem").forEach((x) => x.classList.remove("selected"));
-        item.classList.add("selected");
-        const id = item.getAttribute("data-id");
-        state.selectedInboxTicketId = id;
-        await loadInboxTicketDetails(id);
-      });
+function renderInboxTicketsFiltered() {
+  inboxTicketsList.innerHTML = "";
+
+  const status = inboxStatusFilter?.value || "";
+  const cat = inboxCategoryFilter?.value || "";
+  const q = (inboxSearchInput?.value || "").trim().toLowerCase();
+
+  let list = [...(state.inboxTickets || [])];
+
+  if (status) list = list.filter((t) => t.status === status);
+  if (cat) list = list.filter((t) => t.companyId === cat);
+  if (q) {
+    list = list.filter((t) => {
+      const title = String(t.title || "").toLowerCase();
+      const id = String(t._id || "").toLowerCase();
+      const company = String(t.companyId || "").toLowerCase();
+      return title.includes(q) || id.includes(q) || company.includes(q);
     });
-
-    // auto select first if none
-    if (!state.selectedInboxTicketId && tickets[0]) {
-      state.selectedInboxTicketId = tickets[0]._id;
-      const el = qs(`#inboxTicketsList .listItem[data-id="${tickets[0]._id}"]`);
-      if (el) el.classList.add("selected");
-      await loadInboxTicketDetails(tickets[0]._id);
-    }
-  } catch (e) {
-    setAlert($("inboxMsg"), e.message, "error");
-    list.innerHTML = `<div class="muted small">Kunde inte ladda tickets.</div>`;
   }
-}
 
-async function loadInboxTicketDetails(ticketId) {
-  const box = $("ticketDetails");
-  const msg = $("inboxTicketMsg");
-  if (!box) return;
-
-  setAlert(msg, "");
-  box.innerHTML = `<div class="muted small">Laddar...</div>`;
-  $("internalNotesList").innerHTML = "";
-
-  try {
-    const t = await api(`/admin/tickets/${ticketId}`);
-
-    // priority select set
-    if ($("ticketPrioritySelect")) $("ticketPrioritySelect").value = t.priority || "normal";
-
-    // fill assign users
-    await fillAssignUsers(t.assignedToUserId);
-
-    // SLA badge
-    const sla = t.sla || {};
-    const first = sla.firstResponseMs != null ? msToPretty(sla.firstResponseMs) : "—";
-    const res = sla.resolutionMs != null ? msToPretty(sla.resolutionMs) : "—";
-    const pendingTotal = sla.pendingTotalMs != null ? msToPretty(sla.pendingTotalMs) : "—";
-    const effRun = sla.effectiveRunningMs != null ? msToPretty(sla.effectiveRunningMs) : "—";
-
-    const firstB = sla.breachedFirstResponse ? pill("First breached", "danger") : pill("First OK", "ok");
-    const resB = sla.breachedResolution ? pill("Res breached", "danger") : pill("Res OK", "ok");
-
-    const top = `
-      <div style="margin-bottom:10px;">
-        <div><b>${escapeHtml(t.title || "Ticket")}</b></div>
-        <div class="muted small">
-          ${escapeHtml(t.companyId)} • ${escapeHtml(String(t._id))} • Skapad ${fmtDate(t.createdAt)}
-        </div>
-        <div style="margin-top:6px; display:flex; gap:8px; flex-wrap:wrap;">
-          ${pill(t.status, t.status === "solved" ? "ok" : t.status === "pending" ? "warn" : "")}
-          ${pill(t.priority, t.priority === "high" ? "danger" : "")}
-          ${firstB}
-          ${resB}
-        </div>
-      </div>
-
-      <div class="divider"></div>
-
-      <div class="row gap" style="flex-wrap:wrap;">
-        <div class="pill">First: <b>${escapeHtml(first)}</b></div>
-        <div class="pill">Resolution: <b>${escapeHtml(res)}</b></div>
-        <div class="pill">Pending total: <b>${escapeHtml(pendingTotal)}</b></div>
-        <div class="pill">Effective running: <b>${escapeHtml(effRun)}</b></div>
-      </div>
-
-      <div class="divider"></div>
-    `;
-
-    const msgs = (t.messages || [])
-      .map((m) => {
-        const r = m.role;
-        const cls = r === "user" ? "ticketMsg user" : r === "agent" ? "ticketMsg agent" : "ticketMsg ai";
-        return `
-          <div class="${cls}">
-            <div class="ticketMsgHead">
-              <span>${escapeHtml(r)}</span>
-              <span>${fmtDate(m.timestamp)}</span>
-            </div>
-            <div class="ticketMsgBody">${escapeHtml(m.content)}</div>
-          </div>
-        `;
-      })
-      .join("");
-
-    box.innerHTML = top + msgs;
-
-    // notes
-    renderInternalNotes(t.internalNotes || []);
-  } catch (e) {
-    setAlert($("inboxTicketMsg"), e.message, "error");
-    box.innerHTML = `<div class="muted small">Kunde inte visa ticket.</div>`;
-  }
-}
-
-async function setInboxTicketStatus(status) {
-  if (!state.selectedInboxTicketId) return;
-  setAlert($("inboxTicketMsg"), "");
-  try {
-    await api(`/admin/tickets/${state.selectedInboxTicketId}/status`, {
-      method: "POST",
-      body: JSON.stringify({ status }),
-    });
-    await loadInboxTicketDetails(state.selectedInboxTicketId);
-    await loadInboxTickets();
-  } catch (e) {
-    setAlert($("inboxTicketMsg"), e.message, "error");
-  }
-}
-
-async function setInboxPriority() {
-  if (!state.selectedInboxTicketId) return;
-  setAlert($("inboxTicketMsg"), "");
-  try {
-    const priority = $("ticketPrioritySelect")?.value || "normal";
-    await api(`/admin/tickets/${state.selectedInboxTicketId}/priority`, {
-      method: "POST",
-      body: JSON.stringify({ priority }),
-    });
-    await loadInboxTicketDetails(state.selectedInboxTicketId);
-    await loadInboxTickets();
-  } catch (e) {
-    setAlert($("inboxTicketMsg"), e.message, "error");
-  }
-}
-
-async function sendInboxAgentReply() {
-  if (!state.selectedInboxTicketId) return;
-  setAlert($("inboxTicketMsg"), "");
-
-  try {
-    const content = $("agentReplyTextInbox")?.value?.trim();
-    if (!content) throw new Error("Skriv ett svar.");
-
-    await api(`/admin/tickets/${state.selectedInboxTicketId}/agent-reply`, {
-      method: "POST",
-      body: JSON.stringify({ content }),
-    });
-
-    $("agentReplyTextInbox").value = "";
-    await loadInboxTicketDetails(state.selectedInboxTicketId);
-    await loadInboxTickets();
-  } catch (e) {
-    setAlert($("inboxTicketMsg"), e.message, "error");
-  }
-}
-
-async function saveInternalNote() {
-  if (!state.selectedInboxTicketId) return;
-  setAlert($("inboxTicketMsg"), "");
-
-  try {
-    const content = $("internalNoteText")?.value?.trim();
-    if (!content) throw new Error("Skriv en intern notering.");
-
-    const data = await api(`/admin/tickets/${state.selectedInboxTicketId}/internal-note`, {
-      method: "POST",
-      body: JSON.stringify({ content }),
-    });
-
-    $("internalNoteText").value = "";
-    renderInternalNotes(data.ticket?.internalNotes || []);
-  } catch (e) {
-    setAlert($("inboxTicketMsg"), e.message, "error");
-  }
-}
-
-async function clearInternalNotes() {
-  if (!state.selectedInboxTicketId) return;
-  setAlert($("inboxTicketMsg"), "");
-  try {
-    await api(`/admin/tickets/${state.selectedInboxTicketId}/internal-notes`, {
-      method: "DELETE",
-    });
-    renderInternalNotes([]);
-  } catch (e) {
-    setAlert($("inboxTicketMsg"), e.message, "error");
-  }
-}
-
-function renderInternalNotes(notes) {
-  const box = $("internalNotesList");
-  if (!box) return;
-
-  if (!notes.length) {
-    box.innerHTML = `<div class="muted small">Inga interna notes.</div>`;
+  if (!list.length) {
+    inboxTicketsList.innerHTML = `<div class="muted small">Inga tickets.</div>`;
     return;
   }
 
-  box.innerHTML = `
-    <div class="noteList">
-      ${notes
-        .slice()
-        .reverse()
-        .map(
-          (n) => `
-        <div class="noteItem">
-          <div class="noteMeta">${fmtDate(n.createdAt)} • ${escapeHtml(String(n.createdBy || ""))}</div>
-          <div class="noteText">${escapeHtml(n.content)}</div>
-        </div>
-      `
-        )
-        .join("")}
-    </div>
-  `;
-}
+  list.forEach((t) => {
+    const item = document.createElement("div");
+    item.className = "listItem";
 
-async function fillAssignUsers(selectedId) {
-  const sel = $("assignUserSelect");
-  if (!sel) return;
+    if (state.selectedInboxTicket && String(state.selectedInboxTicket._id) === String(t._id)) {
+      item.classList.add("selected");
+    }
 
-  try {
-    const users = await api("/admin/users");
-    const agents = users.filter((u) => u.role === "agent" || u.role === "admin");
+    const badge = t.status === "open" ? `<span class="pill">Open</span>` : t.status === "pending" ? `<span class="pill">Pending</span>` : `<span class="pill">Solved</span>`;
+    const prio = `<span class="pill">${escapeHtml(t.priority || "normal")}</span>`;
 
-    sel.innerHTML = `<option value="">Välj agent...</option>` + agents.map((u) => `<option value="${u._id}">${escapeHtml(u.username)} (${u.role})</option>`).join("");
-    sel.value = selectedId || "";
-  } catch {
-    // ignore
-  }
-}
+    const sla = t.sla || {};
+    const s1 = sla.firstResponseState || "";
+    const s2 = sla.resolutionState || "";
+    const slaBadges = `
+      <span class="${pillClassFromState(s1)}">FR: ${escapeHtml(s1 || "-")}</span>
+      <span class="${pillClassFromState(s2)}">RES: ${escapeHtml(s2 || "-")}</span>
+    `;
 
-async function assignTicketToAgent() {
-  if (!state.selectedInboxTicketId) return;
-  setAlert($("inboxTicketMsg"), "");
+    item.innerHTML = `
+      <div class="listItemTitle">
+        <i class="fa-solid fa-inbox"></i>
+        <span>${escapeHtml(t.title || "(utan titel)")}</span>
+      </div>
+      <div class="muted small" style="margin-top:6px;">
+        ${badge} ${prio} ${slaBadges}
+      </div>
+      <div class="muted small" style="margin-top:6px;">
+        ${escapeHtml(String(t._id).slice(-8))} • ${escapeHtml(t.companyId || "-")} • ${fmtDate(t.lastActivityAt)}
+      </div>
+    `;
 
-  try {
-    const userId = $("assignUserSelect")?.value;
-    if (!userId) throw new Error("Välj en agent att assigna.");
-
-    await api(`/admin/tickets/${state.selectedInboxTicketId}/assign`, {
-      method: "POST",
-      body: JSON.stringify({ userId }),
+    item.addEventListener("click", async () => {
+      const full = await apiFetch(`/admin/tickets/${t._id}`);
+      state.selectedInboxTicket = full;
+      renderInboxTicketsFiltered();
+      renderInboxTicketDetails();
+      await loadAssignUsers();
     });
 
-    await loadInboxTicketDetails(state.selectedInboxTicketId);
-    await loadInboxTickets();
-  } catch (e) {
-    setAlert($("inboxTicketMsg"), e.message, "error");
+    inboxTicketsList.appendChild(item);
+  });
+
+  if (!state.selectedInboxTicket && list[0]) {
+    state.selectedInboxTicket = list[0];
+    renderInboxTicketDetails();
+    loadAssignUsers().catch(() => {});
   }
 }
 
-async function deleteSelectedInboxTicket() {
-  if (!state.selectedInboxTicketId) return;
-  setAlert($("inboxTicketMsg"), "");
+function renderInboxTicketDetails() {
+  const t = state.selectedInboxTicket;
+  if (!t) {
+    setHTML(ticketDetails, `<div class="muted small">Välj en ticket.</div>`);
+    return;
+  }
 
-  if (!confirm("Ta bort ticket?")) return;
+  hide(inboxTicketMsg);
 
+  const sla = t.sla || {};
+
+  const head = `
+    <div><b>${escapeHtml(t.title || "(utan titel)")}</b></div>
+    <div class="muted small">Ticket: ${escapeHtml(String(t._id))}</div>
+    <div class="muted small">Status: ${escapeHtml(t.status)} • Prio: ${escapeHtml(t.priority || "normal")} • Kategori: ${escapeHtml(t.companyId)}</div>
+
+    <div class="divider"></div>
+
+    <div class="row gap" style="flex-wrap:wrap;">
+      <span class="${pillClassFromState(sla.firstResponseState)}">First response: ${escapeHtml(sla.firstResponseState || "-")}</span>
+      <span class="${pillClassFromState(sla.resolutionState)}">Resolution: ${escapeHtml(sla.resolutionState || "-")}</span>
+      <span class="pill">FR kvar: ${escapeHtml(msToPretty(sla.firstResponseRemainingMs))}</span>
+      <span class="pill">RES kvar: ${escapeHtml(msToPretty(sla.resolutionRemainingMs))}</span>
+      <span class="pill">Pending: ${escapeHtml(msToPretty(sla.pendingTotalMs))}</span>
+    </div>
+
+    <div class="divider"></div>
+  `;
+
+  const msgs = t.messages || [];
+  const parts = [head];
+
+  if (!msgs.length) {
+    parts.push(`<div class="muted small">Inga meddelanden.</div>`);
+  } else {
+    for (const m of msgs) {
+      const who = m.role === "user" ? "Kund" : m.role === "agent" ? "Agent" : "AI";
+      parts.push(`
+        <div class="ticketMsg">
+          <div class="ticketMsgHead">
+            <span>${escapeHtml(who)}</span>
+            <span>${fmtDate(m.timestamp)}</span>
+          </div>
+          <div>${escapeHtml(m.content)}</div>
+        </div>
+      `);
+    }
+  }
+
+  // internal notes
+  const notes = t.internalNotes || [];
+  const notesHtml = notes.length
+    ? notes
+        .slice()
+        .reverse()
+        .map((n) => {
+          return `
+            <div class="ticketMsg">
+              <div class="ticketMsgHead">
+                <span>Note</span>
+                <span>${fmtDate(n.createdAt)}</span>
+              </div>
+              <div>${escapeHtml(n.content)}</div>
+            </div>
+          `;
+        })
+        .join("")
+    : `<div class="muted small">Inga interna notes.</div>`;
+
+  setHTML(ticketDetails, parts.join(""));
+  setHTML(internalNotesList, notesHtml);
+
+  // set priority select
+  if (ticketPrioritySelect) ticketPrioritySelect.value = t.priority || "normal";
+}
+
+async function setTicketStatus(status) {
   try {
-    await api(`/admin/tickets/${state.selectedInboxTicketId}`, { method: "DELETE" });
-    state.selectedInboxTicketId = null;
-    $("ticketDetails").innerHTML = `<div class="muted small">Välj en ticket.</div>`;
-    renderInternalNotes([]);
+    const t = state.selectedInboxTicket;
+    if (!t) throw new Error("Välj en ticket");
+
+    const data = await apiFetch(`/admin/tickets/${t._id}/status`, { method: "POST", body: { status } });
+    state.selectedInboxTicket = data.ticket;
+
+    // refresh list
     await loadInboxTickets();
+    renderInboxTicketDetails();
   } catch (e) {
-    setAlert($("inboxTicketMsg"), e.message, "error");
+    setText(inboxTicketMsg, e.message);
+    show(inboxTicketMsg);
+  }
+}
+
+async function onSetPriority() {
+  try {
+    const t = state.selectedInboxTicket;
+    if (!t) throw new Error("Välj en ticket");
+
+    const priority = ticketPrioritySelect.value || "normal";
+    const data = await apiFetch(`/admin/tickets/${t._id}/priority`, { method: "POST", body: { priority } });
+    state.selectedInboxTicket = data.ticket;
+
+    await loadInboxTickets();
+    renderInboxTicketDetails();
+  } catch (e) {
+    setText(inboxTicketMsg, e.message);
+    show(inboxTicketMsg);
+  }
+}
+
+async function onAgentReplyInbox() {
+  try {
+    const t = state.selectedInboxTicket;
+    if (!t) throw new Error("Välj en ticket");
+
+    const content = agentReplyTextInbox.value.trim();
+    if (!content) throw new Error("Skriv ett svar");
+
+    const data = await apiFetch(`/admin/tickets/${t._id}/agent-reply`, { method: "POST", body: { content } });
+    state.selectedInboxTicket = data.ticket;
+
+    agentReplyTextInbox.value = "";
+    await loadInboxTickets();
+    renderInboxTicketDetails();
+  } catch (e) {
+    setText(inboxTicketMsg, e.message);
+    show(inboxTicketMsg);
+  }
+}
+
+async function onSaveInternalNote() {
+  try {
+    const t = state.selectedInboxTicket;
+    if (!t) throw new Error("Välj en ticket");
+
+    const content = internalNoteText.value.trim();
+    if (!content) throw new Error("Skriv en notering");
+
+    const data = await apiFetch(`/admin/tickets/${t._id}/internal-note`, { method: "POST", body: { content } });
+    state.selectedInboxTicket = data.ticket;
+
+    internalNoteText.value = "";
+    renderInboxTicketDetails();
+  } catch (e) {
+    setText(inboxTicketMsg, e.message);
+    show(inboxTicketMsg);
+  }
+}
+
+async function onClearInternalNotes() {
+  try {
+    const t = state.selectedInboxTicket;
+    if (!t) throw new Error("Välj en ticket");
+    await apiFetch(`/admin/tickets/${t._id}/internal-notes`, { method: "DELETE" });
+    await loadInboxTickets();
+    renderInboxTicketDetails();
+  } catch (e) {
+    setText(inboxTicketMsg, e.message);
+    show(inboxTicketMsg);
+  }
+}
+
+async function loadAssignUsers() {
+  // only admin can assign
+  if (!state.user || state.user.role !== "admin") return;
+
+  const users = await apiFetch("/admin/users");
+  const agents = (users || []).filter((u) => u.role === "agent" || u.role === "admin");
+
+  assignUserSelect.innerHTML = `<option value="">Välj agent...</option>`;
+  agents.forEach((u) => {
+    const opt = document.createElement("option");
+    opt.value = u._id;
+    opt.textContent = `${u.username} (${u.role})`;
+    assignUserSelect.appendChild(opt);
+  });
+}
+
+async function onAssignTicket() {
+  try {
+    if (!state.user || state.user.role !== "admin") throw new Error("Endast admin kan assigna");
+    const t = state.selectedInboxTicket;
+    if (!t) throw new Error("Välj en ticket");
+
+    const userId = assignUserSelect.value;
+    if (!userId) throw new Error("Välj en agent");
+
+    const data = await apiFetch(`/admin/tickets/${t._id}/assign`, { method: "POST", body: { userId } });
+    state.selectedInboxTicket = data.ticket;
+    await loadInboxTickets();
+    renderInboxTicketDetails();
+  } catch (e) {
+    setText(inboxTicketMsg, e.message);
+    show(inboxTicketMsg);
+  }
+}
+
+async function onDeleteTicket() {
+  try {
+    const t = state.selectedInboxTicket;
+    if (!t) throw new Error("Välj en ticket");
+
+    await apiFetch(`/admin/tickets/${t._id}`, { method: "DELETE" });
+
+    state.selectedInboxTicket = null;
+    await loadInboxTickets();
+    setHTML(ticketDetails, `<div class="muted small">Välj en ticket.</div>`);
+  } catch (e) {
+    setText(inboxTicketMsg, e.message);
+    show(inboxTicketMsg);
   }
 }
 
 async function solveAllTickets() {
-  setAlert($("inboxMsg"), "");
-  if (!confirm("Solve ALL? (Admin)")) return;
   try {
-    const data = await api("/admin/tickets/solve-all", { method: "POST" });
-    setAlert($("inboxMsg"), data.message || "Klart ✅", "");
+    if (!state.user || state.user.role !== "admin") throw new Error("Endast admin");
+    await apiFetch(`/admin/tickets/solve-all`, { method: "POST" });
     await loadInboxTickets();
   } catch (e) {
-    setAlert($("inboxMsg"), e.message, "error");
+    setText(inboxMsg, e.message);
+    show(inboxMsg);
   }
 }
 
 async function removeSolvedTickets() {
-  setAlert($("inboxMsg"), "");
-  if (!confirm("Remove solved? (Admin)")) return;
   try {
-    const data = await api("/admin/tickets/remove-solved", { method: "POST" });
-    setAlert($("inboxMsg"), data.message || "Klart ✅", "");
+    if (!state.user || state.user.role !== "admin") throw new Error("Endast admin");
+    await apiFetch(`/admin/tickets/remove-solved`, { method: "POST" });
     await loadInboxTickets();
   } catch (e) {
-    setAlert($("inboxMsg"), e.message, "error");
+    setText(inboxMsg, e.message);
+    show(inboxMsg);
   }
 }
 
 /* =========================
-   SLA DASHBOARD (KPI + Chart + tables)
+   ADMIN: USERS + KB + CATS
 ========================= */
-let slaCache = {
-  overview: null,
-  trend: null,
-  agents: null,
-  tickets: null,
-};
-
-async function refreshSlaAll() {
-  // Fix chart bugs: remove any previous chart instance before drawing new
-  destroyTrendChart();
-
-  const days = Number($("slaDaysSelect")?.value || 30);
-  const compareMode = $("slaCompareMode")?.value || "none";
-
-  // Show placeholder
-  $("slaOverviewBox").innerHTML = `<div class="muted small">Laddar KPI...</div>`;
-  $("slaAgentsBox").innerHTML = `<div class="muted small">Laddar agents...</div>`;
-  $("slaTicketsBox").innerHTML = `<div class="muted small">Laddar tickets...</div>`;
-  $("slaTrendHint").textContent = "";
-
-  try {
-    // overview
-    const overview = await api(`/admin/sla/overview?days=${days}`);
-    slaCache.overview = overview;
-    renderSlaOverviewKpi(overview);
-
-    // trend
-    const trend = await api(`/admin/sla/trend/weekly?days=${days}`);
-    slaCache.trend = trend;
-    renderSlaTrendChart(trend);
-
-    // agents
-    const agents = await api(`/admin/sla/agents?days=${days}`);
-    slaCache.agents = agents;
-    renderSlaAgents(agents);
-
-    // tickets
-    const tickets = await api(`/admin/sla/tickets?days=${days}`);
-    slaCache.tickets = tickets;
-    renderSlaTicketsFromCache();
-
-    // compare (optional)
-    if (compareMode && compareMode !== "none") {
-      // prevPeriod: compare with same days
-      // prevWeek: compare with 7 days
-      const a = days;
-      const b = compareMode === "prevWeek" ? 7 : days;
-      const cmp = await api(`/admin/sla/compare?a=${a}&b=${b}`);
-      renderSlaCompareHint(cmp, compareMode);
-    } else {
-      $("slaTrendHint").textContent = "Tips: välj jämförelseläge för att se förändring mot tidigare period.";
-    }
-  } catch (e) {
-    $("slaOverviewBox").innerHTML = `<div class="alert error">❌ SLA fel: ${escapeHtml(e.message)}</div>`;
-  }
-}
-
-function renderSlaOverviewKpi(o) {
-  if (!o) return;
-
-  const total = o.totalTickets ?? 0;
-  const byP = o.byPriority || { low: 0, normal: 0, high: 0 };
-
-  const frAvg = o.firstResponse?.avgMs;
-  const frMed = o.firstResponse?.medianMs;
-  const frBr = o.firstResponse?.breaches ?? 0;
-  const frComp = o.firstResponse?.compliancePct;
-
-  const rsAvg = o.resolution?.avgMs;
-  const rsMed = o.resolution?.medianMs;
-  const rsBr = o.resolution?.breaches ?? 0;
-  const rsComp = o.resolution?.compliancePct;
-
-  // ✅ KPI grid + "more features"
-  $("slaOverviewBox").innerHTML = `
-    <div class="slaGrid">
-      <div class="slaCard">
-        <div class="slaLabel">Tickets (totalt)</div>
-        <div class="slaValue">${escapeHtml(String(total))}</div>
-        <div class="muted small" style="margin-top:6px;">
-          Low: <b>${byP.low || 0}</b> • Normal: <b>${byP.normal || 0}</b> • High: <b>${byP.high || 0}</b>
-        </div>
-      </div>
-
-      <div class="slaCard">
-        <div class="slaLabel">First response compliance</div>
-        <div class="slaValue">${escapeHtml(pct(frComp))}</div>
-        <div class="muted small" style="margin-top:6px;">
-          Avg: <b>${escapeHtml(msToPretty(frAvg))}</b> • Median: <b>${escapeHtml(msToPretty(frMed))}</b><br/>
-          Breaches: <b>${escapeHtml(String(frBr))}</b>
-        </div>
-      </div>
-
-      <div class="slaCard">
-        <div class="slaLabel">Resolution compliance</div>
-        <div class="slaValue">${escapeHtml(pct(rsComp))}</div>
-        <div class="muted small" style="margin-top:6px;">
-          Avg: <b>${escapeHtml(msToPretty(rsAvg))}</b> • Median: <b>${escapeHtml(msToPretty(rsMed))}</b><br/>
-          Breaches: <b>${escapeHtml(String(rsBr))}</b>
-        </div>
-      </div>
-    </div>
-
-    <div class="divider"></div>
-
-    <div class="panel soft">
-      <b>KPI (extra)</b>
-      <div class="muted small" style="margin-top:6px;">
-        • Om compliance är låg: filtrera på “breached” och sortera “worst first”.<br/>
-        • Pending-tid påverkar resolution (pausar SLA).<br/>
-        • High priority har hårdare limits (1h first response / 24h resolution).
-      </div>
-    </div>
-  `;
-}
-
-function renderSlaCompareHint(cmp, mode) {
-  const hint = $("slaTrendHint");
-  if (!hint || !cmp?.a || !cmp?.b) return;
-
-  const a = cmp.a;
-  const b = cmp.b;
-
-  const frA = a.firstResponse?.compliancePct;
-  const frB = b.firstResponse?.compliancePct;
-  const rsA = a.resolution?.compliancePct;
-  const rsB = b.resolution?.compliancePct;
-
-  const diff = (x, y) => {
-    if (x == null || y == null) return "";
-    const d = x - y;
-    const sign = d >= 0 ? "+" : "";
-    return `${sign}${d}pp`;
-  };
-
-  const label = mode === "prevWeek" ? "föregående vecka" : "föregående period";
-
-  hint.textContent = `Jämförelse mot ${label}: First ${diff(frA, frB)}, Resolution ${diff(rsA, rsB)}.`;
-}
-
-/* =========================
-   SLA Trend Chart (Chart.js)
-   ✅ FIX: destroy old chart first
-========================= */
-function destroyTrendChart() {
-  if (state.chartTrend) {
-    try {
-      state.chartTrend.destroy();
-    } catch {}
-    state.chartTrend = null;
-  }
-}
-
-function renderSlaTrendChart(tr) {
-  const canvas = $("slaTrendChart");
-  if (!canvas) return;
-
-  // if chart.js missing
-  if (typeof Chart === "undefined") {
-    $("slaTrendHint").textContent =
-      "❌ Chart.js saknas. Lägg in <script src='https://cdn.jsdelivr.net/npm/chart.js'></script> före script.js i index.html";
-    return;
-  }
-
-  destroyTrendChart();
-
-  const rows = tr?.rows || [];
-  if (!rows.length) {
-    $("slaTrendHint").textContent = "Ingen trend-data ännu.";
-    return;
-  }
-
-  const labels = rows.map((r) => r.week);
-  const firstPct = rows.map((r) => r.firstCompliancePct || 0);
-  const resPct = rows.map((r) => r.resolutionCompliancePct || 0);
-
-  const ctx = canvas.getContext("2d");
-
-  state.chartTrend = new Chart(ctx, {
-    type: "line",
-    data: {
-      labels,
-      datasets: [
-        {
-          label: "First response compliance (%)",
-          data: firstPct,
-          tension: 0.35,
-          borderWidth: 2,
-          pointRadius: 3,
-        },
-        {
-          label: "Resolution compliance (%)",
-          data: resPct,
-          tension: 0.35,
-          borderWidth: 2,
-          pointRadius: 3,
-        },
-      ],
-    },
-    options: {
-      responsive: true,
-      maintainAspectRatio: false,
-      interaction: { mode: "index", intersect: false },
-      plugins: {
-        legend: { display: true },
-        tooltip: { enabled: true },
-      },
-      scales: {
-        y: {
-          min: 0,
-          max: 100,
-          ticks: { callback: (v) => v + "%" },
-        },
-      },
-    },
-  });
-
-  $("slaTrendHint").textContent = "Trend visar compliance vecka för vecka.";
-}
-
-/* =========================
-   SLA Agents table
-========================= */
-function renderSlaAgents(a) {
-  const box = $("slaAgentsBox");
-  if (!box) return;
-
-  const rows = a?.rows || [];
-  if (!rows.length) {
-    box.innerHTML = `<div class="muted small">Inga agent-data.</div>`;
-    return;
-  }
-
-  box.innerHTML = `
-    <div class="tableWrap">
-      <table class="table">
-        <thead>
-          <tr>
-            <th>Agent</th>
-            <th>Tickets</th>
-            <th>Pending</th>
-            <th>First avg</th>
-            <th>First med</th>
-            <th>First compliance</th>
-            <th>Res avg</th>
-            <th>Res med</th>
-            <th>Res compliance</th>
-          </tr>
-        </thead>
-        <tbody>
-          ${rows
-            .map((r) => {
-              const fr = r.firstResponse || {};
-              const rs = r.resolution || {};
-              return `
-                <tr>
-                  <td>${escapeHtml(r.username)} <span class="muted small">(${escapeHtml(r.role)})</span></td>
-                  <td>${escapeHtml(String(r.tickets || 0))}</td>
-                  <td>${escapeHtml(String(r.pending || 0))}</td>
-                  <td>${escapeHtml(msToPretty(fr.avgMs))}</td>
-                  <td>${escapeHtml(msToPretty(fr.medianMs))}</td>
-                  <td>${escapeHtml(pct(fr.compliancePct))}</td>
-                  <td>${escapeHtml(msToPretty(rs.avgMs))}</td>
-                  <td>${escapeHtml(msToPretty(rs.medianMs))}</td>
-                  <td>${escapeHtml(pct(rs.compliancePct))}</td>
-                </tr>
-              `;
-            })
-            .join("")}
-        </tbody>
-      </table>
-    </div>
-  `;
-}
-
-/* =========================
-   SLA Tickets (filter/sort)
-========================= */
-function renderSlaTicketsFromCache() {
-  const data = slaCache.tickets;
-  if (!data) return;
-
-  const box = $("slaTicketsBox");
-  if (!box) return;
-
-  let rows = data.rows || [];
-
-  // filters
-  const breachedFilter = $("slaBreachedFilter")?.value || "all";
-  const breachType = $("slaBreachTypeFilter")?.value || "any";
-  const sortMode = $("slaSortTickets")?.value || "newest";
-
-  rows = rows.map((r) => ({
-    ...r,
-    _createdAtMs: new Date(r.createdAt).getTime() || 0,
-    _worst:
-      Math.max(
-        r.sla?.firstResponseMs ? (r.sla.firstResponseMs - (r.sla.firstResponseLimitMs || 0)) : 0,
-        r.sla?.effectiveRunningMs ? (r.sla.effectiveRunningMs - (r.sla.resolutionLimitMs || 0)) : 0
-      ) || 0,
-  }));
-
-  if (breachedFilter === "breachedOnly") {
-    rows = rows.filter((r) => r.sla?.breachedFirstResponse || r.sla?.breachedResolution);
-  } else if (breachedFilter === "okOnly") {
-    rows = rows.filter((r) => !r.sla?.breachedFirstResponse && !r.sla?.breachedResolution);
-  }
-
-  if (breachType === "first") {
-    rows = rows.filter((r) => r.sla?.breachedFirstResponse);
-  } else if (breachType === "resolution") {
-    rows = rows.filter((r) => r.sla?.breachedResolution);
-  }
-
-  // sort
-  if (sortMode === "newest") rows.sort((a, b) => b._createdAtMs - a._createdAtMs);
-  if (sortMode === "oldest") rows.sort((a, b) => a._createdAtMs - b._createdAtMs);
-  if (sortMode === "worstFirst") rows.sort((a, b) => (b._worst || 0) - (a._worst || 0));
-
-  // render table
-  box.innerHTML = `
-    <div class="tableWrap">
-      <table class="table">
-        <thead>
-          <tr>
-            <th>ID</th>
-            <th>Kategori</th>
-            <th>Status</th>
-            <th>Prio</th>
-            <th>Skapad</th>
-            <th>First</th>
-            <th>Res</th>
-            <th>Pending total</th>
-            <th>Breaches</th>
-          </tr>
-        </thead>
-        <tbody>
-          ${rows
-            .slice(0, 800)
-            .map((r) => {
-              const sla = r.sla || {};
-              const first = sla.firstResponseMs != null ? msToPretty(sla.firstResponseMs) : "—";
-              const res = sla.resolutionMs != null ? msToPretty(sla.resolutionMs) : "—";
-              const pending = sla.pendingTotalMs != null ? msToPretty(sla.pendingTotalMs) : "—";
-              const b1 = sla.breachedFirstResponse ? pill("first", "danger") : pill("first", "ok");
-              const b2 = sla.breachedResolution ? pill("res", "danger") : pill("res", "ok");
-
-              return `
-                <tr>
-                  <td><span class="muted small">${escapeHtml(String(r.ticketId).slice(-8))}</span></td>
-                  <td>${escapeHtml(r.companyId || "")}</td>
-                  <td>${escapeHtml(r.status || "")}</td>
-                  <td>${escapeHtml(r.priority || "")}</td>
-                  <td>${escapeHtml(fmtDate(r.createdAt))}</td>
-                  <td>${escapeHtml(first)}</td>
-                  <td>${escapeHtml(res)}</td>
-                  <td>${escapeHtml(pending)}</td>
-                  <td style="display:flex; gap:6px; flex-wrap:wrap;">${b1}${b2}</td>
-                </tr>
-              `;
-            })
-            .join("")}
-        </tbody>
-      </table>
-    </div>
-  `;
-}
-
-function exportSlaCsv() {
-  const days = Number($("slaDaysSelect")?.value || 30);
-  const url = `/admin/sla/export/csv?days=${days}`;
-
-  // file download with auth -> use fetch blob
-  fetch(API_BASE + url, {
-    headers: { Authorization: `Bearer ${state.token}` },
-  })
-    .then((r) => {
-      if (!r.ok) throw new Error("Kunde inte exportera CSV");
-      return r.blob();
-    })
-    .then((blob) => {
-      const a = document.createElement("a");
-      a.href = URL.createObjectURL(blob);
-      a.download = `sla_export_${days}d.csv`;
-      a.click();
-      URL.revokeObjectURL(a.href);
-    })
-    .catch(() => alert("❌ Export misslyckades"));
-}
-
-async function clearMySlaStats() {
-  // I din server.js finns clear agent endpoint som admin.
-  // Den här knappen är "min statistik" men kräver admin i din backend.
-  // Vi försöker ändå visa vettigt fel.
-  try {
-    if (!confirm("Radera min SLA-statistik?")) return;
-    const me = state.user;
-    await api(`/admin/sla/clear/agent/${me.id}`, { method: "POST" });
-    alert("✅ Din statistik raderad.");
-    await refreshSlaAll();
-  } catch (e) {
-    alert(`❌ ${e.message}`);
-  }
-}
-
-async function clearAllSlaStats() {
-  try {
-    if (!confirm("Radera ALL SLA-statistik? (Admin)")) return;
-    await api(`/admin/sla/clear/all`, { method: "POST" });
-    alert("✅ All statistik raderad.");
-    await refreshSlaAll();
-  } catch (e) {
-    alert(`❌ ${e.message}`);
-  }
-}
-
-/* =========================
-   ADMIN DASHBOARD
-========================= */
-async function refreshAdminAll() {
-  // default users tab visible
-  await loadAdminUsers().catch(() => {});
-  await loadKbList().catch(() => {});
-  await loadCategoriesAdmin().catch(() => {});
-}
-
 async function loadAdminUsers() {
-  const box = $("adminUsersList");
-  setAlert($("adminUsersMsg"), "");
-  if (!box) return;
-  box.innerHTML = `<div class="muted small">Laddar...</div>`;
+  if (!state.user || !["admin", "agent"].includes(state.user.role)) return;
+
+  hide(adminUsersMsg);
 
   try {
-    const users = await api("/admin/users");
-    box.innerHTML = users
-      .map((u) => {
-        const rolePill = u.role === "admin" ? pill("admin", "ok") : u.role === "agent" ? pill("agent", "warn") : pill("user");
-        return `
-          <div class="listItem">
-            <div class="listItemTitle">
-              ${escapeHtml(u.username)} ${rolePill}
-              <span class="muted small" style="margin-left:auto;">${escapeHtml(String(u._id).slice(-8))}</span>
-            </div>
-            <div class="muted small">${escapeHtml(u.email || "")} • ${fmtDate(u.createdAt)}</div>
-
-            <div class="row gap" style="margin-top:10px; flex-wrap:wrap;">
-              <select class="input smallInput" data-role-select="${u._id}">
-                <option value="user" ${u.role === "user" ? "selected" : ""}>user</option>
-                <option value="agent" ${u.role === "agent" ? "selected" : ""}>agent</option>
-                <option value="admin" ${u.role === "admin" ? "selected" : ""}>admin</option>
-              </select>
-              <button class="btn ghost small" data-set-role="${u._id}">
-                <i class="fa-solid fa-user-shield"></i> Sätt roll
-              </button>
-
-              <button class="btn danger small" data-del-user="${u._id}">
-                <i class="fa-solid fa-trash"></i> Ta bort
-              </button>
-            </div>
-          </div>
-        `;
-      })
-      .join("");
-
-    qsa("[data-set-role]").forEach((b) => {
-      b.addEventListener("click", async () => {
-        const userId = b.getAttribute("data-set-role");
-        const sel = qs(`[data-role-select="${userId}"]`);
-        const role = sel?.value;
-        try {
-          await api(`/admin/users/${userId}/role`, {
-            method: "POST",
-            body: JSON.stringify({ role }),
-          });
-          setAlert($("adminUsersMsg"), "Roll uppdaterad ✅", "");
-          await loadAdminUsers();
-        } catch (e) {
-          setAlert($("adminUsersMsg"), e.message, "error");
-        }
-      });
-    });
-
-    qsa("[data-del-user]").forEach((b) => {
-      b.addEventListener("click", async () => {
-        const userId = b.getAttribute("data-del-user");
-        if (!confirm("Ta bort användare?")) return;
-        try {
-          await api(`/admin/users/${userId}`, { method: "DELETE" });
-          setAlert($("adminUsersMsg"), "Användare borttagen ✅", "");
-          await loadAdminUsers();
-        } catch (e) {
-          setAlert($("adminUsersMsg"), e.message, "error");
-        }
-      });
-    });
+    const users = await apiFetch("/admin/users");
+    renderAdminUsers(users || []);
   } catch (e) {
-    setAlert($("adminUsersMsg"), e.message, "error");
-    box.innerHTML = `<div class="muted small">Kunde inte ladda users.</div>`;
+    setText(adminUsersMsg, e.message);
+    show(adminUsersMsg);
   }
 }
 
-/* =========================
-   EXPORTS
-========================= */
-function exportAll() {
-  // download json with auth
-  fetch(API_BASE + "/admin/export/all", {
-    headers: { Authorization: `Bearer ${state.token}` },
-  })
-    .then((r) => {
-      if (!r.ok) throw new Error("Export misslyckades");
-      return r.blob();
-    })
-    .then((blob) => {
-      const a = document.createElement("a");
-      a.href = URL.createObjectURL(blob);
-      a.download = `export_all_${new Date().toISOString().slice(0, 10)}.json`;
-      a.click();
-      URL.revokeObjectURL(a.href);
-    })
-    .catch(() => alert("❌ Export misslyckades"));
+function renderAdminUsers(users) {
+  adminUsersList.innerHTML = "";
+
+  if (!users.length) {
+    adminUsersList.innerHTML = `<div class="muted small">Inga users.</div>`;
+    return;
+  }
+
+  users.forEach((u) => {
+    const item = document.createElement("div");
+    item.className = "listItem";
+
+    item.innerHTML = `
+      <div class="listItemTitle">
+        <i class="fa-solid fa-user"></i>
+        <span>${escapeHtml(u.username)}</span>
+        <span class="pill ${u.role === "admin" ? "admin" : ""}">${escapeHtml(u.role)}</span>
+      </div>
+      <div class="muted small" style="margin-top:6px;">Email: ${escapeHtml(u.email || "-")}</div>
+    `;
+
+    // Admin controls
+    if (state.user?.role === "admin" && String(u._id) !== String(state.user.id)) {
+      const actions = document.createElement("div");
+      actions.className = "bubbleActions";
+
+      const roleSelect = document.createElement("select");
+      roleSelect.className = "input smallInput";
+      roleSelect.innerHTML = `
+        <option value="user">user</option>
+        <option value="agent">agent</option>
+        <option value="admin">admin</option>
+      `;
+      roleSelect.value = u.role;
+
+      const saveBtn = document.createElement("button");
+      saveBtn.className = "btn ghost small";
+      saveBtn.innerHTML = `<i class="fa-solid fa-floppy-disk"></i> Spara roll`;
+
+      saveBtn.addEventListener("click", async () => {
+        try {
+          await apiFetch(`/admin/users/${u._id}/role`, { method: "POST", body: { role: roleSelect.value } });
+          await loadAdminUsers();
+        } catch (e) {
+          alert(e.message);
+        }
+      });
+
+      const delBtn = document.createElement("button");
+      delBtn.className = "btn danger small";
+      delBtn.innerHTML = `<i class="fa-solid fa-trash"></i> Ta bort`;
+
+      delBtn.addEventListener("click", async () => {
+        if (!confirm(`Ta bort ${u.username}?`)) return;
+        try {
+          await apiFetch(`/admin/users/${u._id}`, { method: "DELETE" });
+          await loadAdminUsers();
+        } catch (e) {
+          alert(e.message);
+        }
+      });
+
+      actions.appendChild(roleSelect);
+      actions.appendChild(saveBtn);
+      actions.appendChild(delBtn);
+      item.appendChild(actions);
+    }
+
+    adminUsersList.appendChild(item);
+  });
 }
 
-function exportTraining() {
-  const url = `/admin/export/training?companyId=${encodeURIComponent(state.companyId)}`;
-  fetch(API_BASE + url, { headers: { Authorization: `Bearer ${state.token}` } })
-    .then((r) => {
-      if (!r.ok) throw new Error("Export misslyckades");
-      return r.blob();
-    })
-    .then((blob) => {
-      const a = document.createElement("a");
-      a.href = URL.createObjectURL(blob);
-      a.download = `training_export_${state.companyId}_${new Date().toISOString().slice(0, 10)}.json`;
-      a.click();
-      URL.revokeObjectURL(a.href);
-    })
-    .catch(() => alert("❌ Training export misslyckades"));
-}
-
-/* =========================
-   KB Manager
-========================= */
 async function loadKbList() {
-  const box = $("kbList");
-  const msg = $("kbMsg");
-  if (!box) return;
-  setAlert(msg, "");
-  box.innerHTML = `<div class="muted small">Laddar KB...</div>`;
+  if (!state.user || state.user.role !== "admin") return;
+  hide(kbMsg);
+
+  const cid = kbCategorySelect?.value || state.companyId || "demo";
 
   try {
-    const companyId = $("kbCategorySelect")?.value || "demo";
-    const items = await api(`/kb/list/${companyId}`);
+    const items = await apiFetch(`/kb/list/${encodeURIComponent(cid)}`);
+    kbList.innerHTML = "";
 
     if (!items.length) {
-      box.innerHTML = `<div class="muted small">Inga KB chunks ännu.</div>`;
+      kbList.innerHTML = `<div class="muted small">Ingen KB ännu.</div>`;
       return;
     }
 
-    box.innerHTML = items
-      .map((c) => {
-        return `
-          <div class="listItem">
-            <div class="listItemTitle">
-              ${escapeHtml(c.title || c.sourceRef || "KB")}
-              <span class="muted small" style="margin-left:auto;">#${c.chunkIndex}</span>
-            </div>
-            <div class="muted small">${escapeHtml(c.sourceType)} • ${escapeHtml(c.sourceRef || "")}</div>
-            <div class="muted small" style="margin-top:8px;">${escapeHtml((c.content || "").slice(0, 180))}...</div>
-          </div>
-        `;
-      })
-      .join("");
+    items.forEach((it) => {
+      const row = document.createElement("div");
+      row.className = "listItem";
+
+      row.innerHTML = `
+        <div class="listItemTitle">
+          <i class="fa-solid fa-book"></i>
+          <span>${escapeHtml(it.title || it.sourceRef || "KB")}</span>
+          <span class="pill">${escapeHtml(it.sourceType)}</span>
+        </div>
+        <div class="muted small" style="margin-top:6px;">
+          Chunk #${it.chunkIndex} • ${fmtDate(it.createdAt)} • ${it.embeddingOk ? "embedding✅" : "embedding❌"}
+        </div>
+      `;
+      kbList.appendChild(row);
+    });
   } catch (e) {
-    setAlert(msg, e.message, "error");
-    box.innerHTML = `<div class="muted small">Kunde inte ladda KB.</div>`;
+    setText(kbMsg, e.message);
+    show(kbMsg);
   }
 }
 
 async function kbUploadText() {
-  const msg = $("kbMsg");
-  setAlert(msg, "");
+  hide(kbMsg);
   try {
-    const companyId = $("kbCategorySelect")?.value || "demo";
-    const title = $("kbTextTitle")?.value?.trim() || "Text";
-    const content = $("kbTextContent")?.value?.trim() || "";
-    if (!content) throw new Error("Klistra in text först.");
+    const companyId = kbCategorySelect.value;
+    const title = kbTextTitle.value.trim();
+    const content = kbTextContent.value.trim();
+    if (!content) throw new Error("Klistra in text");
 
-    const data = await api("/kb/upload-text", {
-      method: "POST",
-      body: JSON.stringify({ companyId, title, content }),
-    });
-
-    setAlert(msg, data.message || "Uppladdat ✅", "");
-    $("kbTextContent").value = "";
+    const data = await apiFetch("/kb/upload-text", { method: "POST", body: { companyId, title, content } });
+    setText(kbMsg, data.message || "Uppladdad ✅");
+    kbMsg.className = "alert";
+    show(kbMsg);
+    kbTextContent.value = "";
     await loadKbList();
   } catch (e) {
-    setAlert(msg, e.message, "error");
+    setText(kbMsg, e.message);
+    kbMsg.className = "alert error";
+    show(kbMsg);
   }
 }
 
 async function kbUploadUrl() {
-  const msg = $("kbMsg");
-  setAlert(msg, "");
+  hide(kbMsg);
   try {
-    const companyId = $("kbCategorySelect")?.value || "demo";
-    const url = $("kbUrlInput")?.value?.trim();
-    if (!url) throw new Error("Skriv en URL.");
+    const companyId = kbCategorySelect.value;
+    const url = kbUrlInput.value.trim();
+    if (!url) throw new Error("Skriv en URL");
 
-    const data = await api("/kb/upload-url", {
-      method: "POST",
-      body: JSON.stringify({ companyId, url }),
-    });
-
-    setAlert(msg, data.message || "Uppladdat ✅", "");
-    $("kbUrlInput").value = "";
+    const data = await apiFetch("/kb/upload-url", { method: "POST", body: { companyId, url } });
+    setText(kbMsg, data.message || "Uppladdad ✅");
+    kbMsg.className = "alert";
+    show(kbMsg);
+    kbUrlInput.value = "";
     await loadKbList();
   } catch (e) {
-    setAlert(msg, e.message, "error");
+    setText(kbMsg, e.message);
+    kbMsg.className = "alert error";
+    show(kbMsg);
   }
 }
 
 async function kbUploadPdf() {
-  const msg = $("kbMsg");
-  setAlert(msg, "");
+  hide(kbMsg);
   try {
-    const companyId = $("kbCategorySelect")?.value || "demo";
-    const file = $("kbPdfFile")?.files?.[0];
-    if (!file) throw new Error("Välj en PDF fil.");
+    const companyId = kbCategorySelect.value;
+    const file = kbPdfFile.files?.[0];
+    if (!file) throw new Error("Välj en PDF-fil");
 
     const base64 = await fileToBase64(file);
-    const data = await api("/kb/upload-pdf", {
+    const data = await apiFetch("/kb/upload-pdf", {
       method: "POST",
-      body: JSON.stringify({ companyId, filename: file.name, base64 }),
+      body: { companyId, filename: file.name, base64: base64.split(",")[1] },
     });
 
-    setAlert(msg, data.message || "Uppladdat ✅", "");
-    $("kbPdfFile").value = "";
+    setText(kbMsg, data.message || "Uppladdad ✅");
+    kbMsg.className = "alert";
+    show(kbMsg);
+    kbPdfFile.value = "";
     await loadKbList();
   } catch (e) {
-    setAlert(msg, e.message, "error");
+    setText(kbMsg, e.message);
+    kbMsg.className = "alert error";
+    show(kbMsg);
   }
 }
 
-function fileToBase64(file) {
-  return new Promise((resolve, reject) => {
-    const fr = new FileReader();
-    fr.onload = () => {
-      const res = String(fr.result || "");
-      // data:application/pdf;base64,....
-      const b64 = res.split(",")[1] || "";
-      resolve(b64);
-    };
-    fr.onerror = () => reject(new Error("Kunde inte läsa fil"));
-    fr.readAsDataURL(file);
+async function loadCatsList() {
+  if (!state.user || state.user.role !== "admin") return;
+  hide(catsMsg);
+
+  try {
+    const cats = await apiFetch("/categories", { auth: false });
+    renderCatsList(cats || []);
+  } catch (e) {
+    setText(catsMsg, e.message);
+    show(catsMsg);
+  }
+}
+
+function renderCatsList(cats) {
+  catsList.innerHTML = "";
+  cats.forEach((c) => {
+    const item = document.createElement("div");
+    item.className = "listItem";
+    item.innerHTML = `
+      <div class="listItemTitle">
+        <i class="fa-solid fa-layer-group"></i>
+        <span>${escapeHtml(c.name || c.key)}</span>
+        <span class="pill">${escapeHtml(c.key)}</span>
+      </div>
+      <div class="muted small" style="margin-top:6px;">Prompt: ${escapeHtml((c.systemPrompt || "").slice(0, 90))}${(c.systemPrompt || "").length > 90 ? "..." : ""}</div>
+    `;
+
+    if (!["demo", "law", "tech", "cleaning"].includes(c.key)) {
+      const del = document.createElement("button");
+      del.className = "btn danger small";
+      del.style.marginTop = "10px";
+      del.innerHTML = `<i class="fa-solid fa-trash"></i> Ta bort kategori`;
+      del.addEventListener("click", async () => {
+        if (!confirm(`Ta bort kategori ${c.key}?`)) return;
+        try {
+          await apiFetch(`/admin/categories/${c.key}`, { method: "DELETE" });
+          await loadCategories();
+          await loadCatsList();
+        } catch (e) {
+          alert(e.message);
+        }
+      });
+      item.appendChild(del);
+    }
+
+    catsList.appendChild(item);
   });
 }
 
-function exportKb() {
-  const companyId = $("kbCategorySelect")?.value || "demo";
-  const url = `/export/kb/${encodeURIComponent(companyId)}`;
-  fetch(API_BASE + url, { headers: { Authorization: `Bearer ${state.token}` } })
-    .then((r) => {
-      if (!r.ok) throw new Error("Export misslyckades");
-      return r.blob();
-    })
-    .then((blob) => {
-      const a = document.createElement("a");
-      a.href = URL.createObjectURL(blob);
-      a.download = `kb_${companyId}_${new Date().toISOString().slice(0, 10)}.json`;
-      a.click();
-      URL.revokeObjectURL(a.href);
-    })
-    .catch(() => alert("❌ KB export misslyckades"));
-}
-
-/* =========================
-   Categories Admin
-========================= */
-async function loadCategoriesAdmin() {
-  const box = $("catsList");
-  const msg = $("catsMsg");
-  if (!box) return;
-  setAlert(msg, "");
-  box.innerHTML = `<div class="muted small">Laddar...</div>`;
-
-  try {
-    const cats = await api("/categories");
-    box.innerHTML = cats
-      .map((c) => {
-        const locked = ["demo", "law", "tech", "cleaning"].includes(c.key);
-        return `
-          <div class="listItem">
-            <div class="listItemTitle">
-              ${escapeHtml(c.name)} <span class="muted small">(${escapeHtml(c.key)})</span>
-              ${locked ? `<span class="pill ok" style="margin-left:auto;">default</span>` : ""}
-            </div>
-            <div class="muted small" style="margin-top:6px;">${escapeHtml((c.systemPrompt || "").slice(0, 120))}...</div>
-            ${
-              locked
-                ? ""
-                : `<button class="btn danger small" style="margin-top:10px;" data-del-cat="${escapeHtml(c.key)}"><i class="fa-solid fa-trash"></i> Ta bort</button>`
-            }
-          </div>
-        `;
-      })
-      .join("");
-
-    qsa("[data-del-cat]").forEach((b) => {
-      b.addEventListener("click", async () => {
-        const key = b.getAttribute("data-del-cat");
-        if (!confirm(`Ta bort kategori ${key}?`)) return;
-        try {
-          await api(`/admin/categories/${encodeURIComponent(key)}`, { method: "DELETE" });
-          setAlert(msg, "Kategori borttagen ✅", "");
-          await loadCategories();
-          await loadCategoriesAdmin();
-        } catch (e) {
-          setAlert(msg, e.message, "error");
-        }
-      });
-    });
-  } catch (e) {
-    setAlert(msg, e.message, "error");
-    box.innerHTML = `<div class="muted small">Kunde inte ladda kategorier.</div>`;
-  }
-}
-
 async function createCategory() {
-  const msg = $("catsMsg");
-  setAlert(msg, "");
-
+  hide(catsMsg);
   try {
-    const key = $("newCatKey")?.value?.trim();
-    const name = $("newCatName")?.value?.trim();
-    const systemPrompt = $("newCatPrompt")?.value?.trim() || "";
-    if (!key || !name) throw new Error("Fyll i key + namn.");
+    const key = newCatKey.value.trim();
+    const name = newCatName.value.trim();
+    const systemPrompt = newCatPrompt.value.trim();
 
-    const data = await api("/admin/categories", {
-      method: "POST",
-      body: JSON.stringify({ key, name, systemPrompt }),
-    });
+    if (!key || !name) throw new Error("Key + namn krävs");
 
-    setAlert(msg, data.message || "Skapad ✅", "");
-    $("newCatKey").value = "";
-    $("newCatName").value = "";
-    $("newCatPrompt").value = "";
+    const data = await apiFetch("/admin/categories", { method: "POST", body: { key, name, systemPrompt } });
+    setText(catsMsg, data.message || "Skapad ✅");
+    catsMsg.className = "alert";
+    show(catsMsg);
+
+    newCatKey.value = "";
+    newCatName.value = "";
+    newCatPrompt.value = "";
 
     await loadCategories();
-    await loadCategoriesAdmin();
+    await loadCatsList();
   } catch (e) {
-    setAlert(msg, e.message, "error");
+    setText(catsMsg, e.message);
+    catsMsg.className = "alert error";
+    show(catsMsg);
   }
 }
 
@@ -1986,60 +1675,683 @@ async function createCategory() {
    SETTINGS
 ========================= */
 async function changeUsername() {
-  const msg = $("settingsMsg");
-  setAlert(msg, "");
+  hide(settingsMsg);
   try {
-    const newUsername = $("newUsernameInput")?.value?.trim();
-    if (!newUsername || newUsername.length < 3) throw new Error("Nytt användarnamn är för kort.");
+    const newUsername = newUsernameInput.value.trim();
+    if (!newUsername || newUsername.length < 3) throw new Error("Minst 3 tecken");
 
-    const data = await api("/auth/change-username", {
-      method: "POST",
-      body: JSON.stringify({ newUsername }),
-    });
+    const data = await apiFetch("/auth/change-username", { method: "POST", body: { newUsername } });
+    setText(settingsMsg, data.message || "Uppdaterat ✅");
+    settingsMsg.className = "alert";
+    show(settingsMsg);
 
-    setAlert(msg, data.message || "Uppdaterat ✅", "");
-    $("newUsernameInput").value = "";
-
-    // refresh /me
-    const me = await api("/me");
-    state.user = me;
-    setLS(LS.user, JSON.stringify(me));
-    onLoggedIn();
+    await tryLoadMe();
+    updateRoleUI();
   } catch (e) {
-    setAlert(msg, e.message, "error");
+    setText(settingsMsg, e.message);
+    settingsMsg.className = "alert error";
+    show(settingsMsg);
   }
 }
 
 async function changePassword() {
-  const msg = $("settingsMsg");
-  setAlert(msg, "");
+  hide(settingsMsg);
   try {
-    const currentPassword = $("currentPassInput")?.value || "";
-    const newPassword = $("newPassInput")?.value || "";
-    if (!currentPassword || !newPassword) throw new Error("Fyll i båda fälten.");
+    const currentPassword = currentPassInput.value.trim();
+    const newPassword = newPassInput.value.trim();
+    if (!currentPassword || !newPassword) throw new Error("Fyll i båda fälten");
 
-    const data = await api("/auth/change-password", {
-      method: "POST",
-      body: JSON.stringify({ currentPassword, newPassword }),
-    });
+    const data = await apiFetch("/auth/change-password", { method: "POST", body: { currentPassword, newPassword } });
+    setText(settingsMsg, data.message || "Uppdaterat ✅");
+    settingsMsg.className = "alert";
+    show(settingsMsg);
 
-    setAlert(msg, data.message || "Lösenord uppdaterat ✅", "");
-    $("currentPassInput").value = "";
-    $("newPassInput").value = "";
+    currentPassInput.value = "";
+    newPassInput.value = "";
   } catch (e) {
-    setAlert(msg, e.message, "error");
+    setText(settingsMsg, e.message);
+    settingsMsg.className = "alert error";
+    show(settingsMsg);
   }
 }
 
 /* =========================
-   DEBUG PANEL
+   SLA DASHBOARD (BIG UPGRADE)
 ========================= */
-function updateDebug(extra = {}) {
-  if (!$("dbgApi")) return;
+function syncSlaControls() {
+  if (slaDaysSelect) slaDaysSelect.value = String(state.slaDays);
+  if (slaCompareModeSelect) slaCompareModeSelect.value = state.slaCompareMode;
+}
 
-  $("dbgApi").textContent = location.origin;
-  $("dbgLogged").textContent = state.token ? "JA" : "NEJ";
-  $("dbgRole").textContent = state.user?.role || "-";
-  $("dbgTicket").textContent = extra.ticketId || state.lastTicketId || "-";
-  $("dbgRag").textContent = extra.ragUsed ? "JA" : "-";
+async function loadSlaDashboard() {
+  if (!state.user || !["admin", "agent"].includes(state.user.role)) return;
+
+  syncSlaControls();
+
+  // Make SLA view look alive immediately
+  setHTML(slaOverviewBox, `<div class="muted small">Laddar SLA...</div>`);
+  setHTML(slaAgentsBox, `<div class="muted small">Laddar agents...</div>`);
+  setHTML(slaTicketsBox, `<div class="muted small">Laddar tickets...</div>`);
+  setText(slaTrendHint, "Laddar trend...");
+
+  await Promise.allSettled([
+    loadSlaOverviewAndKpi(),
+    loadSlaTrend(),
+    loadSlaAgents(),
+    loadSlaTicketsTable(),
+  ]);
+}
+
+async function loadSlaOverviewAndKpi() {
+  const days = state.slaDays || 30;
+
+  const [overviewRes, kpiRes] = await Promise.all([
+    apiFetch(`/admin/sla/overview?days=${days}`),
+    apiFetch(`/admin/sla/kpi?days=${days}`),
+  ]);
+
+  renderSlaOverviewAndKpi(overviewRes, kpiRes);
+
+  // optional compare
+  if (state.slaCompareMode !== "none") {
+    let a = days;
+    let b = 7;
+    if (state.slaCompareMode === "prevPeriod") b = days;
+    if (state.slaCompareMode === "prevWeek") b = 7;
+
+    try {
+      const cmp = await apiFetch(`/admin/sla/compare?a=${a}&b=${b}`);
+      renderSlaCompareBlock(cmp);
+    } catch {
+      // ignore compare errors
+    }
+  }
+}
+
+function renderSlaOverviewAndKpi(overview, kpi) {
+  const o = overview || {};
+  const k = kpi || {};
+
+  const fr = o.firstResponse || {};
+  const rs = o.resolution || {};
+
+  const totals = k.totals || {};
+  const health = k.slaHealth || {};
+  const distFR = k.distribution?.firstResponse || {};
+  const distRS = k.distribution?.resolution || {};
+  const ageing = Array.isArray(k.ageing) ? k.ageing : [];
+  const byCat = Array.isArray(k.byCategory) ? k.byCategory : [];
+
+  const overviewCards = `
+    <div class="slaGrid">
+      <div class="slaCard">
+        <div class="slaLabel">Tickets (period)</div>
+        <div class="slaValue">${o.totalTickets ?? "-"}</div>
+        <div class="muted small">Low: ${(o.byPriority?.low ?? 0)} • Normal: ${(o.byPriority?.normal ?? 0)} • High: ${(o.byPriority?.high ?? 0)}</div>
+      </div>
+
+      <div class="slaCard">
+        <div class="slaLabel">First response compliance</div>
+        <div class="slaValue">${fr.compliancePct ?? "-"}%</div>
+        <div class="muted small">
+          Avg: ${msToPretty(fr.avgMs)} • Median: ${msToPretty(fr.medianMs)} • P90: ${msToPretty(fr.p90Ms)}
+        </div>
+        <div class="muted small">
+          Breaches: ${fr.breaches ?? 0} • At-risk: ${fr.atRisk ?? 0}
+        </div>
+      </div>
+
+      <div class="slaCard">
+        <div class="slaLabel">Resolution compliance</div>
+        <div class="slaValue">${rs.compliancePct ?? "-"}%</div>
+        <div class="muted small">
+          Avg: ${msToPretty(rs.avgMs)} • Median: ${msToPretty(rs.medianMs)} • P90: ${msToPretty(rs.p90Ms)}
+        </div>
+        <div class="muted small">
+          Breaches: ${rs.breaches ?? 0} • At-risk: ${rs.atRisk ?? 0}
+        </div>
+      </div>
+    </div>
+  `;
+
+  const kpiCards = `
+    <div class="divider"></div>
+    <h3 style="margin:0 0 8px 0;">KPI Dashboard</h3>
+
+    <div class="slaGrid">
+      <div class="slaCard">
+        <div class="slaLabel">Backlog (open + pending)</div>
+        <div class="slaValue">${(totals.open ?? 0) + (totals.pending ?? 0)}</div>
+        <div class="muted small">Open: ${totals.open ?? 0} • Pending: ${totals.pending ?? 0}</div>
+      </div>
+
+      <div class="slaCard">
+        <div class="slaLabel">Solve rate</div>
+        <div class="slaValue">${totals.solveRatePct ?? "-"}%</div>
+        <div class="muted small">Solved: ${totals.solved ?? 0} av ${totals.total ?? 0}</div>
+      </div>
+
+      <div class="slaCard">
+        <div class="slaLabel">SLA Health</div>
+        <div class="slaValue">${health.breachedPct ?? "-"}%</div>
+        <div class="muted small">Breached: ${health.breachedAny ?? 0} • Risk: ${health.riskAny ?? 0} (${health.riskPct ?? "-"}%)</div>
+      </div>
+    </div>
+
+    <div class="divider"></div>
+
+    <div class="split">
+      <div class="panel">
+        <div class="panelHead"><b>Ageing (backlog)</b></div>
+        ${
+          ageing.length
+            ? ageing
+                .map(
+                  (b) => `
+                <div class="row" style="justify-content:space-between; margin:8px 0;">
+                  <span class="muted small">${escapeHtml(b.key)}</span>
+                  <span class="pill">${b.count}</span>
+                </div>
+              `
+                )
+                .join("")
+            : `<div class="muted small">Ingen data.</div>`
+        }
+      </div>
+
+      <div class="panel">
+        <div class="panelHead"><b>Kategori KPI</b></div>
+        ${
+          byCat.length
+            ? `
+          <div class="tableWrap">
+            <table class="table">
+              <thead>
+                <tr>
+                  <th>Kategori</th>
+                  <th>Total</th>
+                  <th>Solved%</th>
+                  <th>Breached%</th>
+                  <th>Open</th>
+                  <th>Pending</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${byCat
+                  .slice(0, 12)
+                  .map(
+                    (r) => `
+                    <tr>
+                      <td>${escapeHtml(r.companyId)}</td>
+                      <td>${r.total ?? 0}</td>
+                      <td>${r.solvedPct ?? "-"}%</td>
+                      <td>${r.breachedPct ?? "-"}%</td>
+                      <td>${r.open ?? 0}</td>
+                      <td>${r.pending ?? 0}</td>
+                    </tr>
+                  `
+                  )
+                  .join("")}
+              </tbody>
+            </table>
+          </div>
+          <div class="muted small" style="margin-top:8px;">Visar topp 12 kategorier i perioden.</div>
+          `
+            : `<div class="muted small">Ingen kategori-data.</div>`
+        }
+      </div>
+    </div>
+  `;
+
+  const distBlock = `
+    <div class="divider"></div>
+    <h3 style="margin:0 0 8px 0;">Distribution (KPI)</h3>
+
+    <div class="slaGrid">
+      <div class="slaCard">
+        <div class="slaLabel">First Response (KPI)</div>
+        <div class="slaValue">${msToPretty(distFR.medianMs)}</div>
+        <div class="muted small">Avg: ${msToPretty(distFR.avgMs)} • P90: ${msToPretty(distFR.p90Ms)}</div>
+      </div>
+
+      <div class="slaCard">
+        <div class="slaLabel">Resolution (KPI)</div>
+        <div class="slaValue">${msToPretty(distRS.medianMs)}</div>
+        <div class="muted small">Avg: ${msToPretty(distRS.avgMs)} • P90: ${msToPretty(distRS.p90Ms)}</div>
+      </div>
+
+      <div class="slaCard">
+        <div class="slaLabel">Period</div>
+        <div class="slaValue">${k.rangeDays ?? "-"}</div>
+        <div class="muted small">Dagar i urval</div>
+      </div>
+    </div>
+  `;
+
+  setHTML(slaOverviewBox, overviewCards + kpiCards + distBlock);
+}
+
+function renderSlaCompareBlock(cmp) {
+  const a = cmp?.a;
+  const b = cmp?.b;
+  if (!a || !b) return;
+
+  const block = `
+    <div class="divider"></div>
+    <h3 style="margin:0 0 8px 0;">Jämförelse</h3>
+
+    <div class="tableWrap">
+      <table class="table">
+        <thead>
+          <tr>
+            <th>Period</th>
+            <th>Tickets</th>
+            <th>FR compliance</th>
+            <th>FR breaches</th>
+            <th>RES compliance</th>
+            <th>RES breaches</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>${a.rangeDays} dagar</td>
+            <td>${a.totalTickets ?? 0}</td>
+            <td>${a.firstResponse?.compliancePct ?? "-"}%</td>
+            <td>${a.firstResponse?.breaches ?? 0}</td>
+            <td>${a.resolution?.compliancePct ?? "-"}%</td>
+            <td>${a.resolution?.breaches ?? 0}</td>
+          </tr>
+          <tr>
+            <td>${b.rangeDays} dagar</td>
+            <td>${b.totalTickets ?? 0}</td>
+            <td>${b.firstResponse?.compliancePct ?? "-"}%</td>
+            <td>${b.firstResponse?.breaches ?? 0}</td>
+            <td>${b.resolution?.compliancePct ?? "-"}%</td>
+            <td>${b.resolution?.breaches ?? 0}</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="muted small" style="margin-top:8px;">Jämförelsen använder din backend endpoint <code>/admin/sla/compare</code>.</div>
+  `;
+
+  // Append under overview box
+  slaOverviewBox.insertAdjacentHTML("beforeend", block);
+}
+
+async function loadSlaTrend() {
+  const days = state.slaDays || 30;
+
+  // Toggle mode button inside hint area
+  const toggleHtml = `
+    <span class="pill" style="cursor:pointer;" id="slaTrendToggle">
+      Trend: ${state.slaTrendMode === "weekly" ? "Weekly" : "Daily"} (klicka för att ändra)
+    </span>
+  `;
+  setHTML(slaTrendHint, toggleHtml);
+
+  const toggle = $("slaTrendToggle");
+  toggle?.addEventListener("click", async () => {
+    state.slaTrendMode = state.slaTrendMode === "weekly" ? "daily" : "weekly";
+    localStorage.setItem("slaTrendMode", state.slaTrendMode);
+    await loadSlaTrend();
+  });
+
+  const endpoint =
+    state.slaTrendMode === "daily"
+      ? `/admin/sla/trend/daily?days=${clamp(days, 1, 120)}`
+      : `/admin/sla/trend/weekly?days=${days}`;
+
+  const data = await apiFetch(endpoint);
+  const rows = data.rows || [];
+
+  renderSlaTrendChart(rows, state.slaTrendMode);
+}
+
+let slaChartInstance = null;
+
+function renderSlaTrendChart(rows, mode) {
+  if (!slaTrendChart) return;
+  if (!window.Chart) {
+    setText(slaTrendHint, "Chart.js saknas (lägg in CDN om du vill ha graf).");
+    return;
+  }
+
+  const labels = rows.map((r) => (mode === "daily" ? r.day : r.week));
+  const fr = rows.map((r) => r.firstCompliancePct ?? 0);
+  const rs = rows.map((r) => r.resolutionCompliancePct ?? 0);
+
+  if (slaChartInstance) {
+    slaChartInstance.destroy();
+    slaChartInstance = null;
+  }
+
+  const ctx = slaTrendChart.getContext("2d");
+  slaChartInstance = new Chart(ctx, {
+    type: "line",
+    data: {
+      labels,
+      datasets: [
+        { label: "First response %", data: fr, tension: 0.35 },
+        { label: "Resolution %", data: rs, tension: 0.35 },
+      ],
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: { legend: { display: true } },
+      scales: {
+        y: { min: 0, max: 100, ticks: { callback: (v) => v + "%" } },
+      },
+    },
+  });
+
+  // keep hint toggle visible
+  const toggleHtml = `
+    <span class="pill" style="cursor:pointer;" id="slaTrendToggle">
+      Trend: ${state.slaTrendMode === "weekly" ? "Weekly" : "Daily"} (klicka för att ändra)
+    </span>
+    <span class="muted small" style="margin-left:10px;">Punkter: ${rows.length}</span>
+  `;
+  setHTML(slaTrendHint, toggleHtml);
+  $("slaTrendToggle")?.addEventListener("click", async () => {
+    state.slaTrendMode = state.slaTrendMode === "weekly" ? "daily" : "weekly";
+    localStorage.setItem("slaTrendMode", state.slaTrendMode);
+    await loadSlaTrend();
+  });
+}
+
+async function loadSlaAgents() {
+  const days = state.slaDays || 30;
+  const data = await apiFetch(`/admin/sla/agents?days=${days}`);
+  const rows = data.rows || [];
+
+  if (!rows.length) {
+    setHTML(slaAgentsBox, `<div class="muted small">Ingen agentdata.</div>`);
+    return;
+  }
+
+  const html = `
+    <div class="tableWrap">
+      <table class="table">
+        <thead>
+          <tr>
+            <th>Agent</th>
+            <th>Tickets</th>
+            <th>Open</th>
+            <th>Pending</th>
+            <th>Solved</th>
+            <th>FR median</th>
+            <th>FR %</th>
+            <th>RES median</th>
+            <th>RES %</th>
+            <th>Risk</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${rows
+            .sort((a, b) => (b.tickets || 0) - (a.tickets || 0))
+            .map((r) => {
+              const fr = r.firstResponse || {};
+              const rs = r.resolution || {};
+              const risk = (r.firstRisk || 0) + (r.resRisk || 0);
+
+              return `
+                <tr>
+                  <td>${escapeHtml(r.username)} <span class="pill ${r.role === "admin" ? "admin" : ""}">${escapeHtml(r.role)}</span></td>
+                  <td>${r.tickets ?? 0}</td>
+                  <td>${r.open ?? 0}</td>
+                  <td>${r.pending ?? 0}</td>
+                  <td>${r.solved ?? 0}</td>
+                  <td>${escapeHtml(msToPretty(fr.medianMs))}</td>
+                  <td>${fr.compliancePct ?? "-"}%</td>
+                  <td>${escapeHtml(msToPretty(rs.medianMs))}</td>
+                  <td>${rs.compliancePct ?? "-"}%</td>
+                  <td><span class="pill">${risk}</span></td>
+                </tr>
+              `;
+            })
+            .join("")}
+        </tbody>
+      </table>
+    </div>
+    <div class="muted small" style="margin-top:8px;">Agents KPI inkluderar även open/pending/solved + risk-count.</div>
+  `;
+
+  setHTML(slaAgentsBox, html);
+}
+
+async function loadSlaTicketsTable() {
+  const days = state.slaDays || 30;
+  const data = await apiFetch(`/admin/sla/tickets?days=${days}`);
+  let rows = data.rows || [];
+
+  // Apply filters
+  const breachedFilter = slaBreachedFilter?.value || "all";
+  const breachType = slaBreachTypeFilter?.value || "any";
+  const sortMode = slaSortTickets?.value || "newest";
+
+  if (breachedFilter !== "all") {
+    rows = rows.filter((r) => {
+      const s = r.sla || {};
+      const breachedAny = !!s.breachedFirstResponse || !!s.breachedResolution;
+
+      if (breachedFilter === "breachedOnly") return breachedAny;
+      if (breachedFilter === "okOnly") return !breachedAny;
+      return true;
+    });
+  }
+
+  if (breachType !== "any") {
+    rows = rows.filter((r) => {
+      const s = r.sla || {};
+      if (breachType === "first") return !!s.breachedFirstResponse;
+      if (breachType === "resolution") return !!s.breachedResolution;
+      return true;
+    });
+  }
+
+  if (sortMode === "newest") rows.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+  if (sortMode === "oldest") rows.sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt));
+  if (sortMode === "worstFirst") {
+    rows.sort((a, b) => {
+      const sa = a.sla || {};
+      const sb = b.sla || {};
+      const aBad = (sa.breachedFirstResponse ? 1 : 0) + (sa.breachedResolution ? 1 : 0);
+      const bBad = (sb.breachedFirstResponse ? 1 : 0) + (sb.breachedResolution ? 1 : 0);
+      return bBad - aBad;
+    });
+  }
+
+  const html = `
+    <div class="tableWrap">
+      <table class="table">
+        <thead>
+          <tr>
+            <th>Ticket</th>
+            <th>Status</th>
+            <th>Prio</th>
+            <th>Skapad</th>
+            <th>FR</th>
+            <th>RES</th>
+            <th>FR kvar</th>
+            <th>RES kvar</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${rows
+            .slice(0, 300)
+            .map((r) => {
+              const s = r.sla || {};
+              const frState = s.firstResponseState || "-";
+              const resState = s.resolutionState || "-";
+
+              return `
+                <tr>
+                  <td>
+                    <span class="pill">${escapeHtml(String(r.ticketId).slice(-8))}</span>
+                    <span class="muted small">${escapeHtml(r.companyId || "")}</span>
+                  </td>
+                  <td>${escapeHtml(r.status || "-")}</td>
+                  <td>${escapeHtml(r.priority || "-")}</td>
+                  <td>${fmtDate(r.createdAt)}</td>
+                  <td><span class="${pillClassFromState(frState)}">${escapeHtml(frState)}</span></td>
+                  <td><span class="${pillClassFromState(resState)}">${escapeHtml(resState)}</span></td>
+                  <td>${escapeHtml(msToPretty(s.firstResponseRemainingMs))}</td>
+                  <td>${escapeHtml(msToPretty(s.resolutionRemainingMs))}</td>
+                </tr>
+              `;
+            })
+            .join("")}
+        </tbody>
+      </table>
+    </div>
+    <div class="muted small" style="margin-top:8px;">
+      Visar max 300 tickets (filtrera/period för fler). Totalt efter filter: ${rows.length}
+    </div>
+
+    <div class="divider"></div>
+
+    <button class="btn secondary" type="button" id="slaShowBreachedBtn">
+      <i class="fa-solid fa-triangle-exclamation"></i> Visa breached-lista
+    </button>
+
+    <div id="slaBreachedListBox" style="margin-top:10px;"></div>
+  `;
+
+  setHTML(slaTicketsBox, html);
+
+  $("slaShowBreachedBtn")?.addEventListener("click", loadSlaBreachedList);
+}
+
+async function loadSlaBreachedList() {
+  const box = $("slaBreachedListBox");
+  if (!box) return;
+
+  setHTML(box, `<div class="muted small">Laddar breached...</div>`);
+
+  try {
+    const days = state.slaDays || 30;
+    const data = await apiFetch(`/admin/sla/breached?days=${days}`);
+    const rows = data.rows || [];
+
+    if (!rows.length) {
+      setHTML(box, `<div class="muted small">Inga breached tickets 🎉</div>`);
+      return;
+    }
+
+    const html = `
+      <div class="panel soft">
+        <div class="panelHead">
+          <b>Breached tickets</b>
+          <span class="muted small" style="margin-left:auto;">${rows.length} st</span>
+        </div>
+        ${rows
+          .slice(0, 120)
+          .map((r) => {
+            const s = r.sla || {};
+            const b1 = s.breachedFirstResponse ? "FR" : "";
+            const b2 = s.breachedResolution ? "RES" : "";
+            const which = [b1, b2].filter(Boolean).join(" + ") || "Breach";
+
+            return `
+              <div class="listItem" style="cursor:default;">
+                <div class="listItemTitle">
+                  <i class="fa-solid fa-triangle-exclamation"></i>
+                  <span>${escapeHtml(String(r.ticketId).slice(-8))}</span>
+                  <span class="pill danger">${escapeHtml(which)}</span>
+                  <span class="pill">${escapeHtml(r.priority || "normal")}</span>
+                  <span class="pill">${escapeHtml(r.status || "-")}</span>
+                </div>
+                <div class="muted small" style="margin-top:6px;">
+                  ${escapeHtml(r.companyId || "")} • Skapad: ${fmtDate(r.createdAt)}
+                </div>
+              </div>
+            `;
+          })
+          .join("")}
+        ${rows.length > 120 ? `<div class="muted small">Visar 120 av ${rows.length}</div>` : ""}
+      </div>
+    `;
+    setHTML(box, html);
+  } catch (e) {
+    setHTML(box, `<div class="alert error">${escapeHtml(e.message)}</div>`);
+  }
+}
+
+async function clearMyStats() {
+  try {
+    if (!state.user || state.user.role !== "admin") {
+      alert("Just nu kan bara admin radera statistik i backend (kräver agentId).");
+      return;
+    }
+
+    // Admin can clear own stats by agentId
+    await apiFetch(`/admin/sla/clear/agent/${state.user.id}`, { method: "POST" });
+    await loadSlaDashboard();
+  } catch (e) {
+    alert(e.message);
+  }
+}
+
+async function clearAllStats() {
+  try {
+    if (!state.user || state.user.role !== "admin") throw new Error("Endast admin");
+    if (!confirm("Radera ALL SLA-statistik?")) return;
+    await apiFetch(`/admin/sla/clear/all`, { method: "POST" });
+    await loadSlaDashboard();
+  } catch (e) {
+    alert(e.message);
+  }
+}
+
+/* =========================
+   DEBUG
+========================= */
+function refreshDebug() {
+  if (!dbgApi) return;
+  setText(dbgApi, location.origin);
+  setText(dbgLogged, state.user ? "YES" : "NO");
+  setText(dbgRole, state.user?.role || "-");
+  setText(dbgTicket, state.currentTicketId ? String(state.currentTicketId).slice(-8) : "-");
+  // dbgRag is set after chat response
+}
+
+/* =========================
+   INBOX NOTIF POLLING
+========================= */
+function startInboxNotifPolling() {
+  // light polling to refresh notif dot
+  setInterval(async () => {
+    if (!state.user || !["admin", "agent"].includes(state.user.role)) return;
+    try {
+      const data = await apiFetch(`/admin/tickets?companyId=${encodeURIComponent(state.companyId)}`);
+      state.inboxTickets = data || [];
+      updateInboxNotifDot();
+    } catch {
+      // ignore
+    }
+  }, 15000);
+}
+
+/* =========================
+   UTIL
+========================= */
+function escapeHtml(str) {
+  const s = String(str ?? "");
+  return s
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("'", "&#039;");
+}
+
+function fileToBase64(file) {
+  return new Promise((resolve, reject) => {
+    const r = new FileReader();
+    r.onload = () => resolve(String(r.result || ""));
+    r.onerror = reject;
+    r.readAsDataURL(file);
+  });
 }
