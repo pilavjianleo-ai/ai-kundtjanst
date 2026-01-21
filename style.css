@@ -981,7 +981,7 @@ body[data-theme="light"] .toastMsg {
     box-shadow: 0 0 0 0 rgba(255, 59, 59, 0);
   }
 }
- 
+
 /* ✅ SLA Chart - gör så canvas alltid syns */
 #slaTrendChart {
   display: block;
@@ -992,5 +992,13 @@ body[data-theme="light"] .toastMsg {
 #slaView .panel {
   overflow: hidden; /* så det inte blir konstig scroll */
 }
+
+
+
+
+
+
+
+
 
 }

@@ -1,60 +1,3 @@
-window.__slaLoading = false;
-
-// ✅ FORCE GLOBAL: gör funktionen global så den alltid finns
-window.destroyTrendChart = function () {
-  if (window.state?.chartTrend) {
-    try { window.state.chartTrend.destroy(); } catch {}
-    window.state.chartTrend = null;
-  }
-};
-
-window.renderSlaTrendChart = function (tr) {
-  const canvas = document.getElementById("slaTrendChart");
-  const hint = document.getElementById("slaTrendHint");
-  if (!canvas) return;
-
-  if (typeof Chart === "undefined") {
-    if (hint) hint.textContent = "❌ Chart.js saknas i index.html";
-    return;
-  }
-
-  window.destroyTrendChart();
-
-  const rows = tr?.rows || [];
-  if (!rows.length) {
-    if (hint) hint.textContent = "Ingen trend-data ännu.";
-    return;
-  }
-
-  const labels = rows.map((r, i) => r.week || `V${i + 1}`);
-  const firstPct = rows.map((r) => Number(r.firstCompliancePct || 0));
-  const resPct = rows.map((r) => Number(r.resolutionCompliancePct || 0));
-
-  const ctx = canvas.getContext("2d");
-
-  window.state.chartTrend = new Chart(ctx, {
-    type: "line",
-    data: {
-      labels,
-      datasets: [
-        { label: "First (%)", data: firstPct, tension: 0.35, borderWidth: 2, pointRadius: 3 },
-        { label: "Resolution (%)", data: resPct, tension: 0.35, borderWidth: 2, pointRadius: 3 },
-      ],
-    },
-    options: {
-      responsive: true,
-      maintainAspectRatio: false,
-      interaction: { mode: "index", intersect: false },
-      plugins: { legend: { display: true } },
-      scales: { y: { min: 0, max: 100 } },
-    },
-  });
-
-  if (hint) hint.textContent = "✅ SLA Trend laddad.";
-};
-
-console.log("✅ SLA chart functions injected:", typeof window.renderSlaTrendChart);
-
 /* =========================================================
    AI Kundtjänst - script.js (STABLE FIXED)
    ✅ Behåller din layout exakt som index.html
@@ -1330,146 +1273,38 @@ async function removeSolvedTickets() {
 let slaCache = { overview: null, trend: null, agents: null, tickets: null };
 
 async function refreshSlaAll() {
-  if (window.__slaLoading) return;     // ✅ stoppar spam refresh
-  window.__slaLoading = true;
+  destroyTrendChart();
 
-  try {
-    destroyTrendChart();
+  const days = Number($("slaDaysSelect")?.value || 30);
 
-    const days = Number($("slaDaysSelect")?.value || 30);
-    const compareMode = $("slaCompareMode")?.value || "none";
+  $("slaOverviewBox").innerHTML = `<div class="muted small">Laddar...</div>`;
+  $("slaAgentsBox").innerHTML = `<div class="muted small">Laddar...</div>`;
+  $("slaTicketsBox").innerHTML = `<div class="muted small">Laddar...</div>`;
+  $("slaTrendHint").textContent = "";
 
-    $("slaOverviewBox").innerHTML = `<div class="muted small">Laddar KPI...</div>`;
-    $("slaAgentsBox").innerHTML = `<div class="muted small">Laddar agents...</div>`;
-    $("slaTicketsBox").innerHTML = `<div class="muted small">Laddar tickets...</div>`;
-    $("slaTrendHint").textContent = "";
-
-    const kpi = await api(`/admin/sla/kpi?days=${days}`);
-    slaCache.kpi = kpi;
-
-    const overview = await api(`/admin/sla/overview?days=${days}`);
-    slaCache.overview = overview;
-    renderSlaOverviewKpi(overview, kpi);
-
-    const trend = await api(`/admin/sla/trend/weekly?days=${days}`);
-    slaCache.trend = trend;
-
-    if (typeof renderSlaTrendChart === "function") {
-      renderSlaTrendChart(trend);
-    }
-
-    const agents = await api(`/admin/sla/agents?days=${days}`);
-    slaCache.agents = agents;
-    renderSlaAgents(agents);
-
-    const tickets = await api(`/admin/sla/tickets?days=${days}`);
-    slaCache.tickets = tickets;
-    renderSlaTicketsFromCache();
-
-    if (compareMode && compareMode !== "none") {
-      const a = days;
-      const b = compareMode === "prevWeek" ? 7 : days;
-      const cmp = await api(`/admin/sla/compare?a=${a}&b=${b}`);
-      renderSlaCompareHint(cmp, compareMode);
-    } else {
-      $("slaTrendHint").textContent = "Tips: Välj jämförelse för att se förändring mot tidigare period.";
-    }
-
-  } catch (e) {
-    $("slaOverviewBox").innerHTML = `<div class="alert error">❌ SLA fel: ${escapeHtml(e.message)}</div>`;
-  } finally {
-    window.__slaLoading = false;       // ✅ släpper låset
+  const overview = await safeApi(`/admin/sla/overview?days=${days}`);
+  if (!overview) {
+    $("slaOverviewBox").innerHTML = `<div class="alert error">❌ SLA saknas/behörighet.</div>`;
+    return;
   }
+  slaCache.overview = overview;
+  renderSlaOverview(overview);
+
+  const trend = await safeApi(`/admin/sla/trend/weekly?days=${days}`);
+  slaCache.trend = trend;
+  if (trend) renderSlaTrendChart(trend);
+  else $("slaTrendHint").textContent = "Trend endpoint saknas (ok).";
+
+  const agents = await safeApi(`/admin/sla/agents?days=${days}`);
+  slaCache.agents = agents;
+  if (agents) renderSlaAgents(agents);
+  else $("slaAgentsBox").innerHTML = `<div class="muted small">Agent-data saknas.</div>`;
+
+  const tickets = await safeApi(`/admin/sla/tickets?days=${days}`);
+  slaCache.tickets = tickets;
+  if (tickets) renderSlaTickets(tickets);
+  else $("slaTicketsBox").innerHTML = `<div class="muted small">Ticket-data saknas.</div>`;
 }
-
-function renderSlaOverviewKpi(o, kpi) {
-  if (!o) return;
-
-  const total = o.totalTickets ?? 0;
-  const byP = o.byPriority || { low: 0, normal: 0, high: 0 };
-
-  const frAvg = o.firstResponse?.avgMs;
-  const frMed = o.firstResponse?.medianMs;
-  const frP90 = o.firstResponse?.p90Ms;
-  const frBr = o.firstResponse?.breaches ?? 0;
-  const frComp = o.firstResponse?.compliancePct;
-  const frRisk = o.firstResponse?.atRisk ?? 0;
-
-  const rsAvg = o.resolution?.avgMs;
-  const rsMed = o.resolution?.medianMs;
-  const rsP90 = o.resolution?.p90Ms;
-  const rsBr = o.resolution?.breaches ?? 0;
-  const rsComp = o.resolution?.compliancePct;
-  const rsRisk = o.resolution?.atRisk ?? 0;
-
-  const totals = kpi?.totals || {};
-  const health = kpi?.slaHealth || {};
-  const solveRate = totals.solveRatePct;
-
-  const box = document.getElementById("slaOverviewBox");
-  if (!box) return;
-
-  box.innerHTML = `
-    <div class="slaGrid kpiWide">
-      <div class="slaCard">
-        <div class="slaLabel">Tickets (period)</div>
-        <div class="slaValue">${total}</div>
-        <div class="slaSubValue">
-          Open: <b>${totals.open ?? "-"}</b> • Pending: <b>${totals.pending ?? "-"}</b> • Solved: <b>${totals.solved ?? "-"}</b>
-        </div>
-      </div>
-
-      <div class="slaCard">
-        <div class="slaLabel">Solve rate</div>
-        <div class="slaValue">${solveRate ?? "-" }%</div>
-        <div class="slaSubValue">Andel lösta ärenden i perioden</div>
-      </div>
-
-      <div class="slaCard">
-        <div class="slaLabel">SLA Health (breached)</div>
-        <div class="slaValue">${health.breachedAny ?? 0}</div>
-        <div class="slaSubValue">Breached %: <b>${health.breachedPct ?? "-" }%</b></div>
-      </div>
-
-      <div class="slaCard">
-        <div class="slaLabel">SLA Health (risk)</div>
-        <div class="slaValue">${health.riskAny ?? 0}</div>
-        <div class="slaSubValue">Risk %: <b>${health.riskPct ?? "-" }%</b></div>
-      </div>
-    </div>
-
-    <div class="divider"></div>
-
-    <div class="slaGrid">
-      <div class="slaCard">
-        <div class="slaLabel">First response compliance</div>
-        <div class="slaValue">${frComp ?? "-"}%</div>
-        <div class="slaSubValue">
-          Avg: <b>${msToPretty(frAvg)}</b> • Median: <b>${msToPretty(frMed)}</b> • P90: <b>${msToPretty(frP90)}</b><br/>
-          Breaches: <b>${frBr}</b> • Risk: <b>${frRisk}</b>
-        </div>
-      </div>
-
-      <div class="slaCard">
-        <div class="slaLabel">Resolution compliance</div>
-        <div class="slaValue">${rsComp ?? "-"}%</div>
-        <div class="slaSubValue">
-          Avg: <b>${msToPretty(rsAvg)}</b> • Median: <b>${msToPretty(rsMed)}</b> • P90: <b>${msToPretty(rsP90)}</b><br/>
-          Breaches: <b>${rsBr}</b> • Risk: <b>${rsRisk}</b>
-        </div>
-      </div>
-
-      <div class="slaCard">
-        <div class="slaLabel">Prioritetsfördelning</div>
-        <div class="slaValue">${byP.normal || 0}</div>
-        <div class="slaSubValue">
-          Low: <b>${byP.low || 0}</b> • Normal: <b>${byP.normal || 0}</b> • High: <b>${byP.high || 0}</b>
-        </div>
-      </div>
-    </div>
-  `;
-}
-
 
 function renderSlaOverview(o) {
   const total = o.totalTickets ?? 0;
