@@ -1,3 +1,58 @@
+// ✅ FORCE GLOBAL: gör funktionen global så den alltid finns
+window.destroyTrendChart = function () {
+  if (window.state?.chartTrend) {
+    try { window.state.chartTrend.destroy(); } catch {}
+    window.state.chartTrend = null;
+  }
+};
+
+window.renderSlaTrendChart = function (tr) {
+  const canvas = document.getElementById("slaTrendChart");
+  const hint = document.getElementById("slaTrendHint");
+  if (!canvas) return;
+
+  if (typeof Chart === "undefined") {
+    if (hint) hint.textContent = "❌ Chart.js saknas i index.html";
+    return;
+  }
+
+  window.destroyTrendChart();
+
+  const rows = tr?.rows || [];
+  if (!rows.length) {
+    if (hint) hint.textContent = "Ingen trend-data ännu.";
+    return;
+  }
+
+  const labels = rows.map((r, i) => r.week || `V${i + 1}`);
+  const firstPct = rows.map((r) => Number(r.firstCompliancePct || 0));
+  const resPct = rows.map((r) => Number(r.resolutionCompliancePct || 0));
+
+  const ctx = canvas.getContext("2d");
+
+  window.state.chartTrend = new Chart(ctx, {
+    type: "line",
+    data: {
+      labels,
+      datasets: [
+        { label: "First (%)", data: firstPct, tension: 0.35, borderWidth: 2, pointRadius: 3 },
+        { label: "Resolution (%)", data: resPct, tension: 0.35, borderWidth: 2, pointRadius: 3 },
+      ],
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      interaction: { mode: "index", intersect: false },
+      plugins: { legend: { display: true } },
+      scales: { y: { min: 0, max: 100 } },
+    },
+  });
+
+  if (hint) hint.textContent = "✅ SLA Trend laddad.";
+};
+
+console.log("✅ SLA chart functions injected:", typeof window.renderSlaTrendChart);
+
 /* =========================================================
    AI Kundtjänst - script.js (STABLE FIXED)
    ✅ Behåller din layout exakt som index.html
