@@ -1,9 +1,10 @@
 /* =========================================================
-   AI Kundtjänst - script.js (FULL) ✅ STABLE FIX
+   AI Kundtjänst - script.js (FULL) ✅ FINAL STABLE
    - Matchar din index.html (alla ID:n)
    - ✅ Fixar null-crashes (tomma flikar)
    - ✅ Boot + events alltid stabila
    - ✅ SLA Chart.js stabil höjd + destroy/recreate
+   - ✅ SLA Clear: /admin/sla/clear/my + /admin/sla/clear/all
    ========================================================= */
 
 /* =========================
@@ -61,7 +62,7 @@ function safeJsonParse(str) {
 }
 
 function setLS(key, value) {
-  if (value === null || value === undefined) localStorage.removeItem(key);
+  if (value === null || value === undefined || value === "") localStorage.removeItem(key);
   else localStorage.setItem(key, value);
 }
 
@@ -78,7 +79,7 @@ function setHTML(el, html) {
 
 function setText(el, text) {
   if (!el) return;
-  el.textContent = text;
+  el.textContent = text ?? "";
 }
 
 function setActiveMenu(btnId) {
@@ -509,7 +510,6 @@ function onLoggedOut() {
   setLS(LS.chatConversation, JSON.stringify(state.conversation));
 
   destroyTrendChart();
-
   updateDebug();
 }
 
@@ -1669,26 +1669,39 @@ function exportSlaCsv() {
     .catch(() => alert("❌ Export misslyckades"));
 }
 
+/* =========================
+   ✅ SLA CLEAR (WORKING)
+========================= */
 async function clearMySlaStats() {
+  const role = state.user?.role || "user";
+  if (role !== "admin" && role !== "agent") return;
+
+  if (!confirm("Radera din SLA-statistik?")) return;
+
   try {
-    if (!confirm("Radera min SLA-statistik?")) return;
-    const me = state.user;
-    await api(`/admin/sla/clear/agent/${me.id}`, { method: "POST" });
-    alert("✅ Din statistik raderad.");
+    const data = await api("/admin/sla/clear/my", { method: "DELETE" });
+    alert(data.message || "Raderat ✅");
     await refreshSlaAll();
   } catch (e) {
-    alert(`❌ ${e.message}`);
+    alert("❌ " + e.message);
   }
 }
 
 async function clearAllSlaStats() {
+  const role = state.user?.role || "user";
+  if (role !== "admin") {
+    alert("❌ Endast admin kan radera ALL statistik.");
+    return;
+  }
+
+  if (!confirm("Radera ALL SLA-statistik? Detta går inte att ångra.")) return;
+
   try {
-    if (!confirm("Radera ALL SLA-statistik? (Admin)")) return;
-    await api(`/admin/sla/clear/all`, { method: "POST" });
-    alert("✅ All statistik raderad.");
+    const data = await api("/admin/sla/clear/all", { method: "DELETE" });
+    alert(data.message || "Raderat ✅");
     await refreshSlaAll();
   } catch (e) {
-    alert(`❌ ${e.message}`);
+    alert("❌ " + e.message);
   }
 }
 
@@ -2029,7 +2042,6 @@ async function loadCategoriesAdmin() {
     box.innerHTML = `<div class="muted small">Kunde inte ladda kategorier.</div>`;
   }
 }
-
 
 async function createCategory() {
   const msg = $("catsMsg");

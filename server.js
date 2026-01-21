@@ -1,3 +1,13 @@
+/* =========================================================
+   AI Kundtjänst - server.js (FULL) ✅
+   - Express + MongoDB + JWT auth
+   - Tickets + Inbox (agent/admin)
+   - SLA dashboard + CSV export + CLEAR my/all ✅
+   - Knowledge Base (RAG) upload: text/url/pdf
+   - Categories admin manager
+   - Forgot/Reset password via SMTP
+   ========================================================= */
+
 require("dotenv").config();
 
 const express = require("express");
@@ -60,18 +70,14 @@ mongoose.set("strictQuery", true);
 
 if (mongoUri) {
   mongoose
-    .connect(mongoUri, {
-      serverSelectionTimeoutMS: 15000,
-    })
+    .connect(mongoUri, { serverSelectionTimeoutMS: 15000 })
     .then(() => console.log("✅ MongoDB ansluten"))
     .catch((err) => console.error("❌ MongoDB-fel:", err.message));
 } else {
   console.error("❌ MongoDB connect hoppad över (mongoUri saknas).");
 }
 
-mongoose.connection.on("error", (err) => {
-  console.error("❌ MongoDB runtime error:", err);
-});
+mongoose.connection.on("error", (err) => console.error("❌ MongoDB runtime error:", err));
 
 /* =====================
    ✅ Models
@@ -81,10 +87,8 @@ const userSchema = new mongoose.Schema({
   email: { type: String, default: "", index: true },
   password: { type: String, required: true },
   role: { type: String, default: "user" }, // user | agent | admin
-
   resetTokenHash: { type: String, default: "" },
   resetTokenExpiresAt: { type: Date, default: null },
-
   createdAt: { type: Date, default: Date.now },
 });
 const User = mongoose.model("User", userSchema);
@@ -172,13 +176,6 @@ function calcEffectiveMsFromCreated(t, endAt, now = new Date()) {
 
 /**
  * ✅ SLA Engine (UPGRADED)
- * Adds states:
- * - waiting (no reply yet / not solved)
- * - ok
- * - at_risk (under limit but close)
- * - breached
- *
- * Risk threshold default: 80% of limit
  */
 function computeSlaForTicket(t, now = new Date()) {
   const limits = slaLimitsForPriority(t.priority || "normal");
@@ -200,7 +197,6 @@ function computeSlaForTicket(t, now = new Date()) {
   const breachedFirstResponse = firstResponseMs !== null ? firstResponseMs > limits.firstResponseLimitMs : false;
 
   const effectiveRunningMs = solvedAt ? resolutionMs : calcEffectiveMsFromCreated(t, now, now);
-
   const breachedResolution = effectiveRunningMs != null ? effectiveRunningMs > limits.resolutionLimitMs : false;
 
   // ✅ states
@@ -245,11 +241,9 @@ function computeSlaForTicket(t, now = new Date()) {
     effectiveRunningMs: effectiveRunningMs ?? null,
     pendingTotalMs: calcPendingMs(t, now),
 
-    // ✅ NEW for frontend states
     firstResponseState: stateFirst(),
     resolutionState: stateRes(),
 
-    // pretty text
     pretty: {
       firstResponse: msToPretty(firstResponseMs),
       resolution: msToPretty(resolutionMs),
@@ -353,7 +347,6 @@ const ticketSchema = new mongoose.Schema({
     effectiveRunningMs: { type: Number, default: null },
     pendingTotalMs: { type: Number, default: 0 },
 
-    // ✅ NEW
     firstResponseState: { type: String, default: "" },
     resolutionState: { type: String, default: "" },
 
@@ -366,6 +359,9 @@ const ticketSchema = new mongoose.Schema({
       resolutionRemaining: { type: String, default: "" },
     },
   },
+
+  // ✅ NEW: unread indicator for agents/admin (inbox highlight)
+  unreadForAgent: { type: Boolean, default: true },
 
   messages: [messageSchema],
   lastActivityAt: { type: Date, default: Date.now },
@@ -446,7 +442,9 @@ async function ensureDefaultCategories() {
     { key: "cleaning", name: "Städservice", systemPrompt: "Du är en AI-kundtjänst för städservice på svenska. Hjälp med tjänster, rutiner, bokning och tips." },
   ];
 
-  for (const c of defaults) await Category.updateOne({ key: c.key }, { $setOnInsert: c }, { upsert: true });
+  for (const c of defaults) {
+    await Category.updateOne({ key: c.key }, { $setOnInsert: c }, { upsert: true });
+  }
   console.log("✅ Default categories säkerställda");
 }
 ensureDefaultCategories().catch((e) => console.error("❌ ensureDefaultCategories error:", e));
@@ -546,11 +544,17 @@ async function ragSearch(companyId, query, topK = 4) {
   return { used: true, context, sources };
 }
 
+// ✅ Auto-create ticket helper
 async function ensureTicket(userId, companyId) {
   let t = await Ticket.findOne({ userId, companyId, status: { $ne: "solved" } }).sort({ lastActivityAt: -1 });
-  if (!t) t = await new Ticket({ userId, companyId, messages: [] }).save();
-  safeEnsureSla(t);
-  if (!t.sla?.firstResponseLimitMs) await t.save().catch(() => {});
+  if (!t) {
+    t = await new Ticket({ userId, companyId, messages: [], unreadForAgent: true }).save();
+    safeEnsureSla(t);
+    await t.save().catch(() => {});
+  } else {
+    safeEnsureSla(t);
+    if (!t.sla?.firstResponseLimitMs) await t.save().catch(() => {});
+  }
   return t;
 }
 
@@ -602,23 +606,30 @@ const authenticate = (req, res, next) => {
   }
 };
 
+async function getDbUser(req) {
+  return await User.findById(req.user?.id);
+}
+
 const requireAdmin = async (req, res, next) => {
-  const dbUser = await User.findById(req.user?.id);
+  const dbUser = await getDbUser(req);
   if (!dbUser || dbUser.role !== "admin") return res.status(403).json({ error: "Admin krävs" });
   next();
 };
 
 const requireAgentOrAdmin = async (req, res, next) => {
-  const dbUser = await User.findById(req.user?.id);
+  const dbUser = await getDbUser(req);
   if (!dbUser || (dbUser.role !== "admin" && dbUser.role !== "agent")) {
     return res.status(403).json({ error: "Agent/Admin krävs" });
   }
   next();
 };
 
-async function getDbUser(req) {
-  return await User.findById(req.user?.id);
-}
+// ✅ Hard: block agent from admin-only dashboards/actions
+const requireStrictAdminForUiAdminPanel = async (req, res, next) => {
+  const dbUser = await getDbUser(req);
+  if (!dbUser || dbUser.role !== "admin") return res.status(403).json({ error: "Admin-panel kräver admin" });
+  next();
+};
 
 /* =====================
    ✅ Email (SMTP)
@@ -645,7 +656,9 @@ app.get("/favicon.ico", (req, res) => res.status(204).end());
 app.get("/me", authenticate, async (req, res) => {
   const u = await User.findById(req.user.id).select("-password");
   if (!u) return res.status(404).json({ error: "User saknas" });
-  return res.json({ id: u._id, username: u.username, role: u.role, email: u.email || "" });
+
+  // ✅ always return id
+  return res.json({ id: String(u._id), username: u.username, role: u.role, email: u.email || "" });
 });
 
 /* =====================
@@ -658,7 +671,7 @@ app.post("/register", async (req, res) => {
   try {
     const hashedPassword = await bcrypt.hash(password, 10);
     const u = await new User({ username, password: hashedPassword, email: email || "" }).save();
-    return res.json({ message: "Registrering lyckades", user: { id: u._id, username: u.username, role: u.role } });
+    return res.json({ message: "Registrering lyckades", user: { id: String(u._id), username: u.username, role: u.role } });
   } catch {
     return res.status(400).json({ error: "Användarnamn upptaget" });
   }
@@ -672,8 +685,8 @@ app.post("/login", async (req, res) => {
   const ok = await bcrypt.compare(password, u.password);
   if (!ok) return res.status(401).json({ error: "Fel användarnamn eller lösenord" });
 
-  const token = jwt.sign({ id: u._id, username: u.username }, process.env.JWT_SECRET, { expiresIn: "7d" });
-  return res.json({ token, user: { id: u._id, username: u.username, role: u.role, email: u.email || "" } });
+  const token = jwt.sign({ id: String(u._id), username: u.username }, process.env.JWT_SECRET, { expiresIn: "7d" });
+  return res.json({ token, user: { id: String(u._id), username: u.username, role: u.role, email: u.email || "" } });
 });
 
 /* =====================
@@ -805,7 +818,7 @@ app.post("/feedback", authenticate, async (req, res) => {
 });
 
 /* =====================
-   ✅ Categories
+   ✅ Categories (public)
 ===================== */
 app.get("/categories", async (req, res) => {
   try {
@@ -817,20 +830,96 @@ app.get("/categories", async (req, res) => {
 });
 
 /* =====================
+   ✅ ADMIN: Categories manager
+===================== */
+app.post("/admin/categories", authenticate, requireAdmin, async (req, res) => {
+  try {
+    const { key, name, systemPrompt } = req.body || {};
+    if (!key || !name) return res.status(400).json({ error: "key + name krävs" });
+
+    const exists = await Category.findOne({ key });
+    if (exists) return res.status(400).json({ error: "Kategori finns redan" });
+
+    await new Category({ key, name, systemPrompt: systemPrompt || "" }).save();
+    return res.json({ message: "Kategori skapad ✅" });
+  } catch {
+    return res.status(500).json({ error: "Serverfel vid skapa kategori" });
+  }
+});
+
+app.put("/admin/categories/:key", authenticate, requireAdmin, async (req, res) => {
+  try {
+    const key = req.params.key;
+    const { name, systemPrompt } = req.body || {};
+    if (!name && systemPrompt == null) return res.status(400).json({ error: "name eller systemPrompt krävs" });
+
+    const c = await Category.findOne({ key });
+    if (!c) return res.status(404).json({ error: "Kategori hittades inte" });
+
+    if (name) c.name = String(name);
+    if (systemPrompt != null) c.systemPrompt = String(systemPrompt);
+
+    await c.save();
+    return res.json({ message: `Kategori ${key} uppdaterad ✅`, category: { key: c.key, name: c.name, systemPrompt: c.systemPrompt } });
+  } catch (e) {
+    return res.status(500).json({ error: `Serverfel vid uppdatera kategori: ${e.message}` });
+  }
+});
+
+app.delete("/admin/categories/:key", authenticate, requireAdmin, async (req, res) => {
+  try {
+    const key = req.params.key;
+    const force = String(req.query.force || "") === "1";
+
+    if (!force && ["demo", "law", "tech", "cleaning"].includes(key)) {
+      return res.status(400).json({ error: "Default-kategorier kan inte tas bort (lägg ?force=1 om du vill)" });
+    }
+
+    await Category.deleteOne({ key });
+    await KBChunk.deleteMany({ companyId: key });
+    await Ticket.deleteMany({ companyId: key });
+
+    return res.json({ message: `Kategori ${key} borttagen ✅` });
+  } catch {
+    return res.status(500).json({ error: "Serverfel vid delete kategori" });
+  }
+});
+
+/* =====================
    ✅ CHAT (ticket + RAG)
 ===================== */
 app.post("/chat", authenticate, async (req, res) => {
   try {
     const { companyId, conversation, ticketId } = req.body || {};
-    if (!companyId || !Array.isArray(conversation))
+    if (!companyId || !Array.isArray(conversation)) {
       return res.status(400).json({ error: "companyId eller konversation saknas" });
+    }
 
     let ticket;
+    let createdNew = false;
+
     if (ticketId) {
       ticket = await Ticket.findOne({ _id: ticketId, userId: req.user.id });
       if (!ticket) return res.status(404).json({ error: "Ticket hittades inte" });
     } else {
+      const existing = await Ticket.findOne({ userId: req.user.id, companyId, status: { $ne: "solved" } }).sort({
+        lastActivityAt: -1,
+      });
+      if (!existing) createdNew = true;
       ticket = await ensureTicket(req.user.id, companyId);
+    }
+
+    // ✅ brand new ticket welcome
+    if (createdNew && (ticket.messages || []).length === 0) {
+      ticket.messages.push({
+        role: "assistant",
+        content: "Hej! 👋 Välkommen till kundtjänsten. Beskriv gärna ditt problem så hjälper jag dig direkt. ✅",
+        timestamp: new Date(),
+      });
+      ticket.lastActivityAt = new Date();
+      ticket.unreadForAgent = true;
+      safeEnsureSla(ticket);
+      await ticket.save().catch(() => {});
     }
 
     const lastUser = conversation[conversation.length - 1];
@@ -840,6 +929,7 @@ app.post("/chat", authenticate, async (req, res) => {
       ticket.messages.push({ role: "user", content: userQuery, timestamp: new Date() });
       if (!ticket.title) ticket.title = userQuery.slice(0, 60);
       ticket.lastActivityAt = new Date();
+      ticket.unreadForAgent = true;
 
       // ✅ If user replies while pending => resume SLA
       if (ticket.status === "pending" && ticket.pendingStartedAt) {
@@ -862,6 +952,7 @@ app.post("/chat", authenticate, async (req, res) => {
       role: "system",
       content:
         systemPrompt +
+        "\n\nSvara alltid tydligt, konkret och användarvänligt. Om du behöver mer info: ställ 1-2 korta följdfrågor." +
         (rag.used ? `\n\nIntern kunskapsdatabas (om relevant):\n${rag.context}\n\nSvara tydligt och konkret.` : ""),
     };
 
@@ -880,7 +971,7 @@ app.post("/chat", authenticate, async (req, res) => {
     safeEnsureSla(ticket);
     await ticket.save();
 
-    return res.json({ reply, ticketId: ticket._id, ragUsed: rag.used, sources: rag.sources });
+    return res.json({ reply, ticketId: String(ticket._id), ragUsed: rag.used, sources: rag.sources });
   } catch (e) {
     console.error("❌ Chat error:", e?.message || e);
     return res.status(500).json({ error: "Serverfel vid chat" });
@@ -915,6 +1006,7 @@ app.post("/my/tickets/:ticketId/reply", authenticate, async (req, res) => {
 
     t.status = "open";
     t.lastActivityAt = new Date();
+    t.unreadForAgent = true;
 
     if (t.pendingStartedAt) {
       const add = msBetween(t.pendingStartedAt, new Date()) || 0;
@@ -963,8 +1055,29 @@ app.get("/admin/tickets/:ticketId", authenticate, requireAgentOrAdmin, async (re
     return res.status(403).json({ error: "Du får bara se dina egna tickets" });
   }
 
+  // ✅ mark as read when opened in inbox
+  t.unreadForAgent = false;
+  t.lastActivityAt = new Date();
   safeEnsureSla(t);
+  await t.save().catch(() => {});
+
   return res.json(t);
+});
+
+// ✅ notify endpoint for inbox highlight
+app.get("/admin/tickets/notify", authenticate, requireAgentOrAdmin, async (req, res) => {
+  try {
+    const dbUser = await getDbUser(req);
+    if (!dbUser) return res.status(403).json({ error: "User saknas" });
+
+    const query = { unreadForAgent: true, status: { $in: ["open", "pending"] } };
+    if (dbUser.role === "agent") query.assignedToUserId = dbUser._id;
+
+    const count = await Ticket.countDocuments(query);
+    return res.json({ unreadCount: count });
+  } catch {
+    return res.status(500).json({ error: "Serverfel vid notify" });
+  }
 });
 
 /* =====================
@@ -1073,6 +1186,9 @@ app.post("/admin/tickets/:ticketId/agent-reply", authenticate, requireAgentOrAdm
 
   startPendingTimerIfNeeded(t);
 
+  // ✅ agent replied => mark as read
+  t.unreadForAgent = false;
+
   safeEnsureSla(t);
   await t.save();
 
@@ -1160,7 +1276,7 @@ app.delete("/admin/tickets/:ticketId/internal-notes", authenticate, requireAdmin
 });
 
 /* =====================
-   ✅ Solve all / Remove solved
+   ✅ Solve all / Remove solved (ADMIN ONLY)
 ===================== */
 app.post("/admin/tickets/solve-all", authenticate, requireAdmin, async (req, res) => {
   try {
@@ -1171,6 +1287,7 @@ app.post("/admin/tickets/solve-all", authenticate, requireAdmin, async (req, res
       t.status = "solved";
       t.lastActivityAt = new Date();
       t.solvedAt = new Date();
+      t.unreadForAgent = false;
       safeEnsureSla(t);
       await t.save();
     }
@@ -1195,16 +1312,12 @@ app.post("/admin/tickets/remove-solved", authenticate, requireAdmin, async (req,
 /* =====================
    ✅ Assign + Delete
 ===================== */
-app.post("/admin/tickets/:ticketId/assign", authenticate, requireAgentOrAdmin, async (req, res) => {
+app.post("/admin/tickets/:ticketId/assign", authenticate, requireStrictAdminForUiAdminPanel, async (req, res) => {
   const { userId } = req.body || {};
   if (!userId) return res.status(400).json({ error: "userId saknas" });
 
-  const dbUser = await getDbUser(req);
-
   const t = await Ticket.findById(req.params.ticketId);
   if (!t) return res.status(404).json({ error: "Ticket hittades inte" });
-
-  if (dbUser?.role === "agent") return res.status(403).json({ error: "Endast admin kan assigna" });
 
   t.assignedToUserId = userId;
   t.lastActivityAt = new Date();
@@ -1361,7 +1474,6 @@ app.get("/admin/sla/overview", authenticate, requireAgentOrAdmin, async (req, re
       byPriority[t.priority || "normal"] = (byPriority[t.priority || "normal"] || 0) + 1;
     });
 
-    // trend from tickets
     const trendWeeks = buildTrendWeekly(tickets);
 
     return res.json({
@@ -1510,6 +1622,7 @@ app.get("/admin/sla/agents", authenticate, requireAgentOrAdmin, async (req, res)
       };
     });
 
+    // ✅ agent sees only himself
     if (dbUser.role === "agent") rows = rows.filter((r) => String(r.agentId) === String(dbUser._id));
 
     return res.json({ rangeDays, count: rows.length, rows });
@@ -1538,7 +1651,6 @@ app.get("/admin/sla/trend/weekly", authenticate, requireAgentOrAdmin, async (req
   }
 });
 
-// ✅ NEW: daily trend
 app.get("/admin/sla/trend/daily", authenticate, requireAgentOrAdmin, async (req, res) => {
   try {
     const dbUser = await getDbUser(req);
@@ -1557,7 +1669,6 @@ app.get("/admin/sla/trend/daily", authenticate, requireAgentOrAdmin, async (req,
   }
 });
 
-// ✅ NEW: KPI endpoint (more stats)
 app.get("/admin/sla/kpi", authenticate, requireAgentOrAdmin, async (req, res) => {
   try {
     const dbUser = await getDbUser(req);
@@ -1582,7 +1693,6 @@ app.get("/admin/sla/kpi", authenticate, requireAgentOrAdmin, async (req, res) =>
     const firstArr = tickets.map((t) => t.sla?.firstResponseMs).filter((x) => x != null);
     const resArr = tickets.map((t) => t.sla?.resolutionMs).filter((x) => x != null);
 
-    // KPIs per category
     const byCategory = {};
     for (const t of tickets) {
       const k = t.companyId || "unknown";
@@ -1603,22 +1713,14 @@ app.get("/admin/sla/kpi", authenticate, requireAgentOrAdmin, async (req, res) =>
       solvedPct: safePct(r.solved, r.total),
     }));
 
-    // backlog ageing uses open+pending (active)
     const activeTickets = tickets.filter((t) => t.status !== "solved");
     const ageing = calcAgeingBuckets(activeTickets);
 
-    // solve rate: solved / total in period
     const solveRatePct = safePct(solved, total);
 
     return res.json({
       rangeDays,
-      totals: {
-        total,
-        open,
-        pending,
-        solved,
-        solveRatePct,
-      },
+      totals: { total, open, pending, solved, solveRatePct },
       slaHealth: {
         breachedAny,
         breachedPct: safePct(breachedAny, total),
@@ -1626,16 +1728,8 @@ app.get("/admin/sla/kpi", authenticate, requireAgentOrAdmin, async (req, res) =>
         riskPct: safePct(riskAny, total),
       },
       distribution: {
-        firstResponse: {
-          avgMs: avg(firstArr),
-          medianMs: median(firstArr),
-          p90Ms: percentile(firstArr, 90),
-        },
-        resolution: {
-          avgMs: avg(resArr),
-          medianMs: median(resArr),
-          p90Ms: percentile(resArr, 90),
-        },
+        firstResponse: { avgMs: avg(firstArr), medianMs: median(firstArr), p90Ms: percentile(firstArr, 90) },
+        resolution: { avgMs: avg(resArr), medianMs: median(resArr), p90Ms: percentile(resArr, 90) },
       },
       ageing,
       byCategory: catRows.sort((a, b) => (b.total || 0) - (a.total || 0)),
@@ -1646,9 +1740,6 @@ app.get("/admin/sla/kpi", authenticate, requireAgentOrAdmin, async (req, res) =>
   }
 });
 
-/* =====================
-   ✅ SLA compare
-===================== */
 app.get("/admin/sla/compare", authenticate, requireAgentOrAdmin, async (req, res) => {
   try {
     const dbUser = await getDbUser(req);
@@ -1710,7 +1801,6 @@ app.get("/admin/sla/compare", authenticate, requireAgentOrAdmin, async (req, res
 
 /* =====================
    ✅ SLA Export CSV
-   ✅ Frontend wants: /admin/sla/export.csv
 ===================== */
 app.get("/admin/sla/export.csv", authenticate, requireAgentOrAdmin, async (req, res) => {
   try {
@@ -1754,12 +1844,8 @@ app.get("/admin/sla/export.csv", authenticate, requireAgentOrAdmin, async (req, 
   }
 });
 
-/* =====================
-   ✅ Existing endpoint kept (backward compat)
-===================== */
 app.get("/admin/sla/export/csv", authenticate, requireAgentOrAdmin, async (req, res) => {
   try {
-    // Forward till nya endpoint stabilt
     req.url = `/admin/sla/export.csv${req.originalUrl.includes("?") ? req.originalUrl.slice(req.originalUrl.indexOf("?")) : ""}`;
     return app.handle(req, res);
   } catch {
@@ -1768,89 +1854,26 @@ app.get("/admin/sla/export/csv", authenticate, requireAgentOrAdmin, async (req, 
 });
 
 /* =====================
-   ✅ SLA extra tools
+   ✅ SLA CLEAR endpoints ✅ (MATCHAR script.js)
 ===================== */
-app.get("/admin/sla/ticket/:ticketId/live", authenticate, requireAgentOrAdmin, async (req, res) => {
-  try {
-    const t = await Ticket.findById(req.params.ticketId);
-    if (!t) return res.status(404).json({ error: "Ticket hittades inte" });
-
-    safeEnsureSla(t);
-    return res.json({
-      ticketId: String(t._id),
-      status: t.status,
-      priority: t.priority,
-      sla: t.sla,
-    });
-  } catch {
-    return res.status(500).json({ error: "Serverfel vid live SLA" });
-  }
-});
-
-app.get("/admin/sla/breached", authenticate, requireAgentOrAdmin, async (req, res) => {
+app.delete("/admin/sla/clear/my", authenticate, requireAgentOrAdmin, async (req, res) => {
   try {
     const dbUser = await getDbUser(req);
-    const rangeDays = Math.max(1, Math.min(365, Number(req.query.days || 30)));
-    const since = new Date(Date.now() - rangeDays * 24 * 60 * 60 * 1000);
+    if (!dbUser) return res.status(403).json({ error: "User saknas" });
 
-    const query = { createdAt: { $gte: since } };
-    if (dbUser.role === "agent") query.assignedToUserId = dbUser._id;
-
-    const tickets = await Ticket.find(query).sort({ createdAt: -1 }).limit(10000);
-    tickets.forEach((t) => safeEnsureSla(t));
-
-    const breached = tickets.filter((t) => t.sla?.breachedFirstResponse || t.sla?.breachedResolution);
-
-    return res.json({
-      rangeDays,
-      count: breached.length,
-      rows: breached.map((t) => ({
-        ticketId: String(t._id),
-        companyId: t.companyId,
-        status: t.status,
-        priority: t.priority,
-        createdAt: t.createdAt,
-        sla: t.sla,
-      })),
-    });
+    const r = await SLAStat.deleteMany({ agentUserId: dbUser._id });
+    return res.json({ message: `Raderade din statistik ✅ (${r.deletedCount} rader)` });
   } catch {
-    return res.status(500).json({ error: "Serverfel vid breached SLA" });
+    return res.status(500).json({ error: "Serverfel vid radera min statistik" });
   }
 });
 
-app.post("/admin/sla/recalc/all", authenticate, requireAdmin, async (req, res) => {
-  try {
-    const tickets = await Ticket.find({}).limit(50000);
-    let updated = 0;
-
-    for (const t of tickets) {
-      safeEnsureSla(t);
-      await t.save().catch(() => {});
-      updated++;
-    }
-
-    return res.json({ message: `SLA recalculated ✅ (${updated} tickets)` });
-  } catch {
-    return res.status(500).json({ error: "Serverfel vid SLA recalc" });
-  }
-});
-
-app.post("/admin/sla/clear/all", authenticate, requireAdmin, async (req, res) => {
+app.delete("/admin/sla/clear/all", authenticate, requireAdmin, async (req, res) => {
   try {
     const r = await SLAStat.deleteMany({});
-    return res.json({ message: `SLA statistik raderad ✅ (${r.deletedCount} rows)` });
+    return res.json({ message: `Raderade ALL statistik ✅ (${r.deletedCount} rader)` });
   } catch {
-    return res.status(500).json({ error: "Serverfel vid radera statistik" });
-  }
-});
-
-app.post("/admin/sla/clear/agent/:agentId", authenticate, requireAdmin, async (req, res) => {
-  try {
-    const agentId = req.params.agentId;
-    const r = await SLAStat.deleteMany({ agentUserId: agentId });
-    return res.json({ message: `Agent statistik raderad ✅ (${r.deletedCount} rows)` });
-  } catch {
-    return res.status(500).json({ error: "Serverfel vid radera agent statistik" });
+    return res.status(500).json({ error: "Serverfel vid radera all statistik" });
   }
 });
 
@@ -1858,6 +1881,14 @@ app.post("/admin/sla/clear/agent/:agentId", authenticate, requireAdmin, async (r
    ✅ ADMIN: Users + roles
 ===================== */
 app.get("/admin/users", authenticate, requireAgentOrAdmin, async (req, res) => {
+  const dbUser = await getDbUser(req);
+
+  // ✅ agent gets only himself
+  if (dbUser?.role === "agent") {
+    const me = await User.findById(dbUser._id).select("-password");
+    return res.json([me]);
+  }
+
   const users = await User.find({}).select("-password").sort({ createdAt: -1 }).limit(2000);
   return res.json(users);
 });
@@ -1880,7 +1911,7 @@ app.post("/admin/users/:userId/role", authenticate, requireAdmin, async (req, re
     u.role = role;
     await u.save();
 
-    return res.json({ message: "Roll uppdaterad ✅", user: { id: u._id, username: u.username, role: u.role } });
+    return res.json({ message: "Roll uppdaterad ✅", user: { id: String(u._id), username: u.username, role: u.role } });
   } catch {
     return res.status(500).json({ error: "Serverfel vid roll-ändring" });
   }
@@ -1908,51 +1939,16 @@ app.delete("/admin/users/:userId", authenticate, requireAdmin, async (req, res) 
 });
 
 /* =====================
-   ✅ ADMIN: Categories manager
-===================== */
-app.post("/admin/categories", authenticate, requireAdmin, async (req, res) => {
-  try {
-    const { key, name, systemPrompt } = req.body || {};
-    if (!key || !name) return res.status(400).json({ error: "key + name krävs" });
-
-    const exists = await Category.findOne({ key });
-    if (exists) return res.status(400).json({ error: "Kategori finns redan" });
-
-    await new Category({ key, name, systemPrompt: systemPrompt || "" }).save();
-    return res.json({ message: "Kategori skapad ✅" });
-  } catch {
-    return res.status(500).json({ error: "Serverfel vid skapa kategori" });
-  }
-});
-
-app.delete("/admin/categories/:key", authenticate, requireAdmin, async (req, res) => {
-  try {
-    const key = req.params.key;
-    if (["demo", "law", "tech", "cleaning"].includes(key)) {
-      return res.status(400).json({ error: "Default-kategorier kan inte tas bort" });
-    }
-
-    await Category.deleteOne({ key });
-    await KBChunk.deleteMany({ companyId: key });
-    await Ticket.deleteMany({ companyId: key });
-
-    return res.json({ message: `Kategori ${key} borttagen ✅` });
-  } catch {
-    return res.status(500).json({ error: "Serverfel vid delete kategori" });
-  }
-});
-
-/* =====================
    ✅ ADMIN: KB Upload / List / Export
 ===================== */
-app.get("/kb/list/:companyId", authenticate, requireAdmin, async (req, res) => {
+app.get("/kb/list/:companyId", authenticate, requireStrictAdminForUiAdminPanel, async (req, res) => {
   const items = await KBChunk.find({ companyId: req.params.companyId, isDeleted: false })
     .sort({ createdAt: -1 })
     .limit(400);
   return res.json(items);
 });
 
-app.post("/kb/upload-text", authenticate, requireAdmin, async (req, res) => {
+app.post("/kb/upload-text", authenticate, requireStrictAdminForUiAdminPanel, async (req, res) => {
   try {
     const { companyId, title, content } = req.body || {};
     if (!companyId || !content) return res.status(400).json({ error: "companyId eller content saknas" });
@@ -1984,7 +1980,7 @@ app.post("/kb/upload-text", authenticate, requireAdmin, async (req, res) => {
   }
 });
 
-app.post("/kb/upload-url", authenticate, requireAdmin, async (req, res) => {
+app.post("/kb/upload-url", authenticate, requireStrictAdminForUiAdminPanel, async (req, res) => {
   try {
     const { companyId, url } = req.body || {};
     if (!companyId || !url) return res.status(400).json({ error: "companyId eller url saknas" });
@@ -2016,7 +2012,7 @@ app.post("/kb/upload-url", authenticate, requireAdmin, async (req, res) => {
   }
 });
 
-app.post("/kb/upload-pdf", authenticate, requireAdmin, async (req, res) => {
+app.post("/kb/upload-pdf", authenticate, requireStrictAdminForUiAdminPanel, async (req, res) => {
   try {
     const { companyId, filename, base64 } = req.body || {};
     if (!companyId || !base64) return res.status(400).json({ error: "companyId eller base64 saknas" });
@@ -2048,7 +2044,7 @@ app.post("/kb/upload-pdf", authenticate, requireAdmin, async (req, res) => {
   }
 });
 
-app.get("/export/kb/:companyId", authenticate, requireAdmin, async (req, res) => {
+app.get("/export/kb/:companyId", authenticate, requireStrictAdminForUiAdminPanel, async (req, res) => {
   const items = await KBChunk.find({ companyId: req.params.companyId }).sort({ createdAt: -1 });
   res.setHeader("Content-Type", "application/json");
   res.setHeader("Content-Disposition", `attachment; filename="kb_${req.params.companyId}.json"`);
@@ -2056,7 +2052,7 @@ app.get("/export/kb/:companyId", authenticate, requireAdmin, async (req, res) =>
 });
 
 /* =====================
-   ✅ EXPORT ALL
+   ✅ EXPORT ALL (ADMIN)
 ===================== */
 app.get("/admin/export/all", authenticate, requireAdmin, async (req, res) => {
   const users = await User.find({}).select("-password");
@@ -2069,16 +2065,12 @@ app.get("/admin/export/all", authenticate, requireAdmin, async (req, res) => {
   res.setHeader("Content-Type", "application/json");
   res.setHeader("Content-Disposition", `attachment; filename="export_all.json"`);
   return res.send(
-    JSON.stringify(
-      { users, tickets, kb, feedback, categories, slaStats, exportedAt: new Date().toISOString() },
-      null,
-      2
-    )
+    JSON.stringify({ users, tickets, kb, feedback, categories, slaStats, exportedAt: new Date().toISOString() }, null, 2)
   );
 });
 
 /* =====================
-   ✅ TRAINING EXPORT
+   ✅ TRAINING EXPORT (ADMIN)
 ===================== */
 app.get("/admin/export/training", authenticate, requireAdmin, async (req, res) => {
   const { companyId } = req.query || {};
@@ -2107,10 +2099,7 @@ app.get("/admin/export/training", authenticate, requireAdmin, async (req, res) =
   }
 
   res.setHeader("Content-Type", "application/json");
-  res.setHeader(
-    "Content-Disposition",
-    `attachment; filename="training_export${companyId ? "_" + companyId : ""}.json"`
-  );
+  res.setHeader("Content-Disposition", `attachment; filename="training_export${companyId ? "_" + companyId : ""}.json"`);
   return res.send(JSON.stringify({ exportedAt: new Date().toISOString(), rows }, null, 2));
 });
 
