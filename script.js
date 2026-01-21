@@ -1,16 +1,9 @@
-
 /* =========================================================
-   AI Kundtjänst - script.js (FULL) ✅ FIXED & UPGRADED
+   AI Kundtjänst - script.js (FULL)
    - Matchar din index.html (alla ID:n)
-   - ✅ Fixar Chart.js grafen: stabil höjd, destroy/recreate, ingen "scroll-loop"
-   - ✅ SLA: mer KPI + trend + agents + tickets + filter/sort
-   - ✅ Inbox + My tickets + Admin + KB + Categories
-   - ✅ FIXES:
-     A) Reset-token visar alltid authView
-     B) Solve ALL / Remove solved visas bara för admin
-     C) Clear my SLA stats: robust id (id/_id)
-     D) Efter reset lösenord: rensa resetToken från URL
-     E) Extra null-säkerhet + små UX fixes
+   - Fixar Chart.js grafen (destroy/recreate)
+   - SLA: KPI + trend + agents + tickets + filter/sort
+   - Inbox + My tickets + Admin + KB + Categories
    ========================================================= */
 
 /* =========================
@@ -60,7 +53,7 @@ function safeJsonParse(str) {
 }
 
 function setLS(key, value) {
-  if (value === null || value === undefined || value === "") localStorage.removeItem(key);
+  if (value === null || value === undefined) localStorage.removeItem(key);
   else localStorage.setItem(key, value);
 }
 
@@ -192,9 +185,9 @@ async function boot() {
   // Restore companyId selection
   if ($("categorySelect")) $("categorySelect").value = state.companyId;
   if ($("kbCategorySelect")) $("kbCategorySelect").value = state.companyId;
-
-  // Reset token from URL (must run early)
-  handleResetTokenFromUrl();
+  if ($("inboxCategoryFilter")) {
+    // will be filled via loadInboxCategoryFilter()
+  }
 
   // If logged in -> fetch /me to confirm token
   if (state.token) {
@@ -202,8 +195,8 @@ async function boot() {
       const me = await api("/me");
       state.user = me;
       setLS(LS.user, JSON.stringify(me));
-      await onLoggedIn();
-    } catch {
+      onLoggedIn();
+    } catch (e) {
       // token invalid
       doLogout(false);
     }
@@ -258,6 +251,7 @@ function bindEvents() {
   $("categorySelect")?.addEventListener("change", async (e) => {
     state.companyId = e.target.value || "demo";
     setLS(LS.currentCompanyId, state.companyId);
+    // update chat subtitle/title maybe
     await updateCategoryUiHints();
     updateDebug();
   });
@@ -301,7 +295,7 @@ function bindEvents() {
   $("clearChatBtn")?.addEventListener("click", () => {
     state.conversation = [];
     setLS(LS.chatConversation, JSON.stringify(state.conversation));
-    if ($("messages")) $("messages").innerHTML = "";
+    $("messages").innerHTML = "";
   });
 
   $("exportChatBtn")?.addEventListener("click", exportChat);
@@ -311,9 +305,8 @@ function bindEvents() {
     setLS(LS.lastTicketId, "");
     state.conversation = [];
     setLS(LS.chatConversation, JSON.stringify(state.conversation));
-    if ($("messages")) $("messages").innerHTML = "";
+    $("messages").innerHTML = "";
     addSystemMessage("Nytt ärende startat ✅");
-    updateDebug({ ticketId: "-" });
   });
 
   // Feedback
@@ -388,6 +381,9 @@ function bindEvents() {
   // Settings
   $("changeUsernameBtn")?.addEventListener("click", changeUsername);
   $("changePasswordBtn")?.addEventListener("click", changePassword);
+
+  // Reset token from URL
+  handleResetTokenFromUrl();
 }
 
 function debounce(fn, delay) {
@@ -419,7 +415,7 @@ async function doLogin() {
     setLS(LS.token, state.token);
     setLS(LS.user, JSON.stringify(state.user));
 
-    await onLoggedIn();
+    onLoggedIn();
   } catch (e) {
     setAlert($("authMessage"), e.message, "error");
   }
@@ -457,27 +453,20 @@ function doLogout(showMsg = true) {
 }
 
 function onLoggedOut() {
-  if ($("roleBadge")) $("roleBadge").textContent = "Inte inloggad";
+  $("roleBadge").textContent = "Inte inloggad";
   show($("logoutBtn"), false);
   show($("openSettingsView"), false);
 
   // admin/agent buttons hidden
   qsa(".adminOnly").forEach((x) => (x.style.display = "none"));
 
-  // Hide admin-only inbox actions too
-  show($("solveAllBtn"), false);
-  show($("removeSolvedBtn"), false);
-
   switchView("authView");
   setActiveMenu("openChatView");
 
   // reset chat UI
-  if ($("messages")) $("messages").innerHTML = "";
+  $("messages").innerHTML = "";
   state.conversation = [];
   setLS(LS.chatConversation, JSON.stringify(state.conversation));
-
-  // important: destroy chart if user logs out
-  destroyTrendChart();
 
   updateDebug();
 }
@@ -486,40 +475,28 @@ async function onLoggedIn() {
   show($("logoutBtn"), true);
   show($("openSettingsView"), true);
 
+  // agent/admin visible?
   const role = state.user?.role || "user";
-  const username = state.user?.username || "user";
+  $("roleBadge").textContent = role === "user" ? `Inloggad: ${state.user.username}` : `${state.user.username} (${role})`;
 
-  if ($("roleBadge")) {
-    $("roleBadge").textContent = role === "user" ? `Inloggad: ${username}` : `${username} (${role})`;
-  }
-
-  // Show agent/admin sections
   if (role === "agent" || role === "admin") {
     qsa(".adminOnly").forEach((x) => (x.style.display = ""));
   } else {
     qsa(".adminOnly").forEach((x) => (x.style.display = "none"));
   }
 
-  // ✅ FIX: Solve ALL / Remove solved only for admin
-  show($("solveAllBtn"), role === "admin");
-  show($("removeSolvedBtn"), role === "admin");
-
   // SLA clear all only for admin
   show($("slaClearAllStatsBtn"), role === "admin");
 
-  // If reset token is active, keep authView visible until reset done
-  // Otherwise go to chat
-  if (window.__resetToken) {
-    switchView("authView");
-    setActiveMenu("openChatView");
-  } else {
-    switchView("chatView");
-    setActiveMenu("openChatView");
-  }
+  // default view
+  switchView("chatView");
+  setActiveMenu("openChatView");
 
+  // load initial chat conversation
   renderConversation();
   scrollMessagesToBottom();
 
+  // Update dropdowns
   await updateCategoryUiHints();
   await loadInboxCategoryFilter().catch(() => {});
   updateDebug();
@@ -569,14 +546,12 @@ function handleResetTokenFromUrl() {
   const resetToken = url.searchParams.get("resetToken");
   if (!resetToken) return;
 
-  // ✅ FIX A: Make sure authView is visible
-  switchView("authView");
-  setActiveMenu("openChatView");
-
+  // show reset UI
   show($("resetCard"), true);
   show($("forgotCard"), false);
   show($("authMessage"), false);
 
+  // store token in memory (not localStorage)
   window.__resetToken = resetToken;
 }
 
@@ -594,17 +569,6 @@ async function doResetPassword() {
     });
 
     setAlert($("resetMsg"), data.message || "Lösenord uppdaterat ✅", "");
-
-    // ✅ FIX D: Remove token from URL after success
-    window.history.replaceState({}, document.title, window.location.pathname);
-    window.__resetToken = null;
-
-    // small UX: show login after reset
-    setTimeout(() => {
-      show($("resetCard"), false);
-      show($("forgotCard"), false);
-      show($("authMessage"), false);
-    }, 800);
   } catch (e) {
     setAlert($("resetMsg"), e.message, "error");
   }
@@ -646,11 +610,13 @@ async function loadCategories() {
 }
 
 async function loadInboxCategoryFilter() {
+  // just ensure categories exist
   await loadCategories();
 }
 
 async function updateCategoryUiHints() {
-  // intentionally minimal (reserved)
+  // Optional: could update chatTitle/subtitle based on category
+  // We'll keep it simple
 }
 
 /* =========================
@@ -660,7 +626,7 @@ function addSystemMessage(text) {
   addMessageToUI("assistant", text, { meta: "System" });
 }
 
-function addMessageToUI(role, content) {
+function addMessageToUI(role, content, opts = {}) {
   const wrap = document.createElement("div");
   wrap.className = "msg " + (role === "user" ? "user" : "assistant");
 
@@ -672,13 +638,20 @@ function addMessageToUI(role, content) {
   bubble.className = "bubble";
   bubble.textContent = content || "";
 
+  const meta = document.createElement("div");
+  meta.className = "msgMeta";
+  meta.textContent = opts.meta || (role === "user" ? "Du" : "AI");
+
   const bubbleWrap = document.createElement("div");
   bubbleWrap.appendChild(bubble);
 
+  // Actions for assistant messages
   if (role !== "user") {
     const actions = document.createElement("div");
     actions.className = "bubbleActions";
-    actions.innerHTML = `<button class="actionBtn" type="button"><i class="fa-solid fa-copy"></i> Kopiera</button>`;
+    actions.innerHTML = `
+      <button class="actionBtn" type="button"><i class="fa-solid fa-copy"></i> Kopiera</button>
+    `;
     actions.querySelector("button")?.addEventListener("click", () => {
       navigator.clipboard.writeText(content || "").catch(() => {});
     });
@@ -695,9 +668,10 @@ function renderConversation() {
   if (!$("messages")) return;
   $("messages").innerHTML = "";
 
+  // render conversation stored
   for (const m of state.conversation) {
     if (!m?.role) continue;
-    addMessageToUI(m.role, m.content || "");
+    addMessageToUI(m.role, m.content || "", { meta: m.role === "user" ? "Du" : "AI" });
   }
 }
 
@@ -708,12 +682,6 @@ function scrollMessagesToBottom() {
 }
 
 async function sendChat() {
-  if (!state.token) {
-    addSystemMessage("Du måste logga in först.");
-    switchView("authView");
-    return;
-  }
-
   const inp = $("messageInput");
   if (!inp) return;
 
@@ -722,16 +690,19 @@ async function sendChat() {
 
   inp.value = "";
 
+  // push user message locally
   state.conversation.push({ role: "user", content: text });
   setLS(LS.chatConversation, JSON.stringify(state.conversation));
-  addMessageToUI("user", text);
+  addMessageToUI("user", text, { meta: "Du" });
   scrollMessagesToBottom();
 
   try {
+    // call API
     const payload = {
       companyId: state.companyId,
       conversation: state.conversation,
     };
+
     if (state.lastTicketId) payload.ticketId = state.lastTicketId;
 
     const data = await api("/chat", {
@@ -746,12 +717,13 @@ async function sendChat() {
     state.conversation.push({ role: "assistant", content: reply });
     setLS(LS.chatConversation, JSON.stringify(state.conversation));
 
-    addMessageToUI("assistant", reply);
+    addMessageToUI("assistant", reply, { meta: data.ragUsed ? "AI (RAG)" : "AI" });
 
+    // Debug update
     updateDebug({ ragUsed: !!data.ragUsed, ticketId: state.lastTicketId });
     scrollMessagesToBottom();
   } catch (e) {
-    addMessageToUI("assistant", `❌ Fel: ${e.message}`);
+    addMessageToUI("assistant", `❌ Fel: ${e.message}`, { meta: "System" });
     scrollMessagesToBottom();
   }
 }
@@ -772,15 +744,11 @@ async function sendFeedback(type) {
       method: "POST",
       body: JSON.stringify({ type, companyId: state.companyId }),
     });
-    if ($("fbMsg")) $("fbMsg").textContent = "Tack! ✅";
-    setTimeout(() => {
-      if ($("fbMsg")) $("fbMsg").textContent = "";
-    }, 1200);
+    $("fbMsg").textContent = "Tack! ✅";
+    setTimeout(() => ($("fbMsg").textContent = ""), 1200);
   } catch (e) {
-    if ($("fbMsg")) $("fbMsg").textContent = `Fel: ${e.message}`;
-    setTimeout(() => {
-      if ($("fbMsg")) $("fbMsg").textContent = "";
-    }, 1500);
+    $("fbMsg").textContent = `Fel: ${e.message}`;
+    setTimeout(() => ($("fbMsg").textContent = ""), 1500);
   }
 }
 
@@ -813,7 +781,7 @@ async function loadMyTickets() {
               <div class="listItemTitle">
                 ${escapeHtml(title)}
                 ${pill(status, status === "solved" ? "ok" : status === "pending" ? "warn" : "")}
-                ${pill(prio, prio === "high" ? "danger" : prio === "low" ? "" : "")}
+                ${pill(prio)}
               </div>
               <div class="muted small">${escapeHtml(String(t._id).slice(-8))} • ${fmtDate(t.lastActivityAt || t.createdAt)}</div>
             </div>
@@ -832,6 +800,7 @@ async function loadMyTickets() {
       });
     }
 
+    // auto select first
     const firstId = tickets[0]._id;
     state.selectedMyTicketId = firstId;
     const firstEl = qs(`#myTicketsList .listItem[data-id="${firstId}"]`);
@@ -897,7 +866,7 @@ async function myTicketReply() {
       body: JSON.stringify({ content: text }),
     });
 
-    if ($("myTicketReplyText")) $("myTicketReplyText").value = "";
+    $("myTicketReplyText").value = "";
     setAlert($("myTicketReplyMsg"), data.message || "Skickat ✅", "");
     await loadMyTicketDetails(ticketId);
     await loadMyTickets();
@@ -927,6 +896,7 @@ async function loadInboxTickets() {
 
     let tickets = await api(url.pathname + url.search);
 
+    // client search
     if (search) {
       tickets = tickets.filter((t) => {
         const id = String(t._id || "").toLowerCase();
@@ -936,19 +906,17 @@ async function loadInboxTickets() {
       });
     }
 
+    // notif dot: open tickets exist
     const openCount = tickets.filter((t) => t.status === "open").length;
     const dot = $("inboxNotifDot");
     if (dot) show(dot, openCount > 0);
 
     list.innerHTML = tickets
       .map((t) => {
-        const statusPill =
-          t.status === "solved" ? pill("solved", "ok") : t.status === "pending" ? pill("pending", "warn") : pill("open");
+        const statusPill = t.status === "solved" ? pill("solved", "ok") : t.status === "pending" ? pill("pending", "warn") : pill("open");
         const prioPill =
           t.priority === "high" ? pill("high", "danger") : t.priority === "low" ? pill("low") : pill("normal");
-        const assigned = t.assignedToUserId
-          ? `<span class="muted small">assigned</span>`
-          : `<span class="muted small">unassigned</span>`;
+        const assigned = t.assignedToUserId ? `<span class="muted small">assigned</span>` : `<span class="muted small">unassigned</span>`;
 
         return `
           <div class="listItem" data-id="${t._id}">
@@ -958,9 +926,7 @@ async function loadInboxTickets() {
               ${prioPill}
             </div>
             <div class="muted small">
-              ${escapeHtml(String(t.companyId || ""))} • ${escapeHtml(String(t._id).slice(-8))} • ${fmtDate(
-          t.lastActivityAt || t.createdAt
-        )} • ${assigned}
+              ${escapeHtml(String(t.companyId || ""))} • ${escapeHtml(String(t._id).slice(-8))} • ${fmtDate(t.lastActivityAt || t.createdAt)} • ${assigned}
             </div>
           </div>
         `;
@@ -977,6 +943,7 @@ async function loadInboxTickets() {
       });
     });
 
+    // auto select first if none
     if (!state.selectedInboxTicketId && tickets[0]) {
       state.selectedInboxTicketId = tickets[0]._id;
       const el = qs(`#inboxTicketsList .listItem[data-id="${tickets[0]._id}"]`);
@@ -996,14 +963,18 @@ async function loadInboxTicketDetails(ticketId) {
 
   setAlert(msg, "");
   box.innerHTML = `<div class="muted small">Laddar...</div>`;
-  if ($("internalNotesList")) $("internalNotesList").innerHTML = "";
+  $("internalNotesList").innerHTML = "";
 
   try {
     const t = await api(`/admin/tickets/${ticketId}`);
 
+    // priority select set
     if ($("ticketPrioritySelect")) $("ticketPrioritySelect").value = t.priority || "normal";
+
+    // fill assign users
     await fillAssignUsers(t.assignedToUserId);
 
+    // SLA badge
     const sla = t.sla || {};
     const first = sla.firstResponseMs != null ? msToPretty(sla.firstResponseMs) : "—";
     const res = sla.resolutionMs != null ? msToPretty(sla.resolutionMs) : "—";
@@ -1056,6 +1027,8 @@ async function loadInboxTicketDetails(ticketId) {
       .join("");
 
     box.innerHTML = top + msgs;
+
+    // notes
     renderInternalNotes(t.internalNotes || []);
   } catch (e) {
     setAlert($("inboxTicketMsg"), e.message, "error");
@@ -1107,7 +1080,7 @@ async function sendInboxAgentReply() {
       body: JSON.stringify({ content }),
     });
 
-    if ($("agentReplyTextInbox")) $("agentReplyTextInbox").value = "";
+    $("agentReplyTextInbox").value = "";
     await loadInboxTicketDetails(state.selectedInboxTicketId);
     await loadInboxTickets();
   } catch (e) {
@@ -1128,7 +1101,7 @@ async function saveInternalNote() {
       body: JSON.stringify({ content }),
     });
 
-    if ($("internalNoteText")) $("internalNoteText").value = "";
+    $("internalNoteText").value = "";
     renderInternalNotes(data.ticket?.internalNotes || []);
   } catch (e) {
     setAlert($("inboxTicketMsg"), e.message, "error");
@@ -1165,7 +1138,7 @@ function renderInternalNotes(notes) {
         .map(
           (n) => `
         <div class="noteItem">
-          <div class="noteMeta">${fmtDate(n.createdAt)} • <span class="muted small">Agent</span></div>
+          <div class="noteMeta">${fmtDate(n.createdAt)} • ${escapeHtml(String(n.createdBy || ""))}</div>
           <div class="noteText">${escapeHtml(n.content)}</div>
         </div>
       `
@@ -1183,9 +1156,7 @@ async function fillAssignUsers(selectedId) {
     const users = await api("/admin/users");
     const agents = users.filter((u) => u.role === "agent" || u.role === "admin");
 
-    sel.innerHTML =
-      `<option value="">Välj agent...</option>` +
-      agents.map((u) => `<option value="${u._id}">${escapeHtml(u.username)} (${u.role})</option>`).join("");
+    sel.innerHTML = `<option value="">Välj agent...</option>` + agents.map((u) => `<option value="${u._id}">${escapeHtml(u.username)} (${u.role})</option>`).join("");
     sel.value = selectedId || "";
   } catch {
     // ignore
@@ -1221,7 +1192,7 @@ async function deleteSelectedInboxTicket() {
   try {
     await api(`/admin/tickets/${state.selectedInboxTicketId}`, { method: "DELETE" });
     state.selectedInboxTicketId = null;
-    if ($("ticketDetails")) $("ticketDetails").innerHTML = `<div class="muted small">Välj en ticket.</div>`;
+    $("ticketDetails").innerHTML = `<div class="muted small">Välj en ticket.</div>`;
     renderInternalNotes([]);
     await loadInboxTickets();
   } catch (e) {
@@ -1254,52 +1225,38 @@ async function removeSolvedTickets() {
 }
 
 /* =========================
-   ✅ SLA DASHBOARD (KPI + Chart + tables)
+   SLA DASHBOARD (KPI + Chart + tables)
 ========================= */
 let slaCache = {
   overview: null,
-  kpi: null,
   trend: null,
   agents: null,
   tickets: null,
 };
 
 async function refreshSlaAll() {
-  // avoid chart resize loops by destroying first
+  // Fix chart bugs: remove any previous chart instance before drawing new
   destroyTrendChart();
 
   const days = Number($("slaDaysSelect")?.value || 30);
   const compareMode = $("slaCompareMode")?.value || "none";
 
-  if ($("slaOverviewBox")) $("slaOverviewBox").innerHTML = `<div class="muted small">Laddar KPI...</div>`;
-  if ($("slaAgentsBox")) $("slaAgentsBox").innerHTML = `<div class="muted small">Laddar agents...</div>`;
-  if ($("slaTicketsBox")) $("slaTicketsBox").innerHTML = `<div class="muted small">Laddar tickets...</div>`;
-  if ($("slaTrendHint")) $("slaTrendHint").textContent = "";
+  // Show placeholder
+  $("slaOverviewBox").innerHTML = `<div class="muted small">Laddar KPI...</div>`;
+  $("slaAgentsBox").innerHTML = `<div class="muted small">Laddar agents...</div>`;
+  $("slaTicketsBox").innerHTML = `<div class="muted small">Laddar tickets...</div>`;
+  $("slaTrendHint").textContent = "";
 
   try {
     // overview
     const overview = await api(`/admin/sla/overview?days=${days}`);
     slaCache.overview = overview;
+    renderSlaOverviewKpi(overview);
 
-    // extra KPI endpoint
-    let kpi = null;
-    try {
-      kpi = await api(`/admin/sla/kpi?days=${days}`);
-    } catch {
-      kpi = null;
-    }
-    slaCache.kpi = kpi;
-
-    renderSlaOverviewKpi(overview, kpi);
-
-    // trend weekly
+    // trend
     const trend = await api(`/admin/sla/trend/weekly?days=${days}`);
     slaCache.trend = trend;
-
-    // only render chart when SLA view is visible
-    if ($("slaView") && $("slaView").style.display !== "none") {
-      renderSlaTrendChart(trend);
-    }
+    renderSlaTrendChart(trend);
 
     // agents
     const agents = await api(`/admin/sla/agents?days=${days}`);
@@ -1313,54 +1270,43 @@ async function refreshSlaAll() {
 
     // compare (optional)
     if (compareMode && compareMode !== "none") {
+      // prevPeriod: compare with same days
+      // prevWeek: compare with 7 days
       const a = days;
       const b = compareMode === "prevWeek" ? 7 : days;
       const cmp = await api(`/admin/sla/compare?a=${a}&b=${b}`);
       renderSlaCompareHint(cmp, compareMode);
     } else {
-      if ($("slaTrendHint"))
-        $("slaTrendHint").textContent = "Tips: välj jämförelseläge för att se förändring mot tidigare period.";
+      $("slaTrendHint").textContent = "Tips: välj jämförelseläge för att se förändring mot tidigare period.";
     }
   } catch (e) {
-    if ($("slaOverviewBox")) $("slaOverviewBox").innerHTML = `<div class="alert error">❌ SLA fel: ${escapeHtml(e.message)}</div>`;
+    $("slaOverviewBox").innerHTML = `<div class="alert error">❌ SLA fel: ${escapeHtml(e.message)}</div>`;
   }
 }
 
-function renderSlaOverviewKpi(o, kpi) {
-  if (!o || !$("slaOverviewBox")) return;
+function renderSlaOverviewKpi(o) {
+  if (!o) return;
 
   const total = o.totalTickets ?? 0;
   const byP = o.byPriority || { low: 0, normal: 0, high: 0 };
 
   const frAvg = o.firstResponse?.avgMs;
   const frMed = o.firstResponse?.medianMs;
-  const frP90 = o.firstResponse?.p90Ms;
   const frBr = o.firstResponse?.breaches ?? 0;
   const frComp = o.firstResponse?.compliancePct;
-  const frRisk = o.firstResponse?.atRisk ?? 0;
 
   const rsAvg = o.resolution?.avgMs;
   const rsMed = o.resolution?.medianMs;
-  const rsP90 = o.resolution?.p90Ms;
   const rsBr = o.resolution?.breaches ?? 0;
   const rsComp = o.resolution?.compliancePct;
-  const rsRisk = o.resolution?.atRisk ?? 0;
 
-  const totals = kpi?.totals || {};
-  const health = kpi?.slaHealth || {};
-  const ageing = Array.isArray(kpi?.ageing) ? kpi.ageing : [];
-  const solveRate = totals?.solveRatePct;
-
-  const ageingText = ageing.length
-    ? ageing.map((b) => `${escapeHtml(b.key)}: <b>${escapeHtml(String(b.count || 0))}</b>`).join(" • ")
-    : "";
-
+  // ✅ KPI grid + "more features"
   $("slaOverviewBox").innerHTML = `
-    <div class="slaGrid kpiWide">
+    <div class="slaGrid">
       <div class="slaCard">
         <div class="slaLabel">Tickets (totalt)</div>
         <div class="slaValue">${escapeHtml(String(total))}</div>
-        <div class="slaSubValue">
+        <div class="muted small" style="margin-top:6px;">
           Low: <b>${byP.low || 0}</b> • Normal: <b>${byP.normal || 0}</b> • High: <b>${byP.high || 0}</b>
         </div>
       </div>
@@ -1368,52 +1314,32 @@ function renderSlaOverviewKpi(o, kpi) {
       <div class="slaCard">
         <div class="slaLabel">First response compliance</div>
         <div class="slaValue">${escapeHtml(pct(frComp))}</div>
-        <div class="slaSubValue">
+        <div class="muted small" style="margin-top:6px;">
           Avg: <b>${escapeHtml(msToPretty(frAvg))}</b> • Median: <b>${escapeHtml(msToPretty(frMed))}</b><br/>
-          P90: <b>${escapeHtml(msToPretty(frP90))}</b> • Breaches: <b>${escapeHtml(String(frBr))}</b> • At risk: <b>${escapeHtml(String(frRisk))}</b>
+          Breaches: <b>${escapeHtml(String(frBr))}</b>
         </div>
       </div>
 
       <div class="slaCard">
         <div class="slaLabel">Resolution compliance</div>
         <div class="slaValue">${escapeHtml(pct(rsComp))}</div>
-        <div class="slaSubValue">
+        <div class="muted small" style="margin-top:6px;">
           Avg: <b>${escapeHtml(msToPretty(rsAvg))}</b> • Median: <b>${escapeHtml(msToPretty(rsMed))}</b><br/>
-          P90: <b>${escapeHtml(msToPretty(rsP90))}</b> • Breaches: <b>${escapeHtml(String(rsBr))}</b> • At risk: <b>${escapeHtml(String(rsRisk))}</b>
-        </div>
-      </div>
-
-      <div class="slaCard">
-        <div class="slaLabel">SLA Health (breached / risk)</div>
-        <div class="slaValue">${escapeHtml(String(health?.breachedAny ?? 0))}</div>
-        <div class="slaSubValue">
-          Breached %: <b>${escapeHtml(pct(health?.breachedPct))}</b> • Risk: <b>${escapeHtml(String(health?.riskAny ?? 0))}</b> (${escapeHtml(pct(health?.riskPct))})<br/>
-          Solve rate: <b>${escapeHtml(pct(solveRate))}</b>
+          Breaches: <b>${escapeHtml(String(rsBr))}</b>
         </div>
       </div>
     </div>
 
-    ${
-      ageingText
-        ? `
-      <div class="divider"></div>
-      <div class="panel soft">
-        <b>Backlog ageing (öppna/pending)</b>
-        <div class="muted small" style="margin-top:8px;">${ageingText}</div>
+    <div class="divider"></div>
+
+    <div class="panel soft">
+      <b>KPI (extra)</b>
+      <div class="muted small" style="margin-top:6px;">
+        • Om compliance är låg: filtrera på “breached” och sortera “worst first”.<br/>
+        • Pending-tid påverkar resolution (pausar SLA).<br/>
+        • High priority har hårdare limits (1h first response / 24h resolution).
       </div>
-    `
-        : `
-      <div class="divider"></div>
-      <div class="panel soft">
-        <b>KPI (extra)</b>
-        <div class="muted small" style="margin-top:6px;">
-          • Filtrera på “breached” och sortera “worst first” för att hitta problem snabbt.<br/>
-          • Pending-tid pausar resolution SLA (rättvisare mätning).<br/>
-          • High priority har hårdare limits (1h first response / 24h resolution).
-        </div>
-      </div>
-    `
-    }
+    </div>
   `;
 }
 
@@ -1437,11 +1363,13 @@ function renderSlaCompareHint(cmp, mode) {
   };
 
   const label = mode === "prevWeek" ? "föregående vecka" : "föregående period";
+
   hint.textContent = `Jämförelse mot ${label}: First ${diff(frA, frB)}, Resolution ${diff(rsA, rsB)}.`;
 }
 
 /* =========================
-   ✅ SLA Trend Chart (Chart.js)
+   SLA Trend Chart (Chart.js)
+   ✅ FIX: destroy old chart first
 ========================= */
 function destroyTrendChart() {
   if (state.chartTrend) {
@@ -1452,38 +1380,28 @@ function destroyTrendChart() {
   }
 }
 
-function ensureCanvasStableSize(canvas) {
-  try {
-    canvas.style.display = "block";
-    canvas.style.width = "100%";
-    canvas.style.height = "260px";
-  } catch {}
-}
-
 function renderSlaTrendChart(tr) {
   const canvas = $("slaTrendChart");
   if (!canvas) return;
 
+  // if chart.js missing
   if (typeof Chart === "undefined") {
-    if ($("slaTrendHint")) {
-      $("slaTrendHint").textContent =
-        "❌ Chart.js saknas. Lägg in <script src='https://cdn.jsdelivr.net/npm/chart.js'></script> före script.js i index.html";
-    }
+    $("slaTrendHint").textContent =
+      "❌ Chart.js saknas. Lägg in <script src='https://cdn.jsdelivr.net/npm/chart.js'></script> före script.js i index.html";
     return;
   }
 
   destroyTrendChart();
-  ensureCanvasStableSize(canvas);
 
   const rows = tr?.rows || [];
   if (!rows.length) {
-    if ($("slaTrendHint")) $("slaTrendHint").textContent = "Ingen trend-data ännu.";
+    $("slaTrendHint").textContent = "Ingen trend-data ännu.";
     return;
   }
 
   const labels = rows.map((r) => r.week);
-  const firstPct = rows.map((r) => Number(r.firstCompliancePct || 0));
-  const resPct = rows.map((r) => Number(r.resolutionCompliancePct || 0));
+  const firstPct = rows.map((r) => r.firstCompliancePct || 0);
+  const resPct = rows.map((r) => r.resolutionCompliancePct || 0);
 
   const ctx = canvas.getContext("2d");
 
@@ -1511,7 +1429,6 @@ function renderSlaTrendChart(tr) {
     options: {
       responsive: true,
       maintainAspectRatio: false,
-      animation: false,
       interaction: { mode: "index", intersect: false },
       plugins: {
         legend: { display: true },
@@ -1527,7 +1444,7 @@ function renderSlaTrendChart(tr) {
     },
   });
 
-  if ($("slaTrendHint")) $("slaTrendHint").textContent = "Trend visar compliance vecka för vecka.";
+  $("slaTrendHint").textContent = "Trend visar compliance vecka för vecka.";
 }
 
 /* =========================
@@ -1550,16 +1467,12 @@ function renderSlaAgents(a) {
           <tr>
             <th>Agent</th>
             <th>Tickets</th>
-            <th>Open</th>
             <th>Pending</th>
-            <th>Solved</th>
             <th>First avg</th>
             <th>First med</th>
-            <th>First P90</th>
             <th>First compliance</th>
             <th>Res avg</th>
             <th>Res med</th>
-            <th>Res P90</th>
             <th>Res compliance</th>
           </tr>
         </thead>
@@ -1572,16 +1485,12 @@ function renderSlaAgents(a) {
                 <tr>
                   <td>${escapeHtml(r.username)} <span class="muted small">(${escapeHtml(r.role)})</span></td>
                   <td>${escapeHtml(String(r.tickets || 0))}</td>
-                  <td>${escapeHtml(String(r.open || 0))}</td>
                   <td>${escapeHtml(String(r.pending || 0))}</td>
-                  <td>${escapeHtml(String(r.solved || 0))}</td>
                   <td>${escapeHtml(msToPretty(fr.avgMs))}</td>
                   <td>${escapeHtml(msToPretty(fr.medianMs))}</td>
-                  <td>${escapeHtml(msToPretty(fr.p90Ms))}</td>
                   <td>${escapeHtml(pct(fr.compliancePct))}</td>
                   <td>${escapeHtml(msToPretty(rs.avgMs))}</td>
                   <td>${escapeHtml(msToPretty(rs.medianMs))}</td>
-                  <td>${escapeHtml(msToPretty(rs.p90Ms))}</td>
                   <td>${escapeHtml(pct(rs.compliancePct))}</td>
                 </tr>
               `;
@@ -1605,6 +1514,7 @@ function renderSlaTicketsFromCache() {
 
   let rows = data.rows || [];
 
+  // filters
   const breachedFilter = $("slaBreachedFilter")?.value || "all";
   const breachType = $("slaBreachTypeFilter")?.value || "any";
   const sortMode = $("slaSortTickets")?.value || "newest";
@@ -1614,8 +1524,8 @@ function renderSlaTicketsFromCache() {
     _createdAtMs: new Date(r.createdAt).getTime() || 0,
     _worst:
       Math.max(
-        r.sla?.firstResponseMs ? r.sla.firstResponseMs - (r.sla.firstResponseLimitMs || 0) : 0,
-        r.sla?.effectiveRunningMs ? r.sla.effectiveRunningMs - (r.sla.resolutionLimitMs || 0) : 0
+        r.sla?.firstResponseMs ? (r.sla.firstResponseMs - (r.sla.firstResponseLimitMs || 0)) : 0,
+        r.sla?.effectiveRunningMs ? (r.sla.effectiveRunningMs - (r.sla.resolutionLimitMs || 0)) : 0
       ) || 0,
   }));
 
@@ -1625,13 +1535,18 @@ function renderSlaTicketsFromCache() {
     rows = rows.filter((r) => !r.sla?.breachedFirstResponse && !r.sla?.breachedResolution);
   }
 
-  if (breachType === "first") rows = rows.filter((r) => r.sla?.breachedFirstResponse);
-  if (breachType === "resolution") rows = rows.filter((r) => r.sla?.breachedResolution);
+  if (breachType === "first") {
+    rows = rows.filter((r) => r.sla?.breachedFirstResponse);
+  } else if (breachType === "resolution") {
+    rows = rows.filter((r) => r.sla?.breachedResolution);
+  }
 
+  // sort
   if (sortMode === "newest") rows.sort((a, b) => b._createdAtMs - a._createdAtMs);
   if (sortMode === "oldest") rows.sort((a, b) => a._createdAtMs - b._createdAtMs);
   if (sortMode === "worstFirst") rows.sort((a, b) => (b._worst || 0) - (a._worst || 0));
 
+  // render table
   box.innerHTML = `
     <div class="tableWrap">
       <table class="table">
@@ -1643,9 +1558,7 @@ function renderSlaTicketsFromCache() {
             <th>Prio</th>
             <th>Skapad</th>
             <th>First</th>
-            <th>First state</th>
             <th>Res</th>
-            <th>Res state</th>
             <th>Pending total</th>
             <th>Breaches</th>
           </tr>
@@ -1658,25 +1571,6 @@ function renderSlaTicketsFromCache() {
               const first = sla.firstResponseMs != null ? msToPretty(sla.firstResponseMs) : "—";
               const res = sla.resolutionMs != null ? msToPretty(sla.resolutionMs) : "—";
               const pending = sla.pendingTotalMs != null ? msToPretty(sla.pendingTotalMs) : "—";
-
-              const firstState =
-                sla.firstResponseState === "breached"
-                  ? pill("breached", "danger")
-                  : sla.firstResponseState === "at_risk"
-                  ? pill("at risk", "warn")
-                  : sla.firstResponseState === "waiting"
-                  ? pill("waiting")
-                  : pill("ok", "ok");
-
-              const resState =
-                sla.resolutionState === "breached"
-                  ? pill("breached", "danger")
-                  : sla.resolutionState === "at_risk"
-                  ? pill("at risk", "warn")
-                  : sla.resolutionState === "waiting"
-                  ? pill("waiting")
-                  : pill("ok", "ok");
-
               const b1 = sla.breachedFirstResponse ? pill("first", "danger") : pill("first", "ok");
               const b2 = sla.breachedResolution ? pill("res", "danger") : pill("res", "ok");
 
@@ -1688,9 +1582,7 @@ function renderSlaTicketsFromCache() {
                   <td>${escapeHtml(r.priority || "")}</td>
                   <td>${escapeHtml(fmtDate(r.createdAt))}</td>
                   <td>${escapeHtml(first)}</td>
-                  <td>${firstState}</td>
                   <td>${escapeHtml(res)}</td>
-                  <td>${resState}</td>
                   <td>${escapeHtml(pending)}</td>
                   <td style="display:flex; gap:6px; flex-wrap:wrap;">${b1}${b2}</td>
                 </tr>
@@ -1707,6 +1599,7 @@ function exportSlaCsv() {
   const days = Number($("slaDaysSelect")?.value || 30);
   const url = `/admin/sla/export/csv?days=${days}`;
 
+  // file download with auth -> use fetch blob
   fetch(API_BASE + url, {
     headers: { Authorization: `Bearer ${state.token}` },
   })
@@ -1725,13 +1618,13 @@ function exportSlaCsv() {
 }
 
 async function clearMySlaStats() {
+  // I din server.js finns clear agent endpoint som admin.
+  // Den här knappen är "min statistik" men kräver admin i din backend.
+  // Vi försöker ändå visa vettigt fel.
   try {
     if (!confirm("Radera min SLA-statistik?")) return;
-    const me = state.user || {};
-    const myId = me.id || me._id;
-    if (!myId) throw new Error("Kunde inte hitta ditt userId.");
-
-    await api(`/admin/sla/clear/agent/${myId}`, { method: "POST" });
+    const me = state.user;
+    await api(`/admin/sla/clear/agent/${me.id}`, { method: "POST" });
     alert("✅ Din statistik raderad.");
     await refreshSlaAll();
   } catch (e) {
@@ -1754,6 +1647,7 @@ async function clearAllSlaStats() {
    ADMIN DASHBOARD
 ========================= */
 async function refreshAdminAll() {
+  // default users tab visible
   await loadAdminUsers().catch(() => {});
   await loadKbList().catch(() => {});
   await loadCategoriesAdmin().catch(() => {});
@@ -1769,8 +1663,7 @@ async function loadAdminUsers() {
     const users = await api("/admin/users");
     box.innerHTML = users
       .map((u) => {
-        const rolePill =
-          u.role === "admin" ? pill("admin", "ok") : u.role === "agent" ? pill("agent", "warn") : pill("user");
+        const rolePill = u.role === "admin" ? pill("admin", "ok") : u.role === "agent" ? pill("agent", "warn") : pill("user");
         return `
           <div class="listItem">
             <div class="listItemTitle">
@@ -1839,6 +1732,7 @@ async function loadAdminUsers() {
    EXPORTS
 ========================= */
 function exportAll() {
+  // download json with auth
   fetch(API_BASE + "/admin/export/all", {
     headers: { Authorization: `Bearer ${state.token}` },
   })
@@ -1927,7 +1821,7 @@ async function kbUploadText() {
     });
 
     setAlert(msg, data.message || "Uppladdat ✅", "");
-    if ($("kbTextContent")) $("kbTextContent").value = "";
+    $("kbTextContent").value = "";
     await loadKbList();
   } catch (e) {
     setAlert(msg, e.message, "error");
@@ -1948,7 +1842,7 @@ async function kbUploadUrl() {
     });
 
     setAlert(msg, data.message || "Uppladdat ✅", "");
-    if ($("kbUrlInput")) $("kbUrlInput").value = "";
+    $("kbUrlInput").value = "";
     await loadKbList();
   } catch (e) {
     setAlert(msg, e.message, "error");
@@ -1970,7 +1864,7 @@ async function kbUploadPdf() {
     });
 
     setAlert(msg, data.message || "Uppladdat ✅", "");
-    if ($("kbPdfFile")) $("kbPdfFile").value = "";
+    $("kbPdfFile").value = "";
     await loadKbList();
   } catch (e) {
     setAlert(msg, e.message, "error");
@@ -1982,6 +1876,7 @@ function fileToBase64(file) {
     const fr = new FileReader();
     fr.onload = () => {
       const res = String(fr.result || "");
+      // data:application/pdf;base64,....
       const b64 = res.split(",")[1] || "";
       resolve(b64);
     };
@@ -2033,9 +1928,7 @@ async function loadCategoriesAdmin() {
             ${
               locked
                 ? ""
-                : `<button class="btn danger small" style="margin-top:10px;" data-del-cat="${escapeHtml(
-                    c.key
-                  )}"><i class="fa-solid fa-trash"></i> Ta bort</button>`
+                : `<button class="btn danger small" style="margin-top:10px;" data-del-cat="${escapeHtml(c.key)}"><i class="fa-solid fa-trash"></i> Ta bort</button>`
             }
           </div>
         `;
@@ -2078,9 +1971,9 @@ async function createCategory() {
     });
 
     setAlert(msg, data.message || "Skapad ✅", "");
-    if ($("newCatKey")) $("newCatKey").value = "";
-    if ($("newCatName")) $("newCatName").value = "";
-    if ($("newCatPrompt")) $("newCatPrompt").value = "";
+    $("newCatKey").value = "";
+    $("newCatName").value = "";
+    $("newCatPrompt").value = "";
 
     await loadCategories();
     await loadCategoriesAdmin();
@@ -2105,12 +1998,13 @@ async function changeUsername() {
     });
 
     setAlert(msg, data.message || "Uppdaterat ✅", "");
-    if ($("newUsernameInput")) $("newUsernameInput").value = "";
+    $("newUsernameInput").value = "";
 
+    // refresh /me
     const me = await api("/me");
     state.user = me;
     setLS(LS.user, JSON.stringify(me));
-    await onLoggedIn();
+    onLoggedIn();
   } catch (e) {
     setAlert(msg, e.message, "error");
   }
@@ -2130,8 +2024,8 @@ async function changePassword() {
     });
 
     setAlert(msg, data.message || "Lösenord uppdaterat ✅", "");
-    if ($("currentPassInput")) $("currentPassInput").value = "";
-    if ($("newPassInput")) $("newPassInput").value = "";
+    $("currentPassInput").value = "";
+    $("newPassInput").value = "";
   } catch (e) {
     setAlert(msg, e.message, "error");
   }

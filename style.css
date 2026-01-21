@@ -236,11 +236,6 @@ body[data-theme="light"] .input{
   box-shadow: 0 0 0 3px rgba(76,125,255,0.10);
 }
 
-.input:disabled{
-  opacity: 0.6;
-  cursor:not-allowed;
-}
-
 .textarea{
   min-height: 120px;
   resize: vertical;
@@ -289,11 +284,6 @@ body[data-theme="light"] .input{
 
 .btn:active{
   transform: translateY(1px);
-}
-
-.btn:disabled{
-  opacity: 0.6;
-  cursor:not-allowed;
 }
 
 .btn.primary{
@@ -425,7 +415,6 @@ body[data-theme="light"] .input{
   background: rgba(255,255,255,0.02);
   line-height: 1.4;
   white-space: pre-wrap;
-  word-break: break-word;
 }
 
 .msg.user .bubble{
@@ -443,7 +432,6 @@ body[data-theme="light"] .input{
   margin-top:8px;
   display:flex;
   gap:8px;
-  flex-wrap:wrap;
 }
 
 .actionBtn{
@@ -467,17 +455,11 @@ body[data-theme="light"] .input{
   align-items:center;
 }
 
-.composer .input{
-  flex: 1;
-  min-width: 0;
-}
-
 .feedbackRow{
   margin-top:10px;
   display:flex;
   align-items:center;
   gap:10px;
-  flex-wrap:wrap;
 }
 
 /* =========================
@@ -554,7 +536,6 @@ body[data-theme="light"] .input{
   align-items:center;
   gap:10px;
   font-weight:700;
-  flex-wrap:wrap;
 }
 
 .pill{
@@ -616,7 +597,6 @@ body[data-theme="light"] .input{
   color: var(--muted);
   font-size:12px;
   margin-bottom:6px;
-  gap:10px;
 }
 
 .ticketMsg.user{
@@ -634,7 +614,6 @@ body[data-theme="light"] .input{
 
 .ticketMsgBody{
   line-height: 1.35;
-  word-break: break-word;
 }
 
 /* =========================
@@ -680,17 +659,17 @@ body[data-theme="light"] .input{
 }
 
 /* =========================
-   ✅ SLA / KPI DASHBOARD
+   ✅ SLA / KPI DASHBOARD (UPGRADED)
 ========================= */
 
-/* KPI cards (overview) */
+/* Main KPI cards (overview) */
 .slaGrid{
   display:grid;
   grid-template-columns: repeat(3, 1fr);
   gap:12px;
 }
 
-/* extra KPI row support */
+/* ✅ extra KPI row support (if you render 4-6 KPIs) */
 .slaGrid.kpiWide{
   grid-template-columns: repeat(4, 1fr);
 }
@@ -736,7 +715,7 @@ body[data-theme="light"] .input{
   z-index: 2;
 }
 
-/* KPI trend indicator */
+/* ✅ KPI trend indicator (up/down) */
 .kpiDelta{
   display:inline-flex;
   align-items:center;
@@ -747,17 +726,44 @@ body[data-theme="light"] .input{
   position: relative;
   z-index: 2;
 }
-.kpiDelta.up{ color: var(--ok); }
-.kpiDelta.down{ color: var(--danger); }
+.kpiDelta.up{
+  color: var(--ok);
+}
+.kpiDelta.down{
+  color: var(--danger);
+}
 
-/* ✅ Chart fixes: stable container */
+/* chart styling */
 #slaTrendChart{
-  display:block;
-  width:100% !important;
-  height:260px !important; /* viktigt: stabil höjd */
   border: 1px solid var(--border);
   border-radius: 14px;
   background: rgba(255,255,255,0.02);
+}
+
+/* ✅ Ticket rows in SLA section (when you render "cards") */
+.slaTicketCard{
+  border:1px solid var(--border);
+  border-radius: var(--radius);
+  padding:12px;
+  background: rgba(255,255,255,0.02);
+  margin-bottom:10px;
+}
+
+.slaTicketTop{
+  display:flex;
+  align-items:center;
+  gap:10px;
+  flex-wrap:wrap;
+  margin-bottom:8px;
+}
+
+.slaTicketId{
+  font-weight:800;
+}
+
+.slaTicketMeta{
+  font-size:12px;
+  color: var(--muted);
 }
 
 /* =========================
@@ -767,7 +773,6 @@ body[data-theme="light"] .input{
   overflow:auto;
   border:1px solid var(--border);
   border-radius:14px;
-  background: rgba(255,255,255,0.01);
 }
 
 .table{
@@ -825,7 +830,6 @@ body[data-theme="light"] .input{
 
 .noteText{
   line-height: 1.35;
-  word-break: break-word;
 }
 
 /* =========================
