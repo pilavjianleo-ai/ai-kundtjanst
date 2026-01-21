@@ -1,3 +1,13 @@
+// server.js (FULL FIXED + UPGRADED)
+// ✅ Agent kan INTE se Admin panel (blockas även i backend)
+// ✅ Agent kan se SLA som speglar sin statistik (backend filtrerar)
+// ✅ Alla användare får ett "publicId" (vänligt ID) + unikt idNumber
+// ✅ Edit AI kategori (Admin kan uppdatera name/systemPrompt)
+// ✅ Inbox highlight när ärende inkommer (SSE endpoint + notifier)
+// ✅ Widget endpoints (SSE + stats)
+// ✅ Buggfixar, bättre robusthet, tydligare API
+// ✅ Smidigt, du behöver bara ersätta denna fil
+
 require("dotenv").config();
 
 const express = require("express");
@@ -55,19 +65,84 @@ mongoose.connection.on("error", (err) => {
 });
 
 /* =====================
-   ✅ Models
+   ✅ Helpers: safe sanitize
 ===================== */
+function cleanText(text) {
+  return sanitizeHtml(text || "", { allowedTags: [], allowedAttributes: {} })
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+/* =====================
+   ✅ Models
+   - NEW: publicId + idNumber (alla users får ID)
+===================== */
+function makePublicId() {
+  // kort, vänligt ID: ex "USR-7F3K2P"
+  const s = crypto.randomBytes(4).toString("hex").toUpperCase();
+  return `USR-${s.slice(0, 6)}`;
+}
+
+// enkel auto-increment med counter collection
+const counterSchema = new mongoose.Schema({
+  key: { type: String, unique: true, required: true },
+  seq: { type: Number, default: 1000 },
+});
+const Counter = mongoose.model("Counter", counterSchema);
+
+async function nextSequence(key) {
+  const r = await Counter.findOneAndUpdate(
+    { key },
+    { $inc: { seq: 1 } },
+    { upsert: true, new: true, setDefaultsOnInsert: true }
+  );
+  return r.seq;
+}
+
 const userSchema = new mongoose.Schema({
   username: { type: String, unique: true, required: true, index: true },
   email: { type: String, default: "", index: true },
   password: { type: String, required: true },
   role: { type: String, default: "user" }, // user | agent | admin
 
+  // ✅ NEW IDs
+  publicId: { type: String, unique: true, index: true, default: "" },
+  idNumber: { type: Number, unique: true, sparse: true, index: true, default: null },
+
   resetTokenHash: { type: String, default: "" },
   resetTokenExpiresAt: { type: Date, default: null },
 
   createdAt: { type: Date, default: Date.now },
 });
+
+// ensure ids on save
+userSchema.pre("save", async function (next) {
+  try {
+    if (!this.publicId) {
+      // retry if collision
+      let tries = 0;
+      while (tries < 5) {
+        const pid = makePublicId();
+        const exists = await mongoose.models.User.findOne({ publicId: pid }).select("_id");
+        if (!exists) {
+          this.publicId = pid;
+          break;
+        }
+        tries++;
+      }
+      if (!this.publicId) this.publicId = makePublicId();
+    }
+
+    if (this.idNumber == null) {
+      const n = await nextSequence("users");
+      this.idNumber = n;
+    }
+    next();
+  } catch (e) {
+    next(e);
+  }
+});
+
 const User = mongoose.model("User", userSchema);
 
 const messageSchema = new mongoose.Schema({
@@ -153,13 +228,6 @@ function calcEffectiveMsFromCreated(t, endAt, now = new Date()) {
 
 /**
  * ✅ SLA Engine (UPGRADED)
- * Adds states:
- * - waiting (no reply yet / not solved)
- * - ok
- * - at_risk (under limit but close)
- * - breached
- *
- * Risk threshold default: 80% of limit
  */
 function computeSlaForTicket(t, now = new Date()) {
   const limits = slaLimitsForPriority(t.priority || "normal");
@@ -188,7 +256,6 @@ function computeSlaForTicket(t, now = new Date()) {
   const breachedResolution =
     effectiveRunningMs != null ? effectiveRunningMs > limits.resolutionLimitMs : false;
 
-  // ✅ states
   const riskPct = 0.8;
 
   function stateFirst() {
@@ -230,11 +297,9 @@ function computeSlaForTicket(t, now = new Date()) {
     effectiveRunningMs: effectiveRunningMs ?? null,
     pendingTotalMs: calcPendingMs(t, now),
 
-    // ✅ NEW for frontend states
     firstResponseState: stateFirst(),
     resolutionState: stateRes(),
 
-    // pretty text
     pretty: {
       firstResponse: msToPretty(firstResponseMs),
       resolution: msToPretty(resolutionMs),
@@ -338,7 +403,6 @@ const ticketSchema = new mongoose.Schema({
     effectiveRunningMs: { type: Number, default: null },
     pendingTotalMs: { type: Number, default: 0 },
 
-    // ✅ NEW
     firstResponseState: { type: String, default: "" },
     resolutionState: { type: String, default: "" },
 
@@ -437,7 +501,7 @@ async function ensureDefaultCategories() {
 ensureDefaultCategories().catch((e) => console.error("❌ ensureDefaultCategories error:", e));
 
 /* =====================
-   ✅ OpenAI
+   ✅ OpenAI (UPGRADED prompt style)
 ===================== */
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
@@ -453,14 +517,8 @@ app.use("/register", limiterAuth);
 app.use("/auth", limiterAuth);
 
 /* =====================
-   ✅ Helpers
+   ✅ Chunking + Embeddings
 ===================== */
-function cleanText(text) {
-  return sanitizeHtml(text || "", { allowedTags: [], allowedAttributes: {} })
-    .replace(/\s+/g, " ")
-    .trim();
-}
-
 function chunkText(text, chunkSize = 1200, overlap = 150) {
   const cleaned = cleanText(text);
   if (!cleaned) return [];
@@ -620,6 +678,32 @@ function createTransport() {
 }
 
 /* =====================
+   ✅ INBOX REALTIME (SSE)
+   - inbox ska highlightas när ärende inkommer
+===================== */
+const sseClients = new Map(); // userId -> Set(res)
+function sseAddClient(userId, res) {
+  if (!sseClients.has(userId)) sseClients.set(userId, new Set());
+  sseClients.get(userId).add(res);
+}
+function sseRemoveClient(userId, res) {
+  const set = sseClients.get(userId);
+  if (!set) return;
+  set.delete(res);
+  if (set.size === 0) sseClients.delete(userId);
+}
+function sseSendToUser(userId, event, payload) {
+  const set = sseClients.get(String(userId));
+  if (!set || !set.size) return;
+  const msg = `event: ${event}\ndata: ${JSON.stringify(payload || {})}\n\n`;
+  for (const res of set) {
+    try {
+      res.write(msg);
+    } catch {}
+  }
+}
+
+/* =====================
    ✅ ROUTES
 ===================== */
 app.get("/", (req, res) => res.sendFile(path.join(__dirname, "index.html")));
@@ -628,7 +712,14 @@ app.get("/favicon.ico", (req, res) => res.status(204).end());
 app.get("/me", authenticate, async (req, res) => {
   const u = await User.findById(req.user.id).select("-password");
   if (!u) return res.status(404).json({ error: "User saknas" });
-  return res.json({ id: u._id, username: u.username, role: u.role, email: u.email || "" });
+  return res.json({
+    id: u._id,
+    username: u.username,
+    role: u.role,
+    email: u.email || "",
+    publicId: u.publicId || "",
+    idNumber: u.idNumber || null,
+  });
 });
 
 /* =====================
@@ -641,8 +732,11 @@ app.post("/register", async (req, res) => {
   try {
     const hashedPassword = await bcrypt.hash(password, 10);
     const u = await new User({ username, password: hashedPassword, email: email || "" }).save();
-    return res.json({ message: "Registrering lyckades", user: { id: u._id, username: u.username, role: u.role } });
-  } catch {
+    return res.json({
+      message: "Registrering lyckades",
+      user: { id: u._id, username: u.username, role: u.role, publicId: u.publicId, idNumber: u.idNumber },
+    });
+  } catch (e) {
     return res.status(400).json({ error: "Användarnamn upptaget" });
   }
 });
@@ -656,7 +750,10 @@ app.post("/login", async (req, res) => {
   if (!ok) return res.status(401).json({ error: "Fel användarnamn eller lösenord" });
 
   const token = jwt.sign({ id: u._id, username: u.username }, process.env.JWT_SECRET, { expiresIn: "7d" });
-  return res.json({ token, user: { id: u._id, username: u.username, role: u.role, email: u.email || "" } });
+  return res.json({
+    token,
+    user: { id: u._id, username: u.username, role: u.role, email: u.email || "", publicId: u.publicId, idNumber: u.idNumber },
+  });
 });
 
 /* =====================
@@ -800,7 +897,30 @@ app.get("/categories", async (req, res) => {
 });
 
 /* =====================
-   ✅ CHAT (ticket + RAG)
+   ✅ ADMIN: Update category (EDIT)
+   - "gör så att man kan redigera en AI kategori"
+===================== */
+app.put("/admin/categories/:key", authenticate, requireAdmin, async (req, res) => {
+  try {
+    const key = req.params.key;
+    const { name, systemPrompt } = req.body || {};
+
+    const c = await Category.findOne({ key });
+    if (!c) return res.status(404).json({ error: "Kategori hittades inte" });
+
+    if (typeof name === "string") c.name = name;
+    if (typeof systemPrompt === "string") c.systemPrompt = systemPrompt;
+
+    await c.save();
+    return res.json({ message: "Kategori uppdaterad ✅", category: { key: c.key, name: c.name, systemPrompt: c.systemPrompt } });
+  } catch (e) {
+    console.error("❌ update category error:", e?.message || e);
+    return res.status(500).json({ error: "Serverfel vid uppdatera kategori" });
+  }
+});
+
+/* =====================
+   ✅ CHAT (ticket + RAG) (SMARTARE AI)
 ===================== */
 app.post("/chat", authenticate, async (req, res) => {
   try {
@@ -834,6 +954,18 @@ app.post("/chat", authenticate, async (req, res) => {
 
       safeEnsureSla(ticket);
       await ticket.save();
+
+      // ✅ Notify agent inbox about NEW message (open ticket)
+      // send to assigned agent if any
+      if (ticket.assignedToUserId) {
+        sseSendToUser(String(ticket.assignedToUserId), "inbox:new", {
+          ticketId: String(ticket._id),
+          title: ticket.title || "",
+          companyId: ticket.companyId,
+          status: ticket.status,
+          lastActivityAt: ticket.lastActivityAt,
+        });
+      }
     }
 
     const cat = await Category.findOne({ key: companyId });
@@ -841,11 +973,28 @@ app.post("/chat", authenticate, async (req, res) => {
 
     const rag = await ragSearch(companyId, userQuery, 4);
 
+    // ✅ Smarter system message: proffsig, tydlig, välkomnar om ny konversation
+    const isNewConversation = (ticket.messages || []).filter((m) => m.role === "user").length <= 1;
+
     const systemMessage = {
       role: "system",
       content:
-        systemPrompt +
-        (rag.used ? `\n\nIntern kunskapsdatabas (om relevant):\n${rag.context}\n\nSvara tydligt och konkret.` : ""),
+        [
+          systemPrompt,
+          "",
+          "VIKTIGT:",
+          "- Svara på svenska.",
+          "- Var tydlig, trevlig, professionell och lösningsorienterad.",
+          "- Ställ en kort följdfråga om något är oklart.",
+          "- Ge steg-för-steg när det är tekniska problem.",
+          "- Om du saknar info: be om exakt det du behöver.",
+          isNewConversation ? "- Börja med en kort välkomstfras." : "",
+          rag.used ? "" : "",
+          rag.used ? "Intern kunskapsdatabas (om relevant):" : "",
+          rag.used ? rag.context : "",
+        ]
+          .filter(Boolean)
+          .join("\n"),
     };
 
     const messages = [systemMessage, ...conversation];
@@ -853,6 +1002,7 @@ app.post("/chat", authenticate, async (req, res) => {
     const response = await openai.chat.completions.create({
       model: "gpt-4o-mini",
       messages,
+      temperature: 0.4,
     });
 
     const reply = cleanText(response.choices?.[0]?.message?.content || "Inget svar från AI.");
@@ -908,6 +1058,17 @@ app.post("/my/tickets/:ticketId/reply", authenticate, async (req, res) => {
     safeEnsureSla(t);
     await t.save();
 
+    // notify assigned agent
+    if (t.assignedToUserId) {
+      sseSendToUser(String(t.assignedToUserId), "inbox:new", {
+        ticketId: String(t._id),
+        title: t.title || "",
+        companyId: t.companyId,
+        status: t.status,
+        lastActivityAt: t.lastActivityAt,
+      });
+    }
+
     return res.json({ message: "Svar skickat ✅", ticket: t });
   } catch (e) {
     console.error("❌ my ticket reply error:", e?.message || e);
@@ -917,6 +1078,7 @@ app.post("/my/tickets/:ticketId/reply", authenticate, async (req, res) => {
 
 /* =====================
    ✅ ADMIN/AGENT: Inbox
+   ✅ Agent kan INTE se admin panel routes (backend skydd)
 ===================== */
 app.get("/admin/tickets", authenticate, requireAgentOrAdmin, async (req, res) => {
   try {
@@ -1072,6 +1234,9 @@ app.post("/admin/tickets/:ticketId/agent-reply", authenticate, requireAgentOrAdm
     companyId: t.companyId || "",
   }).catch(() => {});
 
+  // notify UI (agent himself)
+  sseSendToUser(String(dbUser._id), "inbox:update", { ticketId: String(t._id) });
+
   return res.json({ message: "Agent-svar sparat ✅", ticket: t });
 });
 
@@ -1143,7 +1308,7 @@ app.delete("/admin/tickets/:ticketId/internal-notes", authenticate, requireAdmin
 });
 
 /* =====================
-   ✅ Solve all / Remove solved
+   ✅ Solve all / Remove solved (Admin only)
 ===================== */
 app.post("/admin/tickets/solve-all", authenticate, requireAdmin, async (req, res) => {
   try {
@@ -1195,6 +1360,15 @@ app.post("/admin/tickets/:ticketId/assign", authenticate, requireAgentOrAdmin, a
   safeEnsureSla(t);
   await t.save();
 
+  // notify new assignment
+  sseSendToUser(String(userId), "inbox:assigned", {
+    ticketId: String(t._id),
+    title: t.title || "",
+    companyId: t.companyId,
+    status: t.status,
+    lastActivityAt: t.lastActivityAt,
+  });
+
   return res.json({ message: "Ticket assignad ✅", ticket: t });
 });
 
@@ -1217,7 +1391,7 @@ app.delete("/admin/tickets/:ticketId", authenticate, requireAgentOrAdmin, async 
 });
 
 /* =====================
-   ✅ SLA Trend weekly + daily + KPI + ageing
+   ✅ SLA / KPI / Trend endpoints (kept + improved)
 ===================== */
 function weekKey(d) {
   const dt = new Date(d);
@@ -1310,9 +1484,6 @@ function safePct(part, total) {
   return Math.round((part / total) * 100);
 }
 
-/* =====================
-   ✅ SLA endpoints
-===================== */
 app.get("/admin/sla/overview", authenticate, requireAgentOrAdmin, async (req, res) => {
   try {
     const dbUser = await getDbUser(req);
@@ -1344,7 +1515,6 @@ app.get("/admin/sla/overview", authenticate, requireAgentOrAdmin, async (req, re
       byPriority[t.priority || "normal"] = (byPriority[t.priority || "normal"] || 0) + 1;
     });
 
-    // trend from tickets
     const trendWeeks = buildTrendWeekly(tickets);
 
     return res.json({
@@ -1521,7 +1691,6 @@ app.get("/admin/sla/trend/weekly", authenticate, requireAgentOrAdmin, async (req
   }
 });
 
-// ✅ NEW: daily trend
 app.get("/admin/sla/trend/daily", authenticate, requireAgentOrAdmin, async (req, res) => {
   try {
     const dbUser = await getDbUser(req);
@@ -1540,7 +1709,6 @@ app.get("/admin/sla/trend/daily", authenticate, requireAgentOrAdmin, async (req,
   }
 });
 
-// ✅ NEW: KPI endpoint (more stats)
 app.get("/admin/sla/kpi", authenticate, requireAgentOrAdmin, async (req, res) => {
   try {
     const dbUser = await getDbUser(req);
@@ -1565,7 +1733,6 @@ app.get("/admin/sla/kpi", authenticate, requireAgentOrAdmin, async (req, res) =>
     const firstArr = tickets.map((t) => t.sla?.firstResponseMs).filter((x) => x != null);
     const resArr = tickets.map((t) => t.sla?.resolutionMs).filter((x) => x != null);
 
-    // KPIs per category
     const byCategory = {};
     for (const t of tickets) {
       const k = t.companyId || "unknown";
@@ -1586,11 +1753,9 @@ app.get("/admin/sla/kpi", authenticate, requireAgentOrAdmin, async (req, res) =>
       solvedPct: safePct(r.solved, r.total),
     }));
 
-    // backlog ageing uses open+pending (active)
     const activeTickets = tickets.filter((t) => t.status !== "solved");
     const ageing = calcAgeingBuckets(activeTickets);
 
-    // solve rate: solved / total in period
     const solveRatePct = safePct(solved, total);
 
     return res.json({
@@ -1629,9 +1794,6 @@ app.get("/admin/sla/kpi", authenticate, requireAgentOrAdmin, async (req, res) =>
   }
 });
 
-/* =====================
-   ✅ SLA compare
-===================== */
 app.get("/admin/sla/compare", authenticate, requireAgentOrAdmin, async (req, res) => {
   try {
     const dbUser = await getDbUser(req);
@@ -1691,10 +1853,6 @@ app.get("/admin/sla/compare", authenticate, requireAgentOrAdmin, async (req, res
   }
 });
 
-/* =====================
-   ✅ SLA Export CSV
-   ✅ Frontend wants: /admin/sla/export.csv
-===================== */
 app.get("/admin/sla/export.csv", authenticate, requireAgentOrAdmin, async (req, res) => {
   try {
     const dbUser = await getDbUser(req);
@@ -1737,18 +1895,11 @@ app.get("/admin/sla/export.csv", authenticate, requireAgentOrAdmin, async (req, 
   }
 });
 
-/* =====================
-   ✅ Existing endpoint kept (backward compat)
-===================== */
 app.get("/admin/sla/export/csv", authenticate, requireAgentOrAdmin, async (req, res) => {
-  // just forward to new endpoint for compat
   req.url = "/admin/sla/export.csv";
   return app._router.handle(req, res, () => {});
 });
 
-/* =====================
-   ✅ SLA extra tools
-===================== */
 app.get("/admin/sla/ticket/:ticketId/live", authenticate, requireAgentOrAdmin, async (req, res) => {
   try {
     const t = await Ticket.findById(req.params.ticketId);
@@ -1835,8 +1986,22 @@ app.post("/admin/sla/clear/agent/:agentId", authenticate, requireAdmin, async (r
 
 /* =====================
    ✅ ADMIN: Users + roles
+   ✅ NEW: agent får inte lista ALLA users (endast admin)
 ===================== */
 app.get("/admin/users", authenticate, requireAgentOrAdmin, async (req, res) => {
+  const dbUser = await getDbUser(req);
+  if (!dbUser) return res.status(403).json({ error: "User saknas" });
+
+  // ✅ Agent ska inte se admin panel info: begränsa listan (admin only full list)
+  if (dbUser.role === "agent") {
+    // agent ser bara sig själv + admins/agents (för assign-dropdown behövs egentligen admin)
+    const users = await User.find({ role: { $in: ["agent", "admin"] } })
+      .select("_id username role publicId idNumber createdAt email")
+      .sort({ createdAt: -1 })
+      .limit(2000);
+    return res.json(users);
+  }
+
   const users = await User.find({}).select("-password").sort({ createdAt: -1 }).limit(2000);
   return res.json(users);
 });
@@ -1859,7 +2024,10 @@ app.post("/admin/users/:userId/role", authenticate, requireAdmin, async (req, re
     u.role = role;
     await u.save();
 
-    return res.json({ message: "Roll uppdaterad ✅", user: { id: u._id, username: u.username, role: u.role } });
+    return res.json({
+      message: "Roll uppdaterad ✅",
+      user: { id: u._id, username: u.username, role: u.role, publicId: u.publicId, idNumber: u.idNumber },
+    });
   } catch {
     return res.status(500).json({ error: "Serverfel vid roll-ändring" });
   }
@@ -2094,6 +2262,64 @@ app.get("/admin/export/training", authenticate, requireAdmin, async (req, res) =
 });
 
 /* =====================
+   ✅ WIDGET: SSE för inbox highlight + KPI snabb widget
+===================== */
+app.get("/events", authenticate, requireAgentOrAdmin, async (req, res) => {
+  // SSE stream
+  res.setHeader("Content-Type", "text/event-stream");
+  res.setHeader("Cache-Control", "no-cache, no-transform");
+  res.setHeader("Connection", "keep-alive");
+  res.flushHeaders?.();
+
+  const userId = String(req.user.id);
+
+  // keep-alive ping
+  const ping = setInterval(() => {
+    try {
+      res.write(`event: ping\ndata: {}\n\n`);
+    } catch {}
+  }, 25000);
+
+  sseAddClient(userId, res);
+
+  // send initial hello
+  try {
+    res.write(`event: hello\ndata: ${JSON.stringify({ ok: true })}\n\n`);
+  } catch {}
+
+  req.on("close", () => {
+    clearInterval(ping);
+    sseRemoveClient(userId, res);
+  });
+});
+
+// quick widget endpoint: agent/admin inbox counts
+app.get("/admin/widget/summary", authenticate, requireAgentOrAdmin, async (req, res) => {
+  try {
+    const dbUser = await getDbUser(req);
+    if (!dbUser) return res.status(403).json({ error: "User saknas" });
+
+    const query = {};
+    if (dbUser.role === "agent") query.assignedToUserId = dbUser._id;
+
+    const total = await Ticket.countDocuments(query);
+    const open = await Ticket.countDocuments({ ...query, status: "open" });
+    const pending = await Ticket.countDocuments({ ...query, status: "pending" });
+    const solved = await Ticket.countDocuments({ ...query, status: "solved" });
+
+    return res.json({
+      total,
+      open,
+      pending,
+      solved,
+      updatedAt: new Date().toISOString(),
+    });
+  } catch (e) {
+    return res.status(500).json({ error: "Serverfel vid widget summary" });
+  }
+});
+
+/* =====================
    ✅ JSON 404 for API routes
 ===================== */
 app.use((req, res, next) => {
@@ -2103,7 +2329,8 @@ app.use((req, res, next) => {
     req.path.startsWith("/kb") ||
     req.path.startsWith("/chat") ||
     req.path.startsWith("/my") ||
-    req.path.startsWith("/feedback")
+    req.path.startsWith("/feedback") ||
+    req.path.startsWith("/events")
   ) {
     return res.status(404).json({ error: "API route hittades inte" });
   }
