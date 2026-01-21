@@ -1,16 +1,22 @@
 /* =========================================================
-   AI Kundtjänst - script.js (FULL) ✅ FINAL STABLE
+   AI Kundtjänst - script.js (FULL) ✅ PRO FINAL
    - Matchar din index.html (alla ID:n)
    - ✅ Fixar null-crashes (tomma flikar)
    - ✅ Boot + events alltid stabila
    - ✅ SLA Chart.js stabil höjd + destroy/recreate
    - ✅ SLA Clear: /admin/sla/clear/my + /admin/sla/clear/all
+   - ✅ Agent kan INTE se admin panel UI
+   - ✅ Agent ser SLA men endast sin statistik (server enforce)
+   - ✅ Inbox highlight + notif-dot via /admin/tickets/notify (polling)
+   - ✅ KPI Widget (chat + sla)
+   - ✅ AI chat UX: welcome + typing + smart new ticket
    ========================================================= */
 
 /* =========================
    CONFIG
 ========================= */
-const API_BASE = ""; // samma origin (Render/localhost). Lämna tom.
+const API_BASE = ""; // same origin
+const NOTIFY_POLL_MS = 3500;
 
 const LS = {
   token: "ai_token",
@@ -36,6 +42,13 @@ let state = {
   debug: localStorage.getItem(LS.debug) === "1",
 
   chartTrend: null,
+  chartTrendDaily: null,
+
+  notifyTimer: null,
+  lastUnreadCount: 0,
+
+  // typing indicator
+  isTyping: false,
 };
 
 let slaCache = {
@@ -71,7 +84,6 @@ function show(el, on = true) {
   el.style.display = on ? "" : "none";
 }
 
-// ✅ never crash on missing element
 function setHTML(el, html) {
   if (!el) return;
   el.innerHTML = html;
@@ -122,7 +134,7 @@ async function api(path, opts = {}) {
 }
 
 /* =========================
-   UI feedback helpers
+   UI helpers
 ========================= */
 function setAlert(el, msg, type = "") {
   if (!el) return;
@@ -187,31 +199,23 @@ function pill(label, kind = "") {
    INIT
 ========================= */
 document.addEventListener("DOMContentLoaded", () => {
-  // Theme init
+  // theme init
   const savedTheme = localStorage.getItem(LS.theme);
   if (savedTheme) document.body.setAttribute("data-theme", savedTheme);
 
-  // Debug panel init
+  // Debug panel
   show($("debugPanel"), state.debug);
 
-  // ✅ bind events safely
   bindEvents();
-
-  // ✅ boot safely
-  boot().catch((e) => {
-    console.error("BOOT ERROR:", e);
-  });
+  boot().catch((e) => console.error("BOOT ERROR:", e));
 });
 
 async function boot() {
-  // Load categories (public)
   await loadCategories().catch(() => {});
 
-  // Restore selection
   if ($("categorySelect")) $("categorySelect").value = state.companyId;
   if ($("kbCategorySelect")) $("kbCategorySelect").value = state.companyId;
 
-  // If token exists validate
   if (state.token) {
     try {
       const me = await api("/me");
@@ -337,17 +341,22 @@ function bindEvents() {
     state.conversation = [];
     setLS(LS.chatConversation, JSON.stringify(state.conversation));
     setHTML($("messages"), "");
+    addSystemMessage("Chat rensad ✅");
   });
 
   onClick("exportChatBtn", exportChat);
 
   onClick("newTicketBtn", () => {
+    // ✅ Smart new ticket
     state.lastTicketId = "";
     setLS(LS.lastTicketId, "");
     state.conversation = [];
     setLS(LS.chatConversation, JSON.stringify(state.conversation));
     setHTML($("messages"), "");
+
     addSystemMessage("Nytt ärende startat ✅");
+    addSystemMessage("Hej! 👋 Beskriv ditt problem så hjälper jag dig direkt.");
+    scrollMessagesToBottom();
   });
 
   // Feedback
@@ -360,6 +369,8 @@ function bindEvents() {
 
   // Inbox
   onClick("inboxRefreshBtn", loadInboxTickets);
+
+  // Admin-only actions (buttons exist maybe)
   onClick("solveAllBtn", solveAllTickets);
   onClick("removeSolvedBtn", removeSolvedTickets);
 
@@ -418,6 +429,10 @@ function bindEvents() {
   // Categories manager
   onClick("catsRefreshBtn", loadCategoriesAdmin);
   onClick("createCatBtn", createCategory);
+
+  // ✅ NEW: edit category button (if exists in html)
+  onClick("editCatBtn", openEditCategoryModal);
+  onClick("saveCatEditBtn", saveCategoryEdit);
 
   // Settings
   onClick("changeUsernameBtn", changeUsername);
@@ -491,6 +506,8 @@ function doLogout(showMsg = true) {
 
   state.lastTicketId = "";
 
+  stopInboxNotifyPolling();
+
   onLoggedOut();
   if (showMsg) addSystemMessage("Du är utloggad ✅");
 }
@@ -500,7 +517,11 @@ function onLoggedOut() {
   show($("logoutBtn"), false);
   show($("openSettingsView"), false);
 
+  // ✅ hide adminOnly
   qsa(".adminOnly").forEach((x) => (x.style.display = "none"));
+
+  // ✅ hide agentOnly too (if you use it in html)
+  qsa(".agentOnly").forEach((x) => (x.style.display = "none"));
 
   switchView("authView");
   setActiveMenu("openChatView");
@@ -523,10 +544,26 @@ async function onLoggedIn() {
     rb.textContent = role === "user" ? `Inloggad: ${state.user.username}` : `${state.user.username} (${role})`;
   }
 
-  if (role === "agent" || role === "admin") {
+  // ✅ UI role logic:
+  // - agent can see inbox + SLA
+  // - agent CANNOT see admin panel
+  // - admin sees admin panel
+  if (role === "admin") {
     qsa(".adminOnly").forEach((x) => (x.style.display = ""));
+    show($("openAdminView"), true);
   } else {
     qsa(".adminOnly").forEach((x) => (x.style.display = "none"));
+    show($("openAdminView"), false);
+  }
+
+  if (role === "agent" || role === "admin") {
+    qsa(".agentOnly").forEach((x) => (x.style.display = ""));
+    show($("openInboxView"), true);
+    show($("openSlaView"), true);
+  } else {
+    qsa(".agentOnly").forEach((x) => (x.style.display = "none"));
+    show($("openInboxView"), false);
+    show($("openSlaView"), false);
   }
 
   show($("slaClearAllStatsBtn"), role === "admin");
@@ -535,10 +572,13 @@ async function onLoggedIn() {
   setActiveMenu("openChatView");
 
   renderConversation();
+  ensureWelcomeIfEmptyChat();
   scrollMessagesToBottom();
 
   await loadInboxCategoryFilter().catch(() => {});
   updateDebug();
+
+  startInboxNotifyPolling();
 }
 
 /* =========================
@@ -612,10 +652,66 @@ async function doResetPassword() {
 }
 
 /* =========================
+   ✅ Inbox notify polling
+   - Highlights inbox when unread appears
+========================= */
+function startInboxNotifyPolling() {
+  stopInboxNotifyPolling();
+
+  const role = state.user?.role || "user";
+  if (role !== "agent" && role !== "admin") return;
+
+  state.notifyTimer = setInterval(async () => {
+    try {
+      const r = await api("/admin/tickets/notify");
+      const count = Number(r?.unreadCount || 0);
+      state.lastUnreadCount = count;
+
+      // notif dot
+      const dot = $("inboxNotifDot");
+      if (dot) show(dot, count > 0);
+
+      // highlight sidebar
+      const inboxBtn = $("openInboxView");
+      if (inboxBtn) {
+        inboxBtn.classList.toggle("pulse", count > 0);
+        inboxBtn.classList.toggle("hasNotif", count > 0);
+      }
+
+      // optional alert
+      const banner = $("inboxNewBanner");
+      if (banner) {
+        if (count > 0) {
+          banner.textContent = `Nytt inkommande ärende (${count})`;
+          show(banner, true);
+        } else {
+          show(banner, false);
+        }
+      }
+
+      // auto refresh list if inbox view open
+      if ($("inboxView")?.style.display !== "none" && count > 0) {
+        await loadInboxTickets().catch(() => {});
+      }
+    } catch {
+      // ignore
+    }
+  }, NOTIFY_POLL_MS);
+}
+
+function stopInboxNotifyPolling() {
+  if (state.notifyTimer) {
+    clearInterval(state.notifyTimer);
+    state.notifyTimer = null;
+  }
+}
+
+/* =========================
    CATEGORIES
 ========================= */
 async function loadCategories() {
   const cats = await api("/categories");
+
   const sel = $("categorySelect");
   const selKb = $("kbCategorySelect");
   const selInbox = $("inboxCategoryFilter");
@@ -654,13 +750,23 @@ async function loadInboxCategoryFilter() {
 }
 
 /* =========================
-   CHAT
+   ✅ CHAT (better UX)
 ========================= */
+function ensureWelcomeIfEmptyChat() {
+  if (!state.conversation || state.conversation.length === 0) {
+    addSystemMessage("Hej! 👋 Välkommen till AI kundtjänst.");
+    addSystemMessage("Skriv vad du behöver hjälp med så löser vi det direkt ✅");
+    state.conversation.push({ role: "assistant", content: "Hej! 👋 Välkommen till AI kundtjänst." });
+    state.conversation.push({ role: "assistant", content: "Skriv vad du behöver hjälp med så löser vi det direkt ✅" });
+    setLS(LS.chatConversation, JSON.stringify(state.conversation));
+  }
+}
+
 function addSystemMessage(text) {
   addMessageToUI("assistant", text);
 }
 
-function addMessageToUI(role, content) {
+function addMessageToUI(role, content, meta = {}) {
   const list = $("messages");
   if (!list) return;
 
@@ -673,12 +779,19 @@ function addMessageToUI(role, content) {
 
   const bubble = document.createElement("div");
   bubble.className = "bubble";
-  bubble.textContent = content || "";
+
+  // ✅ typing style
+  if (meta.typing) {
+    bubble.classList.add("typing");
+    bubble.innerHTML = `<span class="dot"></span><span class="dot"></span><span class="dot"></span>`;
+  } else {
+    bubble.textContent = content || "";
+  }
 
   const bubbleWrap = document.createElement("div");
   bubbleWrap.appendChild(bubble);
 
-  if (role !== "user") {
+  if (role !== "user" && !meta.typing) {
     const actions = document.createElement("div");
     actions.className = "bubbleActions";
     actions.innerHTML = `<button class="actionBtn" type="button"><i class="fa-solid fa-copy"></i> Kopiera</button>`;
@@ -692,6 +805,7 @@ function addMessageToUI(role, content) {
   wrap.appendChild(bubbleWrap);
 
   list.appendChild(wrap);
+  return wrap;
 }
 
 function renderConversation() {
@@ -711,6 +825,20 @@ function scrollMessagesToBottom() {
   el.scrollTop = el.scrollHeight;
 }
 
+function showTyping(on) {
+  const list = $("messages");
+  if (!list) return;
+
+  // remove existing
+  const existing = qs(".msg.assistant .bubble.typing");
+  if (existing) existing.closest(".msg")?.remove();
+
+  if (!on) return;
+
+  addMessageToUI("assistant", "", { typing: true });
+  scrollMessagesToBottom();
+}
+
 async function sendChat() {
   const inp = $("messageInput");
   if (!inp) return;
@@ -720,16 +848,16 @@ async function sendChat() {
 
   inp.value = "";
 
+  // ✅ add user message
   state.conversation.push({ role: "user", content: text });
   setLS(LS.chatConversation, JSON.stringify(state.conversation));
   addMessageToUI("user", text);
   scrollMessagesToBottom();
 
   try {
-    const payload = {
-      companyId: state.companyId,
-      conversation: state.conversation,
-    };
+    showTyping(true);
+
+    const payload = { companyId: state.companyId, conversation: state.conversation };
     if (state.lastTicketId) payload.ticketId = state.lastTicketId;
 
     const data = await api("/chat", {
@@ -741,13 +869,19 @@ async function sendChat() {
     state.lastTicketId = data.ticketId || state.lastTicketId || "";
     setLS(LS.lastTicketId, state.lastTicketId);
 
+    showTyping(false);
+
     state.conversation.push({ role: "assistant", content: reply });
     setLS(LS.chatConversation, JSON.stringify(state.conversation));
 
     addMessageToUI("assistant", reply);
     updateDebug({ ragUsed: !!data.ragUsed, ticketId: state.lastTicketId });
     scrollMessagesToBottom();
+
+    // ✅ update quick widget (if exists)
+    refreshQuickWidgets().catch(() => {});
   } catch (e) {
+    showTyping(false);
     addMessageToUI("assistant", `❌ Fel: ${e.message}`);
     scrollMessagesToBottom();
   }
@@ -765,10 +899,7 @@ function exportChat() {
 
 async function sendFeedback(type) {
   try {
-    await api("/feedback", {
-      method: "POST",
-      body: JSON.stringify({ type, companyId: state.companyId }),
-    });
+    await api("/feedback", { method: "POST", body: JSON.stringify({ type, companyId: state.companyId }) });
     setText($("fbMsg"), "Tack! ✅");
     setTimeout(() => setText($("fbMsg"), ""), 1200);
   } catch (e) {
@@ -777,6 +908,44 @@ async function sendFeedback(type) {
   }
 }
 
+/* =========================
+   ✅ Quick widgets (optional)
+========================= */
+async function refreshQuickWidgets() {
+  // If you add these containers in index.html later, they will work automatically.
+  const chatBox = $("chatKpiWidget");
+  const slaBox = $("slaKpiWidget");
+
+  if (!chatBox && !slaBox) return;
+
+  const role = state.user?.role || "user";
+  if (role !== "agent" && role !== "admin") return;
+
+  try {
+    const days = Number($("slaDaysSelect")?.value || 30);
+    const kpi = await api(`/admin/sla/kpi?days=${days}`);
+
+    const html = `
+      <div class="kpiWidget">
+        <div class="kpiRow">
+          <div class="kpiItem"><div class="kpiLabel">Open</div><div class="kpiVal">${escapeHtml(String(kpi?.totals?.open ?? 0))}</div></div>
+          <div class="kpiItem"><div class="kpiLabel">Pending</div><div class="kpiVal">${escapeHtml(String(kpi?.totals?.pending ?? 0))}</div></div>
+          <div class="kpiItem"><div class="kpiLabel">Solved</div><div class="kpiVal">${escapeHtml(String(kpi?.totals?.solved ?? 0))}</div></div>
+        </div>
+        <div class="kpiRow small">
+          <div class="kpiItem">${pill(`Breached: ${kpi?.slaHealth?.breachedAny ?? 0}`, (kpi?.slaHealth?.breachedAny ?? 0) > 0 ? "danger" : "ok")}</div>
+          <div class="kpiItem">${pill(`Risk: ${kpi?.slaHealth?.riskAny ?? 0}`, (kpi?.slaHealth?.riskAny ?? 0) > 0 ? "warn" : "ok")}</div>
+          <div class="kpiItem">${pill(`Solve rate: ${pct(kpi?.totals?.solveRatePct)}`, "ok")}</div>
+        </div>
+      </div>
+    `;
+
+    if (chatBox) setHTML(chatBox, html);
+    if (slaBox) setHTML(slaBox, html);
+  } catch {
+    // ignore
+  }
+}
 /* =========================
    MY TICKETS
 ========================= */
@@ -803,12 +972,14 @@ async function loadMyTickets() {
           const status = t.status || "open";
           const prio = t.priority || "normal";
           const title = t.title || "(utan titel)";
+          const unread = t.unreadForAgent ? `<span class="pill warn">ny</span>` : "";
           return `
             <div class="listItem" data-id="${t._id}">
               <div class="listItemTitle">
                 ${escapeHtml(title)}
                 ${pill(status, status === "solved" ? "ok" : status === "pending" ? "warn" : "")}
-                ${pill(prio)}
+                ${pill(prio, prio === "high" ? "danger" : prio === "low" ? "" : "")}
+                ${unread}
               </div>
               <div class="muted small">${escapeHtml(String(t._id).slice(-8))} • ${fmtDate(t.lastActivityAt || t.createdAt)}</div>
             </div>
@@ -931,20 +1102,22 @@ async function loadInboxTickets() {
       });
     }
 
-    const openCount = tickets.filter((t) => t.status === "open").length;
+    // ✅ inbox highlight dot based on notify endpoint if available
     const dot = $("inboxNotifDot");
-    if (dot) show(dot, openCount > 0);
+    if (dot) show(dot, state.lastUnreadCount > 0);
 
     list.innerHTML = tickets
       .map((t) => {
         const statusPill = t.status === "solved" ? pill("solved", "ok") : t.status === "pending" ? pill("pending", "warn") : pill("open");
         const prioPill = t.priority === "high" ? pill("high", "danger") : t.priority === "low" ? pill("low") : pill("normal");
         const assigned = t.assignedToUserId ? `<span class="muted small">assigned</span>` : `<span class="muted small">unassigned</span>`;
+        const unread = t.unreadForAgent ? `<span class="pill warn">NY</span>` : "";
 
         return `
-          <div class="listItem" data-id="${t._id}">
+          <div class="listItem ${t.unreadForAgent ? "unread" : ""}" data-id="${t._id}">
             <div class="listItemTitle">
               ${escapeHtml(t.title || "(utan titel)")}
+              ${unread}
               ${statusPill}
               ${prioPill}
             </div>
@@ -1294,116 +1467,11 @@ async function refreshSlaAll() {
     } else {
       setText($("slaTrendHint"), "Tips: välj jämförelseläge för att se förändring mot tidigare period.");
     }
+
+    refreshQuickWidgets().catch(() => {});
   } catch (e) {
     setHTML($("slaOverviewBox"), `<div class="alert error">❌ SLA fel: ${escapeHtml(e.message)}</div>`);
   }
-}
-
-function renderSlaOverviewKpi(o, kpi) {
-  if (!o) return;
-
-  const total = o.totalTickets ?? 0;
-  const byP = o.byPriority || { low: 0, normal: 0, high: 0 };
-
-  const frAvg = o.firstResponse?.avgMs;
-  const frMed = o.firstResponse?.medianMs;
-  const frP90 = o.firstResponse?.p90Ms;
-  const frBr = o.firstResponse?.breaches ?? 0;
-  const frComp = o.firstResponse?.compliancePct;
-  const frRisk = o.firstResponse?.atRisk ?? 0;
-
-  const rsAvg = o.resolution?.avgMs;
-  const rsMed = o.resolution?.medianMs;
-  const rsP90 = o.resolution?.p90Ms;
-  const rsBr = o.resolution?.breaches ?? 0;
-  const rsComp = o.resolution?.compliancePct;
-  const rsRisk = o.resolution?.atRisk ?? 0;
-
-  const totals = kpi?.totals || {};
-  const health = kpi?.slaHealth || {};
-  const ageing = Array.isArray(kpi?.ageing) ? kpi.ageing : [];
-  const solveRate = totals?.solveRatePct;
-
-  const ageingText = ageing.length
-    ? ageing.map((b) => `${escapeHtml(b.key)}: <b>${escapeHtml(String(b.count || 0))}</b>`).join(" • ")
-    : "";
-
-  setHTML(
-    $("slaOverviewBox"),
-    `
-    <div class="slaGrid kpiWide">
-      <div class="slaCard">
-        <div class="slaLabel">Tickets (totalt)</div>
-        <div class="slaValue">${escapeHtml(String(total))}</div>
-        <div class="slaSubValue">
-          Low: <b>${byP.low || 0}</b> • Normal: <b>${byP.normal || 0}</b> • High: <b>${byP.high || 0}</b>
-        </div>
-      </div>
-
-      <div class="slaCard">
-        <div class="slaLabel">First response compliance</div>
-        <div class="slaValue">${escapeHtml(pct(frComp))}</div>
-        <div class="slaSubValue">
-          Avg: <b>${escapeHtml(msToPretty(frAvg))}</b> • Median: <b>${escapeHtml(msToPretty(frMed))}</b><br/>
-          P90: <b>${escapeHtml(msToPretty(frP90))}</b> • Breaches: <b>${escapeHtml(String(frBr))}</b> • At risk: <b>${escapeHtml(String(frRisk))}</b>
-        </div>
-      </div>
-
-      <div class="slaCard">
-        <div class="slaLabel">Resolution compliance</div>
-        <div class="slaValue">${escapeHtml(pct(rsComp))}</div>
-        <div class="slaSubValue">
-          Avg: <b>${escapeHtml(msToPretty(rsAvg))}</b> • Median: <b>${escapeHtml(msToPretty(rsMed))}</b><br/>
-          P90: <b>${escapeHtml(msToPretty(rsP90))}</b> • Breaches: <b>${escapeHtml(String(rsBr))}</b> • At risk: <b>${escapeHtml(String(rsRisk))}</b>
-        </div>
-      </div>
-
-      <div class="slaCard">
-        <div class="slaLabel">SLA Health (breached / risk)</div>
-        <div class="slaValue">${escapeHtml(String(health?.breachedAny ?? 0))}</div>
-        <div class="slaSubValue">
-          Breached %: <b>${escapeHtml(pct(health?.breachedPct))}</b> • Risk: <b>${escapeHtml(String(health?.riskAny ?? 0))}</b> (${escapeHtml(pct(health?.riskPct))})<br/>
-          Solve rate: <b>${escapeHtml(pct(solveRate))}</b>
-        </div>
-      </div>
-    </div>
-
-    ${
-      ageingText
-        ? `
-      <div class="divider"></div>
-      <div class="panel soft">
-        <b>Backlog ageing (öppna/pending)</b>
-        <div class="muted small" style="margin-top:8px;">${ageingText}</div>
-      </div>
-    `
-        : ""
-    }
-  `
-  );
-}
-
-function renderSlaCompareHint(cmp, mode) {
-  const hint = $("slaTrendHint");
-  if (!hint || !cmp?.a || !cmp?.b) return;
-
-  const a = cmp.a;
-  const b = cmp.b;
-
-  const frA = a.firstResponse?.compliancePct;
-  const frB = b.firstResponse?.compliancePct;
-  const rsA = a.resolution?.compliancePct;
-  const rsB = b.resolution?.compliancePct;
-
-  const diff = (x, y) => {
-    if (x == null || y == null) return "";
-    const d = x - y;
-    const sign = d >= 0 ? "+" : "";
-    return `${sign}${d}pp`;
-  };
-
-  const label = mode === "prevWeek" ? "föregående vecka" : "föregående period";
-  hint.textContent = `Jämförelse mot ${label}: First ${diff(frA, frB)}, Resolution ${diff(rsA, rsB)}.`;
 }
 
 /* =========================
@@ -1473,69 +1541,6 @@ function renderSlaTrendChart(tr) {
   });
 
   setText($("slaTrendHint"), "Trend visar compliance vecka för vecka.");
-}
-
-/* =========================
-   SLA Agents table
-========================= */
-function renderSlaAgents(a) {
-  const box = $("slaAgentsBox");
-  if (!box) return;
-
-  const rows = a?.rows || [];
-  if (!rows.length) {
-    box.innerHTML = `<div class="muted small">Inga agent-data.</div>`;
-    return;
-  }
-
-  box.innerHTML = `
-    <div class="tableWrap">
-      <table class="table">
-        <thead>
-          <tr>
-            <th>Agent</th>
-            <th>Tickets</th>
-            <th>Open</th>
-            <th>Pending</th>
-            <th>Solved</th>
-            <th>First avg</th>
-            <th>First med</th>
-            <th>First P90</th>
-            <th>First compliance</th>
-            <th>Res avg</th>
-            <th>Res med</th>
-            <th>Res P90</th>
-            <th>Res compliance</th>
-          </tr>
-        </thead>
-        <tbody>
-          ${rows
-            .map((r) => {
-              const fr = r.firstResponse || {};
-              const rs = r.resolution || {};
-              return `
-                <tr>
-                  <td>${escapeHtml(r.username)} <span class="muted small">(${escapeHtml(r.role)})</span></td>
-                  <td>${escapeHtml(String(r.tickets || 0))}</td>
-                  <td>${escapeHtml(String(r.open || 0))}</td>
-                  <td>${escapeHtml(String(r.pending || 0))}</td>
-                  <td>${escapeHtml(String(r.solved || 0))}</td>
-                  <td>${escapeHtml(msToPretty(fr.avgMs))}</td>
-                  <td>${escapeHtml(msToPretty(fr.medianMs))}</td>
-                  <td>${escapeHtml(msToPretty(fr.p90Ms))}</td>
-                  <td>${escapeHtml(pct(fr.compliancePct))}</td>
-                  <td>${escapeHtml(msToPretty(rs.avgMs))}</td>
-                  <td>${escapeHtml(msToPretty(rs.medianMs))}</td>
-                  <td>${escapeHtml(msToPretty(rs.p90Ms))}</td>
-                  <td>${escapeHtml(pct(rs.compliancePct))}</td>
-                </tr>
-              `;
-            })
-            .join("")}
-        </tbody>
-      </table>
-    </div>
-  `;
 }
 
 /* =========================
@@ -1648,6 +1653,9 @@ function renderSlaTicketsFromCache() {
   `;
 }
 
+/* =========================
+   SLA Export CSV
+========================= */
 function exportSlaCsv() {
   const days = Number($("slaDaysSelect")?.value || 30);
   const url = `/admin/sla/export/csv?days=${days}`;
@@ -1709,6 +1717,9 @@ async function clearAllSlaStats() {
    ADMIN DASHBOARD
 ========================= */
 async function refreshAdminAll() {
+  // admin only
+  if (state.user?.role !== "admin") return;
+
   await loadAdminUsers().catch(() => {});
   await loadKbList().catch(() => {});
   await loadCategoriesAdmin().catch(() => {});
@@ -1718,6 +1729,7 @@ async function loadAdminUsers() {
   const box = $("adminUsersList");
   setAlert($("adminUsersMsg"), "");
   if (!box) return;
+
   box.innerHTML = `<div class="muted small">Laddar...</div>`;
 
   try {
@@ -1964,7 +1976,7 @@ function exportKb() {
 }
 
 /* =========================
-   Categories Admin
+   Categories Admin (+ Edit)
 ========================= */
 async function loadCategoriesAdmin() {
   const box = $("catsList");
@@ -1991,14 +2003,19 @@ async function loadCategoriesAdmin() {
               ${escapeHtml((c.systemPrompt || "").slice(0, 120))}...
             </div>
 
-            <button 
-              class="btn danger small" 
-              style="margin-top:10px;" 
-              data-del-cat="${escapeHtml(c.key)}"
-              ${isCurrent ? "disabled" : ""}
-            >
-              <i class="fa-solid fa-trash"></i> Ta bort
-            </button>
+            <div class="row gap" style="margin-top:10px; flex-wrap:wrap;">
+              <button class="btn ghost small" data-edit-cat="${escapeHtml(c.key)}">
+                <i class="fa-solid fa-pen"></i> Redigera
+              </button>
+
+              <button 
+                class="btn danger small" 
+                data-del-cat="${escapeHtml(c.key)}"
+                ${isCurrent ? "disabled" : ""}
+              >
+                <i class="fa-solid fa-trash"></i> Ta bort
+              </button>
+            </div>
 
             ${
               isCurrent
@@ -2010,22 +2027,19 @@ async function loadCategoriesAdmin() {
       })
       .join("");
 
+    // delete
     qsa("[data-del-cat]").forEach((b) => {
       b.addEventListener("click", async () => {
         const key = b.getAttribute("data-del-cat");
         if (!key) return;
-
         if (!confirm(`Ta bort kategori "${key}"?`)) return;
 
         try {
           await api(`/admin/categories/${encodeURIComponent(key)}`, { method: "DELETE" });
           setAlert(msg, "Kategori borttagen ✅", "");
-
-          // ✅ reload dropdowns + admin list
           await loadCategories();
           await loadCategoriesAdmin();
 
-          // ✅ if current selection got removed anyway (edge-case)
           if (state.companyId === key) {
             state.companyId = "demo";
             setLS(LS.currentCompanyId, state.companyId);
@@ -2035,6 +2049,15 @@ async function loadCategoriesAdmin() {
         } catch (e) {
           setAlert(msg, e.message, "error");
         }
+      });
+    });
+
+    // edit
+    qsa("[data-edit-cat]").forEach((b) => {
+      b.addEventListener("click", async () => {
+        const key = b.getAttribute("data-edit-cat");
+        if (!key) return;
+        openEditCategoryModal(key);
       });
     });
   } catch (e) {
@@ -2067,6 +2090,61 @@ async function createCategory() {
     await loadCategoriesAdmin();
   } catch (e) {
     setAlert(msg, e.message, "error");
+  }
+}
+
+/* =========================
+   ✅ Category Edit (works even without modal)
+   - If you have these inputs in index.html:
+   - catEditKey, catEditName, catEditPrompt, catEditMsg, catEditWrap
+========================= */
+function openEditCategoryModal(keyFromBtn = "") {
+  // basic behavior: fill inputs if they exist and show wrap
+  const wrap = $("catEditWrap");
+  const keyEl = $("catEditKey");
+  const nameEl = $("catEditName");
+  const promptEl = $("catEditPrompt");
+
+  // if you dont have modal in HTML, just quick alert
+  if (!keyEl || !nameEl || !promptEl) {
+    alert("För att redigera kategori behöver index.html ha fält: catEditKey, catEditName, catEditPrompt + knapp saveCatEditBtn.");
+    return;
+  }
+
+  setText($("catEditMsg"), "");
+  show(wrap, true);
+
+  // load current from categories list
+  api("/categories")
+    .then((cats) => cats.find((c) => c.key === keyFromBtn) || null)
+    .then((c) => {
+      if (!c) return;
+      keyEl.value = c.key;
+      nameEl.value = c.name || "";
+      promptEl.value = c.systemPrompt || "";
+    })
+    .catch(() => {});
+}
+
+async function saveCategoryEdit() {
+  const key = $("catEditKey")?.value?.trim();
+  const name = $("catEditName")?.value?.trim();
+  const systemPrompt = $("catEditPrompt")?.value ?? "";
+
+  if (!key) return setText($("catEditMsg"), "Key saknas");
+  if (!name) return setText($("catEditMsg"), "Namn saknas");
+
+  try {
+    const data = await api(`/admin/categories/${encodeURIComponent(key)}`, {
+      method: "PUT",
+      body: JSON.stringify({ name, systemPrompt }),
+    });
+
+    setText($("catEditMsg"), data.message || "Uppdaterat ✅");
+    await loadCategories();
+    await loadCategoriesAdmin();
+  } catch (e) {
+    setText($("catEditMsg"), "❌ " + e.message);
   }
 }
 

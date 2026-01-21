@@ -128,7 +128,7 @@ body[data-theme="light"] ::-webkit-scrollbar-thumb{
   color: var(--text);
   border-radius:12px;
   cursor:pointer;
-  transition: transform 0.05s ease, background 0.2s ease, border 0.2s ease;
+  transition: transform 0.05s ease, background 0.2s ease, border 0.2s ease, box-shadow 0.2s ease;
 }
 
 .menuBtn:hover{
@@ -144,9 +144,11 @@ body[data-theme="light"] ::-webkit-scrollbar-thumb{
   background: rgba(76,125,255,0.12);
 }
 
+/* ✅ Inbox highlight when new ticket exists */
 .menuBtn.hasNotif{
-  border-color: rgba(255,176,32,0.45);
-  box-shadow: 0 0 0 2px rgba(255,176,32,0.12);
+  border-color: rgba(255,176,32,0.55);
+  background: rgba(255,176,32,0.08);
+  box-shadow: 0 0 0 2px rgba(255,176,32,0.14), 0 12px 40px rgba(255,176,32,0.08);
 }
 
 .notifDot{
@@ -156,6 +158,14 @@ body[data-theme="light"] ::-webkit-scrollbar-thumb{
   background: var(--warn);
   display: inline-block;
   margin-left: auto;
+  box-shadow: 0 0 0 2px rgba(255,176,32,0.18), 0 0 14px rgba(255,176,32,0.35);
+  animation: notifPulse 1.4s ease-in-out infinite;
+}
+
+@keyframes notifPulse{
+  0%{ transform: scale(1); opacity: 0.95; }
+  50%{ transform: scale(1.25); opacity: 1; }
+  100%{ transform: scale(1); opacity: 0.95; }
 }
 
 .categoryNotif{
@@ -376,6 +386,19 @@ body[data-theme="light"] .input{
 }
 
 /* =========================
+   ✅ WIDGETS (Chat + SLA)
+========================= */
+#chatKpiWidget,
+#slaKpiWidget{
+  border-radius: var(--radius);
+  border:1px solid var(--border);
+}
+
+#chatWelcome{
+  border-radius: var(--radius);
+}
+
+/* =========================
    CHAT
 ========================= */
 .messages{
@@ -519,6 +542,22 @@ body[data-theme="light"] .input{
 }
 
 /* =========================
+   ✅ INBOX - New banner + animation
+========================= */
+#inboxNewBanner{
+  border:1px solid rgba(255,176,32,0.35);
+  background: rgba(255,176,32,0.06);
+  box-shadow: 0 0 0 2px rgba(255,176,32,0.12);
+  animation: bannerGlow 1.7s ease-in-out infinite;
+}
+
+@keyframes bannerGlow{
+  0%{ transform: translateY(0); opacity: 0.96; }
+  50%{ transform: translateY(-1px); opacity: 1; }
+  100%{ transform: translateY(0); opacity: 0.96; }
+}
+
+/* =========================
    LIST / ITEMS
 ========================= */
 .list{
@@ -533,7 +572,7 @@ body[data-theme="light"] .input{
   border-radius:14px;
   cursor:pointer;
   background: rgba(255,255,255,0.02);
-  transition: background 0.2s ease, border 0.2s ease, transform 0.05s ease;
+  transition: background 0.2s ease, border 0.2s ease, transform 0.05s ease, box-shadow 0.2s ease;
 }
 
 .listItem:hover{
@@ -547,6 +586,30 @@ body[data-theme="light"] .input{
 .listItem.selected{
   border-color: rgba(76,125,255,0.45);
   box-shadow: 0 0 0 2px rgba(76,125,255,0.12);
+}
+
+/* ✅ NEW/UNREAD ticket styling (script.js can add these classes) */
+.listItem.newTicket{
+  border-color: rgba(255,176,32,0.55);
+  box-shadow: 0 0 0 2px rgba(255,176,32,0.14);
+  background: rgba(255,176,32,0.06);
+}
+
+.listItem.unreadTicket{
+  position: relative;
+}
+.listItem.unreadTicket::after{
+  content:"NY";
+  position:absolute;
+  top:10px;
+  right:10px;
+  font-size:10px;
+  font-weight:900;
+  padding:3px 7px;
+  border-radius:999px;
+  color: var(--warn);
+  border:1px solid rgba(255,176,32,0.35);
+  background: rgba(255,176,32,0.10);
 }
 
 .listItemTitle{
@@ -754,7 +817,7 @@ body[data-theme="light"] .input{
 #slaTrendChart{
   display:block;
   width:100% !important;
-  height:260px !important; /* viktigt: stabil höjd */
+  height:260px !important;
   border: 1px solid var(--border);
   border-radius: 14px;
   background: rgba(255,255,255,0.02);
@@ -826,6 +889,20 @@ body[data-theme="light"] .input{
 .noteText{
   line-height: 1.35;
   word-break: break-word;
+}
+
+/* =========================
+   ✅ Category edit UI (Admin -> Cats)
+========================= */
+#catEditWrap{
+  border:1px solid rgba(76,125,255,0.25);
+  background: rgba(76,125,255,0.06);
+}
+
+#catEditMsg{
+  padding: 6px 10px;
+  border-radius: 12px;
+  border: 1px dashed var(--border);
 }
 
 /* =========================

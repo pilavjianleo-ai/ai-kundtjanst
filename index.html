@@ -39,15 +39,18 @@
           <i class="fa-solid fa-ticket"></i> Mina ärenden
         </button>
 
+        <!-- ✅ Agent/Admin: Inbox -->
         <button id="openInboxView" class="menuBtn adminOnly" style="display:none;" type="button">
           <i class="fa-solid fa-inbox"></i> Inbox (Agent)
           <span id="inboxNotifDot" class="notifDot" style="display:none;"></span>
         </button>
 
+        <!-- ✅ Agent/Admin: SLA -->
         <button id="openSlaView" class="menuBtn adminOnly" style="display:none;" type="button">
           <i class="fa-solid fa-chart-line"></i> SLA
         </button>
 
+        <!-- ✅ Admin ONLY: Admin -->
         <button id="openAdminView" class="menuBtn adminOnly" style="display:none;" type="button">
           <i class="fa-solid fa-shield-halved"></i> Admin
         </button>
@@ -189,6 +192,26 @@
           </div>
         </div>
 
+        <!-- ✅ Chat Widget Area (KPIs + status) -->
+        <div id="chatKpiWidget" class="panel soft" style="margin-bottom:12px;">
+          <div style="display:flex; align-items:center; gap:10px; flex-wrap:wrap;">
+            <div class="pill ok"><i class="fa-solid fa-wand-magic-sparkles"></i> Smart AI</div>
+            <div class="pill"><i class="fa-solid fa-clock"></i> Svar inom sekunder</div>
+            <div class="pill"><i class="fa-solid fa-shield"></i> Säker historik</div>
+            <span class="muted small" style="margin-left:auto;">
+              Tips: Klicka <b>Nytt ärende</b> när du vill starta om.
+            </span>
+          </div>
+        </div>
+
+        <!-- ✅ Welcome / Quick help block -->
+        <div id="chatWelcome" class="panel" style="margin-bottom:12px;">
+          <b>Välkommen 👋</b>
+          <div class="muted small" style="margin-top:6px;">
+            Skriv vad du behöver hjälp med. Jag kan skapa ett ärende automatiskt och hjälpa dig snabbt.
+          </div>
+        </div>
+
         <div id="messages" class="messages"></div>
 
         <div class="composer">
@@ -297,6 +320,18 @@
 
         <div class="divider"></div>
 
+        <!-- ✅ SLA Widgets (quick KPIs) -->
+        <div id="slaKpiWidget" class="panel soft" style="margin-bottom:12px;">
+          <div style="display:flex; gap:10px; flex-wrap:wrap; align-items:center;">
+            <div class="pill"><i class="fa-solid fa-bolt"></i> KPI & Trend</div>
+            <div class="pill"><i class="fa-solid fa-triangle-exclamation"></i> Risk / Breach</div>
+            <div class="pill"><i class="fa-solid fa-user-check"></i> Agent performance</div>
+            <span class="muted small" style="margin-left:auto;">
+              Tips: Exportera CSV för rapport.
+            </span>
+          </div>
+        </div>
+
         <div id="slaOverviewBox"></div>
 
         <div class="divider"></div>
@@ -359,6 +394,14 @@
             <button id="removeSolvedBtn" class="btn danger" type="button">
               <i class="fa-solid fa-trash"></i> Remove solved
             </button>
+          </div>
+        </div>
+
+        <!-- ✅ New ticket highlight banner -->
+        <div id="inboxNewBanner" class="panel soft" style="display:none; margin-bottom:12px;">
+          <b><i class="fa-solid fa-bell"></i> Nytt inkommande ärende!</b>
+          <div class="muted small" style="margin-top:6px;">
+            Uppdatera listan eller klicka på ärendet för att öppna det.
           </div>
         </div>
 
@@ -566,6 +609,41 @@
                 <div id="catsList" class="list"></div>
               </div>
             </div>
+
+            <!-- ✅ EDIT CATEGORY PANEL -->
+            <div id="catEditWrap" class="panel soft" style="display:none; margin-top:14px;">
+              <div class="panelHead">
+                <b><i class="fa-solid fa-pen-to-square"></i> Redigera kategori</b>
+                <span class="muted small" style="margin-left:auto;">Ändra namn + system prompt</span>
+              </div>
+
+              <label>Key</label>
+              <input id="catEditKey" class="input" disabled />
+
+              <div class="grid2" style="margin-top:10px;">
+                <div>
+                  <label>Namn</label>
+                  <input id="catEditName" class="input" placeholder="Namn" />
+                </div>
+                <div>
+                  <label>Status</label>
+                  <input class="input" value="Aktiv kategori kan uppdateras" disabled />
+                </div>
+              </div>
+
+              <label style="margin-top:10px;">System Prompt</label>
+              <textarea id="catEditPrompt" class="input textarea" placeholder="System prompt..."></textarea>
+
+              <div class="row gap" style="margin-top:10px;">
+                <button id="saveCatEditBtn" class="btn primary" type="button">
+                  <i class="fa-solid fa-floppy-disk"></i> Spara ändringar
+                </button>
+                <button id="closeCatEditBtn" class="btn ghost" type="button">
+                  Stäng
+                </button>
+                <span id="catEditMsg" class="muted small" style="margin-left:auto;"></span>
+              </div>
+            </div>
           </div>
         </div>
 
@@ -611,6 +689,21 @@
 
   <!-- Chart.js -->
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-  <script defer src="script.js?v=1"></script>
+
+  <!-- ✅ script.js -->
+  <script defer src="script.js?v=2"></script>
+
+  <!-- ✅ extra UI binders for category edit -->
+  <script>
+    // Cat edit buttons are optional; script.js has logic but we bind UI here safely too.
+    document.addEventListener("DOMContentLoaded", () => {
+      const close = document.getElementById("closeCatEditBtn");
+      const save = document.getElementById("saveCatEditBtn");
+      const wrap = document.getElementById("catEditWrap");
+
+      if (close && wrap) close.addEventListener("click", () => wrap.style.display = "none");
+      if (save && typeof window.saveCategoryEdit === "function") save.addEventListener("click", window.saveCategoryEdit);
+    });
+  </script>
 </body>
 </html>

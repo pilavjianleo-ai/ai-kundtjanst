@@ -1,13 +1,3 @@
-/* =========================================================
-   AI Kundtjänst - server.js (FULL) ✅
-   - Express + MongoDB + JWT auth
-   - Tickets + Inbox (agent/admin)
-   - SLA dashboard + CSV export + CLEAR my/all ✅
-   - Knowledge Base (RAG) upload: text/url/pdf
-   - Categories admin manager
-   - Forgot/Reset password via SMTP
-   ========================================================= */
-
 require("dotenv").config();
 
 const express = require("express");
@@ -42,7 +32,7 @@ app.set("trust proxy", 1);
 app.use(express.json({ limit: "18mb" }));
 app.use(cors());
 
-// ✅ Static: behåll root static (du har index.html i root)
+// ✅ Static root
 app.use(express.static(__dirname));
 
 /* =====================
@@ -70,14 +60,18 @@ mongoose.set("strictQuery", true);
 
 if (mongoUri) {
   mongoose
-    .connect(mongoUri, { serverSelectionTimeoutMS: 15000 })
+    .connect(mongoUri, {
+      serverSelectionTimeoutMS: 15000,
+    })
     .then(() => console.log("✅ MongoDB ansluten"))
     .catch((err) => console.error("❌ MongoDB-fel:", err.message));
 } else {
   console.error("❌ MongoDB connect hoppad över (mongoUri saknas).");
 }
 
-mongoose.connection.on("error", (err) => console.error("❌ MongoDB runtime error:", err));
+mongoose.connection.on("error", (err) => {
+  console.error("❌ MongoDB runtime error:", err);
+});
 
 /* =====================
    ✅ Models
@@ -87,8 +81,10 @@ const userSchema = new mongoose.Schema({
   email: { type: String, default: "", index: true },
   password: { type: String, required: true },
   role: { type: String, default: "user" }, // user | agent | admin
+
   resetTokenHash: { type: String, default: "" },
   resetTokenExpiresAt: { type: Date, default: null },
+
   createdAt: { type: Date, default: Date.now },
 });
 const User = mongoose.model("User", userSchema);
@@ -175,7 +171,10 @@ function calcEffectiveMsFromCreated(t, endAt, now = new Date()) {
 }
 
 /**
- * ✅ SLA Engine (UPGRADED)
+ * ✅ SLA Engine (Smart + stable)
+ * - First response breach: compare created -> firstAgentReplyAt
+ * - Resolution breach: compare created -> solvedAt minus pending time
+ * - risk states: at 80% usage
  */
 function computeSlaForTicket(t, now = new Date()) {
   const limits = slaLimitsForPriority(t.priority || "normal");
@@ -360,7 +359,7 @@ const ticketSchema = new mongoose.Schema({
     },
   },
 
-  // ✅ NEW: unread indicator for agents/admin (inbox highlight)
+  // ✅ unread indicator for agents/admin (inbox highlight)
   unreadForAgent: { type: Boolean, default: true },
 
   messages: [messageSchema],
@@ -442,9 +441,7 @@ async function ensureDefaultCategories() {
     { key: "cleaning", name: "Städservice", systemPrompt: "Du är en AI-kundtjänst för städservice på svenska. Hjälp med tjänster, rutiner, bokning och tips." },
   ];
 
-  for (const c of defaults) {
-    await Category.updateOne({ key: c.key }, { $setOnInsert: c }, { upsert: true });
-  }
+  for (const c of defaults) await Category.updateOne({ key: c.key }, { $setOnInsert: c }, { upsert: true });
   console.log("✅ Default categories säkerställda");
 }
 ensureDefaultCategories().catch((e) => console.error("❌ ensureDefaultCategories error:", e));
@@ -657,7 +654,7 @@ app.get("/me", authenticate, async (req, res) => {
   const u = await User.findById(req.user.id).select("-password");
   if (!u) return res.status(404).json({ error: "User saknas" });
 
-  // ✅ always return id
+  // ✅ Always include id
   return res.json({ id: String(u._id), username: u.username, role: u.role, email: u.email || "" });
 });
 
@@ -671,7 +668,10 @@ app.post("/register", async (req, res) => {
   try {
     const hashedPassword = await bcrypt.hash(password, 10);
     const u = await new User({ username, password: hashedPassword, email: email || "" }).save();
-    return res.json({ message: "Registrering lyckades", user: { id: String(u._id), username: u.username, role: u.role } });
+    return res.json({
+      message: "Registrering lyckades",
+      user: { id: String(u._id), username: u.username, role: u.role, email: u.email || "" },
+    });
   } catch {
     return res.status(400).json({ error: "Användarnamn upptaget" });
   }
@@ -686,7 +686,10 @@ app.post("/login", async (req, res) => {
   if (!ok) return res.status(401).json({ error: "Fel användarnamn eller lösenord" });
 
   const token = jwt.sign({ id: String(u._id), username: u.username }, process.env.JWT_SECRET, { expiresIn: "7d" });
-  return res.json({ token, user: { id: String(u._id), username: u.username, role: u.role, email: u.email || "" } });
+  return res.json({
+    token,
+    user: { id: String(u._id), username: u.username, role: u.role, email: u.email || "" },
+  });
 });
 
 /* =====================
@@ -831,6 +834,7 @@ app.get("/categories", async (req, res) => {
 
 /* =====================
    ✅ ADMIN: Categories manager
+   ✅ Edit supported
 ===================== */
 app.post("/admin/categories", authenticate, requireAdmin, async (req, res) => {
   try {
@@ -847,6 +851,7 @@ app.post("/admin/categories", authenticate, requireAdmin, async (req, res) => {
   }
 });
 
+// ✅ Edit AI category
 app.put("/admin/categories/:key", authenticate, requireAdmin, async (req, res) => {
   try {
     const key = req.params.key;
@@ -860,12 +865,16 @@ app.put("/admin/categories/:key", authenticate, requireAdmin, async (req, res) =
     if (systemPrompt != null) c.systemPrompt = String(systemPrompt);
 
     await c.save();
-    return res.json({ message: `Kategori ${key} uppdaterad ✅`, category: { key: c.key, name: c.name, systemPrompt: c.systemPrompt } });
+    return res.json({
+      message: `Kategori ${key} uppdaterad ✅`,
+      category: { key: c.key, name: c.name, systemPrompt: c.systemPrompt },
+    });
   } catch (e) {
     return res.status(500).json({ error: `Serverfel vid uppdatera kategori: ${e.message}` });
   }
 });
 
+// ✅ Delete categories (default locked unless force=1)
 app.delete("/admin/categories/:key", authenticate, requireAdmin, async (req, res) => {
   try {
     const key = req.params.key;
@@ -887,13 +896,13 @@ app.delete("/admin/categories/:key", authenticate, requireAdmin, async (req, res
 
 /* =====================
    ✅ CHAT (ticket + RAG)
+   ✅ Stronger welcome + smarter flow
 ===================== */
 app.post("/chat", authenticate, async (req, res) => {
   try {
     const { companyId, conversation, ticketId } = req.body || {};
-    if (!companyId || !Array.isArray(conversation)) {
+    if (!companyId || !Array.isArray(conversation))
       return res.status(400).json({ error: "companyId eller konversation saknas" });
-    }
 
     let ticket;
     let createdNew = false;
@@ -909,11 +918,12 @@ app.post("/chat", authenticate, async (req, res) => {
       ticket = await ensureTicket(req.user.id, companyId);
     }
 
-    // ✅ brand new ticket welcome
+    // ✅ Welcome message only once on brand new ticket
     if (createdNew && (ticket.messages || []).length === 0) {
       ticket.messages.push({
         role: "assistant",
-        content: "Hej! 👋 Välkommen till kundtjänsten. Beskriv gärna ditt problem så hjälper jag dig direkt. ✅",
+        content:
+          "Hej! 👋 Välkommen till kundtjänsten.\n\nBeskriv gärna ditt problem så hjälper jag dig direkt. ✅\n\nTips: skriv gärna *vad som hänt*, *vad du försökt*, och *vad du vill uppnå*.",
         timestamp: new Date(),
       });
       ticket.lastActivityAt = new Date();
@@ -929,6 +939,8 @@ app.post("/chat", authenticate, async (req, res) => {
       ticket.messages.push({ role: "user", content: userQuery, timestamp: new Date() });
       if (!ticket.title) ticket.title = userQuery.slice(0, 60);
       ticket.lastActivityAt = new Date();
+
+      // ✅ new message => unread for agent
       ticket.unreadForAgent = true;
 
       // ✅ If user replies while pending => resume SLA
@@ -952,8 +964,10 @@ app.post("/chat", authenticate, async (req, res) => {
       role: "system",
       content:
         systemPrompt +
-        "\n\nSvara alltid tydligt, konkret och användarvänligt. Om du behöver mer info: ställ 1-2 korta följdfrågor." +
-        (rag.used ? `\n\nIntern kunskapsdatabas (om relevant):\n${rag.context}\n\nSvara tydligt och konkret.` : ""),
+        "\n\nSvara alltid tydligt, konkret och användarvänligt på svenska." +
+        "\nOm du behöver mer info: ställ max 1-2 följdfrågor." +
+        "\nOm det finns flera lösningar: ge dem som en kort lista med steg." +
+        (rag.used ? `\n\nIntern kunskapsdatabas (om relevant):\n${rag.context}\n\nAnvänd detta som källa.` : ""),
     };
 
     const messages = [systemMessage, ...conversation];
@@ -1035,6 +1049,7 @@ app.get("/admin/tickets", authenticate, requireAgentOrAdmin, async (req, res) =>
     if (status) query.status = status;
     if (companyId) query.companyId = companyId;
 
+    // ✅ agent sees only assigned
     if (dbUser?.role === "agent") query.assignedToUserId = dbUser._id;
 
     const tickets = await Ticket.find(query).sort({ lastActivityAt: -1 }).limit(500);
@@ -1064,7 +1079,10 @@ app.get("/admin/tickets/:ticketId", authenticate, requireAgentOrAdmin, async (re
   return res.json(t);
 });
 
-// ✅ notify endpoint for inbox highlight
+/* =====================
+   ✅ Notify endpoint (Inbox highlight)
+   - Used by frontend polling
+===================== */
 app.get("/admin/tickets/notify", authenticate, requireAgentOrAdmin, async (req, res) => {
   try {
     const dbUser = await getDbUser(req);
@@ -1237,25 +1255,6 @@ app.post("/admin/tickets/:ticketId/internal-note", authenticate, requireAgentOrA
   }
 });
 
-app.delete("/admin/tickets/:ticketId/internal-note/:noteId", authenticate, requireAdmin, async (req, res) => {
-  try {
-    const { ticketId, noteId } = req.params;
-
-    const t = await Ticket.findById(ticketId);
-    if (!t) return res.status(404).json({ error: "Ticket hittades inte" });
-
-    t.internalNotes = (t.internalNotes || []).filter((n) => String(n._id) !== String(noteId));
-    t.lastActivityAt = new Date();
-
-    safeEnsureSla(t);
-    await t.save();
-
-    return res.json({ message: "Notering borttagen ✅", ticket: t });
-  } catch {
-    return res.status(500).json({ error: "Serverfel vid borttagning av note" });
-  }
-});
-
 app.delete("/admin/tickets/:ticketId/internal-notes", authenticate, requireAdmin, async (req, res) => {
   try {
     const { ticketId } = req.params;
@@ -1310,7 +1309,7 @@ app.post("/admin/tickets/remove-solved", authenticate, requireAdmin, async (req,
 });
 
 /* =====================
-   ✅ Assign + Delete
+   ✅ Assign (ADMIN ONLY) + Delete
 ===================== */
 app.post("/admin/tickets/:ticketId/assign", authenticate, requireStrictAdminForUiAdminPanel, async (req, res) => {
   const { userId } = req.body || {};
@@ -1324,6 +1323,10 @@ app.post("/admin/tickets/:ticketId/assign", authenticate, requireStrictAdminForU
 
   safeEnsureSla(t);
   await t.save();
+
+  // ✅ If assigned to agent -> unread for agent (so it highlights)
+  t.unreadForAgent = true;
+  await t.save().catch(() => {});
 
   return res.json({ message: "Ticket assignad ✅", ticket: t });
 });
@@ -1347,7 +1350,7 @@ app.delete("/admin/tickets/:ticketId", authenticate, requireAgentOrAdmin, async 
 });
 
 /* =====================
-   ✅ SLA Trend weekly + daily + KPI + ageing
+   ✅ SLA Trend + KPI helpers
 ===================== */
 function weekKey(d) {
   const dt = new Date(d);
@@ -1442,6 +1445,7 @@ function safePct(part, total) {
 
 /* =====================
    ✅ SLA endpoints
+   - Agent sees only assigned (enforced)
 ===================== */
 app.get("/admin/sla/overview", authenticate, requireAgentOrAdmin, async (req, res) => {
   try {
@@ -1720,7 +1724,13 @@ app.get("/admin/sla/kpi", authenticate, requireAgentOrAdmin, async (req, res) =>
 
     return res.json({
       rangeDays,
-      totals: { total, open, pending, solved, solveRatePct },
+      totals: {
+        total,
+        open,
+        pending,
+        solved,
+        solveRatePct,
+      },
       slaHealth: {
         breachedAny,
         breachedPct: safePct(breachedAny, total),
@@ -1728,8 +1738,16 @@ app.get("/admin/sla/kpi", authenticate, requireAgentOrAdmin, async (req, res) =>
         riskPct: safePct(riskAny, total),
       },
       distribution: {
-        firstResponse: { avgMs: avg(firstArr), medianMs: median(firstArr), p90Ms: percentile(firstArr, 90) },
-        resolution: { avgMs: avg(resArr), medianMs: median(resArr), p90Ms: percentile(resArr, 90) },
+        firstResponse: {
+          avgMs: avg(firstArr),
+          medianMs: median(firstArr),
+          p90Ms: percentile(firstArr, 90),
+        },
+        resolution: {
+          avgMs: avg(resArr),
+          medianMs: median(resArr),
+          p90Ms: percentile(resArr, 90),
+        },
       },
       ageing,
       byCategory: catRows.sort((a, b) => (b.total || 0) - (a.total || 0)),
@@ -1854,7 +1872,7 @@ app.get("/admin/sla/export/csv", authenticate, requireAgentOrAdmin, async (req, 
 });
 
 /* =====================
-   ✅ SLA CLEAR endpoints ✅ (MATCHAR script.js)
+   ✅ SLA CLEAR endpoints (FIX for your script.js)
 ===================== */
 app.delete("/admin/sla/clear/my", authenticate, requireAgentOrAdmin, async (req, res) => {
   try {
@@ -1862,8 +1880,9 @@ app.delete("/admin/sla/clear/my", authenticate, requireAgentOrAdmin, async (req,
     if (!dbUser) return res.status(403).json({ error: "User saknas" });
 
     const r = await SLAStat.deleteMany({ agentUserId: dbUser._id });
-    return res.json({ message: `Raderade din statistik ✅ (${r.deletedCount} rader)` });
-  } catch {
+    return res.json({ message: `Raderade din SLA-statistik ✅ (${r.deletedCount} rader).` });
+  } catch (e) {
+    console.error("❌ SLA clear my error:", e?.message || e);
     return res.status(500).json({ error: "Serverfel vid radera min statistik" });
   }
 });
@@ -1871,14 +1890,16 @@ app.delete("/admin/sla/clear/my", authenticate, requireAgentOrAdmin, async (req,
 app.delete("/admin/sla/clear/all", authenticate, requireAdmin, async (req, res) => {
   try {
     const r = await SLAStat.deleteMany({});
-    return res.json({ message: `Raderade ALL statistik ✅ (${r.deletedCount} rader)` });
-  } catch {
+    return res.json({ message: `Raderade ALL SLA-statistik ✅ (${r.deletedCount} rader).` });
+  } catch (e) {
+    console.error("❌ SLA clear all error:", e?.message || e);
     return res.status(500).json({ error: "Serverfel vid radera all statistik" });
   }
 });
 
 /* =====================
    ✅ ADMIN: Users + roles
+   ✅ IMPORTANT: agent should NOT list all users
 ===================== */
 app.get("/admin/users", authenticate, requireAgentOrAdmin, async (req, res) => {
   const dbUser = await getDbUser(req);
@@ -1939,7 +1960,7 @@ app.delete("/admin/users/:userId", authenticate, requireAdmin, async (req, res) 
 });
 
 /* =====================
-   ✅ ADMIN: KB Upload / List / Export
+   ✅ ADMIN: KB Upload / List / Export (ADMIN only)
 ===================== */
 app.get("/kb/list/:companyId", authenticate, requireStrictAdminForUiAdminPanel, async (req, res) => {
   const items = await KBChunk.find({ companyId: req.params.companyId, isDeleted: false })
@@ -2065,7 +2086,11 @@ app.get("/admin/export/all", authenticate, requireAdmin, async (req, res) => {
   res.setHeader("Content-Type", "application/json");
   res.setHeader("Content-Disposition", `attachment; filename="export_all.json"`);
   return res.send(
-    JSON.stringify({ users, tickets, kb, feedback, categories, slaStats, exportedAt: new Date().toISOString() }, null, 2)
+    JSON.stringify(
+      { users, tickets, kb, feedback, categories, slaStats, exportedAt: new Date().toISOString() },
+      null,
+      2
+    )
   );
 });
 
