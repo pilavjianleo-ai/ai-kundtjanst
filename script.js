@@ -1328,37 +1328,56 @@ async function removeSolvedTickets() {
 let slaCache = { overview: null, trend: null, agents: null, tickets: null };
 
 async function refreshSlaAll() {
-  destroyTrendChart();
+  if (window.__slaLoading) return;     // ✅ stoppar spam refresh
+  window.__slaLoading = true;
 
-  const days = Number($("slaDaysSelect")?.value || 30);
+  try {
+    destroyTrendChart();
 
-  $("slaOverviewBox").innerHTML = `<div class="muted small">Laddar...</div>`;
-  $("slaAgentsBox").innerHTML = `<div class="muted small">Laddar...</div>`;
-  $("slaTicketsBox").innerHTML = `<div class="muted small">Laddar...</div>`;
-  $("slaTrendHint").textContent = "";
+    const days = Number($("slaDaysSelect")?.value || 30);
+    const compareMode = $("slaCompareMode")?.value || "none";
 
-  const overview = await safeApi(`/admin/sla/overview?days=${days}`);
-  if (!overview) {
-    $("slaOverviewBox").innerHTML = `<div class="alert error">❌ SLA saknas/behörighet.</div>`;
-    return;
+    $("slaOverviewBox").innerHTML = `<div class="muted small">Laddar KPI...</div>`;
+    $("slaAgentsBox").innerHTML = `<div class="muted small">Laddar agents...</div>`;
+    $("slaTicketsBox").innerHTML = `<div class="muted small">Laddar tickets...</div>`;
+    $("slaTrendHint").textContent = "";
+
+    const kpi = await api(`/admin/sla/kpi?days=${days}`);
+    slaCache.kpi = kpi;
+
+    const overview = await api(`/admin/sla/overview?days=${days}`);
+    slaCache.overview = overview;
+    renderSlaOverviewKpi(overview, kpi);
+
+    const trend = await api(`/admin/sla/trend/weekly?days=${days}`);
+    slaCache.trend = trend;
+
+    if (typeof renderSlaTrendChart === "function") {
+      renderSlaTrendChart(trend);
+    }
+
+    const agents = await api(`/admin/sla/agents?days=${days}`);
+    slaCache.agents = agents;
+    renderSlaAgents(agents);
+
+    const tickets = await api(`/admin/sla/tickets?days=${days}`);
+    slaCache.tickets = tickets;
+    renderSlaTicketsFromCache();
+
+    if (compareMode && compareMode !== "none") {
+      const a = days;
+      const b = compareMode === "prevWeek" ? 7 : days;
+      const cmp = await api(`/admin/sla/compare?a=${a}&b=${b}`);
+      renderSlaCompareHint(cmp, compareMode);
+    } else {
+      $("slaTrendHint").textContent = "Tips: Välj jämförelse för att se förändring mot tidigare period.";
+    }
+
+  } catch (e) {
+    $("slaOverviewBox").innerHTML = `<div class="alert error">❌ SLA fel: ${escapeHtml(e.message)}</div>`;
+  } finally {
+    window.__slaLoading = false;       // ✅ släpper låset
   }
-  slaCache.overview = overview;
-  renderSlaOverview(overview);
-
-  const trend = await safeApi(`/admin/sla/trend/weekly?days=${days}`);
-  slaCache.trend = trend;
-  if (trend) renderSlaTrendChart(trend);
-  else $("slaTrendHint").textContent = "Trend endpoint saknas (ok).";
-
-  const agents = await safeApi(`/admin/sla/agents?days=${days}`);
-  slaCache.agents = agents;
-  if (agents) renderSlaAgents(agents);
-  else $("slaAgentsBox").innerHTML = `<div class="muted small">Agent-data saknas.</div>`;
-
-  const tickets = await safeApi(`/admin/sla/tickets?days=${days}`);
-  slaCache.tickets = tickets;
-  if (tickets) renderSlaTickets(tickets);
-  else $("slaTicketsBox").innerHTML = `<div class="muted small">Ticket-data saknas.</div>`;
 }
 
 function renderSlaOverview(o) {
