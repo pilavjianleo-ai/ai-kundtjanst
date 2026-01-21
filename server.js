@@ -15,11 +15,24 @@ const pdfParse = require("pdf-parse");
 const nodemailer = require("nodemailer");
 const crypto = require("crypto");
 
+// ✅ fetch fallback for older Node (Render kan ibland köra Node utan global fetch)
+let fetchFn = global.fetch;
+try {
+  if (!fetchFn) {
+    // eslint-disable-next-line global-require
+    fetchFn = require("node-fetch");
+  }
+} catch (e) {
+  console.warn("⚠️ node-fetch saknas och global fetch finns inte. URL-upload kan faila.");
+}
+
 const app = express();
 app.set("trust proxy", 1);
 
 app.use(express.json({ limit: "18mb" }));
 app.use(cors());
+
+// ✅ Static: behåll root static (du har index.html i root)
 app.use(express.static(__dirname));
 
 /* =====================
@@ -28,7 +41,7 @@ app.use(express.static(__dirname));
 const mongoUri = process.env.MONGO_URI || process.env.MONGODB_URI;
 
 console.log("✅ ENV CHECK:");
-console.log("MONGO_URI:", process.env.MONGO_URI || process.env.MONGODB_URI ? "OK" : "SAKNAS");
+console.log("MONGO_URI:", mongoUri ? "OK" : "SAKNAS");
 console.log("JWT_SECRET:", process.env.JWT_SECRET ? "OK" : "SAKNAS");
 console.log("OPENAI_API_KEY:", process.env.OPENAI_API_KEY ? "OK" : "SAKNAS");
 console.log("SMTP_HOST:", process.env.SMTP_HOST ? "OK" : "SAKNAS");
@@ -45,10 +58,16 @@ if (!process.env.APP_URL) console.error("❌ APP_URL saknas! Ex: https://ai-kund
 ===================== */
 mongoose.set("strictQuery", true);
 
-mongoose
-  .connect(mongoUri)
-  .then(() => console.log("✅ MongoDB ansluten"))
-  .catch((err) => console.error("❌ MongoDB-fel:", err.message));
+if (mongoUri) {
+  mongoose
+    .connect(mongoUri, {
+      serverSelectionTimeoutMS: 15000,
+    })
+    .then(() => console.log("✅ MongoDB ansluten"))
+    .catch((err) => console.error("❌ MongoDB-fel:", err.message));
+} else {
+  console.error("❌ MongoDB connect hoppad över (mongoUri saknas).");
+}
 
 mongoose.connection.on("error", (err) => {
   console.error("❌ MongoDB runtime error:", err);
@@ -175,18 +194,14 @@ function computeSlaForTicket(t, now = new Date()) {
 
   const nowMs = now.getTime();
 
-  const firstResponseRemainingMs =
-    firstAgentReplyAt ? 0 : Math.max(0, firstResponseDueAt.getTime() - nowMs);
-
+  const firstResponseRemainingMs = firstAgentReplyAt ? 0 : Math.max(0, firstResponseDueAt.getTime() - nowMs);
   const resolutionRemainingMs = solvedAt ? 0 : Math.max(0, resolutionDueAt.getTime() - nowMs);
 
-  const breachedFirstResponse =
-    firstResponseMs !== null ? firstResponseMs > limits.firstResponseLimitMs : false;
+  const breachedFirstResponse = firstResponseMs !== null ? firstResponseMs > limits.firstResponseLimitMs : false;
 
   const effectiveRunningMs = solvedAt ? resolutionMs : calcEffectiveMsFromCreated(t, now, now);
 
-  const breachedResolution =
-    effectiveRunningMs != null ? effectiveRunningMs > limits.resolutionLimitMs : false;
+  const breachedResolution = effectiveRunningMs != null ? effectiveRunningMs > limits.resolutionLimitMs : false;
 
   // ✅ states
   const riskPct = 0.8;
@@ -543,7 +558,9 @@ async function ensureTicket(userId, companyId) {
    ✅ URL + PDF extraction
 ===================== */
 async function fetchUrlText(url) {
-  const res = await fetch(url, {
+  if (!fetchFn) throw new Error("fetch saknas på servern (installera node-fetch eller använd Node 18+).");
+
+  const res = await fetchFn(url, {
     headers: {
       "User-Agent": "Mozilla/5.0 (AI Kundtjanst Bot)",
       Accept: "text/html,application/xhtml+xml",
@@ -1741,9 +1758,13 @@ app.get("/admin/sla/export.csv", authenticate, requireAgentOrAdmin, async (req, 
    ✅ Existing endpoint kept (backward compat)
 ===================== */
 app.get("/admin/sla/export/csv", authenticate, requireAgentOrAdmin, async (req, res) => {
-  // just forward to new endpoint for compat
-  req.url = "/admin/sla/export.csv";
-  return app._router.handle(req, res, () => {});
+  try {
+    // Forward till nya endpoint stabilt
+    req.url = `/admin/sla/export.csv${req.originalUrl.includes("?") ? req.originalUrl.slice(req.originalUrl.indexOf("?")) : ""}`;
+    return app.handle(req, res);
+  } catch {
+    return res.status(500).json({ error: "Serverfel vid export forward" });
+  }
 });
 
 /* =====================
