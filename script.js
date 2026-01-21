@@ -1871,4 +1871,83 @@ function updateDebug(extra = {}) {
   $("dbgRole").textContent = state.user?.role || "-";
   $("dbgTicket").textContent = extra.ticketId || state.lastTicketId || "-";
   $("dbgRag").textContent = extra.ragUsed ? "JA" : "-";
+
+// ✅ FIX: Om graf-funktionen saknas av någon anledning
+function destroyTrendChart() {
+  if (state.chartTrend) {
+    try { state.chartTrend.destroy(); } catch {}
+    state.chartTrend = null;
+  }
+}
+
+function renderSlaTrendChart(tr) {
+  const canvas = $("slaTrendChart");
+  if (!canvas) return;
+
+  if (typeof Chart === "undefined") {
+    const hint = $("slaTrendHint");
+    if (hint) {
+      hint.textContent =
+        "❌ Chart.js saknas. Kontrollera att <script src='https://cdn.jsdelivr.net/npm/chart.js'></script> ligger före script.js i index.html";
+    }
+    return;
+  }
+
+  destroyTrendChart();
+
+  const rows = tr?.rows || [];
+  const hint = $("slaTrendHint");
+
+  if (!rows.length) {
+    if (hint) hint.textContent = "Ingen trend-data ännu.";
+    return;
+  }
+
+  const labels = rows.map((r, i) => r.week || `V${i + 1}`);
+  const firstPct = rows.map((r) => Number(r.firstCompliancePct || 0));
+  const resPct = rows.map((r) => Number(r.resolutionCompliancePct || 0));
+
+  const ctx = canvas.getContext("2d");
+
+  state.chartTrend = new Chart(ctx, {
+    type: "line",
+    data: {
+      labels,
+      datasets: [
+        {
+          label: "First response compliance (%)",
+          data: firstPct,
+          tension: 0.35,
+          borderWidth: 2,
+          pointRadius: 3,
+        },
+        {
+          label: "Resolution compliance (%)",
+          data: resPct,
+          tension: 0.35,
+          borderWidth: 2,
+          pointRadius: 3,
+        },
+      ],
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      interaction: { mode: "index", intersect: false },
+      plugins: {
+        legend: { display: true },
+        tooltip: { enabled: true },
+      },
+      scales: {
+        y: {
+          min: 0,
+          max: 100,
+          ticks: { callback: (v) => v + "%" },
+        },
+      },
+    },
+  });
+
+  if (hint) hint.textContent = "Trend visar compliance vecka för vecka.";
+}
 }

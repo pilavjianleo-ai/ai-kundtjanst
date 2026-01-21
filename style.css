@@ -982,5 +982,15 @@ body[data-theme="light"] .toastMsg {
   }
 }
 
+/* ✅ SLA Chart - gör så canvas alltid syns */
+#slaTrendChart {
+  display: block;
+  width: 100% !important;
+  height: 260px !important;  /* <- detta gör att grafen inte blir osynlig */
+}
+
+#slaView .panel {
+  overflow: hidden; /* så det inte blir konstig scroll */
+}
 
 }
