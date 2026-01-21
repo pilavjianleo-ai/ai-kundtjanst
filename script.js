@@ -1962,20 +1962,35 @@ async function loadCategoriesAdmin() {
 
   try {
     const cats = await api("/categories");
+
     box.innerHTML = cats
       .map((c) => {
-        const locked = ["demo", "law", "tech", "cleaning"].includes(c.key);
+        const isCurrent = c.key === state.companyId;
+
         return `
           <div class="listItem">
             <div class="listItemTitle">
               ${escapeHtml(c.name)} <span class="muted small">(${escapeHtml(c.key)})</span>
-              ${locked ? `<span class="pill ok" style="margin-left:auto;">default</span>` : ""}
+              ${isCurrent ? `<span class="pill warn" style="margin-left:auto;">aktiv</span>` : ""}
             </div>
-            <div class="muted small" style="margin-top:6px;">${escapeHtml((c.systemPrompt || "").slice(0, 120))}...</div>
+
+            <div class="muted small" style="margin-top:6px;">
+              ${escapeHtml((c.systemPrompt || "").slice(0, 120))}...
+            </div>
+
+            <button 
+              class="btn danger small" 
+              style="margin-top:10px;" 
+              data-del-cat="${escapeHtml(c.key)}"
+              ${isCurrent ? "disabled" : ""}
+            >
+              <i class="fa-solid fa-trash"></i> Ta bort
+            </button>
+
             ${
-              locked
-                ? ""
-                : `<button class="btn danger small" style="margin-top:10px;" data-del-cat="${escapeHtml(c.key)}"><i class="fa-solid fa-trash"></i> Ta bort</button>`
+              isCurrent
+                ? `<div class="muted small" style="margin-top:6px;">Du kan inte ta bort den kategori som är aktiv.</div>`
+                : ""
             }
           </div>
         `;
@@ -1985,12 +2000,25 @@ async function loadCategoriesAdmin() {
     qsa("[data-del-cat]").forEach((b) => {
       b.addEventListener("click", async () => {
         const key = b.getAttribute("data-del-cat");
-        if (!confirm(`Ta bort kategori ${key}?`)) return;
+        if (!key) return;
+
+        if (!confirm(`Ta bort kategori "${key}"?`)) return;
+
         try {
           await api(`/admin/categories/${encodeURIComponent(key)}`, { method: "DELETE" });
           setAlert(msg, "Kategori borttagen ✅", "");
+
+          // ✅ reload dropdowns + admin list
           await loadCategories();
           await loadCategoriesAdmin();
+
+          // ✅ if current selection got removed anyway (edge-case)
+          if (state.companyId === key) {
+            state.companyId = "demo";
+            setLS(LS.currentCompanyId, state.companyId);
+            if ($("categorySelect")) $("categorySelect").value = state.companyId;
+            if ($("kbCategorySelect")) $("kbCategorySelect").value = state.companyId;
+          }
         } catch (e) {
           setAlert(msg, e.message, "error");
         }
@@ -2001,6 +2029,7 @@ async function loadCategoriesAdmin() {
     box.innerHTML = `<div class="muted small">Kunde inte ladda kategorier.</div>`;
   }
 }
+
 
 async function createCategory() {
   const msg = $("catsMsg");
