@@ -111,28 +111,6 @@ body[data-theme="light"] ::-webkit-scrollbar-thumb{
   margin-bottom:6px;
 }
 
-/* ✅ Mini widgets (sidebar overview) */
-.miniWidgets{
-  display:grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap:10px;
-}
-.miniWidget{
-  border:1px solid var(--border);
-  border-radius:14px;
-  padding:10px;
-  background: rgba(255,255,255,0.02);
-}
-.miniLabel{
-  color: var(--muted);
-  font-size:11px;
-  margin-bottom:6px;
-}
-.miniValue{
-  font-weight:900;
-  font-size:14px;
-}
-
 .menu{
   display:flex;
   flex-direction:column;
@@ -166,7 +144,6 @@ body[data-theme="light"] ::-webkit-scrollbar-thumb{
   background: rgba(76,125,255,0.12);
 }
 
-/* ✅ Inbox highlight when new ticket arrives */
 .menuBtn.hasNotif{
   border-color: rgba(255,176,32,0.45);
   box-shadow: 0 0 0 2px rgba(255,176,32,0.12);
@@ -259,11 +236,6 @@ body[data-theme="light"] .input{
   box-shadow: 0 0 0 3px rgba(76,125,255,0.10);
 }
 
-.input:disabled{
-  opacity: 0.6;
-  cursor:not-allowed;
-}
-
 .textarea{
   min-height: 120px;
   resize: vertical;
@@ -312,11 +284,6 @@ body[data-theme="light"] .input{
 
 .btn:active{
   transform: translateY(1px);
-}
-
-.btn:disabled{
-  opacity: 0.6;
-  cursor:not-allowed;
 }
 
 .btn.primary{
@@ -448,7 +415,6 @@ body[data-theme="light"] .input{
   background: rgba(255,255,255,0.02);
   line-height: 1.4;
   white-space: pre-wrap;
-  word-break: break-word;
 }
 
 .msg.user .bubble{
@@ -466,7 +432,6 @@ body[data-theme="light"] .input{
   margin-top:8px;
   display:flex;
   gap:8px;
-  flex-wrap:wrap;
 }
 
 .actionBtn{
@@ -490,17 +455,11 @@ body[data-theme="light"] .input{
   align-items:center;
 }
 
-.composer .input{
-  flex: 1;
-  min-width: 0;
-}
-
 .feedbackRow{
   margin-top:10px;
   display:flex;
   align-items:center;
   gap:10px;
-  flex-wrap:wrap;
 }
 
 /* =========================
@@ -572,18 +531,11 @@ body[data-theme="light"] .input{
   box-shadow: 0 0 0 2px rgba(76,125,255,0.12);
 }
 
-/* ✅ unread ticket styling in inbox list */
-.listItem.unread{
-  border-color: rgba(255,176,32,0.45);
-  box-shadow: 0 0 0 2px rgba(255,176,32,0.10);
-}
-
 .listItemTitle{
   display:flex;
   align-items:center;
   gap:10px;
   font-weight:700;
-  flex-wrap:wrap;
 }
 
 .pill{
@@ -618,7 +570,7 @@ body[data-theme="light"] .input{
 
 .pill.danger{
   background: rgba(255,77,77,0.14);
-  border-color: rgba(255,77,77,0.35);
+  border-color: rgba(255,77,77,0.35); /* ✅ FIXED BUG */
   color: var(--danger);
 }
 
@@ -645,9 +597,9 @@ body[data-theme="light"] .input{
   color: var(--muted);
   font-size:12px;
   margin-bottom:6px;
-  gap:10px;
 }
 
+/* Make roles more readable */
 .ticketMsg.user{
   border-color: rgba(76,125,255,0.28);
   background: rgba(76,125,255,0.10);
@@ -663,7 +615,6 @@ body[data-theme="light"] .input{
 
 .ticketMsgBody{
   line-height: 1.35;
-  word-break: break-word;
 }
 
 /* =========================
@@ -709,61 +660,12 @@ body[data-theme="light"] .input{
 }
 
 /* =========================
-   ✅ SLA / KPI DASHBOARD (VAL 2)
+   SLA
 ========================= */
-
-/* ✅ widgets row */
-.slaWidgetRow{
-  display:grid;
-  grid-template-columns: repeat(4, 1fr);
-  gap:12px;
-}
-.slaWidgetCard{
-  background: rgba(255,255,255,0.02);
-  border:1px solid var(--border);
-  border-radius: var(--radius);
-  padding:14px;
-  position: relative;
-  overflow:hidden;
-}
-.slaWidgetCard::before{
-  content:"";
-  position:absolute;
-  inset:0;
-  background: radial-gradient(circle at top left, rgba(76,125,255,0.18), transparent 55%);
-  pointer-events:none;
-}
-
-.slaLabel{
-  font-size:12px;
-  color: var(--muted);
-  margin-bottom:6px;
-  position: relative;
-  z-index: 2;
-}
-.slaValue{
-  font-size:22px;
-  font-weight:900;
-  letter-spacing: 0.2px;
-  position: relative;
-  z-index: 2;
-}
-.slaSubValue{
-  margin-top: 6px;
-  font-size: 12px;
-  color: var(--muted);
-  position: relative;
-  z-index: 2;
-}
-
-/* ✅ original overview grid (still supported) */
 .slaGrid{
   display:grid;
   grid-template-columns: repeat(3, 1fr);
   gap:12px;
-}
-.slaGrid.kpiWide{
-  grid-template-columns: repeat(4, 1fr);
 }
 
 .slaCard{
@@ -771,22 +673,21 @@ body[data-theme="light"] .input{
   border:1px solid var(--border);
   border-radius: var(--radius);
   padding:14px;
-  position: relative;
-  overflow:hidden;
-}
-.slaCard::before{
-  content:"";
-  position:absolute;
-  inset:0;
-  background: radial-gradient(circle at top left, rgba(76,125,255,0.18), transparent 55%);
-  pointer-events:none;
 }
 
-/* ✅ Chart fixes: stable container */
+.slaLabel{
+  font-size:12px;
+  color: var(--muted);
+  margin-bottom:6px;
+}
+
+.slaValue{
+  font-size:22px;
+  font-weight:900;
+  letter-spacing: 0.2px;
+}
+
 #slaTrendChart{
-  display:block;
-  width:100% !important;
-  height:260px !important;
   border: 1px solid var(--border);
   border-radius: 14px;
   background: rgba(255,255,255,0.02);
@@ -799,7 +700,6 @@ body[data-theme="light"] .input{
   overflow:auto;
   border:1px solid var(--border);
   border-radius:14px;
-  background: rgba(255,255,255,0.01);
 }
 
 .table{
@@ -857,7 +757,6 @@ body[data-theme="light"] .input{
 
 .noteText{
   line-height: 1.35;
-  word-break: break-word;
 }
 
 /* =========================
@@ -866,9 +765,6 @@ body[data-theme="light"] .input{
 @media (max-width: 1100px){
   .kbGrid{ grid-template-columns:1fr; }
   .slaGrid{ grid-template-columns:1fr; }
-  .slaGrid.kpiWide{ grid-template-columns:1fr; }
-  .slaWidgetRow{ grid-template-columns: 1fr; }
-  .miniWidgets{ grid-template-columns: 1fr; }
 }
 
 @media (max-width: 900px){

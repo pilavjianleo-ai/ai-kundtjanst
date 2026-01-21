@@ -7,6 +7,10 @@
 
   <!-- Font Awesome CDN -->
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+
+  <!-- ✅ Chart.js (för SLA trend graf) -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
   <link rel="stylesheet" href="style.css" />
 </head>
 
@@ -30,25 +34,6 @@
         </select>
       </div>
 
-      <!-- ✅ Quick widgets in sidebar -->
-      <div id="sidebarWidgets" class="sidebarBlock" style="display:none;">
-        <div class="label">Översikt</div>
-        <div class="miniWidgets">
-          <div class="miniWidget">
-            <div class="miniLabel">Open</div>
-            <div class="miniValue" id="miniOpen">-</div>
-          </div>
-          <div class="miniWidget">
-            <div class="miniLabel">Breached</div>
-            <div class="miniValue" id="miniBreached">-</div>
-          </div>
-          <div class="miniWidget">
-            <div class="miniLabel">At risk</div>
-            <div class="miniValue" id="miniRisk">-</div>
-          </div>
-        </div>
-      </div>
-
       <nav class="menu">
         <button id="openChatView" class="menuBtn active" type="button">
           <i class="fa-solid fa-comments"></i> Chat
@@ -63,8 +48,9 @@
           <span id="inboxNotifDot" class="notifDot" style="display:none;"></span>
         </button>
 
+        <!-- ✅ SLA-knapp (Agent/Admin) -->
         <button id="openSlaView" class="menuBtn adminOnly" style="display:none;" type="button">
-          <i class="fa-solid fa-chart-line"></i> SLA & KPI
+          <i class="fa-solid fa-chart-line"></i> SLA
         </button>
 
         <button id="openAdminView" class="menuBtn adminOnly" style="display:none;" type="button">
@@ -208,32 +194,7 @@
           </div>
         </div>
 
-        <!-- ✅ Welcome widget -->
-        <div id="chatWelcomeWidget" class="panel soft" style="margin-top:12px; display:none;">
-          <div style="display:flex; gap:12px; align-items:flex-start;">
-            <div class="logo" style="width:40px;height:40px;">
-              <i class="fa-solid fa-robot"></i>
-            </div>
-            <div>
-              <b>Välkommen 👋</b>
-              <div class="muted small" style="margin-top:4px;">
-                Skriv gärna vad som hänt och vad du vill uppnå — jag hjälper dig steg för steg.
-              </div>
-              <div class="row gap" style="margin-top:10px; flex-wrap:wrap;">
-                <button class="btn ghost small" type="button" id="quickAsk1"><i class="fa-solid fa-bolt"></i> Leveransproblem</button>
-                <button class="btn ghost small" type="button" id="quickAsk2"><i class="fa-solid fa-bolt"></i> Faktura / betalning</button>
-                <button class="btn ghost small" type="button" id="quickAsk3"><i class="fa-solid fa-bolt"></i> Tekniskt fel</button>
-              </div>
-            </div>
-          </div>
-        </div>
-
         <div id="messages" class="messages"></div>
-
-        <!-- ✅ typing indicator -->
-        <div id="typingRow" class="muted small" style="margin-top:8px; display:none;">
-          <i class="fa-solid fa-spinner fa-spin"></i> AI skriver…
-        </div>
 
         <div class="composer">
           <input id="messageInput" class="input" placeholder="Skriv ditt meddelande..." />
@@ -285,6 +246,7 @@
               Välj ett ärende för att se detaljer.
             </div>
 
+            <!-- ✅ NYTT: fortsätt konversation under "Mina ärenden" -->
             <div class="divider"></div>
 
             <label>Skicka meddelande (fortsätt konversation)</label>
@@ -299,12 +261,12 @@
         </div>
       </section>
 
-      <!-- SLA VIEW -->
+      <!-- ✅ SLA VIEW -->
       <section id="slaView" class="view" style="display:none;">
         <div class="topbar">
           <div>
-            <div class="title">SLA & KPI Dashboard</div>
-            <div class="subtitle muted">Proffsigt, tydligt & enkelt för agent/admin (statistik, trend, risk, backlog).</div>
+            <div class="title">SLA Dashboard</div>
+            <div class="subtitle muted">SLA, breaches, median, trend och export (agent/admin).</div>
           </div>
 
           <div class="topbarActions">
@@ -319,12 +281,6 @@
               <option value="none" selected>Ingen jämförelse</option>
               <option value="prevPeriod">Jämför med föregående period</option>
               <option value="prevWeek">Jämför med föregående vecka</option>
-            </select>
-
-            <!-- ✅ Trend mode -->
-            <select id="slaTrendMode" class="input smallInput">
-              <option value="weekly" selected>Trend: Weekly</option>
-              <option value="daily">Trend: Daily</option>
             </select>
 
             <button id="slaRefreshBtn" class="btn ghost" type="button">
@@ -347,40 +303,11 @@
 
         <div class="divider"></div>
 
-        <!-- ✅ KPI widgets -->
-        <div id="slaWidgets" class="slaWidgetRow">
-          <div class="slaWidgetCard">
-            <div class="slaLabel">Tickets</div>
-            <div class="slaValue" id="wTotal">-</div>
-            <div class="slaSubValue" id="wTotalSub">-</div>
-          </div>
-
-          <div class="slaWidgetCard">
-            <div class="slaLabel">Open / Pending / Solved</div>
-            <div class="slaValue" id="wOps">-</div>
-            <div class="slaSubValue" id="wOpsSub">-</div>
-          </div>
-
-          <div class="slaWidgetCard">
-            <div class="slaLabel">Breached / At risk</div>
-            <div class="slaValue" id="wHealth">-</div>
-            <div class="slaSubValue" id="wHealthSub">-</div>
-          </div>
-
-          <div class="slaWidgetCard">
-            <div class="slaLabel">Solve rate</div>
-            <div class="slaValue" id="wSolve">-</div>
-            <div class="slaSubValue" id="wSolveSub">-</div>
-          </div>
-        </div>
-
-        <div class="divider"></div>
-
         <div id="slaOverviewBox"></div>
 
         <div class="divider"></div>
 
-        <h3 style="margin:0 0 8px 0;">Trend</h3>
+        <h3 style="margin:0 0 8px 0;">Trend vecka för vecka</h3>
         <div class="panel">
           <canvas id="slaTrendChart" height="110" style="width:100%;"></canvas>
           <div class="muted small" id="slaTrendHint" style="margin-top:8px;"></div>
@@ -418,7 +345,7 @@
         <div id="slaTicketsBox"></div>
       </section>
 
-      <!-- INBOX VIEW -->
+      <!-- INBOX VIEW (Agent/Admin) -->
       <section id="inboxView" class="view" style="display:none;">
         <div class="topbar">
           <div>
@@ -445,7 +372,6 @@
           <div class="panel">
             <div class="panelHead">
               <b>Tickets</b>
-              <span class="pill warn" id="inboxLiveHint" style="margin-left:auto; display:none;">New ticket</span>
             </div>
 
             <div class="filterBar">
@@ -616,6 +542,7 @@
             </div>
 
             <div class="divider"></div>
+
             <div id="kbList" class="list"></div>
           </div>
         </div>
@@ -639,31 +566,6 @@
                 <input id="newCatName" class="input" placeholder="Namn (ex: E-handel)" />
                 <textarea id="newCatPrompt" class="input textarea" placeholder="System prompt..."></textarea>
                 <button id="createCatBtn" class="btn primary full" type="button">Skapa</button>
-              </div>
-
-              <!-- ✅ EDIT CATEGORY UI -->
-              <div class="panel soft">
-                <b>Redigera kategori</b>
-                <div class="muted small" style="margin-top:6px;">
-                  Välj en kategori och uppdatera namn eller system prompt. (Endast admin)
-                </div>
-
-                <label style="margin-top:10px;">Välj kategori</label>
-                <select id="editCatSelect" class="input">
-                  <option value="">Välj...</option>
-                </select>
-
-                <label>Namn</label>
-                <input id="editCatName" class="input" placeholder="Nytt namn..." />
-
-                <label>System prompt</label>
-                <textarea id="editCatPrompt" class="input textarea" placeholder="Nytt system prompt..."></textarea>
-
-                <button id="saveCatEditBtn" class="btn secondary full" type="button" style="margin-top:10px;">
-                  <i class="fa-solid fa-floppy-disk"></i> Spara ändringar
-                </button>
-
-                <div id="editCatMsg" class="alert" style="display:none;"></div>
               </div>
 
               <div class="panel soft">
@@ -714,8 +616,7 @@
     </main>
   </div>
 
-  <!-- Chart.js -->
-  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-  <script defer src="script.js?v=2"></script>
+  <!-- ✅ Script -->
+  <script src="script.js"></script>
 </body>
 </html>
