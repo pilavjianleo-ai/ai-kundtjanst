@@ -1156,54 +1156,78 @@ async function refreshSlaSimple() {
   }
 }
 
-function destroyTrendChart() {
-  if (state.chartTrend) {
-    try {
-      state.chartTrend.destroy();
-    } catch {}
-    state.chartTrend = null;
-  }
-}
-
 function renderSlaTrendChart(tr) {
   const canvas = $("slaTrendChart");
   if (!canvas) return;
 
   if (typeof Chart === "undefined") {
-    $("slaTrendHint").textContent = "❌ Chart.js saknas (men din index.html har den redan ✅)";
+    $("slaTrendHint").textContent =
+      "❌ Chart.js saknas. Lägg in <script src='https://cdn.jsdelivr.net/npm/chart.js'></script> före script.js";
     return;
   }
 
   destroyTrendChart();
+
   const rows = tr?.rows || [];
   if (!rows.length) {
     $("slaTrendHint").textContent = "Ingen trend-data ännu.";
     return;
   }
 
+  // ✅ LÅS canvas storlek för att stoppa "scroll ner"-buggen
+  canvas.style.height = "260px";
+  canvas.style.maxHeight = "260px";
+
   const labels = rows.map((r) => r.week);
   const firstPct = rows.map((r) => r.firstCompliancePct || 0);
   const resPct = rows.map((r) => r.resolutionCompliancePct || 0);
 
-  state.chartTrend = new Chart(canvas.getContext("2d"), {
+  const ctx = canvas.getContext("2d");
+
+  state.chartTrend = new Chart(ctx, {
     type: "line",
     data: {
       labels,
       datasets: [
-        { label: "First compliance (%)", data: firstPct, tension: 0.35, borderWidth: 2, pointRadius: 3 },
-        { label: "Resolution compliance (%)", data: resPct, tension: 0.35, borderWidth: 2, pointRadius: 3 },
+        {
+          label: "First response compliance (%)",
+          data: firstPct,
+          tension: 0.35,
+          borderWidth: 2,
+          pointRadius: 3,
+        },
+        {
+          label: "Resolution compliance (%)",
+          data: resPct,
+          tension: 0.35,
+          borderWidth: 2,
+          pointRadius: 3,
+        },
       ],
     },
     options: {
       responsive: true,
-      maintainAspectRatio: false,
+
+      // ✅ VIKTIGT: detta stoppar Chart.js från att "jaga" höjden
+      maintainAspectRatio: true,
+      animation: false,
+
       interaction: { mode: "index", intersect: false },
-      plugins: { legend: { display: true } },
-      scales: { y: { min: 0, max: 100, ticks: { callback: (v) => v + "%" } } },
+      plugins: {
+        legend: { display: true },
+        tooltip: { enabled: true },
+      },
+      scales: {
+        y: {
+          min: 0,
+          max: 100,
+          ticks: { callback: (v) => v + "%" },
+        },
+      },
     },
   });
 
-  $("slaTrendHint").textContent = "Trend vecka för vecka.";
+  $("slaTrendHint").textContent = "Trend visar compliance vecka för vecka (hovera för detaljer).";
 }
 
 function renderSlaAgents(a) {
