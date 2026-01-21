@@ -1,3 +1,5 @@
+window.__slaLoading = false;
+
 // ✅ FORCE GLOBAL: gör funktionen global så den alltid finns
 window.destroyTrendChart = function () {
   if (window.state?.chartTrend) {
@@ -1379,6 +1381,95 @@ async function refreshSlaAll() {
     window.__slaLoading = false;       // ✅ släpper låset
   }
 }
+
+function renderSlaOverviewKpi(o, kpi) {
+  if (!o) return;
+
+  const total = o.totalTickets ?? 0;
+  const byP = o.byPriority || { low: 0, normal: 0, high: 0 };
+
+  const frAvg = o.firstResponse?.avgMs;
+  const frMed = o.firstResponse?.medianMs;
+  const frP90 = o.firstResponse?.p90Ms;
+  const frBr = o.firstResponse?.breaches ?? 0;
+  const frComp = o.firstResponse?.compliancePct;
+  const frRisk = o.firstResponse?.atRisk ?? 0;
+
+  const rsAvg = o.resolution?.avgMs;
+  const rsMed = o.resolution?.medianMs;
+  const rsP90 = o.resolution?.p90Ms;
+  const rsBr = o.resolution?.breaches ?? 0;
+  const rsComp = o.resolution?.compliancePct;
+  const rsRisk = o.resolution?.atRisk ?? 0;
+
+  const totals = kpi?.totals || {};
+  const health = kpi?.slaHealth || {};
+  const solveRate = totals.solveRatePct;
+
+  const box = document.getElementById("slaOverviewBox");
+  if (!box) return;
+
+  box.innerHTML = `
+    <div class="slaGrid kpiWide">
+      <div class="slaCard">
+        <div class="slaLabel">Tickets (period)</div>
+        <div class="slaValue">${total}</div>
+        <div class="slaSubValue">
+          Open: <b>${totals.open ?? "-"}</b> • Pending: <b>${totals.pending ?? "-"}</b> • Solved: <b>${totals.solved ?? "-"}</b>
+        </div>
+      </div>
+
+      <div class="slaCard">
+        <div class="slaLabel">Solve rate</div>
+        <div class="slaValue">${solveRate ?? "-" }%</div>
+        <div class="slaSubValue">Andel lösta ärenden i perioden</div>
+      </div>
+
+      <div class="slaCard">
+        <div class="slaLabel">SLA Health (breached)</div>
+        <div class="slaValue">${health.breachedAny ?? 0}</div>
+        <div class="slaSubValue">Breached %: <b>${health.breachedPct ?? "-" }%</b></div>
+      </div>
+
+      <div class="slaCard">
+        <div class="slaLabel">SLA Health (risk)</div>
+        <div class="slaValue">${health.riskAny ?? 0}</div>
+        <div class="slaSubValue">Risk %: <b>${health.riskPct ?? "-" }%</b></div>
+      </div>
+    </div>
+
+    <div class="divider"></div>
+
+    <div class="slaGrid">
+      <div class="slaCard">
+        <div class="slaLabel">First response compliance</div>
+        <div class="slaValue">${frComp ?? "-"}%</div>
+        <div class="slaSubValue">
+          Avg: <b>${msToPretty(frAvg)}</b> • Median: <b>${msToPretty(frMed)}</b> • P90: <b>${msToPretty(frP90)}</b><br/>
+          Breaches: <b>${frBr}</b> • Risk: <b>${frRisk}</b>
+        </div>
+      </div>
+
+      <div class="slaCard">
+        <div class="slaLabel">Resolution compliance</div>
+        <div class="slaValue">${rsComp ?? "-"}%</div>
+        <div class="slaSubValue">
+          Avg: <b>${msToPretty(rsAvg)}</b> • Median: <b>${msToPretty(rsMed)}</b> • P90: <b>${msToPretty(rsP90)}</b><br/>
+          Breaches: <b>${rsBr}</b> • Risk: <b>${rsRisk}</b>
+        </div>
+      </div>
+
+      <div class="slaCard">
+        <div class="slaLabel">Prioritetsfördelning</div>
+        <div class="slaValue">${byP.normal || 0}</div>
+        <div class="slaSubValue">
+          Low: <b>${byP.low || 0}</b> • Normal: <b>${byP.normal || 0}</b> • High: <b>${byP.high || 0}</b>
+        </div>
+      </div>
+    </div>
+  `;
+}
+
 
 function renderSlaOverview(o) {
   const total = o.totalTickets ?? 0;
