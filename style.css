@@ -887,4 +887,100 @@ body[data-theme="light"] .input{
     flex-direction: column;
     align-items: flex-start;
   }
+
+/* ✅ FIX: Stoppar Chart.js från att "växa neråt" */
+#slaTrendChart {
+  display: block;
+  width: 100% !important;
+  height: 260px !important;
+  max-height: 260px !important;
+}
+
+#slaView .panel {
+  overflow: hidden;
+}
+
+/* =========================
+   TOAST (popup nere i hörnet)
+========================= */
+.toastMsg {
+  position: fixed;
+  bottom: 18px;
+  right: 18px;
+  padding: 12px 14px;
+  border-radius: 12px;
+  font-size: 14px;
+  font-weight: 600;
+  z-index: 9999;
+
+  background: rgba(30, 30, 35, 0.95);
+  color: #fff;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.45);
+
+  opacity: 0;
+  transform: translateY(14px);
+  transition: 0.25s ease;
+}
+
+.toastMsg.show {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+/* Light theme toast */
+body[data-theme="light"] .toastMsg {
+  background: rgba(255, 255, 255, 0.95);
+  color: #111;
+  border: 1px solid rgba(0, 0, 0, 0.12);
+}
+
+/* =========================
+   INBOX NOTIFICATION
+========================= */
+
+/* Liten röd dot på Inbox-knappen */
+.notifDot {
+  display: inline-block;
+  width: 9px;
+  height: 9px;
+  border-radius: 999px;
+  margin-left: 8px;
+  background: #ff3b3b;
+  box-shadow: 0 0 0 3px rgba(255, 59, 59, 0.2);
+}
+
+/* När inbox har notif: gör knappen tydligt */
+.menuBtn.hasNotif {
+  border: 1px solid rgba(255, 59, 59, 0.6) !important;
+  box-shadow: 0 0 0 4px rgba(255, 59, 59, 0.15);
+  position: relative;
+}
+
+/* extra liten highlight bakom ikon */
+.menuBtn.hasNotif i {
+  color: #ff3b3b !important;
+}
+
+/* =========================
+   NYA OPEN TICKETS: liten puls
+========================= */
+.newTicketPulse {
+  position: relative;
+  animation: ticketPulse 1.2s infinite;
+}
+
+@keyframes ticketPulse {
+  0% {
+    box-shadow: 0 0 0 0 rgba(255, 59, 59, 0.20);
+  }
+  70% {
+    box-shadow: 0 0 0 8px rgba(255, 59, 59, 0);
+  }
+  100% {
+    box-shadow: 0 0 0 0 rgba(255, 59, 59, 0);
+  }
+}
+
+
 }
