@@ -63,8 +63,9 @@ body[data-theme="light"] ::-webkit-scrollbar-thumb{
 }
 
 .app{
-  display:flex;
-  min-height:100vh;
+  display: flex;
+  min-height: 100vh;
+  flex-direction: row;
 }
 
 /* =========================
@@ -78,7 +79,6 @@ body[data-theme="light"] ::-webkit-scrollbar-thumb{
   display: flex;
   flex-direction: column;
   gap: 14px;
-  box-shadow: 0 0 32px rgba(44,64,120,0.12);
 }
 
 .brand{
@@ -206,8 +206,8 @@ body[data-theme="light"] ::-webkit-scrollbar-thumb{
 }
 
 .view {
-  width: 100%;
-  padding-bottom: 0;
+  max-width: 1200px;
+  margin: 0 auto;
 }
 
 /* =========================

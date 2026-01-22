@@ -499,10 +499,10 @@ function doLogout(showMsg = true) {
 
 function onLoggedOut() {
   $("roleBadge").textContent = "Inte inloggad";
-  show($("logoutBtn"), false);
-  show($("openSettingsView"), false);
-
-  qsa(".adminOnly").forEach((x) => (x.style.display = "none"));
+  // Visa alltid alla sidebar-knappar
+  $("logoutBtn").style.display = "";
+  $("openSettingsView").style.display = "";
+  qsa(".adminOnly").forEach((x) => (x.style.display = ""));
 
   switchView("authView");
   setActiveMenu("openChatView");
