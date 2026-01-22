@@ -99,6 +99,44 @@ mongoose.connection.on("error", (err) => {
 
 // ...resten av Server.js-koden följer här (fullt innehåll kopierat)...
 
+// ===================== API ENDPOINTS (MINIMUM FOR LOGIN/REGISTER/CATEGORIES) =====================
+
+// Dummy categories endpoint (replace with real DB logic if needed)
+app.get('/categories', (req, res) => {
+  res.json([
+    { id: 'demo', name: 'Demo' },
+    { id: 'law', name: 'Law' },
+    { id: 'tech', name: 'Tech' },
+    { id: 'cleaning', name: 'Cleaning' }
+  ]);
+});
+
+// Dummy user DB (replace with MongoDB logic)
+const users = [];
+
+// Register endpoint
+app.post('/register', async (req, res) => {
+  const { username, password, email } = req.body;
+  if (!username || !password) return sendError(res, 'Användarnamn och lösenord krävs', 400);
+  if (users.find(u => u.username === username)) return sendError(res, 'Användarnamnet är upptaget', 400);
+  const hash = await bcrypt.hash(password, 10);
+  const user = { id: users.length + 1, username, email, password: hash, role: 'user', createdAt: new Date() };
+  users.push(user);
+  res.json({ message: 'Registrering lyckades' });
+});
+
+// Login endpoint
+app.post('/login', async (req, res) => {
+  const { username, password } = req.body;
+  const user = users.find(u => u.username === username);
+  if (!user) return sendError(res, 'Fel användarnamn eller lösenord', 401);
+  const ok = await bcrypt.compare(password, user.password);
+  if (!ok) return sendError(res, 'Fel användarnamn eller lösenord', 401);
+  // Issue dummy JWT (replace with real JWT logic)
+  const token = jwt.sign({ id: user.id, username: user.username, role: user.role }, process.env.JWT_SECRET || 'secret', { expiresIn: '1d' });
+  res.json({ token, user });
+});
+
 
 // Serve static files LAST to avoid interfering with API routes
 app.use(express.static(__dirname));
