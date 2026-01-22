@@ -1511,6 +1511,44 @@ app.get("/events", authenticate, requireAgentOrAdmin, async (req, res) => {
   });
 });
 
+
+
+/* =====================
+   ✅ SLA (MINIMAL) FIX ROUTES
+===================== */
+app.get("/admin/sla/overview", authenticate, requireAgentOrAdmin, async (req, res) => {
+  try {
+    const rangeDays = Math.max(1, Math.min(365, Number(req.query.days || 30)));
+    const since = new Date(Date.now() - rangeDays * 24 * 60 * 60 * 1000);
+
+    const tickets = await Ticket.find({ createdAt: { $gte: since } }).limit(10000);
+
+    // super basic KPI (så din frontend slutar klaga)
+    const totalTickets = tickets.length;
+    const open = tickets.filter(t => t.status === "open").length;
+    const pending = tickets.filter(t => t.status === "pending").length;
+    const solved = tickets.filter(t => t.status === "solved").length;
+
+    return res.json({
+      rangeDays,
+      totalTickets,
+      open,
+      pending,
+      solved,
+      byPriority: { low: 0, normal: 0, high: 0 },
+      firstResponse: { avgMs: null, medianMs: null, p90Ms: null, breaches: 0, compliancePct: null, atRisk: 0 },
+      resolution: { avgMs: null, medianMs: null, p90Ms: null, breaches: 0, compliancePct: null, atRisk: 0 },
+      trendWeeks: []
+    });
+
+  } catch (e) {
+    console.error("❌ SLA overview error:", e?.message || e);
+    return res.status(500).json({ error: "Serverfel vid SLA overview" });
+  }
+});
+
+
+
 /* ===================== ✅ JSON 404 for API routes ===================== */
 app.use((req, res, next) => {
   if (
