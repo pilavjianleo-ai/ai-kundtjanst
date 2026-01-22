@@ -100,6 +100,95 @@ mongoose.connection.on("error", (err) => {
 // ...resten av Server.js-koden följer här (fullt innehåll kopierat)...
 
 // ===================== API ENDPOINTS (MINIMUM FOR LOGIN/REGISTER/CATEGORIES) =====================
+// ===================== STUB ENDPOINTS FOR FRONTEND =====================
+
+// My tickets (dummy)
+app.get('/my/tickets', (req, res) => {
+  res.json([]);
+});
+app.get('/my/tickets/:id', (req, res) => {
+  res.json({ messages: [], title: 'Demo Ticket', status: 'open', priority: 'normal', createdAt: new Date() });
+});
+app.post('/my/tickets/:id/reply', (req, res) => {
+  res.json({ message: 'Reply saved' });
+});
+
+// Admin tickets (dummy)
+app.get('/admin/tickets', (req, res) => {
+  res.json([]);
+});
+app.get('/admin/tickets/:id', (req, res) => {
+  res.json({ messages: [], title: 'Admin Ticket', status: 'open', priority: 'normal', companyId: 'demo', createdAt: new Date(), internalNotes: [] });
+});
+app.post('/admin/tickets/:id/status', (req, res) => {
+  res.json({ message: 'Status updated' });
+});
+app.post('/admin/tickets/:id/priority', (req, res) => {
+  res.json({ message: 'Priority updated' });
+});
+app.post('/admin/tickets/:id/agent-reply', (req, res) => {
+  res.json({ message: 'Agent reply saved' });
+});
+app.post('/admin/tickets/:id/internal-note', (req, res) => {
+  res.json({ ticket: { internalNotes: [{ content: req.body.content, createdAt: new Date(), createdBy: 'admin' }] } });
+});
+app.delete('/admin/tickets/:id/internal-notes', (req, res) => {
+  res.json({ message: 'Notes cleared' });
+});
+app.post('/admin/tickets/:id/assign', (req, res) => {
+  res.json({ message: 'Assigned' });
+});
+app.delete('/admin/tickets/:id', (req, res) => {
+  res.json({ message: 'Deleted' });
+});
+app.post('/admin/tickets/solve-all', (req, res) => {
+  res.json({ message: 'All solved' });
+});
+app.post('/admin/tickets/remove-solved', (req, res) => {
+  res.json({ message: 'Removed solved' });
+});
+
+// Admin SLA (dummy)
+app.get('/admin/sla/overview', (req, res) => {
+  res.json({ totalTickets: 0, byPriority: { low: 0, normal: 0, high: 0 }, firstResponse: {}, resolution: {} });
+});
+app.get('/admin/sla/trend/weekly', (req, res) => {
+  res.json({ rows: [] });
+});
+app.get('/admin/sla/agents', (req, res) => {
+  res.json({ rows: [] });
+});
+app.get('/admin/sla/tickets', (req, res) => {
+  res.json({ rows: [] });
+});
+
+// Admin users (dummy)
+app.get('/admin/users', (req, res) => {
+  res.json([]);
+});
+app.post('/admin/users/:id/role', (req, res) => {
+  res.json({ message: 'Role updated' });
+});
+app.delete('/admin/users/:id', (req, res) => {
+  res.json({ message: 'User deleted' });
+});
+
+// KB (dummy)
+app.get('/kb/list/:companyId', (req, res) => {
+  res.json([]);
+});
+app.post('/kb/upload-text', (req, res) => {
+  res.json({ message: 'Text uploaded' });
+});
+app.post('/kb/upload-url', (req, res) => {
+  res.json({ message: 'URL uploaded' });
+});
+app.post('/kb/upload-pdf', (req, res) => {
+  res.json({ message: 'PDF uploaded' });
+});
+app.delete('/kb/:id', (req, res) => {
+  res.json({ message: 'KB deleted' });
+});
 
 // Dummy categories endpoint (replace with real DB logic if needed)
 app.get('/categories', (req, res) => {
