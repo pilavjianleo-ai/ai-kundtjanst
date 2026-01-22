@@ -529,28 +529,15 @@ async function onLoggedIn() {
   show($("logoutBtn"), true);
   show($("openSettingsView"), true);
 
-  const role = state.user?.role || "user";
+  // ALLA flikar visas alltid
+  show($("openAdminView"), true);
+  show($("openSlaView"), true);
+  show($("openInboxView"), true);
 
   $("roleBadge").textContent =
-    role === "user"
+    state.user?.username
       ? `Inloggad: ${state.user.username} • ID: ${String(state.user.id || state.user._id || "").slice(-6)}`
-      : `${state.user.username} (${role}) • ID: ${String(state.user.id || state.user._id || "").slice(-6)}`;
-
-
-  // Agent ser INTE admin-panel, admin ser allt
-  if (role === "admin") {
-    qsa(".adminOnly").forEach((x) => (x.style.display = ""));
-    show($("openAdminView"), true);
-    show($("openSlaView"), true);
-  } else if (role === "agent") {
-    qsa(".adminOnly").forEach((x) => (x.style.display = "none"));
-    show($("openAdminView"), false);
-    show($("openSlaView"), true);
-  } else {
-    qsa(".adminOnly").forEach((x) => (x.style.display = "none"));
-    show($("openAdminView"), false);
-    show($("openSlaView"), false);
-  }
+      : "Inte inloggad";
 
   switchView("chatView");
   setActiveMenu("openChatView");
