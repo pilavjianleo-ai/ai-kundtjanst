@@ -37,11 +37,12 @@ app.use(
     contentSecurityPolicy: {
       useDefaults: true,
       directives: {
-        "script-src": ["'self'", "'unsafe-inline'", "https://cdn.jsdelivr.net", "https://cdnjs.cloudflare.com"],
-        "script-src-elem": ["'self'", "'unsafe-inline'", "https://cdn.jsdelivr.net", "https://cdnjs.cloudflare.com"],
-        "style-src": ["'self'", "'unsafe-inline'", "https://cdnjs.cloudflare.com"],
-        "img-src": ["'self'", "data:", "https://cdnjs.cloudflare.com"],
-        "connect-src": ["'self'", "https://cdn.jsdelivr.net", "https://cdnjs.cloudflare.com"],
+          "script-src": ["'self'", "'unsafe-inline'", "'unsafe-hashes'", "https://cdn.jsdelivr.net", "https://cdnjs.cloudflare.com"],
+          "script-src-elem": ["'self'", "'unsafe-inline'", "'unsafe-hashes'", "https://cdn.jsdelivr.net", "https://cdnjs.cloudflare.com"],
+          "script-src-attr": ["'self'", "'unsafe-inline'", "'unsafe-hashes'", "https://cdn.jsdelivr.net", "https://cdnjs.cloudflare.com"],
+          "style-src": ["'self'", "'unsafe-inline'", "https://cdnjs.cloudflare.com"],
+          "img-src": ["'self'", "data:", "https://cdnjs.cloudflare.com"],
+          "connect-src": ["'self'", "https://cdn.jsdelivr.net", "https://cdnjs.cloudflare.com"],
       },
     },
   })
@@ -101,6 +102,16 @@ mongoose.connection.on("error", (err) => {
 
 // ===================== API ENDPOINTS (MINIMUM FOR LOGIN/REGISTER/CATEGORIES) =====================
 // ===================== STUB ENDPOINTS FOR FRONTEND =====================
+
+// /me endpoint (returns dummy user or empty)
+app.get('/me', (req, res) => {
+  res.json({ username: 'demo', role: 'user', email: 'demo@demo.se', id: 'demoid', createdAt: new Date() });
+});
+
+// /favicon.ico endpoint (returns empty icon)
+app.get('/favicon.ico', (req, res) => {
+  res.status(204).end();
+});
 
 // My tickets (dummy)
 app.get('/my/tickets', (req, res) => {
