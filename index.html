@@ -127,22 +127,35 @@
             <div class="grid2">
               <div>
                 <label>Användarnamn</label>
-                <input id="username" class="input" placeholder="t.ex. leo123" />
+            <input
+  id="username"
+  class="input"
+  placeholder="t.ex. leo123"
+  autocomplete="username"
+/>
               </div>
               <div>
                 <label>Email (för återställning)</label>
-                <input id="email" class="input" placeholder="email@exempel.se" />
+                <input
+  id="email"
+  class="input"
+  placeholder="email@exempel.se"
+  autocomplete="email"
+/>
+
               </div>
             </div>
 
             <label>Lösenord</label>
             <div class="passRow">
               <input
-                id="password"
-                type="password"
-                class="input"
-                placeholder="••••••••"
-              />
+  id="password"
+  type="password"
+  class="input"
+  placeholder="••••••••"
+  autocomplete="current-password"
+/>
+
               <button id="togglePassBtn" class="btn ghost small" type="button">
                 <i class="fa-solid fa-eye"></i>
               </button>
@@ -172,7 +185,13 @@
             <p class="muted">Skriv din email så skickas en återställningslänk.</p>
 
             <label>Email</label>
-            <input id="forgotEmail" class="input" placeholder="email@exempel.se" />
+           <input
+  id="forgotEmail"
+  class="input"
+  placeholder="email@exempel.se"
+  autocomplete="email"
+/>
+
 
             <div class="row gap">
               <button id="sendForgotBtn" class="btn primary" type="button">

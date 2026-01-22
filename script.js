@@ -1875,3 +1875,92 @@ function updateDebug(extra = {}) {
   $("dbgTicket").textContent = extra.ticketId || state.lastTicketId || "-";
   $("dbgRag").textContent = extra.ragUsed ? "JA" : "-";
 }
+
+/* =========================
+   SLA EXTRA UI (HTML match)
+   ✅ Compare mode (visuell hint)
+   ✅ Filters + sort för ticket-tabellen
+   ✅ Clear my stats / clear all stats (kopplar till backend om du vill)
+========================= */
+
+function getSlaCompareMode() {
+  return $("slaCompareMode")?.value || "none";
+}
+
+function applySlaTicketsFilters(rawRows) {
+  let rows = Array.isArray(rawRows) ? [...rawRows] : [];
+
+  const breachedMode = $("slaBreachedFilter")?.value || "all";
+  const breachType = $("slaBreachTypeFilter")?.value || "any";
+  const sortMode = $("slaSortTickets")?.value || "newest";
+
+  // Filter: breached only / ok only
+  if (breachedMode === "breachedOnly") {
+    rows = rows.filter((r) => r.sla?.breachedFirstResponse || r.sla?.breachedResolution);
+  } else if (breachedMode === "okOnly") {
+    rows = rows.filter((r) => !r.sla?.breachedFirstResponse && !r.sla?.breachedResolution);
+  }
+
+  // Filter: type
+  if (breachType === "first") {
+    rows = rows.filter((r) => r.sla?.breachedFirstResponse);
+  } else if (breachType === "resolution") {
+    rows = rows.filter((r) => r.sla?.breachedResolution);
+  }
+
+  // Sort
+  if (sortMode === "oldest") {
+    rows.sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
+  } else if (sortMode === "worstFirst") {
+    // "worst": prioriterar de som brutit både first+resolution
+    rows.sort((a, b) => {
+      const wa =
+        (a.sla?.breachedFirstResponse ? 2 : 0) +
+        (a.sla?.breachedResolution ? 2 : 0) +
+        (a.priority === "high" ? 1 : 0);
+      const wb =
+        (b.sla?.breachedFirstResponse ? 2 : 0) +
+        (b.sla?.breachedResolution ? 2 : 0) +
+        (b.priority === "high" ? 1 : 0);
+      return wb - wa;
+    });
+  } else {
+    rows.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+  }
+
+  return rows;
+}
+
+// Patch: renderSlaTickets ska ta hänsyn till filter
+const __origRenderSlaTickets = renderSlaTickets;
+renderSlaTickets = function (data) {
+  const rows = applySlaTicketsFilters(data?.rows || []);
+  return __origRenderSlaTickets({ ...data, rows });
+};
+
+// Bind events för filter/sort
+function bindSlaExtraUi() {
+  $("slaCompareMode")?.addEventListener("change", () => refreshSlaAll().catch(() => {}));
+  $("slaBreachedFilter")?.addEventListener("change", () => refreshSlaAll().catch(() => {}));
+  $("slaBreachTypeFilter")?.addEventListener("change", () => refreshSlaAll().catch(() => {}));
+  $("slaSortTickets")?.addEventListener("change", () => refreshSlaAll().catch(() => {}));
+
+  // Clear-knappar (safe)
+  $("slaClearMyStatsBtn")?.addEventListener("click", async () => {
+    alert(
+      "Denna knapp är kopplad i UI ✅\n\nFör att radera statistik behöver vi en backend-endpoint (t.ex. /admin/sla/clear-my).\nSäg till så fixar jag den."
+    );
+  });
+
+  $("slaClearAllStatsBtn")?.addEventListener("click", async () => {
+    alert(
+      "Denna knapp är kopplad i UI ✅\n\nFör att radera ALL statistik behöver vi en backend-endpoint (t.ex. /admin/sla/clear-all).\nSäg till så fixar jag den."
+    );
+  });
+}
+
+// Kör efter bindEvents (så vi inte påverkar annan init)
+document.addEventListener("DOMContentLoaded", () => {
+  bindSlaExtraUi();
+});
+

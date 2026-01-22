@@ -969,3 +969,9 @@ body[data-theme="light"] .toastMsg {
     box-shadow: 0 0 0 0 rgba(255, 59, 59, 0);
   }
 }
+ @media (max-width: 640px) {
+  #miniWidget {
+    left: 12px !important;
+    bottom: 90px !important; /* flyttar upp widgeten från composer */
+  }
+}

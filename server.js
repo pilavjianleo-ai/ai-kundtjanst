@@ -94,6 +94,11 @@ function msToPretty(ms) {
   return `${s}s`;
 }
 
+function pct(n) {
+  if (n == null || !Number.isFinite(n)) return null;
+  return Math.round(n * 10) / 10;
+}
+
 /* ===================== ✅ Models (User) ===================== */
 function makePublicId() {
   const s = crypto.randomBytes(4).toString("hex").toUpperCase();
@@ -227,11 +232,13 @@ function computeSlaForTicket(t, now = new Date()) {
     ? 0
     : Math.max(0, resolutionDueAt.getTime() - nowMs);
 
-  const breachedFirstResponse = firstResponseMs !== null ? firstResponseMs > limits.firstResponseLimitMs : false;
+  const breachedFirstResponse =
+    firstResponseMs !== null ? firstResponseMs > limits.firstResponseLimitMs : false;
 
   const effectiveRunningMs = solvedAt ? resolutionMs : calcEffectiveMsFromCreated(t, now, now);
 
-  const breachedResolution = effectiveRunningMs != null ? effectiveRunningMs > limits.resolutionLimitMs : false;
+  const breachedResolution =
+    effectiveRunningMs != null ? effectiveRunningMs > limits.resolutionLimitMs : false;
 
   const riskPct = 0.8;
 
@@ -368,12 +375,14 @@ async function ensureDefaultCategories() {
     {
       key: "law",
       name: "Juridik",
-      systemPrompt: "Du är en AI-kundtjänst för juridiska frågor på svenska. Ge allmän vägledning men inte juridisk rådgivning.",
+      systemPrompt:
+        "Du är en AI-kundtjänst för juridiska frågor på svenska. Ge allmän vägledning men inte juridisk rådgivning.",
     },
     {
       key: "tech",
       name: "Teknisk support",
-      systemPrompt: "Du är en AI-kundtjänst för teknisk support på svenska. Felsök steg-för-steg och ge konkreta lösningar.",
+      systemPrompt:
+        "Du är en AI-kundtjänst för teknisk support på svenska. Felsök steg-för-steg och ge konkreta lösningar.",
     },
     {
       key: "cleaning",
@@ -655,6 +664,7 @@ app.post("/login", async (req, res) => {
     },
   });
 });
+
 /* ===================== ✅ Change username/password ===================== */
 app.post("/auth/change-username", authenticate, async (req, res) => {
   try {
@@ -978,6 +988,7 @@ app.get("/admin/tickets", authenticate, requireAgentOrAdmin, async (req, res) =>
     if (status) query.status = status;
     if (companyId) query.companyId = companyId;
 
+    // ✅ Agent ser bara sina tickets
     if (dbUser?.role === "agent") query.assignedToUserId = dbUser._id;
 
     const tickets = await Ticket.find(query).sort({ lastActivityAt: -1 }).limit(500);
@@ -1117,6 +1128,29 @@ app.post("/admin/tickets/:ticketId/internal-note", authenticate, requireAgentOrA
     return res.json({ message: "Intern notering sparad ✅", ticket: t });
   } catch {
     return res.status(500).json({ error: "Serverfel vid intern notering" });
+  }
+});
+
+// ✅ FIX: script.js vill kunna rensa notes
+app.delete("/admin/tickets/:ticketId/internal-notes", authenticate, requireAgentOrAdmin, async (req, res) => {
+  try {
+    const dbUser = await getDbUser(req);
+    const t = await Ticket.findById(req.params.ticketId);
+    if (!t) return res.status(404).json({ error: "Ticket hittades inte" });
+
+    if (dbUser?.role === "agent" && String(t.assignedToUserId || "") !== String(dbUser._id)) {
+      return res.status(403).json({ error: "Du får bara rensa notes på dina egna tickets" });
+    }
+
+    t.internalNotes = [];
+    t.lastActivityAt = new Date();
+    safeEnsureSla(t);
+    await t.save();
+
+    return res.json({ message: "Notes rensade ✅", ticket: t });
+  } catch (e) {
+    console.error("❌ clear notes error:", e?.message || e);
+    return res.status(500).json({ error: "Serverfel vid rensa notes" });
   }
 });
 
@@ -1511,43 +1545,274 @@ app.get("/events", authenticate, requireAgentOrAdmin, async (req, res) => {
   });
 });
 
-
-
 /* =====================
-   ✅ SLA (MINIMAL) FIX ROUTES
+   ✅ SLA ROUTES (FULL FIX)
+   Matchar script.js endpoints 100%
 ===================== */
+
+function percentile(arr, p) {
+  if (!arr.length) return null;
+  const sorted = arr.slice().sort((a, b) => a - b);
+  const idx = Math.floor((p / 100) * (sorted.length - 1));
+  return sorted[idx];
+}
+
+function avg(arr) {
+  if (!arr.length) return null;
+  return arr.reduce((a, b) => a + b, 0) / arr.length;
+}
+
+function median(arr) {
+  if (!arr.length) return null;
+  const s = arr.slice().sort((a, b) => a - b);
+  const mid = Math.floor(s.length / 2);
+  return s.length % 2 ? s[mid] : (s[mid - 1] + s[mid]) / 2;
+}
+
+async function getScopedTicketsForSla(req, since) {
+  const dbUser = await getDbUser(req);
+  const query = { createdAt: { $gte: since } };
+
+  // ✅ Agent => bara sina assignade tickets
+  if (dbUser?.role === "agent") query.assignedToUserId = dbUser._id;
+
+  const tickets = await Ticket.find(query).limit(50000);
+  tickets.forEach((t) => safeEnsureSla(t));
+  return { tickets, dbUser };
+}
+
+function computeSlaStats(tickets) {
+  const totalTickets = tickets.length;
+
+  const open = tickets.filter((t) => t.status === "open").length;
+  const pending = tickets.filter((t) => t.status === "pending").length;
+  const solved = tickets.filter((t) => t.status === "solved").length;
+
+  const byPriority = {
+    low: tickets.filter((t) => (t.priority || "normal") === "low").length,
+    normal: tickets.filter((t) => (t.priority || "normal") === "normal").length,
+    high: tickets.filter((t) => (t.priority || "normal") === "high").length,
+  };
+
+  const firstArr = tickets.map((t) => t.sla?.firstResponseMs).filter((x) => Number.isFinite(x));
+  const resArr = tickets.map((t) => t.sla?.resolutionMs).filter((x) => Number.isFinite(x));
+
+  const firstBreaches = tickets.filter((t) => t.sla?.breachedFirstResponse).length;
+  const resBreaches = tickets.filter((t) => t.sla?.breachedResolution).length;
+
+  const firstCompliancePct = totalTickets ? ((totalTickets - firstBreaches) / totalTickets) * 100 : null;
+  const resCompliancePct = totalTickets ? ((totalTickets - resBreaches) / totalTickets) * 100 : null;
+
+  const firstAtRisk = tickets.filter((t) => t.sla?.firstResponseState === "at_risk").length;
+  const resAtRisk = tickets.filter((t) => t.sla?.resolutionState === "at_risk").length;
+
+  return {
+    totalTickets,
+    open,
+    pending,
+    solved,
+    byPriority,
+    firstResponse: {
+      avgMs: avg(firstArr),
+      medianMs: median(firstArr),
+      p90Ms: percentile(firstArr, 90),
+      breaches: firstBreaches,
+      compliancePct: firstCompliancePct != null ? pct(firstCompliancePct) : null,
+      atRisk: firstAtRisk,
+    },
+    resolution: {
+      avgMs: avg(resArr),
+      medianMs: median(resArr),
+      p90Ms: percentile(resArr, 90),
+      breaches: resBreaches,
+      compliancePct: resCompliancePct != null ? pct(resCompliancePct) : null,
+      atRisk: resAtRisk,
+    },
+  };
+}
+
 app.get("/admin/sla/overview", authenticate, requireAgentOrAdmin, async (req, res) => {
   try {
     const rangeDays = Math.max(1, Math.min(365, Number(req.query.days || 30)));
     const since = new Date(Date.now() - rangeDays * 24 * 60 * 60 * 1000);
 
-    const tickets = await Ticket.find({ createdAt: { $gte: since } }).limit(10000);
-
-    // super basic KPI (så din frontend slutar klaga)
-    const totalTickets = tickets.length;
-    const open = tickets.filter(t => t.status === "open").length;
-    const pending = tickets.filter(t => t.status === "pending").length;
-    const solved = tickets.filter(t => t.status === "solved").length;
+    const { tickets } = await getScopedTicketsForSla(req, since);
+    const stats = computeSlaStats(tickets);
 
     return res.json({
       rangeDays,
-      totalTickets,
-      open,
-      pending,
-      solved,
-      byPriority: { low: 0, normal: 0, high: 0 },
-      firstResponse: { avgMs: null, medianMs: null, p90Ms: null, breaches: 0, compliancePct: null, atRisk: 0 },
-      resolution: { avgMs: null, medianMs: null, p90Ms: null, breaches: 0, compliancePct: null, atRisk: 0 },
-      trendWeeks: []
+      ...stats,
     });
-
   } catch (e) {
     console.error("❌ SLA overview error:", e?.message || e);
     return res.status(500).json({ error: "Serverfel vid SLA overview" });
   }
 });
 
+app.get("/admin/sla/tickets", authenticate, requireAgentOrAdmin, async (req, res) => {
+  try {
+    const rangeDays = Math.max(1, Math.min(365, Number(req.query.days || 30)));
+    const since = new Date(Date.now() - rangeDays * 24 * 60 * 60 * 1000);
 
+    const { tickets } = await getScopedTicketsForSla(req, since);
+
+    const rows = tickets
+      .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+      .slice(0, 2000)
+      .map((t) => ({
+        ticketId: String(t._id),
+        companyId: t.companyId,
+        status: t.status,
+        priority: t.priority,
+        createdAt: t.createdAt,
+        lastActivityAt: t.lastActivityAt,
+        assignedToUserId: t.assignedToUserId,
+        agentUserId: t.agentUserId,
+        sla: t.sla || {},
+      }));
+
+    return res.json({ rangeDays, rows });
+  } catch (e) {
+    console.error("❌ SLA tickets error:", e?.message || e);
+    return res.status(500).json({ error: "Serverfel vid SLA tickets" });
+  }
+});
+
+app.get("/admin/sla/agents", authenticate, requireAgentOrAdmin, async (req, res) => {
+  try {
+    const rangeDays = Math.max(1, Math.min(365, Number(req.query.days || 30)));
+    const since = new Date(Date.now() - rangeDays * 24 * 60 * 60 * 1000);
+
+    const dbUser = await getDbUser(req);
+
+    // ✅ Agent ser bara sig själv
+    const usersQuery = dbUser?.role === "agent" ? { _id: dbUser._id } : { role: { $in: ["agent", "admin"] } };
+    const agents = await User.find(usersQuery).select("_id username role").limit(5000);
+
+    const rows = [];
+    for (const a of agents) {
+      const tickets = await Ticket.find({
+        createdAt: { $gte: since },
+        assignedToUserId: a._id,
+      }).limit(50000);
+
+      tickets.forEach((t) => safeEnsureSla(t));
+      const stats = computeSlaStats(tickets);
+
+      rows.push({
+        userId: String(a._id),
+        username: a.username,
+        role: a.role,
+        tickets: stats.totalTickets,
+        open: stats.open,
+        pending: stats.pending,
+        solved: stats.solved,
+        firstResponse: stats.firstResponse,
+        resolution: stats.resolution,
+      });
+    }
+
+    // sortera mest tickets först
+    rows.sort((x, y) => (y.tickets || 0) - (x.tickets || 0));
+
+    return res.json({ rangeDays, rows });
+  } catch (e) {
+    console.error("❌ SLA agents error:", e?.message || e);
+    return res.status(500).json({ error: "Serverfel vid SLA agents" });
+  }
+});
+
+app.get("/admin/sla/trend/weekly", authenticate, requireAgentOrAdmin, async (req, res) => {
+  try {
+    const rangeDays = Math.max(7, Math.min(365, Number(req.query.days || 30)));
+    const since = new Date(Date.now() - rangeDays * 24 * 60 * 60 * 1000);
+
+    const { tickets } = await getScopedTicketsForSla(req, since);
+
+    // group by ISO-week (YYYY-Www)
+    function isoWeekKey(d) {
+      const dt = new Date(d);
+      const tmp = new Date(Date.UTC(dt.getFullYear(), dt.getMonth(), dt.getDate()));
+      const dayNum = tmp.getUTCDay() || 7;
+      tmp.setUTCDate(tmp.getUTCDate() + 4 - dayNum);
+      const yearStart = new Date(Date.UTC(tmp.getUTCFullYear(), 0, 1));
+      const weekNo = Math.ceil((((tmp - yearStart) / 86400000) + 1) / 7);
+      return `${tmp.getUTCFullYear()}-W${String(weekNo).padStart(2, "0")}`;
+    }
+
+    const buckets = new Map(); // week -> tickets[]
+    for (const t of tickets) {
+      const k = isoWeekKey(t.createdAt);
+      if (!buckets.has(k)) buckets.set(k, []);
+      buckets.get(k).push(t);
+    }
+
+    const weeks = Array.from(buckets.keys()).sort();
+    const rows = weeks.map((w) => {
+      const arr = buckets.get(w) || [];
+      const stats = computeSlaStats(arr);
+      return {
+        week: w,
+        tickets: stats.totalTickets,
+        firstCompliancePct: stats.firstResponse.compliancePct,
+        resolutionCompliancePct: stats.resolution.compliancePct,
+      };
+    });
+
+    return res.json({ rangeDays, rows });
+  } catch (e) {
+    console.error("❌ SLA trend error:", e?.message || e);
+    return res.status(500).json({ error: "Serverfel vid SLA trend" });
+  }
+});
+
+app.get("/admin/sla/export/csv", authenticate, requireAgentOrAdmin, async (req, res) => {
+  try {
+    const rangeDays = Math.max(1, Math.min(365, Number(req.query.days || 30)));
+    const since = new Date(Date.now() - rangeDays * 24 * 60 * 60 * 1000);
+
+    const { tickets } = await getScopedTicketsForSla(req, since);
+
+    const header = [
+      "ticketId",
+      "companyId",
+      "status",
+      "priority",
+      "createdAt",
+      "assignedToUserId",
+      "firstResponseMs",
+      "resolutionMs",
+      "breachedFirstResponse",
+      "breachedResolution",
+    ].join(",");
+
+    const lines = tickets.slice(0, 50000).map((t) => {
+      const row = [
+        String(t._id),
+        String(t.companyId || ""),
+        String(t.status || ""),
+        String(t.priority || ""),
+        new Date(t.createdAt).toISOString(),
+        String(t.assignedToUserId || ""),
+        t.sla?.firstResponseMs ?? "",
+        t.sla?.resolutionMs ?? "",
+        t.sla?.breachedFirstResponse ? "1" : "0",
+        t.sla?.breachedResolution ? "1" : "0",
+      ];
+      return row.map((x) => `"${String(x).replaceAll('"', '""')}"`).join(",");
+    });
+
+    const csv = [header, ...lines].join("\n");
+
+    res.setHeader("Content-Type", "text/csv; charset=utf-8");
+    res.setHeader("Content-Disposition", `attachment; filename="sla_export_${rangeDays}d.csv"`);
+
+    return res.send(csv);
+  } catch (e) {
+    console.error("❌ SLA export csv error:", e?.message || e);
+    return res.status(500).json({ error: "Serverfel vid export csv" });
+  }
+});
 
 /* ===================== ✅ JSON 404 for API routes ===================== */
 app.use((req, res, next) => {
