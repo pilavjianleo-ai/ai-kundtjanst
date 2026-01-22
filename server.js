@@ -84,3 +84,7 @@ mongoose.connection.on("error", (err) => {
 });
 
 // ...resten av Server.js-koden följer här (fullt innehåll kopierat)...
+
+const PORT = process.env.PORT;
+app.listen(PORT, () => console.log(`✅ Servern körs på port ${PORT}`));
+console.log("✅ server.js reached end of file without crashing");
