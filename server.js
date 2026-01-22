@@ -30,8 +30,21 @@ async function fetchCompat(...args) {
 }
 
 const app = express();
+
 const helmet = require("helmet");
-app.use(helmet());
+app.use(
+  helmet({
+    contentSecurityPolicy: {
+      useDefaults: true,
+      directives: {
+        "script-src": ["'self'", "https://cdn.jsdelivr.net", "https://cdnjs.cloudflare.com"],
+        "script-src-elem": ["'self'", "https://cdn.jsdelivr.net", "https://cdnjs.cloudflare.com"],
+        "style-src": ["'self'", "'unsafe-inline'", "https://cdnjs.cloudflare.com"],
+        "img-src": ["'self'", "data:", "https://cdnjs.cloudflare.com"],
+      },
+    },
+  })
+);
 app.use(cors({ origin: true, credentials: true }));
 
 // Helper: Consistent error response
