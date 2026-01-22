@@ -41,7 +41,41 @@
         </div>
       </header>
       <section class="dashboard">
-        <div class="card highlight">
+        <!-- Modern chat-komponent -->
+        <div class="card chat-card">
+          <h2><i class="fa-solid fa-comments"></i> AI Chat</h2>
+          <div id="messages" class="chat-messages"></div>
+          <form id="chatForm" class="chat-form" autocomplete="off">
+            <input id="messageInput" class="chat-input" type="text" placeholder="Skriv ett meddelande..." autocomplete="off" />
+            <button id="sendBtn" class="btn primary" type="submit"><i class="fa-solid fa-paper-plane"></i></button>
+          </form>
+        </div>
+        <!-- SLA/KPI-dashboard -->
+        <div class="card sla-card">
+          <h2><i class="fa-solid fa-chart-line"></i> SLA & KPI</h2>
+          <div class="sla-dashboard">
+            <div class="sla-stats" id="slaStatsBox">
+              <!-- Statistik laddas här -->
+            </div>
+            <div class="sla-graph-area">
+              <canvas id="slaChart" height="120"></canvas>
+              <div class="sla-graph-controls">
+                <select id="slaDaysSelect">
+                  <option value="7">7 dagar</option>
+                  <option value="30" selected>30 dagar</option>
+                  <option value="90">90 dagar</option>
+                </select>
+                <button class="btn" id="slaExportCsvBtn"><i class="fa-solid fa-download"></i> Exportera CSV</button>
+              </div>
+            </div>
+          </div>
+          <div class="sla-table-area" id="slaTableBox">
+            <!-- Tabell med tickets/statistik -->
+          </div>
+        </div>
+        <!-- /SLA/KPI-dashboard -->
+        <!-- /Modern chat-komponent -->
+        <div class="card">
           <h2>Snabböversikt</h2>
           <div class="card-content">
             <div class="stat">
@@ -82,6 +116,15 @@
         </div>
       </section>
     </main>
+  </div>
+  <!-- Enkel debugpanel -->
+  <div id="debugPanel" style="position:fixed;bottom:0;left:0;right:0;z-index:9999;background:rgba(32,36,58,0.98);color:#fff;padding:8px 18px 6px 18px;font-size:0.98rem;box-shadow:0 -2px 16px #0005;display:none;">
+    <span><b>Användare:</b> <span id="dbgLogged">-</span></span>
+    <span style="margin-left:18px;"><b>Roll:</b> <span id="dbgRole">-</span></span>
+    <span style="margin-left:18px;"><b>Tickets:</b> <span id="dbgStats">-</span></span>
+    <span style="margin-left:18px;"><b>API:</b> <span id="dbgApi">-</span></span>
+    <span style="margin-left:18px;"><b>Token:</b> <span id="dbgToken">-</span></span>
+    <button id="toggleDebugBtn" class="btn ghost" style="float:right;margin-right:8px;">Stäng</button>
   </div>
   <script src="script.js"></script>
 </body>

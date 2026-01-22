@@ -210,25 +210,134 @@ function toast(msg) {
    INIT
 ========================= */
 document.addEventListener("DOMContentLoaded", () => {
-    // Widget: visa tips, genvägar, info
-    if (document.getElementById("miniWidget")) {
-      const w = document.getElementById("miniWidget");
-      w.innerHTML = `
-        <div style="background:var(--panel);border-radius:12px;padding:14px 18px;box-shadow:0 2px 12px #0002;min-width:220px;max-width:320px;">
-          <div style="font-weight:700;font-size:15px;margin-bottom:6px;">💡 Snabbhjälp</div>
-          <div class="muted small" style="margin-bottom:8px;">Tips: Testa att byta kategori, ställ frågor till AI, eller klicka på en genväg nedan.</div>
-          <button class="btn ghost small" style="margin-bottom:6px;" onclick="document.getElementById('openChatView').click()">Chatt</button>
-          <button class="btn ghost small" style="margin-bottom:6px;" onclick="document.getElementById('openMyTicketsView').click()">Mina ärenden</button>
-          <button class="btn ghost small" style="margin-bottom:6px;" onclick="document.getElementById('openSlaView').click()">SLA/KPI</button>
-          <button class="btn ghost small" style="margin-bottom:6px;" onclick="document.getElementById('openSettingsView').click()">Inställningar</button>
-          <div class="muted small" style="margin-top:10px;">Widgeten stör inte appen och kan enkelt döljas.</div>
-        </div>
-      `;
-    }
+  // Anpassad för nya chat-komponenten
   const savedTheme = localStorage.getItem(LS.theme);
   if (savedTheme) document.body.setAttribute("data-theme", savedTheme);
 
-  show($("debugPanel"), state.debug);
+  // Tema-toggle (mörk/ljust)
+  const themeBtn = document.querySelector('.fa-moon');
+  if (themeBtn) {
+    themeBtn.addEventListener('click', () => {
+      const cur = document.body.getAttribute('data-theme') || 'dark';
+      const next = cur === 'dark' ? 'light' : 'dark';
+      document.body.setAttribute('data-theme', next);
+      localStorage.setItem(LS.theme, next);
+    });
+  }
+
+  // Visa debugpanel om debug är aktivt
+  const debugPanel = document.getElementById("debugPanel");
+  if (debugPanel) debugPanel.style.display = state.debug ? "block" : "none";
+
+  // Chat-form hantering
+  const chatForm = document.getElementById("chatForm");
+  if (chatForm) {
+    chatForm.addEventListener("submit", function(e) {
+      e.preventDefault();
+      sendChat();
+    });
+  }
+
+  // Enter i input skickar också
+  const messageInput = document.getElementById("messageInput");
+  if (messageInput) {
+    messageInput.addEventListener("keydown", function(e) {
+      if (e.key === "Enter" && !e.shiftKey) {
+        e.preventDefault();
+        sendChat();
+      }
+    });
+  }
+
+  // Rendera ev. sparad konversation
+  renderConversation();
+
+  // SLA/KPI-dashboard: ladda och rendera direkt
+  if (document.getElementById("slaStatsBox")) {
+    renderSlaDashboard();
+    // Bind filter och export
+    const daysSelect = document.getElementById("slaDaysSelect");
+    if (daysSelect) daysSelect.addEventListener("change", renderSlaDashboard);
+    const exportBtn = document.getElementById("slaExportCsvBtn");
+    if (exportBtn) exportBtn.addEventListener("click", exportSlaCsvDashboard);
+  }
+// === SLA/KPI-dashboard-funktioner ===
+async function renderSlaDashboard() {
+  const statsBox = document.getElementById("slaStatsBox");
+  const tableBox = document.getElementById("slaTableBox");
+  const chartEl = document.getElementById("slaChart");
+  const days = Number(document.getElementById("slaDaysSelect")?.value || 30);
+  if (!statsBox || !tableBox || !chartEl) return;
+  statsBox.innerHTML = "<div class='muted small'>Laddar statistik...</div>";
+  tableBox.innerHTML = "<div class='muted small'>Laddar tabell...</div>";
+  // Hämta statistik från backend
+  const overview = await safeApi(`/admin/sla/overview?days=${days}`);
+  const trend = await safeApi(`/admin/sla/trend/weekly?days=${days}`);
+  const tickets = await safeApi(`/admin/sla/tickets?days=${days}`);
+  // Rendera statistik
+  if (overview) {
+    statsBox.innerHTML = `
+      <div><b>Totalt antal tickets:</b> ${overview.totalTickets ?? '-'}</div>
+      <div><b>First compliance:</b> ${overview.firstResponse?.compliancePct ?? '-'}%</div>
+      <div><b>Resolution compliance:</b> ${overview.resolution?.compliancePct ?? '-'}%</div>
+      <div><b>Brutna SLA (first):</b> ${overview.firstResponse?.breaches ?? '-'}</div>
+      <div><b>Brutna SLA (resolution):</b> ${overview.resolution?.breaches ?? '-'}</div>
+    `;
+  } else {
+    statsBox.innerHTML = "<div class='alert error'>Kunde inte ladda statistik.</div>";
+  }
+  // Rendera graf
+  if (trend && window.Chart) {
+    if (window._slaChart) window._slaChart.destroy();
+    window._slaChart = new Chart(chartEl.getContext('2d'), {
+      type: 'line',
+      data: {
+        labels: trend.labels,
+        datasets: [
+          { label: 'Tickets', data: trend.tickets, borderColor: '#5b8cff', backgroundColor: 'rgba(91,140,255,0.12)', fill: true },
+          { label: 'Brutna SLA', data: trend.breaches, borderColor: '#ff4d6d', backgroundColor: 'rgba(255,77,109,0.10)', fill: true }
+        ]
+      },
+      options: { responsive: true, plugins: { legend: { labels: { color: '#f4f6fa' } } }, scales: { x: { ticks: { color: '#a6abc6' } }, y: { ticks: { color: '#a6abc6' } } } }
+    });
+  } else if (chartEl) {
+    chartEl.getContext('2d').clearRect(0,0,chartEl.width,chartEl.height);
+  }
+  // Rendera tabell
+  if (tickets && Array.isArray(tickets.rows)) {
+    tableBox.innerHTML = `
+      <table><thead><tr><th>ID</th><th>Kategori</th><th>Status</th><th>Prio</th><th>Skapad</th><th>First</th><th>Res</th></tr></thead><tbody>
+      ${tickets.rows.slice(0, 100).map(r => `
+        <tr>
+          <td><span class='muted small'>${String(r.ticketId || r._id || '').slice(-8)}</span></td>
+          <td>${r.companyId || ''}</td>
+          <td>${r.status || ''}</td>
+          <td>${r.priority || ''}</td>
+          <td>${fmtDate(r.createdAt)}</td>
+          <td>${r.sla?.firstResponseMs != null ? msToPretty(r.sla.firstResponseMs) : '—'}</td>
+          <td>${r.sla?.resolutionMs != null ? msToPretty(r.sla.resolutionMs) : '—'}</td>
+        </tr>
+      `).join('')}</tbody></table>
+    `;
+  } else {
+    tableBox.innerHTML = "<div class='alert error'>Kunde inte ladda tabell.</div>";
+  }
+}
+
+function exportSlaCsvDashboard() {
+  const days = Number(document.getElementById("slaDaysSelect")?.value || 30);
+  const url = `/admin/sla/export/csv?days=${days}`;
+  fetch(url, { headers: { Authorization: `Bearer ${state.token}` } })
+    .then(r => { if (!r.ok) throw new Error("Kunde inte exportera CSV"); return r.blob(); })
+    .then(blob => {
+      const a = document.createElement("a");
+      a.href = URL.createObjectURL(blob);
+      a.download = `sla_export_${days}d.csv`;
+      a.click();
+      URL.revokeObjectURL(a.href);
+    })
+    .catch(() => alert("❌ Export misslyckades"));
+}
 
   bindEvents();
   boot();
@@ -317,12 +426,15 @@ function bindEvents() {
     localStorage.setItem(LS.theme, next);
   });
 
-  $("toggleDebugBtn")?.addEventListener("click", () => {
-    state.debug = !state.debug;
-    localStorage.setItem(LS.debug, state.debug ? "1" : "0");
-    show($("debugPanel"), state.debug);
-    updateDebug();
-  });
+  // Enkel toggling av debugpanel
+  const toggleBtn = document.getElementById("toggleDebugBtn");
+  if (toggleBtn && debugPanel) {
+    toggleBtn.onclick = () => {
+      state.debug = false;
+      localStorage.setItem(LS.debug, "0");
+      debugPanel.style.display = "none";
+    };
+  }
 
   $("loginBtn")?.addEventListener("click", doLogin);
   $("registerBtn")?.addEventListener("click", doRegister);
@@ -529,10 +641,34 @@ async function onLoggedIn() {
   show($("logoutBtn"), true);
   show($("openSettingsView"), true);
 
-  // ALLA flikar visas alltid
-  show($("openAdminView"), true);
-  show($("openSlaView"), true);
-  show($("openInboxView"), true);
+  // Rollstyrd navigation och vyer
+  const role = state.user?.role || "user";
+  // Dölj adminpanel och admin-knapp för agenter och vanliga användare
+  if (role === "agent" || role === "user") {
+    show($("openAdminView"), false);
+    // Dölj admin i sidebar om den finns
+    document.querySelectorAll('.sidebar-link').forEach(btn => {
+      if (btn.textContent?.toLowerCase().includes('admin')) btn.style.display = 'none';
+    });
+  } else {
+    show($("openAdminView"), true);
+    document.querySelectorAll('.sidebar-link').forEach(btn => {
+      if (btn.textContent?.toLowerCase().includes('admin')) btn.style.display = '';
+    });
+  }
+  // Agent ser bara sin statistik i SLA
+  if (role === "agent") {
+    show($("openSlaView"), true);
+    show($("openInboxView"), true);
+    // Visa endast agentens statistik i SLA-dashboard (handled i renderSlaDashboard)
+  } else if (role === "admin") {
+    show($("openSlaView"), true);
+    show($("openInboxView"), true);
+  } else {
+    // Vanlig användare ser inte SLA eller Inbox
+    show($("openSlaView"), false);
+    show($("openInboxView"), false);
+  }
 
   $("roleBadge").textContent =
     state.user?.username
@@ -782,6 +918,8 @@ function addMessageToUI(role, content) {
   wrap.appendChild(avatar);
   wrap.appendChild(bubbleWrap);
   $("messages")?.appendChild(wrap);
+  // Autoskrolla till botten när nytt meddelande läggs till
+  setTimeout(scrollMessagesToBottom, 50);
 }
 
 function renderConversation() {
@@ -2149,21 +2287,14 @@ async function changePassword() {
    DEBUG PANEL (FIXED END)
 ========================= */
 function updateDebug(extra = {}) {
-    // Visa statistik i debugPanel om finns
-    if ($("dbgStats") && state.user) {
-      $("dbgStats").innerHTML = `
-        <div><b>Tickets:</b> ${escapeHtml(String(state.myTicketsCount))}</div>
-        <div><b>Inbox:</b> ${escapeHtml(String(state.inboxOpenCount))}</div>
-        <div><b>Senaste ticket:</b> ${escapeHtml(state.lastTicketId || "-")}</div>
-      `;
-    }
-  if (!$("dbgApi")) return;
-
-  $("dbgApi").textContent = location.origin;
-  $("dbgLogged").textContent = state.token ? "JA" : "NEJ";
-  $("dbgRole").textContent = state.user?.role || "-";
-  $("dbgTicket").textContent = extra.ticketId || state.lastTicketId || "-";
-  $("dbgRag").textContent = extra.ragUsed ? "JA" : "-";
+  // Enkel debugpanel
+  if ($("dbgStats")) {
+    $("dbgStats").textContent = `${escapeHtml(String(state.myTicketsCount))} / Inbox: ${escapeHtml(String(state.inboxOpenCount))}`;
+  }
+  if ($("dbgApi")) $("dbgApi").textContent = location.origin;
+  if ($("dbgLogged")) $("dbgLogged").textContent = state.user?.username || "NEJ";
+  if ($("dbgRole")) $("dbgRole").textContent = state.user?.role || "-";
+  if ($("dbgToken")) $("dbgToken").textContent = state.token ? "JA" : "NEJ";
 }
 
 /* =========================

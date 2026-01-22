@@ -1,3 +1,188 @@
+/* === LIGHT THEME === */
+[data-theme="light"] {
+  --bg: #f4f6fa;
+  --bg2: #fff;
+  --sidebar: #e8eaf3;
+  --primary: #3a5edb;
+  --primary-dark: #2a3e8c;
+  --accent: #7f5fff;
+  --danger: #ff4d6d;
+  --ok: #37d67a;
+  --warn: #ffb020;
+  --text: #23283a;
+  --text-muted: #6a6f8c;
+  --border: rgba(0,0,0,0.08);
+  --shadow: 0 4px 32px rgba(0,0,0,0.08);
+}
+/* === SLUT LIGHT THEME === */
+/* === SLA/KPI DASHBOARD === */
+.sla-card {
+  display: flex;
+  flex-direction: column;
+  min-width: 340px;
+  max-width: 100%;
+  box-sizing: border-box;
+  gap: 18px;
+}
+.sla-dashboard {
+  display: flex;
+  gap: 24px;
+  flex-wrap: wrap;
+}
+.sla-stats {
+  min-width: 180px;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.sla-graph-area {
+  flex: 2;
+  min-width: 260px;
+  background: var(--bg2);
+  border-radius: 12px;
+  padding: 18px 18px 10px 18px;
+  box-shadow: 0 2px 8px #0002;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 10px;
+}
+.sla-graph-controls {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  margin-top: 8px;
+}
+.sla-table-area {
+  margin-top: 12px;
+  background: var(--bg2);
+  border-radius: 12px;
+  padding: 12px 10px;
+  box-shadow: 0 1px 6px #0001;
+  overflow-x: auto;
+}
+.sla-table-area table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.98rem;
+}
+.sla-table-area th, .sla-table-area td {
+  padding: 8px 10px;
+  border-bottom: 1px solid var(--border);
+  text-align: left;
+}
+.sla-table-area th {
+  color: var(--primary);
+  font-weight: 700;
+  background: var(--bg);
+}
+.sla-table-area tr:last-child td {
+  border-bottom: none;
+}
+/* === SLUT SLA/KPI DASHBOARD === */
+/* === CHAT-KOMPONENT === */
+.chat-card {
+  display: flex;
+  flex-direction: column;
+  height: 480px;
+  min-width: 320px;
+  max-width: 100%;
+  box-sizing: border-box;
+}
+.chat-messages {
+  flex: 1;
+  overflow-y: auto;
+  background: var(--bg2);
+  border-radius: 12px;
+  padding: 18px 14px 12px 14px;
+  margin-bottom: 12px;
+  box-shadow: 0 2px 8px #0002;
+  font-size: 1.05rem;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.chat-form {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+}
+.chat-input {
+  flex: 1;
+  padding: 12px 16px;
+  border-radius: var(--radius);
+  border: 1.5px solid var(--border);
+  background: var(--bg2);
+  color: var(--text);
+  font-size: 1rem;
+  outline: none;
+  transition: border var(--transition);
+}
+.chat-input:focus {
+  border-color: var(--primary);
+}
+.msg {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+}
+.msg.user .avatar {
+  background: var(--primary);
+  color: #fff;
+}
+.msg.assistant .avatar {
+  background: var(--accent);
+  color: #fff;
+}
+.avatar {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.3rem;
+  box-shadow: 0 1px 4px #0002;
+}
+.bubble {
+  background: var(--bg);
+  color: var(--text);
+  border-radius: 14px;
+  padding: 10px 16px;
+  max-width: 420px;
+  box-shadow: 0 1px 4px #0001;
+  font-size: 1rem;
+  word-break: break-word;
+}
+.msg.user .bubble {
+  background: var(--primary);
+  color: #fff;
+}
+.msg.assistant .bubble {
+  background: var(--bg);
+  color: var(--text);
+}
+.bubbleActions {
+  margin-top: 4px;
+  display: flex;
+  gap: 8px;
+}
+.actionBtn {
+  background: none;
+  border: none;
+  color: var(--primary);
+  cursor: pointer;
+  font-size: 0.95rem;
+  padding: 2px 8px;
+  border-radius: 8px;
+  transition: background var(--transition);
+}
+.actionBtn:hover {
+  background: var(--primary);
+  color: #fff;
+}
+/* === SLUT CHAT-KOMPONENT === */
 /* === MODERN PREMIUM UI STYLE === */
 :root {
   --bg: #181c24;
