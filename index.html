@@ -46,6 +46,10 @@
         <div class="dashboard">
           <div class="card chat-card">
             <h2><i class="fa-solid fa-comments"></i> AI Chat</h2>
+            <div style="margin-bottom:10px;">
+              <label for="categorySelect"><b>Välj kategori:</b></label>
+              <select id="categorySelect" style="margin-left:8px;"></select>
+            </div>
             <div id="messages" class="chat-messages"></div>
             <form id="chatForm" class="chat-form" autocomplete="off">
               <input id="messageInput" class="chat-input" type="text" placeholder="Skriv ett meddelande..." autocomplete="off" />
@@ -84,6 +88,10 @@
         <div class="dashboard">
           <div class="card">
             <h2><i class="fa-solid fa-inbox"></i> Inbox</h2>
+            <div style="margin-bottom:10px;">
+              <label for="inboxCategoryFilter"><b>Filtrera kategori:</b></label>
+              <select id="inboxCategoryFilter" style="margin-left:8px;"></select>
+            </div>
             <div id="inboxTicketsList"></div>
             <div id="ticketDetails"></div>
           </div>
@@ -115,6 +123,15 @@
         <div class="dashboard">
           <div class="card">
             <h2><i class="fa-solid fa-shield-halved"></i> Adminpanel</h2>
+            <div style="margin-bottom:16px;">
+              <h3>Kategorihantering</h3>
+              <button class="btn" id="catsRefreshBtn" style="margin-right:8px;"><i class="fa-solid fa-rotate"></i> Uppdatera</button>
+              <button class="btn" id="createCatBtn"><i class="fa-solid fa-plus"></i> Skapa ny kategori</button>
+              <div style="margin-top:10px;">
+                <label for="kbCategorySelect"><b>Välj kategori för KB:</b></label>
+                <select id="kbCategorySelect" style="margin-left:8px;"></select>
+              </div>
+            </div>
             <div id="adminUsersList"></div>
           </div>
         </div>

@@ -1,26 +1,4 @@
 // ...existing code...
-// === AI CHAT ENDPOINT ===
-app.post('/chat', async (req, res) => {
-  try {
-    const { conversation, companyId } = req.body;
-    // Om du har OpenAI-nyckel, använd riktig AI, annars dummy-svar
-    let reply = "Detta är ett testsvar från AI-kundtjänst.";
-    if (process.env.OPENAI_API_KEY && Array.isArray(conversation)) {
-      const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
-      const messages = conversation.map(m => ({ role: m.role === 'user' ? 'user' : 'assistant', content: m.content }));
-      const completion = await openai.chat.completions.create({
-        model: "gpt-3.5-turbo",
-        messages,
-        max_tokens: 256
-      });
-      reply = completion.choices?.[0]?.message?.content || reply;
-    }
-    res.json({ reply, ticketId: "demo-ticket-id" });
-  } catch (err) {
-    sendError(res, err, 500);
-  }
-});
-// ...existing code...
 // ...existing code...
 // server.js (FIXAD ORIGINALVERSION - CommonJS + Render Node 20)
 // ✅ MongoDB (dina gamla users funkar igen)
