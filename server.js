@@ -1,13 +1,3 @@
-// server.js (FULL FIXED + UPGRADED)
-// ✅ Agent kan INTE se Admin panel (blockas även i backend)
-// ✅ Agent kan se SLA som speglar sin statistik (backend filtrerar)
-// ✅ Alla användare får ett "publicId" (vänligt ID) + unikt idNumber
-// ✅ Edit AI kategori (Admin kan uppdatera name/systemPrompt)
-// ✅ Inbox highlight när ärende inkommer (SSE endpoint + notifier)
-// ✅ Widget endpoints (SSE + stats)
-// ✅ Buggfixar, bättre robusthet, tydligare API
-// ✅ Smidigt, du behöver bara ersätta denna fil
-
 require("dotenv").config();
 
 const express = require("express");
@@ -65,7 +55,7 @@ mongoose.connection.on("error", (err) => {
 });
 
 /* =====================
-   ✅ Helpers: safe sanitize
+   ✅ Helpers: sanitize
 ===================== */
 function cleanText(text) {
   return sanitizeHtml(text || "", { allowedTags: [], allowedAttributes: {} })
@@ -74,16 +64,20 @@ function cleanText(text) {
 }
 
 /* =====================
-   ✅ Models
-   - NEW: publicId + idNumber (alla users får ID)
+   ✅ IDs / Counters
+   - Users: publicId + idNumber
+   - Tickets: publicTicketId + ticketNumber
 ===================== */
 function makePublicId() {
-  // kort, vänligt ID: ex "USR-7F3K2P"
   const s = crypto.randomBytes(4).toString("hex").toUpperCase();
   return `USR-${s.slice(0, 6)}`;
 }
 
-// enkel auto-increment med counter collection
+function makePublicTicketId() {
+  const s = crypto.randomBytes(4).toString("hex").toUpperCase();
+  return `TCK-${s.slice(0, 6)}`;
+}
+
 const counterSchema = new mongoose.Schema({
   key: { type: String, unique: true, required: true },
   seq: { type: Number, default: 1000 },
@@ -99,13 +93,15 @@ async function nextSequence(key) {
   return r.seq;
 }
 
+/* =====================
+   ✅ Models
+===================== */
 const userSchema = new mongoose.Schema({
   username: { type: String, unique: true, required: true, index: true },
   email: { type: String, default: "", index: true },
   password: { type: String, required: true },
   role: { type: String, default: "user" }, // user | agent | admin
 
-  // ✅ NEW IDs
   publicId: { type: String, unique: true, index: true, default: "" },
   idNumber: { type: Number, unique: true, sparse: true, index: true, default: null },
 
@@ -115,11 +111,9 @@ const userSchema = new mongoose.Schema({
   createdAt: { type: Date, default: Date.now },
 });
 
-// ensure ids on save
 userSchema.pre("save", async function (next) {
   try {
     if (!this.publicId) {
-      // retry if collision
       let tries = 0;
       while (tries < 5) {
         const pid = makePublicId();
@@ -158,24 +152,14 @@ function slaLimitsForPriority(priority) {
   const MIN = 60 * 1000;
 
   if (priority === "high") {
-    return {
-      firstResponseLimitMs: 60 * MIN, // 1h
-      resolutionLimitMs: 24 * 60 * MIN, // 24h
-    };
+    return { firstResponseLimitMs: 60 * MIN, resolutionLimitMs: 24 * 60 * MIN };
   }
 
   if (priority === "low") {
-    return {
-      firstResponseLimitMs: 24 * 60 * MIN, // 24h
-      resolutionLimitMs: 7 * 24 * 60 * MIN, // 7 dagar
-    };
+    return { firstResponseLimitMs: 24 * 60 * MIN, resolutionLimitMs: 7 * 24 * 60 * MIN };
   }
 
-  // normal
-  return {
-    firstResponseLimitMs: 8 * 60 * MIN, // 8h
-    resolutionLimitMs: 3 * 24 * 60 * MIN, // 3 dagar
-  };
+  return { firstResponseLimitMs: 8 * 60 * MIN, resolutionLimitMs: 3 * 24 * 60 * MIN };
 }
 
 /* =====================
@@ -208,7 +192,6 @@ function msToPretty(ms) {
   return `${s}s`;
 }
 
-// ✅ pending pause SLA
 function calcPendingMs(t, now = new Date()) {
   const pendingTotal = Number(t.pendingTotalMs || 0);
   if (!t.pendingStartedAt) return pendingTotal;
@@ -226,9 +209,6 @@ function calcEffectiveMsFromCreated(t, endAt, now = new Date()) {
   return Math.max(0, total - paused);
 }
 
-/**
- * ✅ SLA Engine (UPGRADED)
- */
 function computeSlaForTicket(t, now = new Date()) {
   const limits = slaLimitsForPriority(t.priority || "normal");
   const createdAt = t.createdAt || now;
@@ -243,16 +223,13 @@ function computeSlaForTicket(t, now = new Date()) {
 
   const nowMs = now.getTime();
 
-  const firstResponseRemainingMs =
-    firstAgentReplyAt ? 0 : Math.max(0, firstResponseDueAt.getTime() - nowMs);
-
+  const firstResponseRemainingMs = firstAgentReplyAt ? 0 : Math.max(0, firstResponseDueAt.getTime() - nowMs);
   const resolutionRemainingMs = solvedAt ? 0 : Math.max(0, resolutionDueAt.getTime() - nowMs);
 
   const breachedFirstResponse =
     firstResponseMs !== null ? firstResponseMs > limits.firstResponseLimitMs : false;
 
   const effectiveRunningMs = solvedAt ? resolutionMs : calcEffectiveMsFromCreated(t, now, now);
-
   const breachedResolution =
     effectiveRunningMs != null ? effectiveRunningMs > limits.resolutionLimitMs : false;
 
@@ -317,7 +294,7 @@ function safeEnsureSla(t) {
 }
 
 /* =====================
-   ✅ Math helpers
+   ✅ KPI helpers
 ===================== */
 function avg(arr) {
   const a = (arr || []).filter((x) => typeof x === "number" && Number.isFinite(x));
@@ -362,7 +339,7 @@ function toCsv(rows) {
 }
 
 /* =====================
-   ✅ Ticket model
+   ✅ Ticket Model
 ===================== */
 const ticketSchema = new mongoose.Schema({
   userId: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true },
@@ -370,6 +347,9 @@ const ticketSchema = new mongoose.Schema({
   status: { type: String, default: "open" }, // open | pending | solved
   priority: { type: String, default: "normal" }, // low | normal | high
   title: { type: String, default: "" },
+
+  publicTicketId: { type: String, unique: true, index: true, default: "" },
+  ticketNumber: { type: Number, unique: true, sparse: true, index: true, default: null },
 
   assignedToUserId: { type: mongoose.Schema.Types.ObjectId, ref: "User", default: null },
   agentUserId: { type: mongoose.Schema.Types.ObjectId, ref: "User", default: null },
@@ -388,43 +368,44 @@ const ticketSchema = new mongoose.Schema({
   pendingStartedAt: { type: Date, default: null },
   pendingTotalMs: { type: Number, default: 0 },
 
-  sla: {
-    firstResponseMs: { type: Number, default: null },
-    resolutionMs: { type: Number, default: null },
-    breachedFirstResponse: { type: Boolean, default: false },
-    breachedResolution: { type: Boolean, default: false },
-    firstResponseLimitMs: { type: Number, default: null },
-    resolutionLimitMs: { type: Number, default: null },
-
-    firstResponseDueAt: { type: Date, default: null },
-    resolutionDueAt: { type: Date, default: null },
-    firstResponseRemainingMs: { type: Number, default: null },
-    resolutionRemainingMs: { type: Number, default: null },
-    effectiveRunningMs: { type: Number, default: null },
-    pendingTotalMs: { type: Number, default: 0 },
-
-    firstResponseState: { type: String, default: "" },
-    resolutionState: { type: String, default: "" },
-
-    pretty: {
-      firstResponse: { type: String, default: "" },
-      resolution: { type: String, default: "" },
-      pendingTotal: { type: String, default: "" },
-      effectiveRunning: { type: String, default: "" },
-      firstRemaining: { type: String, default: "" },
-      resolutionRemaining: { type: String, default: "" },
-    },
-  },
+  sla: Object,
 
   messages: [messageSchema],
   lastActivityAt: { type: Date, default: Date.now },
   createdAt: { type: Date, default: Date.now },
 });
+
 ticketSchema.index({ createdAt: -1 });
 ticketSchema.index({ lastActivityAt: -1 });
 ticketSchema.index({ status: 1, createdAt: -1 });
 ticketSchema.index({ assignedToUserId: 1, createdAt: -1 });
 ticketSchema.index({ companyId: 1, createdAt: -1 });
+
+ticketSchema.pre("save", async function (next) {
+  try {
+    if (!this.publicTicketId) {
+      let tries = 0;
+      while (tries < 5) {
+        const pid = makePublicTicketId();
+        const exists = await mongoose.models.Ticket.findOne({ publicTicketId: pid }).select("_id");
+        if (!exists) {
+          this.publicTicketId = pid;
+          break;
+        }
+        tries++;
+      }
+      if (!this.publicTicketId) this.publicTicketId = makePublicTicketId();
+    }
+
+    if (this.ticketNumber == null) {
+      const n = await nextSequence("tickets");
+      this.ticketNumber = n;
+    }
+    next();
+  } catch (e) {
+    next(e);
+  }
+});
 
 const Ticket = mongoose.model("Ticket", ticketSchema);
 
@@ -501,7 +482,7 @@ async function ensureDefaultCategories() {
 ensureDefaultCategories().catch((e) => console.error("❌ ensureDefaultCategories error:", e));
 
 /* =====================
-   ✅ OpenAI (UPGRADED prompt style)
+   ✅ OpenAI
 ===================== */
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
@@ -679,7 +660,6 @@ function createTransport() {
 
 /* =====================
    ✅ INBOX REALTIME (SSE)
-   - inbox ska highlightas när ärende inkommer
 ===================== */
 const sseClients = new Map(); // userId -> Set(res)
 function sseAddClient(userId, res) {
@@ -704,14 +684,16 @@ function sseSendToUser(userId, event, payload) {
 }
 
 /* =====================
-   ✅ ROUTES
+   ✅ ROUTES BASIC
 ===================== */
 app.get("/", (req, res) => res.sendFile(path.join(__dirname, "index.html")));
 app.get("/favicon.ico", (req, res) => res.status(204).end());
+app.get("/health", (req, res) => res.json({ ok: true, now: new Date().toISOString() }));
 
 app.get("/me", authenticate, async (req, res) => {
   const u = await User.findById(req.user.id).select("-password");
   if (!u) return res.status(404).json({ error: "User saknas" });
+
   return res.json({
     id: u._id,
     username: u.username,
@@ -736,7 +718,7 @@ app.post("/register", async (req, res) => {
       message: "Registrering lyckades",
       user: { id: u._id, username: u.username, role: u.role, publicId: u.publicId, idNumber: u.idNumber },
     });
-  } catch (e) {
+  } catch {
     return res.status(400).json({ error: "Användarnamn upptaget" });
   }
 });
@@ -752,13 +734,17 @@ app.post("/login", async (req, res) => {
   const token = jwt.sign({ id: u._id, username: u.username }, process.env.JWT_SECRET, { expiresIn: "7d" });
   return res.json({
     token,
-    user: { id: u._id, username: u.username, role: u.role, email: u.email || "", publicId: u.publicId, idNumber: u.idNumber },
+    user: {
+      id: u._id,
+      username: u.username,
+      role: u.role,
+      email: u.email || "",
+      publicId: u.publicId,
+      idNumber: u.idNumber,
+    },
   });
 });
 
-/* =====================
-   ✅ Change username/password
-===================== */
 app.post("/auth/change-username", authenticate, async (req, res) => {
   try {
     const { newUsername } = req.body || {};
@@ -799,9 +785,6 @@ app.post("/auth/change-password", authenticate, async (req, res) => {
   }
 });
 
-/* =====================
-   ✅ Forgot/Reset password
-===================== */
 app.post("/auth/forgot-password", async (req, res) => {
   try {
     const { email } = req.body || {};
@@ -896,10 +879,23 @@ app.get("/categories", async (req, res) => {
   }
 });
 
-/* =====================
-   ✅ ADMIN: Update category (EDIT)
-   - "gör så att man kan redigera en AI kategori"
-===================== */
+/* ✅ ADMIN: Create category */
+app.post("/admin/categories", authenticate, requireAdmin, async (req, res) => {
+  try {
+    const { key, name, systemPrompt } = req.body || {};
+    if (!key || !name) return res.status(400).json({ error: "key + name krävs" });
+
+    const exists = await Category.findOne({ key });
+    if (exists) return res.status(400).json({ error: "Kategori key finns redan" });
+
+    const c = await new Category({ key, name, systemPrompt: systemPrompt || "" }).save();
+    return res.json({ message: "Kategori skapad ✅", category: c });
+  } catch {
+    return res.status(500).json({ error: "Serverfel vid skapa kategori" });
+  }
+});
+
+/* ✅ ADMIN: Update category */
 app.put("/admin/categories/:key", authenticate, requireAdmin, async (req, res) => {
   try {
     const key = req.params.key;
@@ -912,15 +908,35 @@ app.put("/admin/categories/:key", authenticate, requireAdmin, async (req, res) =
     if (typeof systemPrompt === "string") c.systemPrompt = systemPrompt;
 
     await c.save();
-    return res.json({ message: "Kategori uppdaterad ✅", category: { key: c.key, name: c.name, systemPrompt: c.systemPrompt } });
-  } catch (e) {
-    console.error("❌ update category error:", e?.message || e);
+    return res.json({
+      message: "Kategori uppdaterad ✅",
+      category: { key: c.key, name: c.name, systemPrompt: c.systemPrompt },
+    });
+  } catch {
     return res.status(500).json({ error: "Serverfel vid uppdatera kategori" });
   }
 });
 
+/* ✅ ADMIN: Delete category */
+app.delete("/admin/categories/:key", authenticate, requireAdmin, async (req, res) => {
+  try {
+    const key = req.params.key;
+
+    if (["demo", "law", "tech", "cleaning"].includes(key)) {
+      return res.status(400).json({ error: "Default-kategorier kan inte raderas" });
+    }
+
+    const c = await Category.findOneAndDelete({ key });
+    if (!c) return res.status(404).json({ error: "Kategori hittades inte" });
+
+    return res.json({ message: "Kategori raderad ✅" });
+  } catch {
+    return res.status(500).json({ error: "Serverfel vid radera kategori" });
+  }
+});
+
 /* =====================
-   ✅ CHAT (ticket + RAG) (SMARTARE AI)
+   ✅ CHAT (ticket + RAG)
 ===================== */
 app.post("/chat", authenticate, async (req, res) => {
   try {
@@ -944,7 +960,6 @@ app.post("/chat", authenticate, async (req, res) => {
       if (!ticket.title) ticket.title = userQuery.slice(0, 60);
       ticket.lastActivityAt = new Date();
 
-      // ✅ If user replies while pending => resume SLA
       if (ticket.status === "pending" && ticket.pendingStartedAt) {
         const add = msBetween(ticket.pendingStartedAt, new Date()) || 0;
         ticket.pendingTotalMs = Number(ticket.pendingTotalMs || 0) + add;
@@ -955,8 +970,6 @@ app.post("/chat", authenticate, async (req, res) => {
       safeEnsureSla(ticket);
       await ticket.save();
 
-      // ✅ Notify agent inbox about NEW message (open ticket)
-      // send to assigned agent if any
       if (ticket.assignedToUserId) {
         sseSendToUser(String(ticket.assignedToUserId), "inbox:new", {
           ticketId: String(ticket._id),
@@ -972,8 +985,6 @@ app.post("/chat", authenticate, async (req, res) => {
     const systemPrompt = cat?.systemPrompt || "Du är en professionell och vänlig AI-kundtjänst på svenska.";
 
     const rag = await ragSearch(companyId, userQuery, 4);
-
-    // ✅ Smarter system message: proffsig, tydlig, välkomnar om ny konversation
     const isNewConversation = (ticket.messages || []).filter((m) => m.role === "user").length <= 1;
 
     const systemMessage = {
@@ -989,7 +1000,6 @@ app.post("/chat", authenticate, async (req, res) => {
           "- Ge steg-för-steg när det är tekniska problem.",
           "- Om du saknar info: be om exakt det du behöver.",
           isNewConversation ? "- Börja med en kort välkomstfras." : "",
-          rag.used ? "" : "",
           rag.used ? "Intern kunskapsdatabas (om relevant):" : "",
           rag.used ? rag.context : "",
         ]
@@ -1013,7 +1023,14 @@ app.post("/chat", authenticate, async (req, res) => {
     safeEnsureSla(ticket);
     await ticket.save();
 
-    return res.json({ reply, ticketId: ticket._id, ragUsed: rag.used, sources: rag.sources });
+    return res.json({
+      reply,
+      ticketId: ticket._id,
+      ragUsed: rag.used,
+      sources: rag.sources,
+      publicTicketId: ticket.publicTicketId,
+      ticketNumber: ticket.ticketNumber,
+    });
   } catch (e) {
     console.error("❌ Chat error:", e?.message || e);
     return res.status(500).json({ error: "Serverfel vid chat" });
@@ -1058,7 +1075,6 @@ app.post("/my/tickets/:ticketId/reply", authenticate, async (req, res) => {
     safeEnsureSla(t);
     await t.save();
 
-    // notify assigned agent
     if (t.assignedToUserId) {
       sseSendToUser(String(t.assignedToUserId), "inbox:new", {
         ticketId: String(t._id),
@@ -1077,1269 +1093,855 @@ app.post("/my/tickets/:ticketId/reply", authenticate, async (req, res) => {
 });
 
 /* =====================
-   ✅ ADMIN/AGENT: Inbox
-   ✅ Agent kan INTE se admin panel routes (backend skydd)
+   ✅ DEL 1 SLUTAR HÄR
+   Nästa meddelande = DEL 2/2
 ===================== */
+/* =====================
+   ✅ ADMIN/AGENT: SSE realtime events
+   (för inbox highlight + notis)
+===================== */
+app.get("/events", authenticate, async (req, res) => {
+  try {
+    const u = await User.findById(req.user.id);
+    if (!u) return res.status(404).end();
+
+    res.setHeader("Content-Type", "text/event-stream");
+    res.setHeader("Cache-Control", "no-cache");
+    res.setHeader("Connection", "keep-alive");
+    res.flushHeaders?.();
+
+    // registrera client
+    sseAddClient(String(u._id), res);
+
+    // ping så den inte dör i render/proxy
+    const ping = setInterval(() => {
+      try {
+        res.write(`event: ping\ndata: {"t":"${new Date().toISOString()}"}\n\n`);
+      } catch {}
+    }, 25000);
+
+    req.on("close", () => {
+      clearInterval(ping);
+      sseRemoveClient(String(u._id), res);
+    });
+  } catch {
+    return res.status(500).end();
+  }
+});
+
+/* =====================
+   ✅ ADMIN USERS (list + role + delete)
+===================== */
+app.get("/admin/users", authenticate, requireAgentOrAdmin, async (req, res) => {
+  try {
+    const dbUser = await getDbUser(req);
+    if (!dbUser) return res.status(401).json({ error: "Inte inloggad" });
+
+    // Agent får se endast agents/admin (för assign)
+    if (dbUser.role === "agent") {
+      const users = await User.find({ role: { $in: ["agent", "admin"] } }).select("-password").sort({ createdAt: -1 });
+      return res.json(users);
+    }
+
+    // Admin får se alla
+    const users = await User.find({}).select("-password").sort({ createdAt: -1 });
+    return res.json(users);
+  } catch {
+    return res.status(500).json({ error: "Serverfel users" });
+  }
+});
+
+app.post("/admin/users/:id/role", authenticate, requireAdmin, async (req, res) => {
+  try {
+    const { role } = req.body || {};
+    if (!["user", "agent", "admin"].includes(role)) return res.status(400).json({ error: "Ogiltig roll" });
+
+    const u = await User.findById(req.params.id);
+    if (!u) return res.status(404).json({ error: "User saknas" });
+
+    u.role = role;
+    await u.save();
+    return res.json({ message: "Roll uppdaterad ✅" });
+  } catch {
+    return res.status(500).json({ error: "Serverfel roll" });
+  }
+});
+
+app.delete("/admin/users/:id", authenticate, requireAdmin, async (req, res) => {
+  try {
+    if (String(req.user.id) === String(req.params.id)) {
+      return res.status(400).json({ error: "Du kan inte ta bort dig själv" });
+    }
+
+    await User.deleteOne({ _id: req.params.id });
+    return res.json({ message: "User borttagen ✅" });
+  } catch {
+    return res.status(500).json({ error: "Serverfel delete user" });
+  }
+});
+
+/* =====================
+   ✅ ADMIN/AGENT: Tickets (Inbox)
+   - Agent ser bara tickets assignedToUserId == agent
+   - Admin ser alla
+===================== */
+function buildTicketQueryForRole(dbUser, reqQuery) {
+  const q = {};
+  const status = reqQuery.status || "";
+  const companyId = reqQuery.companyId || "";
+
+  if (status) q.status = status;
+  if (companyId) q.companyId = companyId;
+
+  if (dbUser.role === "agent") {
+    q.assignedToUserId = dbUser._id;
+  }
+  return q;
+}
+
 app.get("/admin/tickets", authenticate, requireAgentOrAdmin, async (req, res) => {
   try {
     const dbUser = await getDbUser(req);
-    const { status, companyId } = req.query || {};
-    const query = {};
-    if (status) query.status = status;
-    if (companyId) query.companyId = companyId;
+    if (!dbUser) return res.status(401).json({ error: "Inte inloggad" });
 
-    if (dbUser?.role === "agent") query.assignedToUserId = dbUser._id;
+    const q = buildTicketQueryForRole(dbUser, req.query || {});
+    const tickets = await Ticket.find(q).sort({ lastActivityAt: -1 }).limit(400);
 
-    const tickets = await Ticket.find(query).sort({ lastActivityAt: -1 }).limit(500);
     tickets.forEach((t) => safeEnsureSla(t));
     return res.json(tickets);
   } catch {
-    return res.status(500).json({ error: "Serverfel vid inbox" });
+    return res.status(500).json({ error: "Serverfel tickets" });
   }
 });
 
 app.get("/admin/tickets/:ticketId", authenticate, requireAgentOrAdmin, async (req, res) => {
-  const dbUser = await getDbUser(req);
+  try {
+    const dbUser = await getDbUser(req);
+    if (!dbUser) return res.status(401).json({ error: "Inte inloggad" });
 
-  const t = await Ticket.findById(req.params.ticketId);
-  if (!t) return res.status(404).json({ error: "Ticket hittades inte" });
+    const t = await Ticket.findById(req.params.ticketId);
+    if (!t) return res.status(404).json({ error: "Ticket saknas" });
 
-  if (dbUser?.role === "agent" && String(t.assignedToUserId || "") !== String(dbUser._id)) {
-    return res.status(403).json({ error: "Du får bara se dina egna tickets" });
+    // Agent får endast öppna sina assigned tickets
+    if (dbUser.role === "agent" && String(t.assignedToUserId || "") !== String(dbUser._id)) {
+      return res.status(403).json({ error: "Inte behörig" });
+    }
+
+    safeEnsureSla(t);
+    return res.json(t);
+  } catch {
+    return res.status(500).json({ error: "Serverfel ticket details" });
   }
-
-  safeEnsureSla(t);
-  return res.json(t);
 });
 
-/* =====================
-   ✅ Pending timer logic
-===================== */
-function startPendingTimerIfNeeded(t) {
-  if (!t.pendingStartedAt) t.pendingStartedAt = new Date();
-}
-function stopPendingTimerIfNeeded(t) {
-  if (t.pendingStartedAt) {
-    const add = msBetween(t.pendingStartedAt, new Date()) || 0;
-    t.pendingTotalMs = Number(t.pendingTotalMs || 0) + add;
-    t.pendingStartedAt = null;
-  }
-}
-
-/* =====================
-   ✅ Ticket actions
-===================== */
 app.post("/admin/tickets/:ticketId/status", authenticate, requireAgentOrAdmin, async (req, res) => {
-  const { status } = req.body || {};
-  if (!["open", "pending", "solved"].includes(status)) return res.status(400).json({ error: "Ogiltig status" });
+  try {
+    const { status } = req.body || {};
+    if (!["open", "pending", "solved"].includes(status)) return res.status(400).json({ error: "Ogiltig status" });
 
-  const dbUser = await getDbUser(req);
+    const dbUser = await getDbUser(req);
+    const t = await Ticket.findById(req.params.ticketId);
+    if (!t) return res.status(404).json({ error: "Ticket saknas" });
 
-  const t = await Ticket.findById(req.params.ticketId);
-  if (!t) return res.status(404).json({ error: "Ticket hittades inte" });
+    if (dbUser.role === "agent" && String(t.assignedToUserId || "") !== String(dbUser._id)) {
+      return res.status(403).json({ error: "Inte behörig" });
+    }
 
-  if (dbUser?.role === "agent" && String(t.assignedToUserId || "") !== String(dbUser._id)) {
-    return res.status(403).json({ error: "Du får bara uppdatera dina egna tickets" });
+    const now = new Date();
+
+    // pending -> start pause timer
+    if (status === "pending" && t.status !== "pending") {
+      t.pendingStartedAt = now;
+    }
+
+    // leaving pending -> add paused
+    if (t.status === "pending" && status !== "pending" && t.pendingStartedAt) {
+      const add = msBetween(t.pendingStartedAt, now) || 0;
+      t.pendingTotalMs = Number(t.pendingTotalMs || 0) + add;
+      t.pendingStartedAt = null;
+    }
+
+    t.status = status;
+
+    if (status === "solved") {
+      t.solvedAt = now;
+    } else {
+      t.solvedAt = null;
+    }
+
+    t.lastActivityAt = now;
+    safeEnsureSla(t);
+    await t.save();
+
+    // log SLA stat when solved
+    if (status === "solved") {
+      const sla = computeSlaForTicket(t, now);
+      await new SLAStat({
+        scope: "ticket",
+        agentUserId: t.agentUserId || t.assignedToUserId || null,
+        ticketId: t._id,
+        createdAt: now,
+        firstResponseMs: sla.firstResponseMs,
+        resolutionMs: sla.resolutionMs,
+        breachedFirstResponse: sla.breachedFirstResponse,
+        breachedResolution: sla.breachedResolution,
+        priority: t.priority || "normal",
+        companyId: t.companyId || "",
+      }).save();
+    }
+
+    return res.json({ message: "Status uppdaterad ✅", ticket: t });
+  } catch (e) {
+    console.error("❌ status error:", e?.message || e);
+    return res.status(500).json({ error: "Serverfel status" });
   }
-
-  if (status === "pending") startPendingTimerIfNeeded(t);
-  if (status === "open") stopPendingTimerIfNeeded(t);
-
-  t.status = status;
-  t.lastActivityAt = new Date();
-
-  if (status === "solved" && !t.solvedAt) {
-    stopPendingTimerIfNeeded(t);
-    t.solvedAt = new Date();
-  }
-  if (status !== "solved") t.solvedAt = null;
-
-  safeEnsureSla(t);
-  await t.save();
-
-  await SLAStat.create({
-    scope: "ticket",
-    agentUserId: t.agentUserId || t.assignedToUserId || null,
-    ticketId: t._id,
-    createdAt: new Date(),
-    firstResponseMs: t.sla?.firstResponseMs ?? null,
-    resolutionMs: t.sla?.resolutionMs ?? null,
-    breachedFirstResponse: !!t.sla?.breachedFirstResponse,
-    breachedResolution: !!t.sla?.breachedResolution,
-    priority: t.priority || "normal",
-    companyId: t.companyId || "",
-  }).catch(() => {});
-
-  return res.json({ message: "Status uppdaterad ✅", ticket: t });
 });
 
 app.post("/admin/tickets/:ticketId/priority", authenticate, requireAgentOrAdmin, async (req, res) => {
-  const { priority } = req.body || {};
-  if (!["low", "normal", "high"].includes(priority)) return res.status(400).json({ error: "Ogiltig prioritet" });
+  try {
+    const { priority } = req.body || {};
+    if (!["low", "normal", "high"].includes(priority)) return res.status(400).json({ error: "Ogiltig prio" });
 
-  const dbUser = await getDbUser(req);
+    const dbUser = await getDbUser(req);
+    const t = await Ticket.findById(req.params.ticketId);
+    if (!t) return res.status(404).json({ error: "Ticket saknas" });
 
-  const t = await Ticket.findById(req.params.ticketId);
-  if (!t) return res.status(404).json({ error: "Ticket hittades inte" });
+    if (dbUser.role === "agent" && String(t.assignedToUserId || "") !== String(dbUser._id)) {
+      return res.status(403).json({ error: "Inte behörig" });
+    }
 
-  if (dbUser?.role === "agent" && String(t.assignedToUserId || "") !== String(dbUser._id)) {
-    return res.status(403).json({ error: "Du får bara ändra prio på dina egna tickets" });
+    t.priority = priority;
+    t.lastActivityAt = new Date();
+    safeEnsureSla(t);
+    await t.save();
+
+    return res.json({ message: "Prioritet uppdaterad ✅", ticket: t });
+  } catch {
+    return res.status(500).json({ error: "Serverfel prio" });
   }
-
-  t.priority = priority;
-  t.lastActivityAt = new Date();
-
-  safeEnsureSla(t);
-  await t.save();
-
-  return res.json({ message: "Prioritet uppdaterad ✅", ticket: t });
 });
 
 app.post("/admin/tickets/:ticketId/agent-reply", authenticate, requireAgentOrAdmin, async (req, res) => {
-  const { content } = req.body || {};
-  if (!content) return res.status(400).json({ error: "content saknas" });
+  try {
+    const { content } = req.body || {};
+    if (!content) return res.status(400).json({ error: "content saknas" });
 
-  const dbUser = await getDbUser(req);
+    const dbUser = await getDbUser(req);
+    const t = await Ticket.findById(req.params.ticketId);
+    if (!t) return res.status(404).json({ error: "Ticket saknas" });
 
-  const t = await Ticket.findById(req.params.ticketId);
-  if (!t) return res.status(404).json({ error: "Ticket hittades inte" });
+    if (dbUser.role === "agent" && String(t.assignedToUserId || "") !== String(dbUser._id)) {
+      return res.status(403).json({ error: "Inte behörig" });
+    }
 
-  if (dbUser?.role === "agent" && String(t.assignedToUserId || "") !== String(dbUser._id)) {
-    return res.status(403).json({ error: "Du får bara svara på dina egna tickets" });
+    const now = new Date();
+
+    t.messages.push({ role: "agent", content: cleanText(content), timestamp: now });
+    t.lastActivityAt = now;
+
+    // First agent reply time
+    if (!t.firstAgentReplyAt) {
+      t.firstAgentReplyAt = now;
+      t.agentUserId = dbUser._id;
+    }
+
+    // Ticket goes to pending after reply (vanligt)
+    if (t.status === "open") {
+      t.status = "pending";
+      t.pendingStartedAt = now;
+    }
+
+    safeEnsureSla(t);
+    await t.save();
+
+    return res.json({ message: "Svar skickat ✅", ticket: t });
+  } catch {
+    return res.status(500).json({ error: "Serverfel agent reply" });
   }
-
-  t.messages.push({ role: "agent", content: cleanText(content), timestamp: new Date() });
-
-  t.status = "pending";
-  t.lastActivityAt = new Date();
-  t.agentUserId = dbUser?._id || t.agentUserId || null;
-
-  if (!t.firstAgentReplyAt) t.firstAgentReplyAt = new Date();
-
-  startPendingTimerIfNeeded(t);
-
-  safeEnsureSla(t);
-  await t.save();
-
-  await SLAStat.create({
-    scope: "ticket",
-    agentUserId: t.agentUserId || t.assignedToUserId || null,
-    ticketId: t._id,
-    createdAt: new Date(),
-    firstResponseMs: t.sla?.firstResponseMs ?? null,
-    resolutionMs: t.sla?.resolutionMs ?? null,
-    breachedFirstResponse: !!t.sla?.breachedFirstResponse,
-    breachedResolution: !!t.sla?.breachedResolution,
-    priority: t.priority || "normal",
-    companyId: t.companyId || "",
-  }).catch(() => {});
-
-  // notify UI (agent himself)
-  sseSendToUser(String(dbUser._id), "inbox:update", { ticketId: String(t._id) });
-
-  return res.json({ message: "Agent-svar sparat ✅", ticket: t });
 });
 
-/* =====================
-   ✅ Internal notes
-===================== */
 app.post("/admin/tickets/:ticketId/internal-note", authenticate, requireAgentOrAdmin, async (req, res) => {
   try {
     const { content } = req.body || {};
-    if (!content) return res.status(400).json({ error: "Notering saknas" });
+    if (!content) return res.status(400).json({ error: "content saknas" });
 
     const dbUser = await getDbUser(req);
-
     const t = await Ticket.findById(req.params.ticketId);
-    if (!t) return res.status(404).json({ error: "Ticket hittades inte" });
+    if (!t) return res.status(404).json({ error: "Ticket saknas" });
 
-    if (dbUser?.role === "agent" && String(t.assignedToUserId || "") !== String(dbUser._id)) {
-      return res.status(403).json({ error: "Du får bara skriva notes på dina egna tickets" });
+    if (dbUser.role === "agent" && String(t.assignedToUserId || "") !== String(dbUser._id)) {
+      return res.status(403).json({ error: "Inte behörig" });
     }
 
-    t.internalNotes.push({ createdBy: req.user.id, content: cleanText(content) });
-    t.lastActivityAt = new Date();
-
-    safeEnsureSla(t);
+    t.internalNotes.push({ createdBy: dbUser._id, content: cleanText(content), createdAt: new Date() });
     await t.save();
 
-    return res.json({ message: "Intern notering sparad ✅", ticket: t });
+    return res.json({ message: "Note sparad ✅", ticket: t });
   } catch {
-    return res.status(500).json({ error: "Serverfel vid intern notering" });
+    return res.status(500).json({ error: "Serverfel note" });
   }
 });
 
-app.delete("/admin/tickets/:ticketId/internal-note/:noteId", authenticate, requireAdmin, async (req, res) => {
+app.delete("/admin/tickets/:ticketId/internal-notes", authenticate, requireAgentOrAdmin, async (req, res) => {
   try {
-    const { ticketId, noteId } = req.params;
+    const dbUser = await getDbUser(req);
+    const t = await Ticket.findById(req.params.ticketId);
+    if (!t) return res.status(404).json({ error: "Ticket saknas" });
 
-    const t = await Ticket.findById(ticketId);
-    if (!t) return res.status(404).json({ error: "Ticket hittades inte" });
-
-    t.internalNotes = (t.internalNotes || []).filter((n) => String(n._id) !== String(noteId));
-    t.lastActivityAt = new Date();
-
-    safeEnsureSla(t);
-    await t.save();
-
-    return res.json({ message: "Notering borttagen ✅", ticket: t });
-  } catch {
-    return res.status(500).json({ error: "Serverfel vid borttagning av note" });
-  }
-});
-
-app.delete("/admin/tickets/:ticketId/internal-notes", authenticate, requireAdmin, async (req, res) => {
-  try {
-    const { ticketId } = req.params;
-
-    const t = await Ticket.findById(ticketId);
-    if (!t) return res.status(404).json({ error: "Ticket hittades inte" });
+    if (dbUser.role === "agent" && String(t.assignedToUserId || "") !== String(dbUser._id)) {
+      return res.status(403).json({ error: "Inte behörig" });
+    }
 
     t.internalNotes = [];
-    t.lastActivityAt = new Date();
-
-    safeEnsureSla(t);
     await t.save();
 
-    return res.json({ message: "Alla noteringar borttagna ✅", ticket: t });
+    return res.json({ message: "Notes rensade ✅", ticket: t });
   } catch {
-    return res.status(500).json({ error: "Serverfel vid rensning av notes" });
+    return res.status(500).json({ error: "Serverfel clear notes" });
   }
 });
 
-/* =====================
-   ✅ Solve all / Remove solved (Admin only)
-===================== */
+/* ✅ Assign ticket to agent (admin + agent allowed) */
+app.post("/admin/tickets/:ticketId/assign", authenticate, requireAgentOrAdmin, async (req, res) => {
+  try {
+    const { userId } = req.body || {};
+    if (!userId) return res.status(400).json({ error: "userId saknas" });
+
+    const dbUser = await getDbUser(req);
+    const t = await Ticket.findById(req.params.ticketId);
+    if (!t) return res.status(404).json({ error: "Ticket saknas" });
+
+    // agent får bara assigna tickets som de själva har
+    if (dbUser.role === "agent" && String(t.assignedToUserId || "") !== String(dbUser._id)) {
+      return res.status(403).json({ error: "Inte behörig" });
+    }
+
+    const toUser = await User.findById(userId);
+    if (!toUser || (toUser.role !== "agent" && toUser.role !== "admin")) {
+      return res.status(400).json({ error: "Target user måste vara agent/admin" });
+    }
+
+    t.assignedToUserId = toUser._id;
+    t.lastActivityAt = new Date();
+    await t.save();
+
+    // realtime ping till nya agenten
+    sseSendToUser(String(toUser._id), "inbox:new", {
+      ticketId: String(t._id),
+      title: t.title || "",
+      companyId: t.companyId,
+      status: t.status,
+      lastActivityAt: t.lastActivityAt,
+    });
+
+    return res.json({ message: "Assigned ✅", ticket: t });
+  } catch {
+    return res.status(500).json({ error: "Serverfel assign" });
+  }
+});
+
+app.delete("/admin/tickets/:ticketId", authenticate, requireAdmin, async (req, res) => {
+  try {
+    await Ticket.deleteOne({ _id: req.params.ticketId });
+    return res.json({ message: "Ticket borttagen ✅" });
+  } catch {
+    return res.status(500).json({ error: "Serverfel delete ticket" });
+  }
+});
+
+/* ✅ Solve all / remove solved (Admin only) */
 app.post("/admin/tickets/solve-all", authenticate, requireAdmin, async (req, res) => {
   try {
-    const all = await Ticket.find({ status: { $in: ["open", "pending"] } }).limit(50000);
-
-    for (const t of all) {
-      stopPendingTimerIfNeeded(t);
+    const now = new Date();
+    const list = await Ticket.find({ status: { $ne: "solved" } }).limit(2000);
+    for (const t of list) {
       t.status = "solved";
-      t.lastActivityAt = new Date();
-      t.solvedAt = new Date();
+      t.solvedAt = now;
       safeEnsureSla(t);
       await t.save();
     }
-
-    return res.json({ message: `Solve ALL ✅ Uppdaterade ${all.length} tickets.` });
-  } catch (e) {
-    console.error("❌ Solve ALL error:", e?.message || e);
-    return res.status(500).json({ error: "Serverfel vid Solve ALL" });
+    return res.json({ message: "Solve all ✅", count: list.length });
+  } catch {
+    return res.status(500).json({ error: "Serverfel solve all" });
   }
 });
 
 app.post("/admin/tickets/remove-solved", authenticate, requireAdmin, async (req, res) => {
   try {
     const r = await Ticket.deleteMany({ status: "solved" });
-    return res.json({ message: `Remove solved ✅ Tog bort ${r.deletedCount} tickets.` });
-  } catch (e) {
-    console.error("❌ Remove solved error:", e?.message || e);
-    return res.status(500).json({ error: "Serverfel vid Remove solved" });
-  }
-});
-
-/* =====================
-   ✅ Assign + Delete
-===================== */
-app.post("/admin/tickets/:ticketId/assign", authenticate, requireAgentOrAdmin, async (req, res) => {
-  const { userId } = req.body || {};
-  if (!userId) return res.status(400).json({ error: "userId saknas" });
-
-  const dbUser = await getDbUser(req);
-
-  const t = await Ticket.findById(req.params.ticketId);
-  if (!t) return res.status(404).json({ error: "Ticket hittades inte" });
-
-  if (dbUser?.role === "agent") return res.status(403).json({ error: "Endast admin kan assigna" });
-
-  t.assignedToUserId = userId;
-  t.lastActivityAt = new Date();
-
-  safeEnsureSla(t);
-  await t.save();
-
-  // notify new assignment
-  sseSendToUser(String(userId), "inbox:assigned", {
-    ticketId: String(t._id),
-    title: t.title || "",
-    companyId: t.companyId,
-    status: t.status,
-    lastActivityAt: t.lastActivityAt,
-  });
-
-  return res.json({ message: "Ticket assignad ✅", ticket: t });
-});
-
-app.delete("/admin/tickets/:ticketId", authenticate, requireAgentOrAdmin, async (req, res) => {
-  try {
-    const dbUser = await getDbUser(req);
-
-    const t = await Ticket.findById(req.params.ticketId);
-    if (!t) return res.status(404).json({ error: "Ticket hittades inte" });
-
-    if (dbUser?.role === "agent" && String(t.assignedToUserId || "") !== String(dbUser._id)) {
-      return res.status(403).json({ error: "Du får bara ta bort dina egna tickets" });
-    }
-
-    await Ticket.deleteOne({ _id: t._id });
-    return res.json({ message: "Ticket borttagen ✅" });
+    return res.json({ message: "Removed solved ✅", deleted: r.deletedCount || 0 });
   } catch {
-    return res.status(500).json({ error: "Serverfel vid borttagning av ticket" });
+    return res.status(500).json({ error: "Serverfel remove solved" });
   }
 });
 
 /* =====================
-   ✅ SLA / KPI / Trend endpoints (kept + improved)
+   ✅ SLA / KPI (Agent sees only their own)
 ===================== */
-function weekKey(d) {
-  const dt = new Date(d);
-  if (!dt || isNaN(dt.getTime())) return "unknown";
-  const onejan = new Date(dt.getFullYear(), 0, 1);
-  const day = Math.floor((dt - onejan) / (24 * 60 * 60 * 1000));
-  const week = Math.ceil((day + onejan.getDay() + 1) / 7);
-  return `${dt.getFullYear()}-W${String(week).padStart(2, "0")}`;
+function daysAgoDate(days) {
+  const d = new Date();
+  d.setDate(d.getDate() - days);
+  return d;
 }
 
-function dayKey(d) {
-  const dt = new Date(d);
-  if (!dt || isNaN(dt.getTime())) return "unknown";
-  const y = dt.getFullYear();
-  const m = String(dt.getMonth() + 1).padStart(2, "0");
-  const dd = String(dt.getDate()).padStart(2, "0");
-  return `${y}-${m}-${dd}`;
-}
-
-function buildTrendWeekly(tickets) {
-  const map = {};
-  for (const t of tickets) {
-    safeEnsureSla(t);
-    const wk = weekKey(t.createdAt);
-
-    if (!map[wk]) map[wk] = { week: wk, total: 0, firstOk: 0, resOk: 0 };
-    map[wk].total++;
-
-    const b1 = !!t.sla?.breachedFirstResponse;
-    const b2 = !!t.sla?.breachedResolution;
-
-    if (t.sla?.firstResponseMs != null && !b1) map[wk].firstOk++;
-    if (t.sla?.resolutionMs != null && !b2) map[wk].resOk++;
+function applyRoleScopeTickets(dbUser, baseQuery) {
+  const q = { ...baseQuery };
+  if (dbUser.role === "agent") {
+    q.assignedToUserId = dbUser._id;
   }
-
-  const rows = Object.values(map).sort((a, b) => String(a.week).localeCompare(String(b.week)));
-  return rows.map((r) => ({
-    week: r.week,
-    tickets: r.total,
-    firstCompliancePct: r.total ? Math.round((r.firstOk / r.total) * 100) : 0,
-    resolutionCompliancePct: r.total ? Math.round((r.resOk / r.total) * 100) : 0,
-  }));
+  return q;
 }
 
-function buildTrendDaily(tickets) {
-  const map = {};
-  for (const t of tickets) {
-    safeEnsureSla(t);
-    const dk = dayKey(t.createdAt);
-
-    if (!map[dk]) map[dk] = { day: dk, total: 0, firstOk: 0, resOk: 0 };
-    map[dk].total++;
-
-    const b1 = !!t.sla?.breachedFirstResponse;
-    const b2 = !!t.sla?.breachedResolution;
-
-    if (t.sla?.firstResponseMs != null && !b1) map[dk].firstOk++;
-    if (t.sla?.resolutionMs != null && !b2) map[dk].resOk++;
-  }
-
-  const rows = Object.values(map).sort((a, b) => String(a.day).localeCompare(String(b.day)));
-  return rows.map((r) => ({
-    day: r.day,
-    tickets: r.total,
-    firstCompliancePct: r.total ? Math.round((r.firstOk / r.total) * 100) : 0,
-    resolutionCompliancePct: r.total ? Math.round((r.resOk / r.total) * 100) : 0,
-  }));
-}
-
-function calcAgeingBuckets(openTickets) {
-  const now = Date.now();
-  const buckets = [
-    { key: "0-4h", from: 0, to: 4 * 3600 * 1000, count: 0 },
-    { key: "4-24h", from: 4 * 3600 * 1000, to: 24 * 3600 * 1000, count: 0 },
-    { key: "1-3d", from: 24 * 3600 * 1000, to: 3 * 24 * 3600 * 1000, count: 0 },
-    { key: "3-7d", from: 3 * 24 * 3600 * 1000, to: 7 * 24 * 3600 * 1000, count: 0 },
-    { key: "7d+", from: 7 * 24 * 3600 * 1000, to: Infinity, count: 0 },
-  ];
-
-  for (const t of openTickets) {
-    const age = now - new Date(t.createdAt).getTime();
-    const b = buckets.find((x) => age >= x.from && age < x.to);
-    if (b) b.count++;
-  }
-  return buckets;
-}
-
-function safePct(part, total) {
-  if (!total) return null;
-  return Math.round((part / total) * 100);
-}
-
+/* Overview: admin gets all, agent only own */
 app.get("/admin/sla/overview", authenticate, requireAgentOrAdmin, async (req, res) => {
   try {
+    const days = Number(req.query.days || 30);
     const dbUser = await getDbUser(req);
-    if (!dbUser) return res.status(403).json({ error: "User saknas" });
 
-    const rangeDays = Math.max(1, Math.min(365, Number(req.query.days || 30)));
-    const since = new Date(Date.now() - rangeDays * 24 * 60 * 60 * 1000);
+    const from = daysAgoDate(days);
+    const q = applyRoleScopeTickets(dbUser, { createdAt: { $gte: from } });
 
-    const query = { createdAt: { $gte: since } };
-    if (dbUser.role === "agent") query.assignedToUserId = dbUser._id;
-
-    const tickets = await Ticket.find(query).limit(9000);
+    const tickets = await Ticket.find(q).limit(5000);
     tickets.forEach((t) => safeEnsureSla(t));
 
-    const firstArr = tickets.map((t) => t.sla?.firstResponseMs).filter((x) => x != null);
-    const resArr = tickets.map((t) => t.sla?.resolutionMs).filter((x) => x != null);
+    const byP = { low: 0, normal: 0, high: 0 };
+    for (const t of tickets) byP[t.priority || "normal"] = (byP[t.priority || "normal"] || 0) + 1;
 
-    const breachesFirst = tickets.filter((t) => t.sla?.firstResponseMs != null && t.sla.breachedFirstResponse).length;
-    const breachesRes = tickets.filter((t) => t.sla?.effectiveRunningMs != null && t.sla.breachedResolution).length;
+    const firstMs = tickets.map((t) => t.sla?.firstResponseMs).filter((x) => typeof x === "number");
+    const resMs = tickets.map((t) => t.sla?.resolutionMs).filter((x) => typeof x === "number");
 
-    const complianceFirst = firstArr.length ? Math.round(((firstArr.length - breachesFirst) / firstArr.length) * 100) : null;
-    const complianceRes = resArr.length ? Math.round(((resArr.length - breachesRes) / resArr.length) * 100) : null;
+    const firstBreaches = tickets.filter((t) => t.sla?.breachedFirstResponse).length;
+    const resBreaches = tickets.filter((t) => t.sla?.breachedResolution).length;
 
-    const atRiskFirst = tickets.filter((t) => t.sla?.firstResponseState === "at_risk").length;
-    const atRiskRes = tickets.filter((t) => t.sla?.resolutionState === "at_risk").length;
-
-    const byPriority = { low: 0, normal: 0, high: 0 };
-    tickets.forEach((t) => {
-      byPriority[t.priority || "normal"] = (byPriority[t.priority || "normal"] || 0) + 1;
-    });
-
-    const trendWeeks = buildTrendWeekly(tickets);
+    const firstComp = tickets.length ? Math.round(((tickets.length - firstBreaches) / tickets.length) * 100) : null;
+    const resComp = tickets.length ? Math.round(((tickets.length - resBreaches) / tickets.length) * 100) : null;
 
     return res.json({
-      rangeDays,
       totalTickets: tickets.length,
-      byPriority,
-      trendWeeks,
-
+      byPriority: byP,
       firstResponse: {
-        avgMs: avg(firstArr),
-        medianMs: median(firstArr),
-        p90Ms: percentile(firstArr, 90),
-        breaches: breachesFirst,
-        compliancePct: complianceFirst,
-        atRisk: atRiskFirst,
+        avgMs: avg(firstMs),
+        medianMs: median(firstMs),
+        p90Ms: percentile(firstMs, 90),
+        breaches: firstBreaches,
+        compliancePct: firstComp,
       },
       resolution: {
-        avgMs: avg(resArr),
-        medianMs: median(resArr),
-        p90Ms: percentile(resArr, 90),
-        breaches: breachesRes,
-        compliancePct: complianceRes,
-        atRisk: atRiskRes,
+        avgMs: avg(resMs),
+        medianMs: median(resMs),
+        p90Ms: percentile(resMs, 90),
+        breaches: resBreaches,
+        compliancePct: resComp,
       },
     });
   } catch (e) {
     console.error("❌ SLA overview error:", e?.message || e);
-    return res.status(500).json({ error: "Serverfel vid SLA overview" });
+    return res.status(500).json({ error: "Serverfel SLA overview" });
   }
 });
 
+/* Agents table: admin gets everyone, agent sees only themselves */
+app.get("/admin/sla/agents", authenticate, requireAgentOrAdmin, async (req, res) => {
+  try {
+    const days = Number(req.query.days || 30);
+    const dbUser = await getDbUser(req);
+    const from = daysAgoDate(days);
+
+    let agents = [];
+    if (dbUser.role === "agent") {
+      agents = [dbUser];
+    } else {
+      agents = await User.find({ role: { $in: ["agent", "admin"] } }).select("-password");
+    }
+
+    const rows = [];
+    for (const ag of agents) {
+      const tq = { assignedToUserId: ag._id, createdAt: { $gte: from } };
+      const tickets = await Ticket.find(tq).limit(5000);
+      tickets.forEach((t) => safeEnsureSla(t));
+
+      const firstMs = tickets.map((t) => t.sla?.firstResponseMs).filter((x) => typeof x === "number");
+      const resMs = tickets.map((t) => t.sla?.resolutionMs).filter((x) => typeof x === "number");
+
+      const firstBreaches = tickets.filter((t) => t.sla?.breachedFirstResponse).length;
+      const resBreaches = tickets.filter((t) => t.sla?.breachedResolution).length;
+
+      const firstComp = tickets.length ? Math.round(((tickets.length - firstBreaches) / tickets.length) * 100) : null;
+      const resComp = tickets.length ? Math.round(((tickets.length - resBreaches) / tickets.length) * 100) : null;
+
+      rows.push({
+        userId: ag._id,
+        username: ag.username,
+        role: ag.role,
+        tickets: tickets.length,
+        open: tickets.filter((t) => t.status === "open").length,
+        pending: tickets.filter((t) => t.status === "pending").length,
+        solved: tickets.filter((t) => t.status === "solved").length,
+        firstResponse: { avgMs: avg(firstMs), compliancePct: firstComp },
+        resolution: { avgMs: avg(resMs), compliancePct: resComp },
+      });
+    }
+
+    rows.sort((a, b) => (b.tickets || 0) - (a.tickets || 0));
+    return res.json({ rows });
+  } catch {
+    return res.status(500).json({ error: "Serverfel SLA agents" });
+  }
+});
+
+/* Trend weekly */
+app.get("/admin/sla/trend/weekly", authenticate, requireAgentOrAdmin, async (req, res) => {
+  try {
+    const days = Number(req.query.days || 30);
+    const dbUser = await getDbUser(req);
+
+    const from = daysAgoDate(days);
+    const q = applyRoleScopeTickets(dbUser, { createdAt: { $gte: from } });
+    const tickets = await Ticket.find(q).limit(10000);
+
+    // grupp per vecka
+    const map = new Map();
+    for (const t of tickets) {
+      safeEnsureSla(t);
+      const dt = new Date(t.createdAt);
+      const y = dt.getFullYear();
+      const onejan = new Date(y, 0, 1);
+      const week = Math.ceil((((dt - onejan) / 86400000) + onejan.getDay() + 1) / 7);
+      const key = `${y}-V${week}`;
+
+      if (!map.has(key)) map.set(key, []);
+      map.get(key).push(t);
+    }
+
+    const rows = [];
+    for (const [week, arr] of map.entries()) {
+      const firstBreaches = arr.filter((t) => t.sla?.breachedFirstResponse).length;
+      const resBreaches = arr.filter((t) => t.sla?.breachedResolution).length;
+
+      const firstComp = arr.length ? Math.round(((arr.length - firstBreaches) / arr.length) * 100) : 0;
+      const resComp = arr.length ? Math.round(((arr.length - resBreaches) / arr.length) * 100) : 0;
+
+      rows.push({
+        week,
+        count: arr.length,
+        firstCompliancePct: firstComp,
+        resolutionCompliancePct: resComp,
+      });
+    }
+
+    rows.sort((a, b) => a.week.localeCompare(b.week));
+    return res.json({ rows });
+  } catch {
+    return res.status(500).json({ error: "Serverfel SLA trend" });
+  }
+});
+
+/* SLA Tickets list */
 app.get("/admin/sla/tickets", authenticate, requireAgentOrAdmin, async (req, res) => {
   try {
+    const days = Number(req.query.days || 30);
     const dbUser = await getDbUser(req);
-    if (!dbUser) return res.status(403).json({ error: "User saknas" });
+    const from = daysAgoDate(days);
 
-    const rangeDays = Math.max(1, Math.min(365, Number(req.query.days || 30)));
-    const since = new Date(Date.now() - rangeDays * 24 * 60 * 60 * 1000);
-
-    const query = { createdAt: { $gte: since } };
-    if (dbUser.role === "agent") query.assignedToUserId = dbUser._id;
-
-    const tickets = await Ticket.find(query).sort({ createdAt: -1 }).limit(6000);
+    const q = applyRoleScopeTickets(dbUser, { createdAt: { $gte: from } });
+    const tickets = await Ticket.find(q).sort({ createdAt: -1 }).limit(5000);
 
     const rows = tickets.map((t) => {
       safeEnsureSla(t);
       return {
-        ticketId: String(t._id),
+        ticketId: t.ticketNumber ? `#${t.ticketNumber}` : String(t._id),
+        _id: t._id,
+        publicTicketId: t.publicTicketId,
         companyId: t.companyId,
         status: t.status,
         priority: t.priority,
         createdAt: t.createdAt,
-        sla: t.sla,
-      };
-    });
-
-    return res.json({ rangeDays, count: rows.length, rows });
-  } catch (e) {
-    console.error("❌ SLA tickets error:", e?.message || e);
-    return res.status(500).json({ error: "Serverfel vid SLA tickets" });
-  }
-});
-
-app.get("/admin/sla/agents", authenticate, requireAgentOrAdmin, async (req, res) => {
-  try {
-    const dbUser = await getDbUser(req);
-    if (!dbUser) return res.status(403).json({ error: "User saknas" });
-
-    const rangeDays = Math.max(1, Math.min(365, Number(req.query.days || 30)));
-    const since = new Date(Date.now() - rangeDays * 24 * 60 * 60 * 1000);
-
-    const query = { createdAt: { $gte: since }, assignedToUserId: { $ne: null } };
-    if (dbUser.role === "agent") query.assignedToUserId = dbUser._id;
-
-    const tickets = await Ticket.find(query).limit(12000);
-    const users = await User.find({ role: { $in: ["agent", "admin"] } }).select("_id username role");
-
-    const map = {};
-    for (const t of tickets) {
-      safeEnsureSla(t);
-      const agentId = String(t.assignedToUserId);
-
-      if (!map[agentId]) {
-        map[agentId] = {
-          agentId,
-          tickets: 0,
-          pending: 0,
-          open: 0,
-          solved: 0,
-          firstArr: [],
-          resArr: [],
-          firstBreaches: 0,
-          resBreaches: 0,
-          firstRisk: 0,
-          resRisk: 0,
-        };
-      }
-
-      map[agentId].tickets++;
-      if (t.status === "pending") map[agentId].pending++;
-      if (t.status === "open") map[agentId].open++;
-      if (t.status === "solved") map[agentId].solved++;
-
-      if (t.sla?.firstResponseMs != null) {
-        map[agentId].firstArr.push(t.sla.firstResponseMs);
-        if (t.sla.breachedFirstResponse) map[agentId].firstBreaches++;
-      }
-      if (t.sla?.resolutionMs != null) {
-        map[agentId].resArr.push(t.sla.resolutionMs);
-        if (t.sla.breachedResolution) map[agentId].resBreaches++;
-      }
-
-      if (t.sla?.firstResponseState === "at_risk") map[agentId].firstRisk++;
-      if (t.sla?.resolutionState === "at_risk") map[agentId].resRisk++;
-    }
-
-    let rows = Object.values(map).map((s) => {
-      const u = users.find((x) => String(x._id) === String(s.agentId));
-      const firstCompliance = s.firstArr.length ? Math.round(((s.firstArr.length - s.firstBreaches) / s.firstArr.length) * 100) : null;
-      const resCompliance = s.resArr.length ? Math.round(((s.resArr.length - s.resBreaches) / s.resArr.length) * 100) : null;
-
-      return {
-        agentId: s.agentId,
-        username: u?.username || "(unknown)",
-        role: u?.role || "agent",
-        tickets: s.tickets,
-        open: s.open,
-        pending: s.pending,
-        solved: s.solved,
-        firstRisk: s.firstRisk,
-        resRisk: s.resRisk,
-        firstResponse: {
-          avgMs: avg(s.firstArr),
-          medianMs: median(s.firstArr),
-          p90Ms: percentile(s.firstArr, 90),
-          breaches: s.firstBreaches,
-          compliancePct: firstCompliance,
-        },
-        resolution: {
-          avgMs: avg(s.resArr),
-          medianMs: median(s.resArr),
-          p90Ms: percentile(s.resArr, 90),
-          breaches: s.resBreaches,
-          compliancePct: resCompliance,
+        assignedToUserId: t.assignedToUserId,
+        sla: {
+          firstResponseMs: t.sla?.firstResponseMs ?? null,
+          resolutionMs: t.sla?.resolutionMs ?? null,
+          breachedFirstResponse: !!t.sla?.breachedFirstResponse,
+          breachedResolution: !!t.sla?.breachedResolution,
+          firstResponseState: t.sla?.firstResponseState || "",
+          resolutionState: t.sla?.resolutionState || "",
         },
       };
     });
 
-    if (dbUser.role === "agent") rows = rows.filter((r) => String(r.agentId) === String(dbUser._id));
-
-    return res.json({ rangeDays, count: rows.length, rows });
-  } catch (e) {
-    console.error("❌ SLA agents error:", e?.message || e);
-    return res.status(500).json({ error: "Serverfel vid SLA agents" });
+    return res.json({ rows });
+  } catch {
+    return res.status(500).json({ error: "Serverfel SLA tickets" });
   }
 });
 
-app.get("/admin/sla/trend/weekly", authenticate, requireAgentOrAdmin, async (req, res) => {
+/* Export CSV */
+app.get("/admin/sla/export/csv", authenticate, requireAgentOrAdmin, async (req, res) => {
   try {
+    const days = Number(req.query.days || 30);
     const dbUser = await getDbUser(req);
-    const rangeDays = Math.max(1, Math.min(365, Number(req.query.days || 30)));
-    const since = new Date(Date.now() - rangeDays * 24 * 60 * 60 * 1000);
+    const from = daysAgoDate(days);
 
-    const query = { createdAt: { $gte: since } };
-    if (dbUser.role === "agent") query.assignedToUserId = dbUser._id;
-
-    const tickets = await Ticket.find(query).limit(12000);
-    const rows = buildTrendWeekly(tickets);
-
-    return res.json({ rangeDays, count: rows.length, rows });
-  } catch (e) {
-    console.error("❌ SLA trend weekly error:", e?.message || e);
-    return res.status(500).json({ error: "Serverfel vid SLA trend weekly" });
-  }
-});
-
-app.get("/admin/sla/trend/daily", authenticate, requireAgentOrAdmin, async (req, res) => {
-  try {
-    const dbUser = await getDbUser(req);
-    const rangeDays = Math.max(1, Math.min(120, Number(req.query.days || 30)));
-    const since = new Date(Date.now() - rangeDays * 24 * 60 * 60 * 1000);
-
-    const query = { createdAt: { $gte: since } };
-    if (dbUser.role === "agent") query.assignedToUserId = dbUser._id;
-
-    const tickets = await Ticket.find(query).limit(12000);
-    const rows = buildTrendDaily(tickets);
-    return res.json({ rangeDays, count: rows.length, rows });
-  } catch (e) {
-    console.error("❌ SLA trend daily error:", e?.message || e);
-    return res.status(500).json({ error: "Serverfel vid SLA trend daily" });
-  }
-});
-
-app.get("/admin/sla/kpi", authenticate, requireAgentOrAdmin, async (req, res) => {
-  try {
-    const dbUser = await getDbUser(req);
-    const rangeDays = Math.max(1, Math.min(365, Number(req.query.days || 30)));
-    const since = new Date(Date.now() - rangeDays * 24 * 60 * 60 * 1000);
-
-    const baseQuery = { createdAt: { $gte: since } };
-    if (dbUser.role === "agent") baseQuery.assignedToUserId = dbUser._id;
-
-    const tickets = await Ticket.find(baseQuery).limit(15000);
-    tickets.forEach((t) => safeEnsureSla(t));
-
-    const total = tickets.length;
-
-    const open = tickets.filter((t) => t.status === "open").length;
-    const pending = tickets.filter((t) => t.status === "pending").length;
-    const solved = tickets.filter((t) => t.status === "solved").length;
-
-    const breachedAny = tickets.filter((t) => t.sla?.breachedFirstResponse || t.sla?.breachedResolution).length;
-    const riskAny = tickets.filter((t) => t.sla?.firstResponseState === "at_risk" || t.sla?.resolutionState === "at_risk").length;
-
-    const firstArr = tickets.map((t) => t.sla?.firstResponseMs).filter((x) => x != null);
-    const resArr = tickets.map((t) => t.sla?.resolutionMs).filter((x) => x != null);
-
-    const byCategory = {};
-    for (const t of tickets) {
-      const k = t.companyId || "unknown";
-      if (!byCategory[k]) {
-        byCategory[k] = { companyId: k, total: 0, breached: 0, risk: 0, solved: 0, open: 0, pending: 0 };
-      }
-      byCategory[k].total++;
-      if (t.status === "solved") byCategory[k].solved++;
-      if (t.status === "open") byCategory[k].open++;
-      if (t.status === "pending") byCategory[k].pending++;
-      if (t.sla?.breachedFirstResponse || t.sla?.breachedResolution) byCategory[k].breached++;
-      if (t.sla?.firstResponseState === "at_risk" || t.sla?.resolutionState === "at_risk") byCategory[k].risk++;
-    }
-
-    const catRows = Object.values(byCategory).map((r) => ({
-      ...r,
-      breachedPct: safePct(r.breached, r.total),
-      solvedPct: safePct(r.solved, r.total),
-    }));
-
-    const activeTickets = tickets.filter((t) => t.status !== "solved");
-    const ageing = calcAgeingBuckets(activeTickets);
-
-    const solveRatePct = safePct(solved, total);
-
-    return res.json({
-      rangeDays,
-      totals: {
-        total,
-        open,
-        pending,
-        solved,
-        solveRatePct,
-      },
-      slaHealth: {
-        breachedAny,
-        breachedPct: safePct(breachedAny, total),
-        riskAny,
-        riskPct: safePct(riskAny, total),
-      },
-      distribution: {
-        firstResponse: {
-          avgMs: avg(firstArr),
-          medianMs: median(firstArr),
-          p90Ms: percentile(firstArr, 90),
-        },
-        resolution: {
-          avgMs: avg(resArr),
-          medianMs: median(resArr),
-          p90Ms: percentile(resArr, 90),
-        },
-      },
-      ageing,
-      byCategory: catRows.sort((a, b) => (b.total || 0) - (a.total || 0)),
-    });
-  } catch (e) {
-    console.error("❌ SLA KPI error:", e?.message || e);
-    return res.status(500).json({ error: "Serverfel vid SLA KPI" });
-  }
-});
-
-app.get("/admin/sla/compare", authenticate, requireAgentOrAdmin, async (req, res) => {
-  try {
-    const dbUser = await getDbUser(req);
-
-    const a = Math.max(1, Math.min(365, Number(req.query.a || 30)));
-    const b = Math.max(1, Math.min(365, Number(req.query.b || 7)));
-
-    async function build(days) {
-      const since = new Date(Date.now() - days * 24 * 60 * 60 * 1000);
-      const query = { createdAt: { $gte: since } };
-      if (dbUser.role === "agent") query.assignedToUserId = dbUser._id;
-
-      const tickets = await Ticket.find(query).limit(15000);
-      tickets.forEach((t) => safeEnsureSla(t));
-
-      const firstArr = tickets.map((t) => t.sla?.firstResponseMs).filter((x) => x != null);
-      const resArr = tickets.map((t) => t.sla?.resolutionMs).filter((x) => x != null);
-
-      const breachesFirst = tickets.filter((t) => t.sla?.firstResponseMs != null && t.sla.breachedFirstResponse).length;
-      const breachesRes = tickets.filter((t) => t.sla?.effectiveRunningMs != null && t.sla.breachedResolution).length;
-
-      const firstCompliance = firstArr.length ? Math.round(((firstArr.length - breachesFirst) / firstArr.length) * 100) : null;
-      const resCompliance = resArr.length ? Math.round(((resArr.length - breachesRes) / resArr.length) * 100) : null;
-
-      const atRiskFirst = tickets.filter((t) => t.sla?.firstResponseState === "at_risk").length;
-      const atRiskRes = tickets.filter((t) => t.sla?.resolutionState === "at_risk").length;
-
-      return {
-        rangeDays: days,
-        totalTickets: tickets.length,
-        firstResponse: {
-          avgMs: avg(firstArr),
-          medianMs: median(firstArr),
-          p90Ms: percentile(firstArr, 90),
-          breaches: breachesFirst,
-          compliancePct: firstCompliance,
-          atRisk: atRiskFirst,
-        },
-        resolution: {
-          avgMs: avg(resArr),
-          medianMs: median(resArr),
-          p90Ms: percentile(resArr, 90),
-          breaches: breachesRes,
-          compliancePct: resCompliance,
-          atRisk: atRiskRes,
-        },
-      };
-    }
-
-    const A = await build(a);
-    const B = await build(b);
-
-    return res.json({ a: A, b: B });
-  } catch (e) {
-    console.error("❌ SLA compare error:", e?.message || e);
-    return res.status(500).json({ error: "Serverfel vid compare" });
-  }
-});
-
-app.get("/admin/sla/export.csv", authenticate, requireAgentOrAdmin, async (req, res) => {
-  try {
-    const dbUser = await getDbUser(req);
-    const rangeDays = Math.max(1, Math.min(365, Number(req.query.days || 30)));
-    const since = new Date(Date.now() - rangeDays * 24 * 60 * 60 * 1000);
-
-    const query = { createdAt: { $gte: since } };
-    if (dbUser.role === "agent") query.assignedToUserId = dbUser._id;
-
-    const tickets = await Ticket.find(query).sort({ createdAt: -1 }).limit(10000);
+    const q = applyRoleScopeTickets(dbUser, { createdAt: { $gte: from } });
+    const tickets = await Ticket.find(q).sort({ createdAt: -1 }).limit(10000);
 
     const rows = tickets.map((t) => {
       safeEnsureSla(t);
       return {
-        ticketId: String(t._id),
-        companyId: t.companyId,
-        status: t.status,
-        priority: t.priority,
+        ticketNumber: t.ticketNumber || "",
+        publicTicketId: t.publicTicketId || "",
+        companyId: t.companyId || "",
+        status: t.status || "",
+        priority: t.priority || "",
+        createdAt: t.createdAt ? new Date(t.createdAt).toISOString() : "",
         assignedTo: t.assignedToUserId ? String(t.assignedToUserId) : "",
-        createdAt: t.createdAt?.toISOString?.() || "",
         firstResponseMs: t.sla?.firstResponseMs ?? "",
         resolutionMs: t.sla?.resolutionMs ?? "",
-        pendingTotalMs: t.sla?.pendingTotalMs ?? "",
-        effectiveRunningMs: t.sla?.effectiveRunningMs ?? "",
-        firstState: t.sla?.firstResponseState ?? "",
-        resState: t.sla?.resolutionState ?? "",
         breachedFirstResponse: t.sla?.breachedFirstResponse ? "YES" : "NO",
         breachedResolution: t.sla?.breachedResolution ? "YES" : "NO",
+        pendingTotalMs: t.sla?.pendingTotalMs ?? "",
       };
     });
 
     const csv = toCsv(rows);
-
     res.setHeader("Content-Type", "text/csv; charset=utf-8");
-    res.setHeader("Content-Disposition", `attachment; filename="sla_export_${rangeDays}d.csv"`);
+    res.setHeader("Content-Disposition", `attachment; filename="sla_export_${days}d.csv"`);
     return res.send(csv);
-  } catch (e) {
-    console.error("❌ SLA CSV export error:", e?.message || e);
-    return res.status(500).json({ error: "Serverfel vid SLA export CSV" });
-  }
-});
-
-app.get("/admin/sla/export/csv", authenticate, requireAgentOrAdmin, async (req, res) => {
-  req.url = "/admin/sla/export.csv";
-  return app._router.handle(req, res, () => {});
-});
-
-app.get("/admin/sla/ticket/:ticketId/live", authenticate, requireAgentOrAdmin, async (req, res) => {
-  try {
-    const t = await Ticket.findById(req.params.ticketId);
-    if (!t) return res.status(404).json({ error: "Ticket hittades inte" });
-
-    safeEnsureSla(t);
-    return res.json({
-      ticketId: String(t._id),
-      status: t.status,
-      priority: t.priority,
-      sla: t.sla,
-    });
   } catch {
-    return res.status(500).json({ error: "Serverfel vid live SLA" });
+    return res.status(500).json({ error: "Serverfel export csv" });
   }
 });
 
-app.get("/admin/sla/breached", authenticate, requireAgentOrAdmin, async (req, res) => {
+/* Clear stats:
+   - Agent: clears their SLAStat rows only
+   - Admin: clears all
+*/
+app.delete("/admin/sla/clear/my", authenticate, requireAgentOrAdmin, async (req, res) => {
   try {
     const dbUser = await getDbUser(req);
-    const rangeDays = Math.max(1, Math.min(365, Number(req.query.days || 30)));
-    const since = new Date(Date.now() - rangeDays * 24 * 60 * 60 * 1000);
+    if (!dbUser) return res.status(401).json({ error: "Inte inloggad" });
 
-    const query = { createdAt: { $gte: since } };
-    if (dbUser.role === "agent") query.assignedToUserId = dbUser._id;
-
-    const tickets = await Ticket.find(query).sort({ createdAt: -1 }).limit(10000);
-    tickets.forEach((t) => safeEnsureSla(t));
-
-    const breached = tickets.filter((t) => t.sla?.breachedFirstResponse || t.sla?.breachedResolution);
-
-    return res.json({
-      rangeDays,
-      count: breached.length,
-      rows: breached.map((t) => ({
-        ticketId: String(t._id),
-        companyId: t.companyId,
-        status: t.status,
-        priority: t.priority,
-        createdAt: t.createdAt,
-        sla: t.sla,
-      })),
-    });
+    await SLAStat.deleteMany({ agentUserId: dbUser._id });
+    return res.json({ message: "Din statistik rensad ✅" });
   } catch {
-    return res.status(500).json({ error: "Serverfel vid breached SLA" });
+    return res.status(500).json({ error: "Serverfel clear my stats" });
   }
 });
 
-app.post("/admin/sla/recalc/all", authenticate, requireAdmin, async (req, res) => {
+app.delete("/admin/sla/clear/all", authenticate, requireAdmin, async (req, res) => {
   try {
-    const tickets = await Ticket.find({}).limit(50000);
-    let updated = 0;
-
-    for (const t of tickets) {
-      safeEnsureSla(t);
-      await t.save().catch(() => {});
-      updated++;
-    }
-
-    return res.json({ message: `SLA recalculated ✅ (${updated} tickets)` });
+    await SLAStat.deleteMany({});
+    return res.json({ message: "ALL statistik rensad ✅" });
   } catch {
-    return res.status(500).json({ error: "Serverfel vid SLA recalc" });
-  }
-});
-
-app.post("/admin/sla/clear/all", authenticate, requireAdmin, async (req, res) => {
-  try {
-    const r = await SLAStat.deleteMany({});
-    return res.json({ message: `SLA statistik raderad ✅ (${r.deletedCount} rows)` });
-  } catch {
-    return res.status(500).json({ error: "Serverfel vid radera statistik" });
-  }
-});
-
-app.post("/admin/sla/clear/agent/:agentId", authenticate, requireAdmin, async (req, res) => {
-  try {
-    const agentId = req.params.agentId;
-    const r = await SLAStat.deleteMany({ agentUserId: agentId });
-    return res.json({ message: `Agent statistik raderad ✅ (${r.deletedCount} rows)` });
-  } catch {
-    return res.status(500).json({ error: "Serverfel vid radera agent statistik" });
+    return res.status(500).json({ error: "Serverfel clear all stats" });
   }
 });
 
 /* =====================
-   ✅ ADMIN: Users + roles
-   ✅ NEW: agent får inte lista ALLA users (endast admin)
-===================== */
-app.get("/admin/users", authenticate, requireAgentOrAdmin, async (req, res) => {
-  const dbUser = await getDbUser(req);
-  if (!dbUser) return res.status(403).json({ error: "User saknas" });
-
-  // ✅ Agent ska inte se admin panel info: begränsa listan (admin only full list)
-  if (dbUser.role === "agent") {
-    // agent ser bara sig själv + admins/agents (för assign-dropdown behövs egentligen admin)
-    const users = await User.find({ role: { $in: ["agent", "admin"] } })
-      .select("_id username role publicId idNumber createdAt email")
-      .sort({ createdAt: -1 })
-      .limit(2000);
-    return res.json(users);
-  }
-
-  const users = await User.find({}).select("-password").sort({ createdAt: -1 }).limit(2000);
-  return res.json(users);
-});
-
-app.post("/admin/users/:userId/role", authenticate, requireAdmin, async (req, res) => {
-  try {
-    const { role } = req.body || {};
-    if (!["user", "agent", "admin"].includes(role)) return res.status(400).json({ error: "Ogiltig roll" });
-
-    const targetId = req.params.userId;
-    const me = await User.findById(req.user.id);
-
-    if (!me || me.role !== "admin") return res.status(403).json({ error: "Admin krävs" });
-
-    const u = await User.findById(targetId);
-    if (!u) return res.status(404).json({ error: "User hittades inte" });
-
-    if (String(u._id) === String(me._id)) return res.status(400).json({ error: "Du kan inte ändra din egen roll." });
-
-    u.role = role;
-    await u.save();
-
-    return res.json({
-      message: "Roll uppdaterad ✅",
-      user: { id: u._id, username: u.username, role: u.role, publicId: u.publicId, idNumber: u.idNumber },
-    });
-  } catch {
-    return res.status(500).json({ error: "Serverfel vid roll-ändring" });
-  }
-});
-
-app.delete("/admin/users/:userId", authenticate, requireAdmin, async (req, res) => {
-  try {
-    const targetId = req.params.userId;
-
-    if (String(targetId) === String(req.user.id)) return res.status(400).json({ error: "Du kan inte ta bort dig själv." });
-
-    const u = await User.findById(targetId);
-    if (!u) return res.status(404).json({ error: "User hittades inte" });
-
-    await Ticket.deleteMany({ userId: targetId });
-    await Feedback.deleteMany({ userId: targetId });
-    await SLAStat.deleteMany({ agentUserId: targetId });
-
-    await User.deleteOne({ _id: targetId });
-
-    return res.json({ message: `Användaren ${u.username} togs bort ✅` });
-  } catch {
-    return res.status(500).json({ error: "Serverfel vid borttagning" });
-  }
-});
-
-/* =====================
-   ✅ ADMIN: Categories manager
-===================== */
-app.post("/admin/categories", authenticate, requireAdmin, async (req, res) => {
-  try {
-    const { key, name, systemPrompt } = req.body || {};
-    if (!key || !name) return res.status(400).json({ error: "key + name krävs" });
-
-    const exists = await Category.findOne({ key });
-    if (exists) return res.status(400).json({ error: "Kategori finns redan" });
-
-    await new Category({ key, name, systemPrompt: systemPrompt || "" }).save();
-    return res.json({ message: "Kategori skapad ✅" });
-  } catch {
-    return res.status(500).json({ error: "Serverfel vid skapa kategori" });
-  }
-});
-
-app.delete("/admin/categories/:key", authenticate, requireAdmin, async (req, res) => {
-  try {
-    const key = req.params.key;
-    if (["demo", "law", "tech", "cleaning"].includes(key)) {
-      return res.status(400).json({ error: "Default-kategorier kan inte tas bort" });
-    }
-
-    await Category.deleteOne({ key });
-    await KBChunk.deleteMany({ companyId: key });
-    await Ticket.deleteMany({ companyId: key });
-
-    return res.json({ message: `Kategori ${key} borttagen ✅` });
-  } catch {
-    return res.status(500).json({ error: "Serverfel vid delete kategori" });
-  }
-});
-
-/* =====================
-   ✅ ADMIN: KB Upload / List / Export
+   ✅ KB Endpoints
+   - list
+   - upload text/url/pdf
+   - export
+   - delete specific kb item ✅
 ===================== */
 app.get("/kb/list/:companyId", authenticate, requireAdmin, async (req, res) => {
-  const items = await KBChunk.find({ companyId: req.params.companyId, isDeleted: false })
-    .sort({ createdAt: -1 })
-    .limit(400);
-  return res.json(items);
+  try {
+    const companyId = req.params.companyId;
+    const items = await KBChunk.find({ companyId, isDeleted: false }).sort({ createdAt: -1 }).limit(600);
+    return res.json(items);
+  } catch {
+    return res.status(500).json({ error: "Serverfel KB list" });
+  }
 });
 
 app.post("/kb/upload-text", authenticate, requireAdmin, async (req, res) => {
   try {
     const { companyId, title, content } = req.body || {};
-    if (!companyId || !content) return res.status(400).json({ error: "companyId eller content saknas" });
+    if (!companyId || !content) return res.status(400).json({ error: "companyId + content krävs" });
 
     const chunks = chunkText(content);
     if (!chunks.length) return res.status(400).json({ error: "Ingen text att spara" });
 
-    let okCount = 0;
+    let created = 0;
     for (let i = 0; i < chunks.length; i++) {
       const emb = await createEmbedding(chunks[i]);
-      const embeddingOk = !!emb;
-      if (embeddingOk) okCount++;
-
       await new KBChunk({
         companyId,
         sourceType: "text",
-        sourceRef: "manual",
+        sourceRef: title || "Text",
         title: title || "Text",
         chunkIndex: i,
         content: chunks[i],
         embedding: emb || [],
-        embeddingOk,
+        embeddingOk: !!emb,
       }).save();
+      created++;
     }
 
-    return res.json({ message: `Text uppladdad ✅ (${chunks.length} chunks, embeddings: ${okCount}/${chunks.length})` });
+    return res.json({ message: `Uppladdat ✅ (${created} chunks)` });
   } catch (e) {
-    return res.status(500).json({ error: `Serverfel: ${e.message}` });
+    console.error("❌ upload-text:", e?.message || e);
+    return res.status(500).json({ error: "Serverfel upload text" });
   }
 });
 
 app.post("/kb/upload-url", authenticate, requireAdmin, async (req, res) => {
   try {
     const { companyId, url } = req.body || {};
-    if (!companyId || !url) return res.status(400).json({ error: "companyId eller url saknas" });
+    if (!companyId || !url) return res.status(400).json({ error: "companyId + url krävs" });
 
-    const text = await fetchUrlText(url);
-    const chunks = chunkText(text);
+    const txt = await fetchUrlText(url);
+    const chunks = chunkText(txt);
 
-    let okCount = 0;
+    let created = 0;
     for (let i = 0; i < chunks.length; i++) {
       const emb = await createEmbedding(chunks[i]);
-      const embeddingOk = !!emb;
-      if (embeddingOk) okCount++;
-
       await new KBChunk({
         companyId,
         sourceType: "url",
         sourceRef: url,
-        title: "URL",
+        title: url,
         chunkIndex: i,
         content: chunks[i],
         embedding: emb || [],
-        embeddingOk,
+        embeddingOk: !!emb,
       }).save();
+      created++;
     }
 
-    return res.json({ message: `URL uppladdad ✅ (${chunks.length} chunks, embeddings: ${okCount}/${chunks.length})` });
+    return res.json({ message: `URL uppladdad ✅ (${created} chunks)` });
   } catch (e) {
-    return res.status(500).json({ error: `Serverfel vid URL-upload: ${e.message}` });
+    console.error("❌ upload-url:", e?.message || e);
+    return res.status(500).json({ error: e?.message || "Serverfel upload url" });
   }
 });
 
 app.post("/kb/upload-pdf", authenticate, requireAdmin, async (req, res) => {
   try {
     const { companyId, filename, base64 } = req.body || {};
-    if (!companyId || !base64) return res.status(400).json({ error: "companyId eller base64 saknas" });
+    if (!companyId || !base64) return res.status(400).json({ error: "companyId + base64 krävs" });
 
-    const text = await extractPdfText(base64);
-    const chunks = chunkText(text);
+    const txt = await extractPdfText(base64);
+    const chunks = chunkText(txt);
 
-    let okCount = 0;
+    let created = 0;
     for (let i = 0; i < chunks.length; i++) {
       const emb = await createEmbedding(chunks[i]);
-      const embeddingOk = !!emb;
-      if (embeddingOk) okCount++;
-
       await new KBChunk({
         companyId,
         sourceType: "pdf",
-        sourceRef: filename || "pdf",
+        sourceRef: filename || "PDF",
         title: filename || "PDF",
         chunkIndex: i,
         content: chunks[i],
         embedding: emb || [],
-        embeddingOk,
+        embeddingOk: !!emb,
       }).save();
+      created++;
     }
 
-    return res.json({ message: `PDF uppladdad ✅ (${chunks.length} chunks, embeddings: ${okCount}/${chunks.length})` });
+    return res.json({ message: `PDF uppladdad ✅ (${created} chunks)` });
   } catch (e) {
-    return res.status(500).json({ error: `Serverfel vid PDF-upload: ${e.message}` });
+    console.error("❌ upload-pdf:", e?.message || e);
+    return res.status(500).json({ error: e?.message || "Serverfel upload pdf" });
+  }
+});
+
+/* ✅ Delete specific KB by id */
+app.delete("/kb/item/:id", authenticate, requireAdmin, async (req, res) => {
+  try {
+    const it = await KBChunk.findById(req.params.id);
+    if (!it) return res.status(404).json({ error: "KB item saknas" });
+
+    it.isDeleted = true;
+    await it.save();
+    return res.json({ message: "KB item borttagen ✅" });
+  } catch {
+    return res.status(500).json({ error: "Serverfel delete KB item" });
   }
 });
 
 app.get("/export/kb/:companyId", authenticate, requireAdmin, async (req, res) => {
-  const items = await KBChunk.find({ companyId: req.params.companyId }).sort({ createdAt: -1 });
-  res.setHeader("Content-Type", "application/json");
-  res.setHeader("Content-Disposition", `attachment; filename="kb_${req.params.companyId}.json"`);
-  return res.send(JSON.stringify(items, null, 2));
+  try {
+    const companyId = req.params.companyId;
+    const items = await KBChunk.find({ companyId, isDeleted: false }).sort({ createdAt: -1 }).limit(5000);
+
+    res.setHeader("Content-Type", "application/json");
+    res.setHeader("Content-Disposition", `attachment; filename="kb_${companyId}.json"`);
+    return res.send(JSON.stringify(items, null, 2));
+  } catch {
+    return res.status(500).json({ error: "Serverfel export KB" });
+  }
 });
 
 /* =====================
-   ✅ EXPORT ALL
+   ✅ ADMIN EXPORTS
 ===================== */
 app.get("/admin/export/all", authenticate, requireAdmin, async (req, res) => {
-  const users = await User.find({}).select("-password");
-  const tickets = await Ticket.find({});
-  const kb = await KBChunk.find({});
-  const feedback = await Feedback.find({});
-  const categories = await Category.find({});
-  const slaStats = await SLAStat.find({}).limit(20000);
+  try {
+    const users = await User.find({}).select("-password");
+    const tickets = await Ticket.find({}).limit(20000);
+    const cats = await Category.find({});
+    const kb = await KBChunk.find({ isDeleted: false }).limit(20000);
+    const feedback = await Feedback.find({}).limit(20000);
 
-  res.setHeader("Content-Type", "application/json");
-  res.setHeader("Content-Disposition", `attachment; filename="export_all.json"`);
-  return res.send(
-    JSON.stringify(
-      { users, tickets, kb, feedback, categories, slaStats, exportedAt: new Date().toISOString() },
-      null,
-      2
-    )
-  );
-});
-
-/* =====================
-   ✅ TRAINING EXPORT
-===================== */
-app.get("/admin/export/training", authenticate, requireAdmin, async (req, res) => {
-  const { companyId } = req.query || {};
-  const query = {};
-  if (companyId) query.companyId = companyId;
-
-  const tickets = await Ticket.find(query).sort({ createdAt: -1 }).limit(4000);
-
-  const rows = [];
-  for (const t of tickets) {
-    const msgs = t.messages || [];
-    for (let i = 0; i < msgs.length - 1; i++) {
-      const a = msgs[i];
-      const b = msgs[i + 1];
-      if (a.role === "user" && (b.role === "assistant" || b.role === "agent")) {
-        rows.push({
-          companyId: t.companyId,
-          ticketId: String(t._id),
-          question: a.content,
-          answer: b.content,
-          answeredBy: b.role,
-          timestamp: b.timestamp,
-        });
-      }
-    }
+    const data = { users, tickets, categories: cats, kb, feedback };
+    res.setHeader("Content-Type", "application/json");
+    res.setHeader("Content-Disposition", `attachment; filename="export_all_${new Date().toISOString().slice(0, 10)}.json"`);
+    return res.send(JSON.stringify(data, null, 2));
+  } catch {
+    return res.status(500).json({ error: "Serverfel export all" });
   }
+});
 
-  res.setHeader("Content-Type", "application/json");
-  res.setHeader(
-    "Content-Disposition",
-    `attachment; filename="training_export${companyId ? "_" + companyId : ""}.json"`
-  );
-  return res.send(JSON.stringify({ exportedAt: new Date().toISOString(), rows }, null, 2));
+app.get("/admin/export/training", authenticate, requireAdmin, async (req, res) => {
+  try {
+    const companyId = req.query.companyId || "demo";
+    const chunks = await KBChunk.find({ companyId, isDeleted: false }).sort({ createdAt: -1 }).limit(5000);
+
+    const rows = chunks.map((c) => ({
+      companyId: c.companyId,
+      title: c.title,
+      sourceType: c.sourceType,
+      content: c.content,
+    }));
+
+    res.setHeader("Content-Type", "application/json");
+    res.setHeader("Content-Disposition", `attachment; filename="training_export_${companyId}.json"`);
+    return res.send(JSON.stringify(rows, null, 2));
+  } catch {
+    return res.status(500).json({ error: "Serverfel export training" });
+  }
 });
 
 /* =====================
-   ✅ WIDGET: SSE för inbox highlight + KPI snabb widget
+   ✅ Widget endpoint
+   - enkel "status" widget du kan använda i framtiden
 ===================== */
-app.get("/events", authenticate, requireAgentOrAdmin, async (req, res) => {
-  // SSE stream
-  res.setHeader("Content-Type", "text/event-stream");
-  res.setHeader("Cache-Control", "no-cache, no-transform");
-  res.setHeader("Connection", "keep-alive");
-  res.flushHeaders?.();
-
-  const userId = String(req.user.id);
-
-  // keep-alive ping
-  const ping = setInterval(() => {
-    try {
-      res.write(`event: ping\ndata: {}\n\n`);
-    } catch {}
-  }, 25000);
-
-  sseAddClient(userId, res);
-
-  // send initial hello
+app.get("/widget/status", async (req, res) => {
   try {
-    res.write(`event: hello\ndata: ${JSON.stringify({ ok: true })}\n\n`);
-  } catch {}
-
-  req.on("close", () => {
-    clearInterval(ping);
-    sseRemoveClient(userId, res);
-  });
-});
-
-// quick widget endpoint: agent/admin inbox counts
-app.get("/admin/widget/summary", authenticate, requireAgentOrAdmin, async (req, res) => {
-  try {
-    const dbUser = await getDbUser(req);
-    if (!dbUser) return res.status(403).json({ error: "User saknas" });
-
-    const query = {};
-    if (dbUser.role === "agent") query.assignedToUserId = dbUser._id;
-
-    const total = await Ticket.countDocuments(query);
-    const open = await Ticket.countDocuments({ ...query, status: "open" });
-    const pending = await Ticket.countDocuments({ ...query, status: "pending" });
-    const solved = await Ticket.countDocuments({ ...query, status: "solved" });
+    const openTickets = await Ticket.countDocuments({ status: "open" });
+    const pendingTickets = await Ticket.countDocuments({ status: "pending" });
 
     return res.json({
-      total,
-      open,
-      pending,
-      solved,
-      updatedAt: new Date().toISOString(),
+      ok: true,
+      openTickets,
+      pendingTickets,
+      lastUpdate: new Date().toISOString(),
     });
-  } catch (e) {
-    return res.status(500).json({ error: "Serverfel vid widget summary" });
+  } catch {
+    return res.status(500).json({ ok: false });
   }
 });
 
 /* =====================
-   ✅ JSON 404 for API routes
+   ✅ Fallback (important)
 ===================== */
-app.use((req, res, next) => {
-  if (
-    req.path.startsWith("/admin") ||
-    req.path.startsWith("/auth") ||
-    req.path.startsWith("/kb") ||
-    req.path.startsWith("/chat") ||
-    req.path.startsWith("/my") ||
-    req.path.startsWith("/feedback") ||
-    req.path.startsWith("/events")
-  ) {
-    return res.status(404).json({ error: "API route hittades inte" });
-  }
-  next();
+app.use((req, res) => {
+  return res.status(404).json({ error: "Endpoint finns inte" });
 });
 
 /* =====================
-   ✅ Start
+   ✅ START
 ===================== */
-const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => console.log(`✅ Servern körs på http://localhost:${PORT}`));
-console.log("✅ server.js reached end of file without crashing");
+const port = process.env.PORT || 3000;
+app.listen(port, () => console.log("✅ Server kör på port", port));

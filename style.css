@@ -144,22 +144,26 @@ body[data-theme="light"] ::-webkit-scrollbar-thumb{
   background: rgba(76,125,255,0.12);
 }
 
-/* ✅ stöd för highlight på inbox-knappen */
+/* ✅ Highlight för inbox */
 .menuBtn.hasNotif{
-  border-color: rgba(255,176,32,0.45);
-  box-shadow: 0 0 0 2px rgba(255,176,32,0.12);
+  border-color: rgba(255,59,59,0.60) !important;
+  box-shadow: 0 0 0 4px rgba(255,59,59,0.12);
+}
+
+.menuBtn.hasNotif i{
+  color: #ff3b3b !important;
 }
 
 .notifDot{
-  width: 8px;
-  height: 8px;
+  width: 9px;
+  height: 9px;
   border-radius: 999px;
-  background: var(--warn);
+  background: #ff3b3b;
   display: inline-block;
   margin-left: auto;
+  box-shadow: 0 0 0 3px rgba(255, 59, 59, 0.2);
 }
 
-/* ✅ stöd om du vill highlighta kategori-select etc */
 .categoryNotif{
   outline: 2px solid rgba(255,176,32,0.35);
   border-radius: 10px;
@@ -424,12 +428,6 @@ body[data-theme="light"] .input{
   border-color: rgba(76,125,255,0.28);
 }
 
-.msgMeta{
-  margin-top:6px;
-  font-size:12px;
-  color: var(--muted);
-}
-
 .bubbleActions{
   margin-top:8px;
   display:flex;
@@ -465,7 +463,7 @@ body[data-theme="light"] .input{
 }
 
 /* =========================
-   SPLIT LAYOUT (Inbox, Tickets)
+   SPLIT LAYOUT
 ========================= */
 .split{
   margin-top:12px;
@@ -503,7 +501,7 @@ body[data-theme="light"] .input{
 }
 
 /* =========================
-   LIST / ITEMS
+   LIST
 ========================= */
 .list{
   display:flex;
@@ -552,12 +550,6 @@ body[data-theme="light"] .input{
   gap:6px;
 }
 
-.pill.admin{
-  color: white;
-  background: rgba(76,125,255,0.25);
-  border-color: rgba(76,125,255,0.45);
-}
-
 .pill.ok{
   background: rgba(55,214,122,0.14);
   border-color: rgba(55,214,122,0.35);
@@ -577,7 +569,7 @@ body[data-theme="light"] .input{
 }
 
 /* =========================
-   TICKET DETAILS + MESSAGES
+   TICKET DETAILS
 ========================= */
 .ticketDetails{
   max-height: 48vh;
@@ -612,10 +604,6 @@ body[data-theme="light"] .input{
 .ticketMsg.ai{
   border-color: rgba(255,176,32,0.22);
   background: rgba(255,176,32,0.06);
-}
-
-.ticketMsgBody{
-  line-height: 1.35;
 }
 
 /* =========================
@@ -661,17 +649,14 @@ body[data-theme="light"] .input{
 }
 
 /* =========================
-   ✅ SLA / KPI DASHBOARD (UPGRADED)
+   ✅ SLA / KPI
 ========================= */
-
-/* Main KPI cards (overview) */
 .slaGrid{
   display:grid;
   grid-template-columns: repeat(3, 1fr);
   gap:12px;
 }
 
-/* ✅ extra KPI row support (if you render 4-6 KPIs) */
 .slaGrid.kpiWide{
   grid-template-columns: repeat(4, 1fr);
 }
@@ -717,29 +702,19 @@ body[data-theme="light"] .input{
   z-index: 2;
 }
 
-/* ✅ KPI trend indicator (up/down) */
-.kpiDelta{
-  display:inline-flex;
-  align-items:center;
-  gap:6px;
-  font-size:12px;
-  margin-top:8px;
-  color: var(--muted);
-  position: relative;
-  z-index: 2;
-}
-.kpiDelta.up{
-  color: var(--ok);
-}
-.kpiDelta.down{
-  color: var(--danger);
-}
-
-/* chart styling */
+/* ✅ SLA Chart stable */
 #slaTrendChart{
+  display:block;
+  width:100% !important;
+  height:260px !important;
+  max-height:260px !important;
   border: 1px solid var(--border);
   border-radius: 14px;
   background: rgba(255,255,255,0.02);
+}
+
+#slaView .panel{
+  overflow:hidden;
 }
 
 /* =========================
@@ -806,6 +781,54 @@ body[data-theme="light"] .input{
 
 .noteText{
   line-height: 1.35;
+}
+
+/* =========================
+   ✅ TOAST
+========================= */
+.toastMsg{
+  position: fixed;
+  bottom: 18px;
+  right: 18px;
+  padding: 12px 14px;
+  border-radius: 12px;
+  font-size: 14px;
+  font-weight: 600;
+  z-index: 9999;
+
+  background: rgba(30, 30, 35, 0.95);
+  color: #fff;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.45);
+
+  opacity: 0;
+  transform: translateY(14px);
+  transition: 0.25s ease;
+}
+
+.toastMsg.show{
+  opacity: 1;
+  transform: translateY(0);
+}
+
+body[data-theme="light"] .toastMsg{
+  background: rgba(255, 255, 255, 0.95);
+  color: #111;
+  border: 1px solid rgba(0, 0, 0, 0.12);
+}
+
+/* =========================
+   ✅ NYA OPEN TICKETS PULSE
+========================= */
+.newTicketPulse{
+  position: relative;
+  animation: ticketPulse 1.2s infinite;
+}
+
+@keyframes ticketPulse{
+  0%{ box-shadow: 0 0 0 0 rgba(255, 59, 59, 0.20); }
+  70%{ box-shadow: 0 0 0 8px rgba(255, 59, 59, 0); }
+  100%{ box-shadow: 0 0 0 0 rgba(255, 59, 59, 0); }
 }
 
 /* =========================
@@ -887,118 +910,4 @@ body[data-theme="light"] .input{
     flex-direction: column;
     align-items: flex-start;
   }
-
-/* ✅ FIX: Stoppar Chart.js från att "växa neråt" */
-#slaTrendChart {
-  display: block;
-  width: 100% !important;
-  height: 260px !important;
-  max-height: 260px !important;
-}
-
-#slaView .panel {
-  overflow: hidden;
-}
-
-/* =========================
-   TOAST (popup nere i hörnet)
-========================= */
-.toastMsg {
-  position: fixed;
-  bottom: 18px;
-  right: 18px;
-  padding: 12px 14px;
-  border-radius: 12px;
-  font-size: 14px;
-  font-weight: 600;
-  z-index: 9999;
-
-  background: rgba(30, 30, 35, 0.95);
-  color: #fff;
-  border: 1px solid rgba(255, 255, 255, 0.12);
-  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.45);
-
-  opacity: 0;
-  transform: translateY(14px);
-  transition: 0.25s ease;
-}
-
-.toastMsg.show {
-  opacity: 1;
-  transform: translateY(0);
-}
-
-/* Light theme toast */
-body[data-theme="light"] .toastMsg {
-  background: rgba(255, 255, 255, 0.95);
-  color: #111;
-  border: 1px solid rgba(0, 0, 0, 0.12);
-}
-
-/* =========================
-   INBOX NOTIFICATION
-========================= */
-
-/* Liten röd dot på Inbox-knappen */
-.notifDot {
-  display: inline-block;
-  width: 9px;
-  height: 9px;
-  border-radius: 999px;
-  margin-left: 8px;
-  background: #ff3b3b;
-  box-shadow: 0 0 0 3px rgba(255, 59, 59, 0.2);
-}
-
-/* När inbox har notif: gör knappen tydligt */
-.menuBtn.hasNotif {
-  border: 1px solid rgba(255, 59, 59, 0.6) !important;
-  box-shadow: 0 0 0 4px rgba(255, 59, 59, 0.15);
-  position: relative;
-}
-
-/* extra liten highlight bakom ikon */
-.menuBtn.hasNotif i {
-  color: #ff3b3b !important;
-}
-
-/* =========================
-   NYA OPEN TICKETS: liten puls
-========================= */
-.newTicketPulse {
-  position: relative;
-  animation: ticketPulse 1.2s infinite;
-}
-
-@keyframes ticketPulse {
-  0% {
-    box-shadow: 0 0 0 0 rgba(255, 59, 59, 0.20);
-  }
-  70% {
-    box-shadow: 0 0 0 8px rgba(255, 59, 59, 0);
-  }
-  100% {
-    box-shadow: 0 0 0 0 rgba(255, 59, 59, 0);
-  }
-}
-
-/* ✅ SLA Chart - gör så canvas alltid syns */
-#slaTrendChart {
-  display: block;
-  width: 100% !important;
-  height: 260px !important;  /* <- detta gör att grafen inte blir osynlig */
-}
-
-#slaView .panel {
-  overflow: hidden; /* så det inte blir konstig scroll */
-}
-
-
-
-
-
-
-
-
-
 }

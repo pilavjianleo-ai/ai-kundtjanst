@@ -1,12 +1,13 @@
 /* =========================================================
-   AI Kundtjänst - script.js (STABLE FIXED)
+   AI Kundtjänst - script.js (STABLE FIXED FULL)
    ✅ Behåller din layout exakt som index.html
    ✅ Fixar alla knappar & views
    ✅ Fixar missing-endpoint krascher (fallback)
-   ✅ Inbox highlight + notif dot
+   ✅ Inbox highlight + notif dot + liten toast-notis
    ✅ Chat fungerar alltid
    ✅ SLA fungerar även om vissa endpoints saknas
    ✅ Admin fungerar utan att "dö"
+   ✅ FIX: Filen var trasig i slutet (klammerparenteser)
    ========================================================= */
 
 /* =========================
@@ -178,7 +179,7 @@ function pill(label, kind = "") {
 }
 
 /* =========================
-   Toast
+   Toast (liten notis)
 ========================= */
 function toast(msg) {
   const t = document.createElement("div");
@@ -247,6 +248,7 @@ function bindEvents() {
     setActiveMenu("openInboxView");
     switchView("inboxView");
     $("openInboxView")?.classList.remove("hasNotif");
+    show($("inboxNotifDot"), false);
     await loadInboxTickets();
   });
 
@@ -796,11 +798,9 @@ async function sendFeedback(type) {
     body: JSON.stringify({ type, companyId: state.companyId }),
   });
 
-  if (res) {
-    $("fbMsg").textContent = "Tack! ✅";
-  } else {
-    $("fbMsg").textContent = "Kunde ej skicka feedback.";
-  }
+  if (res) $("fbMsg").textContent = "Tack! ✅";
+  else $("fbMsg").textContent = "Kunde ej skicka feedback.";
+
   setTimeout(() => ($("fbMsg").textContent = ""), 1200);
 }
 
@@ -1266,7 +1266,6 @@ async function removeSolvedTickets() {
   setAlert($("inboxMsg"), "Klart ✅", "");
   await loadInboxTickets();
 }
-
 /* =========================
    SLA DASHBOARD (STABLE)
 ========================= */
@@ -1351,8 +1350,7 @@ function renderSlaOverview(o) {
   `;
 }
 
-// ✅ Du har redan din fixade renderSlaTrendChart() – behåll den.
-// Men vi behöver destroyTrendChart()
+/* ✅ Graf: förstör inte, inga dubletter, säkert */
 function destroyTrendChart() {
   if (state.chartTrend) {
     try {
@@ -1360,6 +1358,76 @@ function destroyTrendChart() {
     } catch {}
     state.chartTrend = null;
   }
+}
+
+function renderSlaTrendChart(tr) {
+  const canvas = $("slaTrendChart");
+  if (!canvas) return;
+
+  const hint = $("slaTrendHint");
+
+  if (typeof Chart === "undefined") {
+    if (hint) {
+      hint.textContent =
+        "❌ Chart.js saknas. Kontrollera att <script src='https://cdn.jsdelivr.net/npm/chart.js'></script> ligger före script.js i index.html";
+    }
+    return;
+  }
+
+  destroyTrendChart();
+
+  const rows = tr?.rows || [];
+  if (!rows.length) {
+    if (hint) hint.textContent = "Ingen trend-data ännu.";
+    return;
+  }
+
+  const labels = rows.map((r, i) => r.week || `V${i + 1}`);
+  const firstPct = rows.map((r) => Number(r.firstCompliancePct || 0));
+  const resPct = rows.map((r) => Number(r.resolutionCompliancePct || 0));
+
+  const ctx = canvas.getContext("2d");
+
+  state.chartTrend = new Chart(ctx, {
+    type: "line",
+    data: {
+      labels,
+      datasets: [
+        {
+          label: "First response compliance (%)",
+          data: firstPct,
+          tension: 0.35,
+          borderWidth: 2,
+          pointRadius: 3,
+        },
+        {
+          label: "Resolution compliance (%)",
+          data: resPct,
+          tension: 0.35,
+          borderWidth: 2,
+          pointRadius: 3,
+        },
+      ],
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      interaction: { mode: "index", intersect: false },
+      plugins: {
+        legend: { display: true },
+        tooltip: { enabled: true },
+      },
+      scales: {
+        y: {
+          min: 0,
+          max: 100,
+          ticks: { callback: (v) => v + "%" },
+        },
+      },
+    },
+  });
+
+  if (hint) hint.textContent = "Trend visar compliance vecka för vecka.";
 }
 
 function renderSlaAgents(a) {
@@ -1424,6 +1492,50 @@ function renderSlaTickets(data) {
     return;
   }
 
+  const breachedFilter = $("slaBreachedFilter")?.value || "all";
+  const breachType = $("slaBreachTypeFilter")?.value || "any";
+  const sortMode = $("slaSortTickets")?.value || "newest";
+
+  let list = rows.slice();
+
+  // Filter: breached
+  if (breachedFilter !== "all") {
+    list = list.filter((r) => {
+      const sla = r.sla || {};
+      const breachedFirst = !!sla.firstBreached;
+      const breachedRes = !!sla.resolutionBreached;
+
+      if (breachedFilter === "breachedOnly") return breachedFirst || breachedRes;
+      if (breachedFilter === "okOnly") return !(breachedFirst || breachedRes);
+      return true;
+    });
+  }
+
+  // Filter: breach type
+  if (breachType !== "any") {
+    list = list.filter((r) => {
+      const sla = r.sla || {};
+      if (breachType === "first") return !!sla.firstBreached;
+      if (breachType === "resolution") return !!sla.resolutionBreached;
+      return true;
+    });
+  }
+
+  // Sort
+  list.sort((a, b) => {
+    const ad = new Date(a.createdAt || 0).getTime();
+    const bd = new Date(b.createdAt || 0).getTime();
+    if (sortMode === "oldest") return ad - bd;
+    if (sortMode === "worstFirst") {
+      const asla = a.sla || {};
+      const bsla = b.sla || {};
+      const aScore = (asla.firstBreached ? 1 : 0) + (asla.resolutionBreached ? 1 : 0);
+      const bScore = (bsla.firstBreached ? 1 : 0) + (bsla.resolutionBreached ? 1 : 0);
+      return bScore - aScore || bd - ad;
+    }
+    return bd - ad;
+  });
+
   box.innerHTML = `
     <div class="tableWrap">
       <table class="table">
@@ -1436,15 +1548,21 @@ function renderSlaTickets(data) {
             <th>Skapad</th>
             <th>First</th>
             <th>Res</th>
+            <th>Breach</th>
           </tr>
         </thead>
         <tbody>
-          ${rows
-            .slice(0, 300)
+          ${list
+            .slice(0, 400)
             .map((r) => {
               const sla = r.sla || {};
               const first = sla.firstResponseMs != null ? msToPretty(sla.firstResponseMs) : "—";
               const res = sla.resolutionMs != null ? msToPretty(sla.resolutionMs) : "—";
+              const breachTxt =
+                (sla.firstBreached ? "First " : "") + (sla.resolutionBreached ? "Resolution" : "");
+              const breachPill =
+                breachTxt.trim().length > 0 ? pill(breachTxt.trim(), "danger") : pill("OK", "ok");
+
               return `
                 <tr>
                   <td><span class="muted small">${escapeHtml(String(r.ticketId || r._id || "").slice(-8))}</span></td>
@@ -1454,6 +1572,7 @@ function renderSlaTickets(data) {
                   <td>${escapeHtml(fmtDate(r.createdAt))}</td>
                   <td>${escapeHtml(first)}</td>
                   <td>${escapeHtml(res)}</td>
+                  <td>${breachPill}</td>
                 </tr>
               `;
             })
@@ -1462,6 +1581,11 @@ function renderSlaTickets(data) {
       </table>
     </div>
   `;
+
+  // ✅ bind dropdowns (if you change filters)
+  $("slaBreachedFilter")?.addEventListener("change", () => renderSlaTickets(slaCache.tickets || { rows: [] }));
+  $("slaBreachTypeFilter")?.addEventListener("change", () => renderSlaTickets(slaCache.tickets || { rows: [] }));
+  $("slaSortTickets")?.addEventListener("change", () => renderSlaTickets(slaCache.tickets || { rows: [] }));
 }
 
 function exportSlaCsv() {
@@ -1861,7 +1985,7 @@ async function changePassword() {
 }
 
 /* =========================
-   DEBUG PANEL
+   DEBUG PANEL (FIXED END)
 ========================= */
 function updateDebug(extra = {}) {
   if (!$("dbgApi")) return;
@@ -1871,83 +1995,4 @@ function updateDebug(extra = {}) {
   $("dbgRole").textContent = state.user?.role || "-";
   $("dbgTicket").textContent = extra.ticketId || state.lastTicketId || "-";
   $("dbgRag").textContent = extra.ragUsed ? "JA" : "-";
-
-// ✅ FIX: Om graf-funktionen saknas av någon anledning
-function destroyTrendChart() {
-  if (state.chartTrend) {
-    try { state.chartTrend.destroy(); } catch {}
-    state.chartTrend = null;
-  }
-}
-
-function renderSlaTrendChart(tr) {
-  const canvas = $("slaTrendChart");
-  if (!canvas) return;
-
-  if (typeof Chart === "undefined") {
-    const hint = $("slaTrendHint");
-    if (hint) {
-      hint.textContent =
-        "❌ Chart.js saknas. Kontrollera att <script src='https://cdn.jsdelivr.net/npm/chart.js'></script> ligger före script.js i index.html";
-    }
-    return;
-  }
-
-  destroyTrendChart();
-
-  const rows = tr?.rows || [];
-  const hint = $("slaTrendHint");
-
-  if (!rows.length) {
-    if (hint) hint.textContent = "Ingen trend-data ännu.";
-    return;
-  }
-
-  const labels = rows.map((r, i) => r.week || `V${i + 1}`);
-  const firstPct = rows.map((r) => Number(r.firstCompliancePct || 0));
-  const resPct = rows.map((r) => Number(r.resolutionCompliancePct || 0));
-
-  const ctx = canvas.getContext("2d");
-
-  state.chartTrend = new Chart(ctx, {
-    type: "line",
-    data: {
-      labels,
-      datasets: [
-        {
-          label: "First response compliance (%)",
-          data: firstPct,
-          tension: 0.35,
-          borderWidth: 2,
-          pointRadius: 3,
-        },
-        {
-          label: "Resolution compliance (%)",
-          data: resPct,
-          tension: 0.35,
-          borderWidth: 2,
-          pointRadius: 3,
-        },
-      ],
-    },
-    options: {
-      responsive: true,
-      maintainAspectRatio: false,
-      interaction: { mode: "index", intersect: false },
-      plugins: {
-        legend: { display: true },
-        tooltip: { enabled: true },
-      },
-      scales: {
-        y: {
-          min: 0,
-          max: 100,
-          ticks: { callback: (v) => v + "%" },
-        },
-      },
-    },
-  });
-
-  if (hint) hint.textContent = "Trend visar compliance vecka för vecka.";
-}
 }
