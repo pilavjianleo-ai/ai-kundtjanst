@@ -1,3 +1,4 @@
+// ...existing code...
 // === AI CHAT ENDPOINT ===
 app.post('/chat', async (req, res) => {
   try {
