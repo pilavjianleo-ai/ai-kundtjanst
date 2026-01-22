@@ -111,30 +111,45 @@ app.get('/categories', (req, res) => {
   ]);
 });
 
-// Dummy user DB (replace with MongoDB logic)
-const users = [];
 
-// Register endpoint
+// ===================== MONGODB USER MODEL =====================
+const userSchema = new mongoose.Schema({
+  username: { type: String, required: true, unique: true },
+  email: { type: String },
+  password: { type: String, required: true },
+  role: { type: String, default: 'user' },
+  createdAt: { type: Date, default: Date.now }
+});
+const User = mongoose.models.User || mongoose.model('User', userSchema);
+
+// Register endpoint (MongoDB)
 app.post('/register', async (req, res) => {
-  const { username, password, email } = req.body;
-  if (!username || !password) return sendError(res, 'Användarnamn och lösenord krävs', 400);
-  if (users.find(u => u.username === username)) return sendError(res, 'Användarnamnet är upptaget', 400);
-  const hash = await bcrypt.hash(password, 10);
-  const user = { id: users.length + 1, username, email, password: hash, role: 'user', createdAt: new Date() };
-  users.push(user);
-  res.json({ message: 'Registrering lyckades' });
+  try {
+    const { username, password, email } = req.body;
+    if (!username || !password) return sendError(res, 'Användarnamn och lösenord krävs', 400);
+    if (await User.findOne({ username })) return sendError(res, 'Användarnamnet är upptaget', 400);
+    const hash = await bcrypt.hash(password, 10);
+    const user = await User.create({ username, email, password: hash });
+    res.json({ message: 'Registrering lyckades' });
+  } catch (err) {
+    sendError(res, err, 500);
+  }
 });
 
-// Login endpoint
+// Login endpoint (MongoDB)
 app.post('/login', async (req, res) => {
-  const { username, password } = req.body;
-  const user = users.find(u => u.username === username);
-  if (!user) return sendError(res, 'Fel användarnamn eller lösenord', 401);
-  const ok = await bcrypt.compare(password, user.password);
-  if (!ok) return sendError(res, 'Fel användarnamn eller lösenord', 401);
-  // Issue dummy JWT (replace with real JWT logic)
-  const token = jwt.sign({ id: user.id, username: user.username, role: user.role }, process.env.JWT_SECRET || 'secret', { expiresIn: '1d' });
-  res.json({ token, user });
+  try {
+    const { username, password } = req.body;
+    const user = await User.findOne({ username });
+    if (!user) return sendError(res, 'Fel användarnamn eller lösenord', 401);
+    const ok = await bcrypt.compare(password, user.password);
+    if (!ok) return sendError(res, 'Fel användarnamn eller lösenord', 401);
+    // Issue JWT
+    const token = jwt.sign({ id: user._id, username: user.username, role: user.role }, process.env.JWT_SECRET || 'secret', { expiresIn: '1d' });
+    res.json({ token, user });
+  } catch (err) {
+    sendError(res, err, 500);
+  }
 });
 
 
