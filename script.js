@@ -322,6 +322,31 @@ async function renderSlaDashboard() {
   } else if (tableBox) {
     tableBox.innerHTML = "<div class='alert error'>Kunde inte ladda tabell.</div>";
   }
+  // Mer och tydligare statistik, nollställ och radera
+  function renderExtraStats() {
+    safeApi("/admin/sla/extra-stats").then((stats) => {
+      if (!stats) return;
+      const box = document.getElementById("slaStatsBox");
+      if (!box) return;
+      box.innerHTML += `
+        <div class="sla-stat"><b>Genomsnittlig svarstid:</b> ${stats.avgResponse} min</div>
+        <div class="sla-stat"><b>Max svarstid:</b> ${stats.maxResponse} min</div>
+        <div class="sla-stat"><b>Min svarstid:</b> ${stats.minResponse} min</div>
+        <div class="sla-stat"><b>Antal agentbyten:</b> ${stats.agentSwitches}</div>
+        <div class="sla-stat"><b>Antal borttagna tickets:</b> ${stats.removedTickets}</div>
+      `;
+    });
+
+    // Radera/nollställ specifik statistik
+    window.deleteStat = function(statKey) {
+      if (confirm("Radera/nollställ statistik?")) {
+        safeApi(`/admin/sla/stat/${statKey}`, { method: "DELETE" }).then(() => renderSlaDashboard());
+      }
+    };
+  }
+
+  // Kör renderExtraStats vid start
+  renderExtraStats();
 }
 
 function exportSlaCsvDashboard() {
@@ -536,6 +561,28 @@ function bindEvents() {
   $("changeUsernameBtn")?.addEventListener("click", changeUsername);
   $("changePasswordBtn")?.addEventListener("click", changePassword);
 
+  // Agentfunktioner: tilldela ärenden, highlight och notifiering
+  window.assignTicket = async function(ticketId, agentId) {
+    const res = await safeApi(`/admin/tickets/${ticketId}/assign`, { method: "POST", body: JSON.stringify({ agentId }) });
+    if (res && res.success) {
+      showToast("Ärende tilldelat agent!", 2000);
+      // Highlight agent och ärende
+      const inboxBtn = $("openInboxView");
+      if (inboxBtn) {
+        inboxBtn.classList.add("highlight");
+        setTimeout(() => inboxBtn.classList.remove("highlight"), 3000);
+      }
+    } else {
+      alert("Kunde inte tilldela ärende.");
+    }
+  };
+  // Hantera agentbyten och notifiering
+  window.switchAgent = async function(ticketId, newAgentId) {
+    const res = await safeApi(`/admin/tickets/${ticketId}/switch-agent`, { method: "POST", body: JSON.stringify({ newAgentId }) });
+    if (res && res.success) showToast("Agentbytet lyckades!", 2000);
+    else alert("Kunde inte byta agent.");
+  };
+
   handleResetTokenFromUrl();
 }
 
@@ -672,11 +719,18 @@ async function onLoggedIn() {
 
   $("roleBadge").textContent =
     state.user?.username
-      ? `Inloggad: ${state.user.username} • ID: ${String(state.user.id || state.user._id || "").slice(-6)}`
+      ? `Inloggad: ${state.user.username} • ID: ${String(state.user.id || state.user._id || "").slice(-6)} • Roll: ${state.user.role || "user"}`
       : "Inte inloggad";
 
-  switchView("chatView");
-  setActiveMenu("openChatView");
+  // Visa/dölj vyer beroende på roll
+  const userRole = state.user?.role || "user";
+  $("openAdminView").style.display = (userRole === "admin") ? "" : "none";
+  $("openSlaView").style.display = (userRole === "admin" || userRole === "agent") ? "" : "none";
+  $("openInboxView").style.display = (userRole === "admin" || userRole === "agent") ? "" : "none";
+  $("openMyTicketsView").style.display = (userRole === "user") ? "" : "none";
+
+  switchView(userRole === "admin" ? "adminView" : "chatView");
+  setActiveMenu(userRole === "admin" ? "openAdminView" : "openChatView");
 
   renderConversation();
   scrollMessagesToBottom();

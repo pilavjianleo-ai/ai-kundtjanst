@@ -47,29 +47,35 @@
         <div class="dashboard">
           <div class="card chat-card" style="min-width:520px;max-width:900px;width:100%;flex:2 1 600px;min-height:520px;">
             <h2><i class="fa-solid fa-comments"></i> AI Chat</h2>
-            <div style="margin-bottom:10px;">
-              <label for="categorySelect"><b>Välj kategori:</b></label>
-              <select id="categorySelect" style="margin-left:8px;"></select>
+            <div class="chat-widget">
+              <div style="margin-bottom:10px;display:flex;align-items:center;gap:12px;">
+                <label for="categorySelect"><b>Välj kategori:</b></label>
+                <select id="categorySelect" style="margin-left:8px;"></select>
+                <button id="editCatBtn" class="btn ghost" title="Redigera kategori"><i class="fa-solid fa-pen"></i></button>
+                <button id="deleteCatBtn" class="btn ghost" title="Radera kategori"><i class="fa-solid fa-trash"></i></button>
+                <button id="addCatBtn" class="btn ghost" title="Lägg till kategori"><i class="fa-solid fa-plus"></i></button>
+              </div>
+              <div id="aiTips" class="ai-tips" style="margin-bottom:8px;color:#b6eaff;font-size:0.98em;"></div>
+              <div id="messages" class="chat-messages"></div>
+              <form id="chatForm" class="chat-form" autocomplete="off" style="display:flex;gap:8px;">
+                <input id="messageInput" class="chat-input" type="text" placeholder="Skriv ett meddelande..." autocomplete="off" />
+                <button id="sendBtn" class="btn primary" type="submit"><i class="fa-solid fa-paper-plane"></i></button>
+              </form>
             </div>
-            <div id="messages" class="chat-messages"></div>
-            <form id="chatForm" class="chat-form" autocomplete="off">
-              <input id="messageInput" class="chat-input" type="text" placeholder="Skriv ett meddelande..." autocomplete="off" />
-              <button id="sendBtn" class="btn primary" type="submit"><i class="fa-solid fa-paper-plane"></i></button>
-            </form>
           </div>
           <div class="card">
             <h2>Snabböversikt</h2>
             <div class="card-content">
               <div class="stat">
-                <div class="stat-value">12</div>
+                <div class="stat-value" id="statNewTickets">12</div>
                 <div class="stat-label">Nya ärenden</div>
               </div>
               <div class="stat">
-                <div class="stat-value">98%</div>
+                <div class="stat-value" id="statSla">98%</div>
                 <div class="stat-label">SLA uppfyllnad</div>
               </div>
               <div class="stat">
-                <div class="stat-value">4</div>
+                <div class="stat-value" id="statUnsolved">4</div>
                 <div class="stat-label">Olösta tickets</div>
               </div>
             </div>
@@ -100,20 +106,33 @@
       </section>
       <section id="slaView" style="display:none;">
         <div class="dashboard">
-          <div class="card sla-card">
-            <h2><i class="fa-solid fa-chart-line"></i> SLA & KPI</h2>
+          <div class="card sla-card" style="max-width:1100px;width:100%;">
+            <h2><i class="fa-solid fa-chart-line"></i> SLA & KPI Dashboard</h2>
             <div class="sla-dashboard">
               <div class="sla-stats" id="slaStatsBox"></div>
               <div class="sla-graph-area">
-                <canvas id="slaChart" height="120"></canvas>
-                <div class="sla-graph-controls">
+                <canvas id="slaChart" height="180" style="background:#23263a;border-radius:8px;"></canvas>
+                <div class="sla-graph-controls" style="display:flex;align-items:center;gap:12px;margin-top:8px;">
                   <select id="slaDaysSelect">
                     <option value="7">7 dagar</option>
                     <option value="30" selected>30 dagar</option>
                     <option value="90">90 dagar</option>
+                    <option value="365">1 år</option>
                   </select>
                   <button class="btn" id="slaExportCsvBtn"><i class="fa-solid fa-download"></i> Exportera CSV</button>
+                  <button class="btn ghost" id="slaTypeBtn">Byt graf</button>
+                  <button class="btn ghost" id="slaResetBtn">Nollställ statistik</button>
+                  <button class="btn ghost" id="slaShowAgentsBtn">Visa agentstatistik</button>
+                  <button class="btn ghost" id="slaShowAllTicketsBtn">Visa alla tickets</button>
                 </div>
+              </div>
+              <div class="sla-widget-area" style="margin-top:18px;display:flex;gap:18px;flex-wrap:wrap;">
+                <div class="sla-widget" id="slaWidgetBestAgent"></div>
+                <div class="sla-widget" id="slaWidgetWorstAgent"></div>
+                <div class="sla-widget" id="slaWidgetFastest"></div>
+                <div class="sla-widget" id="slaWidgetSlowest"></div>
+                <div class="sla-widget" id="slaWidgetSolved"></div>
+                <div class="sla-widget" id="slaWidgetUnsolved"></div>
               </div>
             </div>
             <div class="sla-table-area" id="slaTableBox"></div>
