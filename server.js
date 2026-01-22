@@ -1,3 +1,5 @@
+// ...existing code...
+// ...existing code...
 // server.js (FIXAD ORIGINALVERSION - CommonJS + Render Node 20)
 // ✅ MongoDB (dina gamla users funkar igen)
 // ✅ JWT login + bcrypt
@@ -28,6 +30,25 @@ async function fetchCompat(...args) {
 }
 
 const app = express();
+const helmet = require("helmet");
+app.use(helmet());
+app.use(cors({ origin: true, credentials: true }));
+
+// Helper: Consistent error response
+function sendError(res, error, status = 500) {
+  if (process.env.NODE_ENV !== "production") {
+    console.error("[API ERROR]", error);
+  }
+  return res.status(status).json({ error: error?.message || error || "Serverfel" });
+}
+
+// Helper: Validate required fields
+function requireFields(obj, fields) {
+  for (const f of fields) {
+    if (!obj || typeof obj[f] === "undefined" || obj[f] === null || obj[f] === "") return false;
+  }
+  return true;
+}
 app.set("trust proxy", 1);
 
 app.use(express.json({ limit: "18mb" }));
@@ -622,8 +643,7 @@ app.get("/me", authenticate, async (req, res) => {
 /* ===================== ✅ AUTH ===================== */
 app.post("/register", async (req, res) => {
   const { username, password, email } = req.body || {};
-  if (!username || !password) return res.status(400).json({ error: "Användarnamn och lösenord krävs" });
-
+  if (!requireFields(req.body, ["username", "password"])) return sendError(res, "Användarnamn och lösenord krävs", 400);
   try {
     const hashedPassword = await bcrypt.hash(password, 10);
     const u = await new User({
@@ -631,27 +651,23 @@ app.post("/register", async (req, res) => {
       password: hashedPassword,
       email: email || "",
     }).save();
-
     return res.json({
       message: "Registrering lyckades",
       user: { id: u._id, username: u.username, role: u.role, publicId: u.publicId, idNumber: u.idNumber },
     });
-  } catch {
-    return res.status(400).json({ error: "Användarnamn upptaget" });
+  } catch (e) {
+    return sendError(res, "Användarnamn upptaget", 400);
   }
 });
 
 app.post("/login", async (req, res) => {
   const { username, password } = req.body || {};
-
+  if (!requireFields(req.body, ["username", "password"])) return sendError(res, "Fyll i användarnamn och lösenord", 400);
   const u = await User.findOne({ username });
-  if (!u) return res.status(401).json({ error: "Fel användarnamn eller lösenord" });
-
+  if (!u) return sendError(res, "Fel användarnamn eller lösenord", 401);
   const ok = await bcrypt.compare(password, u.password);
-  if (!ok) return res.status(401).json({ error: "Fel användarnamn eller lösenord" });
-
+  if (!ok) return sendError(res, "Fel användarnamn eller lösenord", 401);
   const token = jwt.sign({ id: u._id, username: u.username }, process.env.JWT_SECRET, { expiresIn: "7d" });
-
   return res.json({
     token,
     user: {
@@ -1766,12 +1782,136 @@ app.get("/admin/sla/trend/weekly", authenticate, requireAgentOrAdmin, async (req
   }
 });
 
-app.get("/admin/sla/export/csv", authenticate, requireAgentOrAdmin, async (req, res) => {
+
+// ===================== ✅ ADVANCED STATISTICS ENDPOINTS =====================
+// Per category statistics
+app.get("/admin/stats/category", authenticate, requireAgentOrAdmin, async (req, res) => {
   try {
     const rangeDays = Math.max(1, Math.min(365, Number(req.query.days || 30)));
     const since = new Date(Date.now() - rangeDays * 24 * 60 * 60 * 1000);
+    const dbUser = await getDbUser(req);
+    const tickets = await Ticket.find({ createdAt: { $gte: since } }).limit(50000);
+    const cats = await Category.find({});
 
-    const { tickets } = await getScopedTicketsForSla(req, since);
+    // Agent sees only their tickets
+    const filtered = dbUser.role === "agent" ? tickets.filter(t => String(t.assignedToUserId) === String(dbUser._id)) : tickets;
+
+    const byCat = {};
+    for (const c of cats) {
+      const arr = filtered.filter(t => t.companyId === c.key);
+      byCat[c.key] = {
+        name: c.name,
+        total: arr.length,
+        open: arr.filter(t => t.status === "open").length,
+        pending: arr.filter(t => t.status === "pending").length,
+        solved: arr.filter(t => t.status === "solved").length,
+        firstResponse: {
+          avgMs: avg(arr.map(t => t.sla?.firstResponseMs).filter(Number.isFinite)),
+          breaches: arr.filter(t => t.sla?.breachedFirstResponse).length,
+        },
+        resolution: {
+          avgMs: avg(arr.map(t => t.sla?.resolutionMs).filter(Number.isFinite)),
+          breaches: arr.filter(t => t.sla?.breachedResolution).length,
+        },
+      };
+    }
+    return res.json({ rangeDays, byCat });
+  } catch (e) {
+    console.error("❌ Stats category error:", e?.message || e);
+    return res.status(500).json({ error: "Serverfel vid stats category" });
+  }
+});
+
+// Per agent statistics
+app.get("/admin/stats/agents", authenticate, requireAgentOrAdmin, async (req, res) => {
+  try {
+    const rangeDays = Math.max(1, Math.min(365, Number(req.query.days || 30)));
+    const since = new Date(Date.now() - rangeDays * 24 * 60 * 60 * 1000);
+    const dbUser = await getDbUser(req);
+    const usersQuery = dbUser.role === "agent" ? { _id: dbUser._id } : { role: { $in: ["agent", "admin"] } };
+    const agents = await User.find(usersQuery).select("_id username role").limit(5000);
+    const tickets = await Ticket.find({ createdAt: { $gte: since } }).limit(50000);
+
+    const rows = [];
+    for (const a of agents) {
+      const arr = tickets.filter(t => String(t.assignedToUserId) === String(a._id));
+      rows.push({
+        userId: String(a._id),
+        username: a.username,
+        role: a.role,
+        tickets: arr.length,
+        open: arr.filter(t => t.status === "open").length,
+        pending: arr.filter(t => t.status === "pending").length,
+        solved: arr.filter(t => t.status === "solved").length,
+        firstResponse: {
+          avgMs: avg(arr.map(t => t.sla?.firstResponseMs).filter(Number.isFinite)),
+          breaches: arr.filter(t => t.sla?.breachedFirstResponse).length,
+        },
+        resolution: {
+          avgMs: avg(arr.map(t => t.sla?.resolutionMs).filter(Number.isFinite)),
+          breaches: arr.filter(t => t.sla?.breachedResolution).length,
+        },
+      });
+    }
+    rows.sort((a, b) => b.tickets - a.tickets);
+    return res.json({ rangeDays, rows });
+  } catch (e) {
+    console.error("❌ Stats agents error:", e?.message || e);
+    return res.status(500).json({ error: "Serverfel vid stats agents" });
+  }
+});
+
+// Per day statistics (trend)
+app.get("/admin/stats/daily", authenticate, requireAgentOrAdmin, async (req, res) => {
+  try {
+    const rangeDays = Math.max(1, Math.min(365, Number(req.query.days || 30)));
+    const since = new Date(Date.now() - rangeDays * 24 * 60 * 60 * 1000);
+    const dbUser = await getDbUser(req);
+    const tickets = await Ticket.find({ createdAt: { $gte: since } }).limit(50000);
+    const filtered = dbUser.role === "agent" ? tickets.filter(t => String(t.assignedToUserId) === String(dbUser._id)) : tickets;
+
+    // group by day (YYYY-MM-DD)
+    const buckets = new Map();
+    for (const t of filtered) {
+      const d = new Date(t.createdAt);
+      const key = d.toISOString().slice(0, 10);
+      if (!buckets.has(key)) buckets.set(key, []);
+      buckets.get(key).push(t);
+    }
+    const days = Array.from(buckets.keys()).sort();
+    const rows = days.map(day => {
+      const arr = buckets.get(day) || [];
+      return {
+        day,
+        tickets: arr.length,
+        open: arr.filter(t => t.status === "open").length,
+        pending: arr.filter(t => t.status === "pending").length,
+        solved: arr.filter(t => t.status === "solved").length,
+        firstResponse: {
+          avgMs: avg(arr.map(t => t.sla?.firstResponseMs).filter(Number.isFinite)),
+          breaches: arr.filter(t => t.sla?.breachedFirstResponse).length,
+        },
+        resolution: {
+          avgMs: avg(arr.map(t => t.sla?.resolutionMs).filter(Number.isFinite)),
+          breaches: arr.filter(t => t.sla?.breachedResolution).length,
+        },
+      };
+    });
+    return res.json({ rangeDays, rows });
+  } catch (e) {
+    console.error("❌ Stats daily error:", e?.message || e);
+    return res.status(500).json({ error: "Serverfel vid stats daily" });
+  }
+});
+
+// CSV export for advanced statistics
+app.get("/admin/stats/export/csv", authenticate, requireAgentOrAdmin, async (req, res) => {
+  try {
+    const rangeDays = Math.max(1, Math.min(365, Number(req.query.days || 30)));
+    const since = new Date(Date.now() - rangeDays * 24 * 60 * 60 * 1000);
+    const dbUser = await getDbUser(req);
+    const tickets = await Ticket.find({ createdAt: { $gte: since } }).limit(50000);
+    const filtered = dbUser.role === "agent" ? tickets.filter(t => String(t.assignedToUserId) === String(dbUser._id)) : tickets;
 
     const header = [
       "ticketId",
@@ -1786,7 +1926,7 @@ app.get("/admin/sla/export/csv", authenticate, requireAgentOrAdmin, async (req, 
       "breachedResolution",
     ].join(",");
 
-    const lines = tickets.slice(0, 50000).map((t) => {
+    const lines = filtered.slice(0, 50000).map((t) => {
       const row = [
         String(t._id),
         String(t.companyId || ""),
@@ -1805,12 +1945,12 @@ app.get("/admin/sla/export/csv", authenticate, requireAgentOrAdmin, async (req, 
     const csv = [header, ...lines].join("\n");
 
     res.setHeader("Content-Type", "text/csv; charset=utf-8");
-    res.setHeader("Content-Disposition", `attachment; filename="sla_export_${rangeDays}d.csv"`);
+    res.setHeader("Content-Disposition", `attachment; filename=\"stats_export_${rangeDays}d.csv\"`);
 
     return res.send(csv);
   } catch (e) {
-    console.error("❌ SLA export csv error:", e?.message || e);
-    return res.status(500).json({ error: "Serverfel vid export csv" });
+    console.error("❌ Stats export csv error:", e?.message || e);
+    return res.status(500).json({ error: "Serverfel vid stats export csv" });
   }
 });
 

@@ -15,9 +15,10 @@
   </head>
 
   <body data-theme="dark">
+    <a href="#mainContent" class="skip-link" tabindex="0" style="position:absolute;left:-9999px;top:auto;width:1px;height:1px;overflow:hidden;z-index:10000;background:#fff;color:#111;padding:8px 16px;border-radius:8px;">Hoppa till huvudinnehåll</a>
     <div class="app">
       <!-- SIDEBAR -->
-      <aside class="sidebar">
+      <aside class="sidebar" role="navigation" aria-label="Sidomeny">
         <div class="brand">
           <div class="logo"><i class="fa-solid fa-headset"></i></div>
           <div class="brandText">
@@ -115,7 +116,7 @@
       </aside>
 
       <!-- MAIN -->
-      <main class="main">
+      <main class="main" id="mainContent" tabindex="-1" role="main">
         <!-- AUTH VIEW -->
         <section id="authView" class="view">
           <div class="card authCard">
@@ -176,7 +177,7 @@
               </button>
             </div>
 
-            <div id="authMessage" class="alert error" style="display: none"></div>
+            <div id="authMessage" class="alert error" style="display: none" role="alert" aria-live="assertive"></div>
           </div>
 
           <!-- FORGOT PASSWORD -->
@@ -202,7 +203,7 @@
               </button>
             </div>
 
-            <div id="forgotMsg" class="alert" style="display: none"></div>
+            <div id="forgotMsg" class="alert" style="display: none" role="alert" aria-live="polite"></div>
           </div>
 
           <!-- RESET PASSWORD -->
@@ -236,7 +237,7 @@
               <i class="fa-solid fa-floppy-disk"></i> Spara nytt lösenord
             </button>
 
-            <div id="resetMsg" class="alert" style="display: none"></div>
+            <div id="resetMsg" class="alert" style="display: none" role="alert" aria-live="polite"></div>
           </div>
         </section>
 
@@ -328,7 +329,7 @@
               <button id="myTicketReplyBtn" class="btn primary full" type="button">
                 <i class="fa-solid fa-paper-plane"></i> Skicka
               </button>
-              <div id="myTicketReplyMsg" class="alert" style="display: none"></div>
+              <div id="myTicketReplyMsg" class="alert" style="display: none" role="alert" aria-live="polite"></div>
             </div>
           </div>
         </section>
@@ -474,7 +475,7 @@
                 />
               </div>
 
-              <div id="inboxMsg" class="alert error" style="display: none"></div>
+              <div id="inboxMsg" class="alert error" style="display: none" role="alert" aria-live="assertive"></div>
               <div id="inboxTicketsList" class="list"></div>
             </div>
 
@@ -483,7 +484,7 @@
                 <b>Ticket</b>
               </div>
 
-              <div id="inboxTicketMsg" class="alert error" style="display: none"></div>
+              <div id="inboxTicketMsg" class="alert error" style="display: none" role="alert" aria-live="assertive"></div>
 
               <div class="row gap">
                 <button id="setStatusOpen" class="btn ghost small" type="button">
@@ -624,7 +625,7 @@
                 </button>
               </div>
 
-              <div id="adminUsersMsg" class="alert error" style="display: none"></div>
+              <div id="adminUsersMsg" class="alert error" style="display: none" role="alert" aria-live="assertive"></div>
               <div id="adminUsersList" class="list"></div>
             </div>
           </div>
@@ -649,7 +650,7 @@
                 </div>
               </div>
 
-              <div id="kbMsg" class="alert error" style="display: none"></div>
+              <div id="kbMsg" class="alert error" style="display: none" role="alert" aria-live="assertive"></div>
 
               <div class="kbGrid">
                 <div class="panel soft">
@@ -707,7 +708,7 @@
                 </button>
               </div>
 
-              <div id="catsMsg" class="alert error" style="display: none"></div>
+              <div id="catsMsg" class="alert error" style="display: none" role="alert" aria-live="assertive"></div>
 
               <div class="kbGrid">
                 <div class="panel soft">
@@ -793,7 +794,7 @@
               </div>
             </div>
 
-            <div id="settingsMsg" class="alert" style="display: none"></div>
+            <div id="settingsMsg" class="alert" style="display: none" role="alert" aria-live="polite"></div>
           </div>
         </section>
       </main>
