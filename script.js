@@ -771,7 +771,12 @@ function addMessageToUI(role, content) {
 
   const bubble = document.createElement("div");
   bubble.className = "bubble";
-  bubble.innerHTML = escapeHtml(content || "");
+  // FIX: Render AI/system messages as HTML, not plain text
+  if (role !== "user") {
+    bubble.innerHTML = content || "";
+  } else {
+    bubble.textContent = content || "";
+  }
 
   const bubbleWrap = document.createElement("div");
   bubbleWrap.appendChild(bubble);
