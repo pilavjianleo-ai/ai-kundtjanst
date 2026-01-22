@@ -37,10 +37,11 @@ app.use(
     contentSecurityPolicy: {
       useDefaults: true,
       directives: {
-        "script-src": ["'self'", "https://cdn.jsdelivr.net", "https://cdnjs.cloudflare.com"],
-        "script-src-elem": ["'self'", "https://cdn.jsdelivr.net", "https://cdnjs.cloudflare.com"],
+        "script-src": ["'self'", "'unsafe-inline'", "https://cdn.jsdelivr.net", "https://cdnjs.cloudflare.com"],
+        "script-src-elem": ["'self'", "'unsafe-inline'", "https://cdn.jsdelivr.net", "https://cdnjs.cloudflare.com"],
         "style-src": ["'self'", "'unsafe-inline'", "https://cdnjs.cloudflare.com"],
         "img-src": ["'self'", "data:", "https://cdnjs.cloudflare.com"],
+        "connect-src": ["'self'", "https://cdn.jsdelivr.net", "https://cdnjs.cloudflare.com"],
       },
     },
   })
