@@ -67,7 +67,7 @@ app.set("trust proxy", 1);
 
 app.use(express.json({ limit: "18mb" }));
 app.use(cors());
-app.use(express.static(__dirname));
+
 
 /* ===================== ✅ ENV ===================== */
 const mongoUri = process.env.MONGO_URI || process.env.MONGODB_URI;
@@ -98,6 +98,10 @@ mongoose.connection.on("error", (err) => {
 });
 
 // ...resten av Server.js-koden följer här (fullt innehåll kopierat)...
+
+
+// Serve static files LAST to avoid interfering with API routes
+app.use(express.static(__dirname));
 
 const PORT = process.env.PORT;
 app.listen(PORT, () => console.log(`✅ Servern körs på port ${PORT}`));
