@@ -872,7 +872,15 @@ async function doResetPassword() {
 ========================= */
 async function loadCategories() {
   const cats = await safeApi("/categories");
-  if (!cats || !Array.isArray(cats)) return;
+  if (!cats || !Array.isArray(cats) || cats.length === 0) {
+    // Återställ till default om tomt
+    cats = [
+      { id: 'demo', name: 'Demo' },
+      { id: 'law', name: 'Law' },
+      { id: 'tech', name: 'Tech' },
+      { id: 'cleaning', name: 'Cleaning' }
+    ];
+  }
 
   const sel = $("categorySelect");
   const selKb = $("kbCategorySelect");
