@@ -267,15 +267,15 @@ async function renderSlaDashboard() {
   const tableBox = document.getElementById("slaTableBox");
   const chartEl = document.getElementById("slaChart");
   const days = Number(document.getElementById("slaDaysSelect")?.value || 30);
+  if (statsBox) statsBox.innerHTML = "<div class='muted small'>Laddar statistik...</div>";
+  if (tableBox) tableBox.innerHTML = "<div class='muted small'>Laddar tabell...</div>";
   if (!statsBox || !tableBox || !chartEl) return;
-  statsBox.innerHTML = "<div class='muted small'>Laddar statistik...</div>";
-  tableBox.innerHTML = "<div class='muted small'>Laddar tabell...</div>";
   // Hämta statistik från backend
   const overview = await safeApi(`/admin/sla/overview?days=${days}`);
   const trend = await safeApi(`/admin/sla/trend/weekly?days=${days}`);
   const tickets = await safeApi(`/admin/sla/tickets?days=${days}`);
   // Rendera statistik
-  if (overview) {
+  if (overview && statsBox) {
     statsBox.innerHTML = `
       <div><b>Totalt antal tickets:</b> ${overview.totalTickets ?? '-'}</div>
       <div><b>First compliance:</b> ${overview.firstResponse?.compliancePct ?? '-'}%</div>
@@ -283,11 +283,11 @@ async function renderSlaDashboard() {
       <div><b>Brutna SLA (first):</b> ${overview.firstResponse?.breaches ?? '-'}</div>
       <div><b>Brutna SLA (resolution):</b> ${overview.resolution?.breaches ?? '-'}</div>
     `;
-  } else {
+  } else if (statsBox) {
     statsBox.innerHTML = "<div class='alert error'>Kunde inte ladda statistik.</div>";
   }
   // Rendera graf
-  if (trend && window.Chart) {
+  if (trend && window.Chart && chartEl) {
     if (window._slaChart) window._slaChart.destroy();
     window._slaChart = new Chart(chartEl.getContext('2d'), {
       type: 'line',
@@ -300,11 +300,11 @@ async function renderSlaDashboard() {
       },
       options: { responsive: true, plugins: { legend: { labels: { color: '#f4f6fa' } } }, scales: { x: { ticks: { color: '#a6abc6' } }, y: { ticks: { color: '#a6abc6' } } } }
     });
-  } else if (chartEl) {
+  } else if (chartEl && chartEl.getContext) {
     chartEl.getContext('2d').clearRect(0,0,chartEl.width,chartEl.height);
   }
   // Rendera tabell
-  if (tickets && Array.isArray(tickets.rows)) {
+  if (tickets && Array.isArray(tickets.rows) && tableBox) {
     tableBox.innerHTML = `
       <table><thead><tr><th>ID</th><th>Kategori</th><th>Status</th><th>Prio</th><th>Skapad</th><th>First</th><th>Res</th></tr></thead><tbody>
       ${tickets.rows.slice(0, 100).map(r => `
@@ -319,7 +319,7 @@ async function renderSlaDashboard() {
         </tr>
       `).join('')}</tbody></table>
     `;
-  } else {
+  } else if (tableBox) {
     tableBox.innerHTML = "<div class='alert error'>Kunde inte ladda tabell.</div>";
   }
 }

@@ -40,78 +40,90 @@
           </div>
         </div>
       </header>
-      <section class="dashboard">
-        <!-- Modern chat-komponent -->
-        <div class="card chat-card">
-          <h2><i class="fa-solid fa-comments"></i> AI Chat</h2>
-          <div id="messages" class="chat-messages"></div>
-          <form id="chatForm" class="chat-form" autocomplete="off">
-            <input id="messageInput" class="chat-input" type="text" placeholder="Skriv ett meddelande..." autocomplete="off" />
-            <button id="sendBtn" class="btn primary" type="submit"><i class="fa-solid fa-paper-plane"></i></button>
-          </form>
-        </div>
-        <!-- SLA/KPI-dashboard -->
-        <div class="card sla-card">
-          <h2><i class="fa-solid fa-chart-line"></i> SLA & KPI</h2>
-          <div class="sla-dashboard">
-            <div class="sla-stats" id="slaStatsBox">
-              <!-- Statistik laddas här -->
-            </div>
-            <div class="sla-graph-area">
-              <canvas id="slaChart" height="120"></canvas>
-              <div class="sla-graph-controls">
-                <select id="slaDaysSelect">
-                  <option value="7">7 dagar</option>
-                  <option value="30" selected>30 dagar</option>
-                  <option value="90">90 dagar</option>
-                </select>
-                <button class="btn" id="slaExportCsvBtn"><i class="fa-solid fa-download"></i> Exportera CSV</button>
+      <!-- VYER (endast en synlig åt gången) -->
+      <section id="authView" style="display:none;"></section>
+      <section id="chatView">
+        <div class="dashboard">
+          <div class="card chat-card">
+            <h2><i class="fa-solid fa-comments"></i> AI Chat</h2>
+            <div id="messages" class="chat-messages"></div>
+            <form id="chatForm" class="chat-form" autocomplete="off">
+              <input id="messageInput" class="chat-input" type="text" placeholder="Skriv ett meddelande..." autocomplete="off" />
+              <button id="sendBtn" class="btn primary" type="submit"><i class="fa-solid fa-paper-plane"></i></button>
+            </form>
+          </div>
+          <div class="card">
+            <h2>Snabböversikt</h2>
+            <div class="card-content">
+              <div class="stat">
+                <div class="stat-value">12</div>
+                <div class="stat-label">Nya ärenden</div>
+              </div>
+              <div class="stat">
+                <div class="stat-value">98%</div>
+                <div class="stat-label">SLA uppfyllnad</div>
+              </div>
+              <div class="stat">
+                <div class="stat-value">4</div>
+                <div class="stat-label">Olösta tickets</div>
               </div>
             </div>
           </div>
-          <div class="sla-table-area" id="slaTableBox">
-            <!-- Tabell med tickets/statistik -->
+        </div>
+      </section>
+      <section id="myTicketsView" style="display:none;">
+        <div class="dashboard">
+          <div class="card">
+            <h2><i class="fa-solid fa-ticket"></i> Mina ärenden</h2>
+            <div id="myTicketsList"></div>
+            <div id="myTicketDetails"></div>
           </div>
         </div>
-        <!-- /SLA/KPI-dashboard -->
-        <!-- /Modern chat-komponent -->
-        <div class="card">
-          <h2>Snabböversikt</h2>
-          <div class="card-content">
-            <div class="stat">
-              <div class="stat-value">12</div>
-              <div class="stat-label">Nya ärenden</div>
-            </div>
-            <div class="stat">
-              <div class="stat-value">98%</div>
-              <div class="stat-label">SLA uppfyllnad</div>
-            </div>
-            <div class="stat">
-              <div class="stat-value">4</div>
-              <div class="stat-label">Olösta tickets</div>
-            </div>
+      </section>
+      <section id="inboxView" style="display:none;">
+        <div class="dashboard">
+          <div class="card">
+            <h2><i class="fa-solid fa-inbox"></i> Inbox</h2>
+            <div id="inboxTicketsList"></div>
+            <div id="ticketDetails"></div>
           </div>
         </div>
-        <div class="card">
-          <h2>Senaste konversationer</h2>
-          <div class="list">
-            <div class="listItem">
-              <b>Anna Svensson</b> – "Hur ändrar jag lösenord?" <span class="pill">Nytt</span>
+      </section>
+      <section id="slaView" style="display:none;">
+        <div class="dashboard">
+          <div class="card sla-card">
+            <h2><i class="fa-solid fa-chart-line"></i> SLA & KPI</h2>
+            <div class="sla-dashboard">
+              <div class="sla-stats" id="slaStatsBox"></div>
+              <div class="sla-graph-area">
+                <canvas id="slaChart" height="120"></canvas>
+                <div class="sla-graph-controls">
+                  <select id="slaDaysSelect">
+                    <option value="7">7 dagar</option>
+                    <option value="30" selected>30 dagar</option>
+                    <option value="90">90 dagar</option>
+                  </select>
+                  <button class="btn" id="slaExportCsvBtn"><i class="fa-solid fa-download"></i> Exportera CSV</button>
+                </div>
+              </div>
             </div>
-            <div class="listItem">
-              <b>Johan Karlsson</b> – "Faktura saknas" <span class="pill ok">Löst</span>
-            </div>
-            <div class="listItem">
-              <b>Maria Berg</b> – "Problem med leverans" <span class="pill warn">Väntar</span>
-            </div>
+            <div class="sla-table-area" id="slaTableBox"></div>
           </div>
         </div>
-        <div class="card">
-          <h2>Snabbåtgärder</h2>
-          <div class="quick-actions">
-            <button class="btn primary"><i class="fa-solid fa-plus"></i> Ny ticket</button>
-            <button class="btn"><i class="fa-solid fa-rotate"></i> Uppdatera</button>
-            <button class="btn"><i class="fa-solid fa-download"></i> Exportera</button>
+      </section>
+      <section id="adminView" style="display:none;">
+        <div class="dashboard">
+          <div class="card">
+            <h2><i class="fa-solid fa-shield-halved"></i> Adminpanel</h2>
+            <div id="adminUsersList"></div>
+          </div>
+        </div>
+      </section>
+      <section id="settingsView" style="display:none;">
+        <div class="dashboard">
+          <div class="card">
+            <h2><i class="fa-solid fa-gear"></i> Inställningar</h2>
+            <div id="settingsUserInfo"></div>
           </div>
         </div>
       </section>
