@@ -836,8 +836,8 @@ async function loadCategories() {
     }
     for (const c of cats) {
       const opt = document.createElement("option");
-      opt.value = c.key;
-      opt.textContent = c.key === c.name ? c.key : `${c.name} (${c.key})`;
+      opt.value = c.id;
+      opt.textContent = c.name;
       selectEl.appendChild(opt);
     }
     selectEl.value = cur || "demo";

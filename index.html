@@ -16,12 +16,12 @@
         <span>AI Kundtjänst</span>
       </div>
       <nav class="sidebar-menu">
-        <button class="sidebar-link active"><i class="fa-solid fa-comments"></i> Chat</button>
-        <button class="sidebar-link"><i class="fa-solid fa-ticket"></i> Ärenden</button>
-        <button class="sidebar-link"><i class="fa-solid fa-inbox"></i> Inbox</button>
-        <button class="sidebar-link"><i class="fa-solid fa-chart-line"></i> SLA</button>
-        <button class="sidebar-link"><i class="fa-solid fa-shield-halved"></i> Admin</button>
-        <button class="sidebar-link"><i class="fa-solid fa-gear"></i> Inställningar</button>
+        <button class="sidebar-link active" id="openChatView"><i class="fa-solid fa-comments"></i> Chat</button>
+        <button class="sidebar-link" id="openMyTicketsView"><i class="fa-solid fa-ticket"></i> Ärenden</button>
+        <button class="sidebar-link" id="openInboxView"><i class="fa-solid fa-inbox"></i> Inbox</button>
+        <button class="sidebar-link" id="openSlaView"><i class="fa-solid fa-chart-line"></i> SLA</button>
+        <button class="sidebar-link" id="openAdminView"><i class="fa-solid fa-shield-halved"></i> Admin</button>
+        <button class="sidebar-link" id="openSettingsView"><i class="fa-solid fa-gear"></i> Inställningar</button>
       </nav>
       <div class="sidebar-footer">
         <button class="sidebar-user"><i class="fa-solid fa-user"></i> Min profil</button>
@@ -37,6 +37,7 @@
           <button class="btn ghost"><i class="fa-solid fa-bell"></i></button>
           <div class="user-badge">
             <i class="fa-solid fa-user-circle"></i> <span>Leo (Admin)</span>
+            <span id="roleBadge" style="margin-left:12px;font-size:0.95em;color:#b6eaff;"></span>
           </div>
         </div>
       </header>
@@ -44,7 +45,7 @@
       <section id="authView" style="display:none;"></section>
       <section id="chatView">
         <div class="dashboard">
-          <div class="card chat-card">
+          <div class="card chat-card" style="min-width:520px;max-width:900px;width:100%;flex:2 1 600px;min-height:520px;">
             <h2><i class="fa-solid fa-comments"></i> AI Chat</h2>
             <div style="margin-bottom:10px;">
               <label for="categorySelect"><b>Välj kategori:</b></label>
