@@ -71,13 +71,13 @@ body[data-theme="light"] ::-webkit-scrollbar-thumb{
    SIDEBAR
 ========================= */
 .sidebar {
-  width: 300px;
-  background: linear-gradient(180deg, var(--panel) 80%, var(--panel2) 100%);
-  border-right: 2px solid var(--primary2);
-  padding: 40px 32px 32px 32px;
+  width: 280px;
+  background: linear-gradient(180deg, var(--panel), var(--panel2));
+  border-right: 1px solid var(--border);
+  padding: 16px;
   display: flex;
   flex-direction: column;
-  gap: 36px;
+  gap: 14px;
   box-shadow: 0 0 32px rgba(44,64,120,0.12);
 }
 
@@ -201,25 +201,25 @@ body[data-theme="light"] ::-webkit-scrollbar-thumb{
 ========================= */
 .main {
   flex: 1;
-  padding: 38px 48px 38px 48px;
+  padding: 18px;
 }
 
 .view {
-  max-width: 1400px;
+  max-width: 1200px;
   margin: 0 auto;
-  padding-bottom: 40px;
+  padding-bottom: 0;
 }
 
 /* =========================
    CARDS / FORMS
 ========================= */
 .card {
-  background: linear-gradient(120deg, var(--panel) 80%, var(--panel2) 100%);
-  border: 2px solid var(--primary2);
-  border-radius: 28px;
-  padding: 38px 36px;
-  margin-bottom: 32px;
-  box-shadow: 0 12px 40px rgba(44,64,120,0.16);
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 16px;
+  margin-bottom: 18px;
+  box-shadow: var(--shadow);
 }
 
 .authCard{
@@ -505,19 +505,19 @@ body[data-theme="light"] .toastMsg {
    SPLIT LAYOUT (Inbox, Tickets)
 ========================= */
 .split {
-  margin-top: 32px;
+  margin-top: 12px;
   display: grid;
   grid-template-columns: 1fr 1.2fr;
-  gap: 32px;
+  gap: 12px;
 }
 
 .panel{
   background: var(--panel);
-  border: 1.5px solid var(--primary2);
-  border-radius: 22px;
-  padding: 28px 24px;
-  margin-bottom: 28px;
-  box-shadow: 0 6px 24px rgba(44,64,120,0.10);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 14px;
+  margin-bottom: 14px;
+  box-shadow: var(--shadow);
 }
 
 .panel.soft{
