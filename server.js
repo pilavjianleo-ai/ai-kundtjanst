@@ -1,62 +1,3 @@
-// server.js (COMMONJS FIX - Render compatible)
-// ✅ No "type": "module" needed
-// ✅ Works with Node 20 on Render
-// ✅ Includes endpoints your script.js expects (safe stable backend)
-
-const express = require("express");
-const path = require("path");
-const fs = require("fs");
-const crypto = require("crypto");
-
-const app = express();
-app.use(express.json({ limit: "25mb" }));
-app.use(express.urlencoded({ extended: true }));
-
-/* =========================
-   SIMPLE IN-MEMORY DB
-   (Stable for demo / Render)
-========================= */
-const DB_PATH = path.join(__dirname, "db.json");
-
-function loadDB() {
-  try {
-    const raw = fs.readFileSync(DB_PATH, "utf8");
-    return JSON.parse(raw);
-  } catch {
-    return {
-      users: [
-        // default admin
-        {
-          id: "u_admin_0001",
-          username: "admin",
-          password: "admin123",
-          email: "admin@demo.se",
-          role: "admin",
-          createdAt: new Date().toISOString(),
-        },
-      ],
-      tickets: [],
-      categories: [
-        { key: "demo", name: "demo", systemPrompt: "Du är en professionell AI kundtjänst." },
-      ],
-      kb: [],
-      resetTokens: [], // {token,email,expiresAt}
-      feedback: [],
-      stats: [], // for SLA demo
-    };
-  }
-}
-
-function saveDB(db) {
-  try {
-    fs.writeFileSync(DB_PATH, JSON.stringify(db, null, 2), "utf8");
-  } catch (e) {
-    console.error("DB save error:", e.message);
-  }
-}
-
-let db = loadDB();
-
 /* =========================
    HELPERS
 ========================= */
@@ -105,6 +46,24 @@ function safeText(s) {
   return String(s || "").slice(0, 5000);
 }
 
+/* ✅ Password helpers (supports both plain + hashed users) */
+function sha256(text) {
+  return crypto.createHash("sha256").update(String(text)).digest("hex");
+}
+
+function verifyPassword(user, inputPassword) {
+  const input = String(inputPassword || "");
+
+  // 1) Plain text support (your current format)
+  if (user.password && user.password === input) return true;
+
+  // 2) SHA256 support (if old DB used sha256)
+  if (user.passwordHash && user.passwordHash === sha256(input)) return true;
+  if (user.password && user.password.length === 64 && user.password === sha256(input)) return true;
+
+  return false;
+}
+
 /* =========================
    STATIC FRONTEND
 ========================= */
@@ -124,10 +83,12 @@ app.post("/register", (req, res) => {
   const exists = db.users.some((u) => u.username.toLowerCase() === String(username).toLowerCase());
   if (exists) return res.status(400).json({ error: "Username already exists" });
 
+  // ✅ save BOTH plain + hash so old+new login always works
   const user = {
     id: uid("u_"),
     username: String(username).trim(),
-    password: String(password),
+    password: String(password), // keep for compatibility
+    passwordHash: sha256(password),
     email: String(email || "").trim(),
     role: "user",
     createdAt: nowISO(),
@@ -143,10 +104,11 @@ app.post("/login", (req, res) => {
   const { username, password } = req.body || {};
   if (!username || !password) return res.status(400).json({ error: "Missing credentials" });
 
-  const user = db.users.find(
-    (u) => u.username.toLowerCase() === String(username).toLowerCase() && u.password === String(password)
-  );
+  const user = db.users.find((u) => u.username.toLowerCase() === String(username).toLowerCase());
   if (!user) return res.status(401).json({ error: "Fel användarnamn eller lösenord" });
+
+  const ok = verifyPassword(user, password);
+  if (!ok) return res.status(401).json({ error: "Fel användarnamn eller lösenord" });
 
   const token = makeToken();
   TOKENS.set(token, user.id);
@@ -177,7 +139,6 @@ app.post("/auth/forgot-password", (req, res) => {
   db.resetTokens.push({ token, email: user.email, expiresAt });
   saveDB(db);
 
-  // In real app: send email. Here: return link
   return res.json({
     message: "Återställningslänk skapad ✅",
     resetLink: `${req.protocol}://${req.get("host")}/?resetToken=${token}`,
@@ -195,7 +156,8 @@ app.post("/auth/reset-password", (req, res) => {
   const user = db.users.find((u) => u.email === rt.email);
   if (!user) return res.status(400).json({ error: "User finns inte" });
 
-  user.password = String(newPassword);
+  user.password = String(newPassword); // keep compatible
+  user.passwordHash = sha256(newPassword);
   db.resetTokens = db.resetTokens.filter((t) => t.token !== resetToken);
   saveDB(db);
 
@@ -220,10 +182,13 @@ app.post("/auth/change-password", authRequired, (req, res) => {
   const { currentPassword, newPassword } = req.body || {};
   if (!currentPassword || !newPassword) return res.status(400).json({ error: "Fyll i båda fälten" });
 
-  if (req.user.password !== String(currentPassword)) return res.status(400).json({ error: "Fel nuvarande lösenord" });
+  const ok = verifyPassword(req.user, currentPassword);
+  if (!ok) return res.status(400).json({ error: "Fel nuvarande lösenord" });
 
   req.user.password = String(newPassword);
+  req.user.passwordHash = sha256(newPassword);
   saveDB(db);
+
   return res.json({ message: "Lösenord uppdaterat ✅" });
 });
 
@@ -292,7 +257,6 @@ app.post("/chat", authRequired, (req, res) => {
     ticket.lastActivityAt = nowISO();
   }
 
-  // ✅ Simpel “smart AI” placeholder (stabil)
   const reply =
     `✅ Jag förstår.\n\n` +
     `Kategori: ${cat}\n` +
@@ -300,7 +264,6 @@ app.post("/chat", authRequired, (req, res) => {
     `📌 Beskriv gärna:\n- Vad exakt händer?\n- Får du felkod?\n- När började det?\n\n` +
     `Så löser jag det snabbast möjligt.`;
 
-  // simulate AI response for ticket timeline
   ticket.messages.push({ role: "ai", content: reply, timestamp: nowISO() });
   ticket.lastActivityAt = nowISO();
 
@@ -360,7 +323,6 @@ app.get("/admin/tickets", authRequired, adminOrAgent, (req, res) => {
   if (status) items = items.filter((t) => t.status === status);
   if (companyId) items = items.filter((t) => t.companyId === companyId);
 
-  // agent should see all open tickets too (inbox)
   res.json(items.map(minTicket));
 });
 
@@ -396,6 +358,7 @@ function fullTicket(t) {
     sla: t.sla || {},
   };
 }
+
 /* =========================
    ADMIN - TICKET DETAILS
 ========================= */
@@ -424,7 +387,6 @@ app.post("/admin/tickets/:id/status", authRequired, adminOrAgent, (req, res) => 
   t.status = status;
   t.lastActivityAt = nowISO();
 
-  // if solved, set resolution time if not already set
   if (status === "solved" && t.sla && t.sla.resolutionMs == null) {
     const created = new Date(t.createdAt).getTime();
     const resolved = Date.now();
@@ -455,7 +417,6 @@ app.post("/admin/tickets/:id/agent-reply", authRequired, adminOrAgent, (req, res
   if (!t) return res.status(404).json({ error: "Ticket not found" });
   if (!content) return res.status(400).json({ error: "Missing content" });
 
-  // First response SLA (simulate timing)
   if (t.sla && t.sla.firstResponseMs == null) {
     const created = new Date(t.createdAt).getTime();
     t.sla.firstResponseMs = Date.now() - created;
@@ -605,15 +566,18 @@ function calcSlaOverview(days) {
     return { avgMs, medianMs, p90Ms };
   }
 
-  // compliance thresholds (demo)
-  const firstLimit = 1000 * 60 * 15; // 15 min
-  const resLimit = 1000 * 60 * 60 * 24; // 24h
+  const firstLimit = 1000 * 60 * 15;
+  const resLimit = 1000 * 60 * 60 * 24;
 
   const firstBreaches = firstArr.filter((x) => x > firstLimit).length;
   const resBreaches = resArr.filter((x) => x > resLimit).length;
 
-  const firstCompliancePct = firstArr.length ? Math.round(((firstArr.length - firstBreaches) / firstArr.length) * 100) : 0;
-  const resCompliancePct = resArr.length ? Math.round(((resArr.length - resBreaches) / resArr.length) * 100) : 0;
+  const firstCompliancePct = firstArr.length
+    ? Math.round(((firstArr.length - firstBreaches) / firstArr.length) * 100)
+    : 0;
+  const resCompliancePct = resArr.length
+    ? Math.round(((resArr.length - resBreaches) / resArr.length) * 100)
+    : 0;
 
   return {
     totalTickets,
@@ -641,7 +605,7 @@ app.get("/admin/sla/agents", authRequired, adminOrAgent, (req, res) => {
   const days = Number(req.query.days || 30);
   const items = db.tickets.filter((t) => withinDays(t.createdAt, days));
 
-  const map = new Map(); // userId => row
+  const map = new Map();
   const users = db.users.filter((u) => u.role === "agent" || u.role === "admin");
 
   users.forEach((u) => {
@@ -661,13 +625,11 @@ app.get("/admin/sla/agents", authRequired, adminOrAgent, (req, res) => {
   items.forEach((t) => {
     const assigned = t.assignedToUserId;
     if (!assigned || !map.has(assigned)) return;
-
     const row = map.get(assigned);
     row.tickets += 1;
     row[t.status] = (row[t.status] || 0) + 1;
   });
 
-  // Very simplified averages
   map.forEach((row) => {
     const myTickets = items.filter((t) => t.assignedToUserId === row.userId);
     const fr = myTickets.map((t) => t.sla?.firstResponseMs).filter((x) => Number.isFinite(x));
@@ -702,7 +664,6 @@ app.get("/admin/sla/trend/weekly", authRequired, adminOrAgent, (req, res) => {
   const days = Number(req.query.days || 30);
   const items = db.tickets.filter((t) => withinDays(t.createdAt, days));
 
-  // group by week number
   const weekMap = new Map();
   items.forEach((t) => {
     const dt = new Date(t.createdAt);
