@@ -1,7 +1,8 @@
+// ...existing code...
 // =========================
 // SSE: Realtidsnotiser för agenter (nya ärenden)
 // =========================
-// ...existing code...
+const sseClients = [];
 app.get("/sse/agent-notify", (req, res) => {
   res.setHeader("Content-Type", "text/event-stream");
   res.setHeader("Cache-Control", "no-cache");
@@ -921,7 +922,7 @@ function createTransport() {
    ✅ INBOX REALTIME (SSE)
    - inbox ska highlightas när ärende inkommer
 ===================== */
-const sseClients = new Map(); // userId -> Set(res)
+// ...existing code...
 function sseAddClient(userId, res) {
   if (!sseClients.has(userId)) sseClients.set(userId, new Set());
   sseClients.get(userId).add(res);
