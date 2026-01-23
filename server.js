@@ -1,3 +1,6 @@
+// =========================
+// API: Premium widgets/statistik
+// =========================
 require("dotenv").config();
 const express = require("express");
 const OpenAI = require("openai");
@@ -18,6 +21,64 @@ app.set("trust proxy", 1);
 app.use(express.json({ limit: "18mb" }));
 app.use(cors());
 app.use(express.static(__dirname));
+// ...existing code...
+
+// Flyttade API endpoints hit, EFTER att app är deklarerad
+// =========================
+// API: Premium widgets/statistik
+// =========================
+app.get("/api/ai/stats", async (req, res) => {
+  try {
+    // Exempel: summera AI-svar och snitt svarstid
+    const totalResponses = await Message.countDocuments({ role: "assistant" });
+    const avgResponse = await Message.aggregate([
+      { $match: { role: "assistant" } },
+      { $group: { _id: null, avg: { $avg: "$responseTimeMs" } } }
+    ]);
+    res.json({
+      totalResponses,
+      avgResponseTime: avgResponse[0]?.avg ? Math.round(avgResponse[0].avg) : null
+    });
+  } catch (e) {
+    res.status(500).json({ error: "Serverfel: " + e.message });
+  }
+});
+
+app.get("/api/agent/stats", async (req, res) => {
+  try {
+    if (!req.headers.authorization) return res.status(401).json({ error: "Ingen token" });
+    const token = req.headers.authorization.split(" ")[1];
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    // Exempel: summera ärenden och snittbetyg för agent
+    const ticketsSolved = await Ticket.countDocuments({ agentUserId: decoded.id, status: "solved" });
+    const avgRating = await Ticket.aggregate([
+      { $match: { agentUserId: decoded.id, rating: { $exists: true } } },
+      { $group: { _id: null, avg: { $avg: "$rating" } } }
+    ]);
+    res.json({
+      ticketsSolved,
+      avgRating: avgRating[0]?.avg ? avgRating[0].avg.toFixed(2) : null
+    });
+  } catch (e) {
+    res.status(500).json({ error: "Serverfel: " + e.message });
+  }
+});
+
+app.get("/api/sla/trends", async (req, res) => {
+  try {
+    // Exempel: trend för första svar och lösningstid senaste 30 dagar
+    const since = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+    const stats = await SLAStat.find({ createdAt: { $gte: since } });
+    const firstResponseTrend = stats.length ? Math.round(100 * stats.filter(s => s.firstResponseMs <= s.firstResponseLimitMs).length / stats.length) : null;
+    const resolutionTrend = stats.length ? Math.round(100 * stats.filter(s => s.resolutionMs <= s.resolutionLimitMs).length / stats.length) : null;
+    res.json({
+      firstResponseTrend,
+      resolutionTrend
+    });
+  } catch (e) {
+    res.status(500).json({ error: "Serverfel: " + e.message });
+  }
+});
 
 // =========================
 // SSE: Realtidsnotiser för agenter (nya ärenden)

@@ -858,6 +858,30 @@ async function onLoggedIn() {
     showSidebarKpiWidget("SLA: Data saknas", "fa-chart-line", "#ff4d4d");
   }
 
+  // Premium: Visa AI-statistik-widget
+  const aiStats = await safeApi("/api/ai/stats");
+  const aiStatsWidget = document.getElementById("aiStatsWidget");
+  if (aiStatsWidget && aiStats) {
+    aiStatsWidget.style.display = "block";
+    aiStatsWidget.innerHTML = `<b>AI-statistik</b><br>Totalt svar: <b>${aiStats.totalResponses || 0}</b><br>Snitt svarstid: <b>${aiStats.avgResponseTime || '-'} ms</b>`;
+  }
+
+  // Premium: Visa agentstatistik-widget
+  const agentStats = await safeApi("/api/agent/stats");
+  const agentStatsWidget = document.getElementById("agentStatsWidget");
+  if (agentStatsWidget && agentStats) {
+    agentStatsWidget.style.display = "block";
+    agentStatsWidget.innerHTML = `<b>Agentstatistik</b><br>Ärenden lösta: <b>${agentStats.ticketsSolved || 0}</b><br>Snitt betyg: <b>${agentStats.avgRating || '-'} / 5</b>`;
+  }
+
+  // Premium: Visa SLA-trender-widget
+  const slaTrends = await safeApi("/api/sla/trends");
+  const slaTrendsWidget = document.getElementById("slaTrendsWidget");
+  if (slaTrendsWidget && slaTrends) {
+    slaTrendsWidget.style.display = "block";
+    slaTrendsWidget.innerHTML = `<b>SLA-trender</b><br>Första svar: <b>${slaTrends.firstResponseTrend || '-'}%</b><br>Lösningstid: <b>${slaTrends.resolutionTrend || '-'}%</b>`;
+  }
+
   await updateCategoryUiHints();
   await loadInboxCategoryFilter();
   updateDebug();
