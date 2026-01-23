@@ -1,16 +1,27 @@
-// ...existing code...
-// ...existing code...
-// ...existing code...
-// ...existing code...
-// ...existing code...
-// ...existing code...
-// ...existing code...
+require("dotenv").config();
+const express = require("express");
+const OpenAI = require("openai");
+const cors = require("cors");
+const rateLimit = require("express-rate-limit");
+const sanitizeHtml = require("sanitize-html");
+const mongoose = require("mongoose");
+const bcrypt = require("bcryptjs");
+const jwt = require("jsonwebtoken");
+const path = require("path");
+const cheerio = require("cheerio");
+const pdfParse = require("pdf-parse");
+const nodemailer = require("nodemailer");
+const crypto = require("crypto");
+
+const app = express();
+app.set("trust proxy", 1);
+app.use(express.json({ limit: "18mb" }));
+app.use(cors());
+app.use(express.static(__dirname));
+
 // =========================
 // SSE: Realtidsnotiser för agenter (nya ärenden)
 // =========================
-// Flyttad hit efter app-init
-// Placera denna kod EFTER app = express() och app.use(...)
-// --- SSE START ---
 const sseClients = [];
 app.get("/sse/agent-notify", (req, res) => {
   res.setHeader("Content-Type", "text/event-stream");
@@ -249,39 +260,7 @@ app.post("/api/chat/set-category", async (req, res) => {
     res.status(500).json({ error: "Serverfel: " + e.message });
   }
 });
-// server.js (FULL FIXED + UPGRADED)
-// ✅ Agent kan INTE se Admin panel (blockas även i backend)
-// ✅ Agent kan se SLA som speglar sin statistik (backend filtrerar)
-// ✅ Alla användare får ett "publicId" (vänligt ID) + unikt idNumber
-// ✅ Edit AI kategori (Admin kan uppdatera name/systemPrompt)
-// ✅ Inbox highlight när ärende inkommer (SSE endpoint + notifier)
-// ✅ Widget endpoints (SSE + stats)
-// ✅ Buggfixar, bättre robusthet, tydligare API
-// ✅ Smidigt, du behöver bara ersätta denna fil
 
-require("dotenv").config();
-
-const express = require("express");
-const OpenAI = require("openai");
-const cors = require("cors");
-const rateLimit = require("express-rate-limit");
-const sanitizeHtml = require("sanitize-html");
-const mongoose = require("mongoose");
-const bcrypt = require("bcryptjs");
-const jwt = require("jsonwebtoken");
-const path = require("path");
-
-const cheerio = require("cheerio");
-const pdfParse = require("pdf-parse");
-const nodemailer = require("nodemailer");
-const crypto = require("crypto");
-
-const app = express();
-app.set("trust proxy", 1);
-
-app.use(express.json({ limit: "18mb" }));
-app.use(cors());
-app.use(express.static(__dirname));
 
 /* =====================
    ✅ ENV
