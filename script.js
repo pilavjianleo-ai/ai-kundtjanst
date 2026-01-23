@@ -131,6 +131,28 @@ function exportSlaStatsCsv(stats) {
   a.click();
   URL.revokeObjectURL(a.href);
 }
+// Premium: Exportera SLA-statistik med feedback
+function exportSlaStatsWithStatus() {
+  toast('Exporterar SLA-statistik...', 'info');
+  const days = Number($("slaDaysSelect")?.value || 30);
+  const url = `/admin/sla/export/csv?days=${days}`;
+  fetch(API_BASE + url, {
+    headers: { Authorization: `Bearer ${state.token}` },
+  })
+    .then((r) => {
+      if (!r.ok) throw new Error('Export misslyckades');
+      return r.blob();
+    })
+    .then((blob) => {
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = `sla_export_${days}d.csv`;
+      a.click();
+      URL.revokeObjectURL(a.href);
+      toast('SLA-export klar! ✅', 'success');
+    })
+    .catch(() => toast('❌ SLA-export misslyckades', 'error'));
+  }
 /* =========================================================
    AI Kundtjänst - script.js (STABLE FIXED)
    ✅ Behåller din layout exakt som index.html
@@ -313,10 +335,12 @@ function pill(label, kind = "") {
 /* =========================
    Toast
 ========================= */
-function toast(msg) {
+function toast(msg, type = "") {
   const t = document.createElement("div");
-  t.className = "toastMsg";
-  t.textContent = msg;
+  t.className = "toastMsg" + (type ? ` ${type}` : "");
+  if (type === "success") t.innerHTML = `<i class='fa-solid fa-check-circle'></i> ${msg}`;
+  else if (type === "error") t.innerHTML = `<i class='fa-solid fa-exclamation-triangle'></i> ${msg}`;
+  else t.textContent = msg;
   const c = document.getElementById("toastContainer");
   (c || document.body).appendChild(t);
   setTimeout(() => t.classList.add("show"), 30);
@@ -324,6 +348,71 @@ function toast(msg) {
     t.classList.remove("show");
     setTimeout(() => t.remove(), 300);
   }, 2500);
+}
+
+// =========================
+// Premium: Custom confirm/alert dialog
+// =========================
+function showDialog({ title = '', message = '', confirmText = 'OK', cancelText = 'Avbryt', onConfirm, onCancel }) {
+  let dlg = document.getElementById('customDialog');
+  if (!dlg) {
+    dlg = document.createElement('div');
+    dlg.id = 'customDialog';
+    dlg.innerHTML = `
+      <div class="dialogOverlay"></div>
+      <div class="dialogBox" role="dialog" aria-modal="true">
+        <div class="dialogTitle"></div>
+        <div class="dialogMsg"></div>
+        <div class="dialogActions">
+          <button class="btn primary dialogConfirm"></button>
+          <button class="btn ghost dialogCancel"></button>
+        </div>
+      </div>
+    `;
+    document.body.appendChild(dlg);
+  }
+  dlg.querySelector('.dialogTitle').textContent = title;
+  dlg.querySelector('.dialogMsg').innerHTML = message;
+  dlg.querySelector('.dialogConfirm').textContent = confirmText;
+  dlg.querySelector('.dialogCancel').textContent = cancelText;
+  dlg.style.display = 'block';
+  dlg.querySelector('.dialogConfirm').onclick = () => {
+    dlg.style.display = 'none';
+    if (onConfirm) onConfirm();
+  };
+  dlg.querySelector('.dialogCancel').onclick = () => {
+    dlg.style.display = 'none';
+    if (onCancel) onCancel();
+  };
+}
+
+// Ersätt confirm med premium-dialog
+function premiumConfirm(message, onConfirm, onCancel) {
+  showDialog({
+    title: 'Bekräfta',
+    message,
+    confirmText: 'Ja',
+    cancelText: 'Nej',
+    onConfirm,
+    onCancel
+  });
+}
+
+// Premium: Custom alert/toast dialog
+function premiumAlert(message, title = 'Info', confirmText = 'OK', onConfirm) {
+  showDialog({
+    title,
+    message,
+    confirmText,
+    cancelText: '',
+    onConfirm
+  });
+  // Dölj cancel-knapp om ej relevant
+  const dlg = document.getElementById('customDialog');
+  if (dlg) {
+    const cancelBtn = dlg.querySelector('.dialogCancel');
+    if (cancelBtn) cancelBtn.style.display = 'none';
+  }
 }
 
 /* =========================
@@ -507,7 +596,7 @@ function bindEvents() {
 
   // SLA
   $("slaRefreshBtn")?.addEventListener("click", refreshSlaAll);
-  $("slaExportCsvBtn")?.addEventListener("click", exportSlaCsv);
+  $("slaExportCsvBtn")?.addEventListener("click", exportSlaStatsWithStatus);
   $("slaDaysSelect")?.addEventListener("change", refreshSlaAll);
 
   // Admin tabs
@@ -521,7 +610,7 @@ function bindEvents() {
   });
 
   $("adminUsersRefreshBtn")?.addEventListener("click", loadAdminUsers);
-  $("adminExportAllBtn")?.addEventListener("click", exportAll);
+  $("adminExportAllBtn")?.addEventListener("click", exportAllWithStatus);
   $("trainingExportBtn")?.addEventListener("click", exportTraining);
 
   // KB
@@ -539,6 +628,60 @@ function bindEvents() {
   // Settings
   $("changeUsernameBtn")?.addEventListener("click", changeUsername);
   $("changePasswordBtn")?.addEventListener("click", changePassword);
+}
+
+// =========================
+// SIDEBAR WIDGETS: Exempel på dynamisk KPI-widget
+// =========================
+function showSidebarKpiWidget(text, icon = "fa-chart-line", color = "#fff") {
+  const w = document.getElementById("sidebarWidgets");
+  if (!w) return;
+  let el = w.querySelector(".kpiWidget");
+  if (!el) {
+    el = document.createElement("div");
+    el.className = "widget kpiWidget";
+    w.appendChild(el);
+  }
+  el.style.display = "flex";
+  el.innerHTML = `<i class="fa-solid ${icon}" style="color:${color}"></i> ${text}`;
+}
+
+function hideSidebarKpiWidget() {
+  const w = document.getElementById("sidebarWidgets");
+  if (!w) return;
+  let el = w.querySelector(".kpiWidget");
+  if (el) el.style.display = "none";
+}
+
+// SIDEBAR WIDGETS: Exempel på notifierings-widget
+function showSidebarNotifWidget(text, icon = "fa-bell", color = "#ffb020") {
+  const w = document.getElementById("sidebarWidgets");
+  if (!w) return;
+  let el = w.querySelector(".notifWidget");
+  if (!el) {
+    el = document.createElement("div");
+    el.className = "widget notifWidget";
+    w.appendChild(el);
+  }
+  el.style.display = "flex";
+  el.innerHTML = `<i class=\"fa-solid ${icon}\" style=\"color:${color}\"></i> ${text}`;
+}
+
+function hideSidebarNotifWidget() {
+  const w = document.getElementById("sidebarWidgets");
+  if (!w) return;
+  let el = w.querySelector(".notifWidget");
+  if (el) el.style.display = "none";
+}
+
+// Exempel: Visa notifiering vid nytt ärende (koppla till SSE/polling)
+function notifyNewTicketSidebar(count) {
+  if (count > 0) {
+    showSidebarNotifWidget(`Nya ärenden: <b>${count}</b>`, "fa-bell", "#ffb020");
+  } else {
+    hideSidebarNotifWidget();
+  }
+}
 
 // Byt användarnamn (inloggad)
 async function changeUsername() {
@@ -546,13 +689,16 @@ async function changeUsername() {
   setAlert(msg, "");
   try {
     const newUsername = $("newUsernameInput")?.value?.trim();
-    if (!newUsername) throw new Error("Fyll i nytt användarnamn");
+    if (!newUsername || newUsername.length < 3) throw new Error("Nytt användarnamn är för kort.");
+
     const data = await api("/auth/change-username", {
       method: "POST",
       body: JSON.stringify({ newUsername }),
     });
+
     setAlert(msg, data.message || "Uppdaterat ✅", "");
     $("newUsernameInput").value = "";
+
     const me = await safeApi("/me");
     if (me) {
       state.user = me;
@@ -572,19 +718,18 @@ async function changePassword() {
     const currentPassword = $("currentPassInput")?.value || "";
     const newPassword = $("newPassInput")?.value || "";
     if (!currentPassword || !newPassword) throw new Error("Fyll i båda fälten.");
+
     const data = await api("/auth/change-password", {
       method: "POST",
       body: JSON.stringify({ currentPassword, newPassword }),
     });
+
     setAlert(msg, data.message || "Lösenord uppdaterat ✅", "");
     $("currentPassInput").value = "";
     $("newPassInput").value = "";
   } catch (e) {
     setAlert(msg, e.message, "error");
   }
-}
-
-  handleResetTokenFromUrl();
 }
 
 function debounce(fn, delay) {
@@ -699,6 +844,20 @@ async function onLoggedIn() {
   renderConversation();
   scrollMessagesToBottom();
 
+  // Visa exempel-widget med SLA-status
+  showSidebarKpiWidget("SLA: Laddar...", "fa-chart-line", "#fff");
+  // Hämta SLA-data och uppdatera widgeten
+  const overview = await safeApi("/admin/sla/overview?days=30");
+  if (overview && typeof overview.firstResponse?.compliancePct === "number") {
+    showSidebarKpiWidget(
+      `SLA: <b>${overview.firstResponse.compliancePct}%</b> första svar`,
+      "fa-chart-line",
+      overview.firstResponse.compliancePct >= 90 ? "#37d67a" : (overview.firstResponse.compliancePct >= 70 ? "#ffb020" : "#ff4d4d")
+    );
+  } else {
+    showSidebarKpiWidget("SLA: Data saknas", "fa-chart-line", "#ff4d4d");
+  }
+
   await updateCategoryUiHints();
   await loadInboxCategoryFilter();
   updateDebug();
@@ -747,6 +906,9 @@ async function pollUpdates() {
       show($("inboxNotifDot"), true);
       toast(`📩 Nytt ärende inkom! (${openCount} öppna)`);
     }
+
+    // Visa notifierings-widget i sidebar
+    notifyNewTicketSidebar(openCount);
 
     state.inboxOpenCount = openCount;
     setLS(LS.lastInboxOpenCount, String(openCount));
@@ -930,10 +1092,14 @@ function renderConversation() {
   for (const m of state.conversation) addMessageToUI(m.role, m.content || "");
 }
 
-function scrollMessagesToBottom() {
+function scrollMessagesToBottom(smooth = true) {
   const el = $("messages");
   if (!el) return;
-  el.scrollTop = el.scrollHeight;
+  if (smooth) {
+    el.scrollTo({ top: el.scrollHeight, behavior: "smooth" });
+  } else {
+    el.scrollTop = el.scrollHeight;
+  }
 }
 
 async function sendChat() {
@@ -1423,66 +1589,51 @@ async function assignTicketToAgent() {
 async function deleteSelectedInboxTicket() {
   if (!state.selectedInboxTicketId) return;
   setAlert($("inboxTicketMsg"), "");
-  if (!confirm("Ta bort ticket?")) return;
-
-  const ok = await safeApi(`/admin/tickets/${state.selectedInboxTicketId}`, { method: "DELETE" });
-  if (!ok) {
-    setAlert($("inboxTicketMsg"), "Kunde inte ta bort (saknar endpoint).", "error");
-    return;
-  }
-
-  state.selectedInboxTicketId = null;
-  $("ticketDetails").innerHTML = `<div class="muted small">Välj en ticket.</div>`;
-  renderInternalNotes([]);
-  await loadInboxTickets();
+  premiumConfirm("Ta bort ticket?", async () => {
+    const ok = await safeApi(`/admin/tickets/${state.selectedInboxTicketId}`, { method: "DELETE" });
+    if (!ok) {
+      setAlert($("inboxTicketMsg"), "Kunde inte ta bort (saknar endpoint).", "error");
+      return;
+    }
+    state.selectedInboxTicketId = null;
+    $("ticketDetails").innerHTML = `<div class="muted small">Välj en ticket.</div>`;
+    renderInternalNotes([]);
+    await loadInboxTickets();
+  });
 }
 
 async function solveAllTickets() {
   setAlert($("inboxMsg"), "");
-  if (!confirm("Solve ALL? (Admin)")) return;
-
-  const ok = await safeApi("/admin/tickets/solve-all", { method: "POST" });
-  if (!ok) {
-    setAlert($("inboxMsg"), "Kunde inte köra Solve All (saknar endpoint).", "error");
-    return;
-  }
-  setAlert($("inboxMsg"), "Klart ✅", "");
-  await loadInboxTickets();
+  premiumConfirm("Solve ALL? (Admin)", async () => {
+    const ok = await safeApi("/admin/tickets/solve-all", { method: "POST" });
+    if (!ok) {
+      setAlert($("inboxMsg"), "Kunde inte köra Solve All (saknar endpoint).", "error");
+      return;
+    }
+    setAlert($("inboxMsg"), "Klart ✅", "");
+    await loadInboxTickets();
+  });
 }
 
 async function removeSolvedTickets() {
   setAlert($("inboxMsg"), "");
-  if (!confirm("Remove solved? (Admin)")) return;
-
-  const ok = await safeApi("/admin/tickets/remove-solved", { method: "POST" });
-  if (!ok) {
-    setAlert($("inboxMsg"), "Kunde inte köra Remove solved (saknar endpoint).", "error");
+  premiumConfirm("Remove solved? (Admin)", async () => {
+    const ok = await safeApi("/admin/tickets/remove-solved", { method: "POST" });
+    if (!ok) {
+      setAlert($("inboxMsg"), "Kunde inte köra Remove solved (saknar endpoint).", "error");
+      return;
+    }
+    setAlert($("inboxMsg"), "Klart ✅", "");
     return;
-  }
-  setAlert($("inboxMsg"), "Klart ✅", "");
-  await loadInboxTickets();
+  });
 }
 
 /* =========================
-   SLA DASHBOARD (STABLE)
+   SLA
 ========================= */
-let slaCache = { overview: null, trend: null, agents: null, tickets: null };
-
 async function refreshSlaAll() {
-  destroyTrendChart();
-
   const days = Number($("slaDaysSelect")?.value || 30);
-
-  $("slaOverviewBox").innerHTML = `<div class="muted small">Laddar...</div>`;
-  $("slaAgentsBox").innerHTML = `<div class="muted small">Laddar...</div>`;
-  $("slaTicketsBox").innerHTML = `<div class="muted small">Laddar...</div>`;
-  $("slaTrendHint").textContent = "";
-
   const overview = await safeApi(`/admin/sla/overview?days=${days}`);
-  if (!overview) {
-    $("slaOverviewBox").innerHTML = `<div class="alert error">❌ SLA saknas/behörighet.</div>`;
-    return;
-  }
   slaCache.overview = overview;
   renderSlaOverview(overview);
 
@@ -1681,6 +1832,29 @@ function exportSlaCsv() {
     .catch(() => alert("❌ Export misslyckades"));
 }
 
+// Premium: Exportera SLA-statistik med feedback
+function exportSlaStatsWithStatus() {
+  toast('Exporterar SLA-statistik...', 'info');
+  const days = Number($("slaDaysSelect")?.value || 30);
+  const url = `/admin/sla/export/csv?days=${days}`;
+  fetch(API_BASE + url, {
+    headers: { Authorization: `Bearer ${state.token}` },
+  })
+    .then((r) => {
+      if (!r.ok) throw new Error('Export misslyckades');
+      return r.blob();
+    })
+    .then((blob) => {
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = `sla_export_${days}d.csv`;
+      a.click();
+      URL.revokeObjectURL(a.href);
+      toast('SLA-export klar! ✅', 'success');
+    })
+    .catch(() => toast('❌ SLA-export misslyckades', 'error'));
+}
+
 /* =========================
    ADMIN DASHBOARD
 ========================= */
@@ -1739,6 +1913,7 @@ async function loadAdminUsers() {
   qsa("[data-set-role]").forEach((b) => {
     b.addEventListener("click", async () => {
       const userId = b.getAttribute("data-set-role");
+     
       const sel = qs(`[data-role-select="${userId}"]`);
       const role = sel?.value;
       const ok = await safeApi(`/admin/users/${userId}/role`, {
@@ -1769,6 +1944,27 @@ async function loadAdminUsers() {
   });
 }
 
+// Premium: Exportera all data med status och feedback
+function exportAllWithStatus() {
+  toast('Exporterar all data...', 'info');
+  fetch(API_BASE + '/admin/export/all', {
+    headers: { Authorization: `Bearer ${state.token}` },
+  })
+    .then((r) => {
+      if (!r.ok) throw new Error('Export misslyckades');
+      return r.blob();
+    })
+    .then((blob) => {
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = `export_all_${new Date().toISOString().slice(0, 10)}.json`;
+      a.click();
+      URL.revokeObjectURL(a.href);
+      toast('Export klar! ✅', 'success');
+    })
+    .catch(() => toast('❌ Export misslyckades', 'error'));
+}
+
 /* =========================
    EXPORTS
 ========================= */
@@ -1793,6 +1989,7 @@ function exportAll() {
 function exportTraining() {
   const url = `/admin/export/training?companyId=${encodeURIComponent(state.companyId)}`;
   fetch(API_BASE + url, { headers: { Authorization: `Bearer ${state.token}` } })
+
     .then((r) => {
       if (!r.ok) throw new Error("Export misslyckades");
       return r.blob();
@@ -1899,7 +2096,7 @@ async function kbUploadPdf() {
     if (!file) throw new Error("Välj en PDF fil.");
 
     const base64 = await fileToBase64(file);
-    const data = await api("/kb/upload-pdf", {
+       const data = await api("/kb/upload-pdf", {
       method: "POST",
       body: JSON.stringify({ companyId, filename: file.name, base64 }),
     });
@@ -2126,83 +2323,4 @@ function updateDebug(extra = {}) {
   $("dbgRole").textContent = state.user?.role || "-";
   $("dbgTicket").textContent = extra.ticketId || state.lastTicketId || "-";
   $("dbgRag").textContent = extra.ragUsed ? "JA" : "-";
-
-// ✅ FIX: Om graf-funktionen saknas av någon anledning
-function destroyTrendChart() {
-  if (state.chartTrend) {
-    try { state.chartTrend.destroy(); } catch {}
-    state.chartTrend = null;
-  }
-}
-
-function renderSlaTrendChart(tr) {
-  const canvas = $("slaTrendChart");
-  if (!canvas) return;
-
-  if (typeof Chart === "undefined") {
-    const hint = $("slaTrendHint");
-    if (hint) {
-      hint.textContent =
-        "❌ Chart.js saknas. Kontrollera att <script src='https://cdn.jsdelivr.net/npm/chart.js'></script> ligger före script.js i index.html";
-    }
-    return;
-  }
-
-  destroyTrendChart();
-
-  const rows = tr?.rows || [];
-  const hint = $("slaTrendHint");
-
-  if (!rows.length) {
-    if (hint) hint.textContent = "Ingen trend-data ännu.";
-    return;
-  }
-
-  const labels = rows.map((r, i) => r.week || `V${i + 1}`);
-  const firstPct = rows.map((r) => Number(r.firstCompliancePct || 0));
-  const resPct = rows.map((r) => Number(r.resolutionCompliancePct || 0));
-
-  const ctx = canvas.getContext("2d");
-
-  state.chartTrend = new Chart(ctx, {
-    type: "line",
-    data: {
-      labels,
-      datasets: [
-        {
-          label: "First response compliance (%)",
-          data: firstPct,
-          tension: 0.35,
-          borderWidth: 2,
-          pointRadius: 3,
-        },
-        {
-          label: "Resolution compliance (%)",
-          data: resPct,
-          tension: 0.35,
-          borderWidth: 2,
-          pointRadius: 3,
-        },
-      ],
-    },
-    options: {
-      responsive: true,
-      maintainAspectRatio: false,
-      interaction: { mode: "index", intersect: false },
-      plugins: {
-        legend: { display: true },
-        tooltip: { enabled: true },
-      },
-      scales: {
-        y: {
-          min: 0,
-          max: 100,
-          ticks: { callback: (v) => v + "%" },
-        },
-      },
-    },
-  });
-
-  if (hint) hint.textContent = "Trend visar compliance vecka för vecka.";
-}
 }
