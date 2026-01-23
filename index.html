@@ -84,6 +84,26 @@
 
     <!-- MAIN -->
     <main class="main">
+      <!-- PREMIUM WIDGETS PANEL -->
+      <section id="premiumWidgets" class="view" style="margin-bottom:24px;">
+        <div class="slaGrid">
+          <div class="slaCard" id="widgetAiStats">
+            <div class="slaLabel"><i class="fa-solid fa-robot"></i> AI-svar idag</div>
+            <div class="slaValue" id="aiAnswersToday">–</div>
+            <div class="muted small">Totalt: <span id="aiAnswersTotal">–</span></div>
+          </div>
+          <div class="slaCard" id="widgetAgentStats">
+            <div class="slaLabel"><i class="fa-solid fa-user-tie"></i> Agent-svar idag</div>
+            <div class="slaValue" id="agentAnswersToday">–</div>
+            <div class="muted small">Totalt: <span id="agentAnswersTotal">–</span></div>
+          </div>
+          <div class="slaCard" id="widgetSla">
+            <div class="slaLabel"><i class="fa-solid fa-bolt"></i> SLA (snitt)</div>
+            <div class="slaValue" id="slaAvg">–</div>
+            <div class="muted small">Uppfyllelse: <span id="slaCompliance">–</span>%</div>
+          </div>
+        </div>
+      </section>
 
       <!-- AUTH VIEW -->
       <section id="authView" class="view">
@@ -611,7 +631,7 @@
 
     </main>
   </div>
-
+  
   <script src="script.js"></script>
 </body>
 </html>

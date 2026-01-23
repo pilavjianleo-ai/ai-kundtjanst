@@ -2084,6 +2084,64 @@ async function slaRefreshAll() {
 }
 
 /*************************************************
+ * ✅ PREMIUM: Ladda och animera widgets
+ *************************************************/
+async function loadPremiumWidgets() {
+  try {
+    // Hämta statistik från backend (exempel-endpoints, byt till dina egna vid behov)
+    const [ai, agent, sla] = await Promise.all([
+      fetchJson(API.ADMIN_SLA_OVERVIEW + '?days=1', { headers: { Authorization: `Bearer ${token}` } }),
+      fetchJson(API.ADMIN_SLA_AGENTS + '?days=1', { headers: { Authorization: `Bearer ${token}` } }),
+      fetchJson(API.ADMIN_SLA_OVERVIEW + '?days=30', { headers: { Authorization: `Bearer ${token}` } }),
+    ]);
+
+    // AI svar idag
+    animateNumber("aiAnswersToday", ai?.aiAnswersToday ?? 0);
+    setText($("aiAnswersTotal"), ai?.aiAnswersTotal ?? "–");
+
+    // Agent svar idag
+    animateNumber("agentAnswersToday", agent?.rows?.reduce((sum, r) => sum + (r.answersToday || 0), 0) ?? 0);
+    setText($("agentAnswersTotal"), agent?.rows?.reduce((sum, r) => sum + (r.totalAnswers || 0), 0) ?? "–");
+
+    // SLA
+    animateNumber("slaAvg", Math.round(sla?.firstResponse?.avgMs/60000) || 0, " min");
+    setText($("slaCompliance"), sla?.firstResponse?.compliancePct ?? "–");
+  } catch (e) {
+    setText($("aiAnswersToday"), "–");
+    setText($("aiAnswersTotal"), "–");
+    setText($("agentAnswersToday"), "–");
+    setText($("agentAnswersTotal"), "–");
+    setText($("slaAvg"), "–");
+    setText($("slaCompliance"), "–");
+  }
+}
+
+function animateNumber(id, value, suffix = "") {
+  const el = $(id);
+  if (!el) return;
+  let start = 0;
+  const end = Number(value) || 0;
+  const duration = 700;
+  const step = Math.ceil(Math.abs(end - start) / 30) || 1;
+  const dir = end > start ? 1 : -1;
+  function tick() {
+    start += step * dir;
+    if ((dir > 0 && start >= end) || (dir < 0 && start <= end)) {
+      el.textContent = end + suffix;
+      return;
+    }
+    el.textContent = start + suffix;
+    requestAnimationFrame(tick);
+  }
+  tick();
+}
+
+document.addEventListener("DOMContentLoaded", () => {
+  loadPremiumWidgets();
+});
+window.addEventListener("focus", loadPremiumWidgets);
+
+/*************************************************
  * ✅ Init
  *************************************************/
 async function init() {

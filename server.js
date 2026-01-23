@@ -823,7 +823,7 @@ app.post("/chat", authenticate, async (req, res) => {
       if (!ticket.title) ticket.title = userQuery.slice(0, 60);
       ticket.lastActivityAt = new Date();
 
-      // Om användaren svarar när ticket är pending => återuppta SLA (stoppa pause)
+      // ✅ If user replies while pending => resume SLA
       if (ticket.status === "pending" && ticket.pendingStartedAt) {
         const add = msBetween(ticket.pendingStartedAt, new Date()) || 0;
         ticket.pendingTotalMs = Number(ticket.pendingTotalMs || 0) + add;
@@ -833,194 +833,78 @@ app.post("/chat", authenticate, async (req, res) => {
 
       safeEnsureSla(ticket);
       await ticket.save();
+
+      // ✅ Notify agent inbox about NEW message (open ticket)
+      // send to assigned agent if any
+      if (ticket.assignedToUserId) {
+        sseSendToUser(String(ticket.assignedToUserId), "inbox:new", {
+          ticketId: String(ticket._id),
+          title: ticket.title || "",
+          companyId: ticket.companyId,
+          status: ticket.status,
+          lastActivityAt: ticket.lastActivityAt,
+        });
+      }
     }
 
     const cat = await Category.findOne({ key: companyId });
+    if (!cat) {
+      console.error("/chat: Ingen kategori hittades för companyId", { companyId });
+      return res.status(404).json({ error: "Ingen AI-kategori hittades för denna chatt" });
+    }
     const systemPrompt = cat?.systemPrompt || "Du är en professionell och vänlig AI-kundtjänst på svenska.";
 
-    const rag = await ragSearch(companyId, userQuery, 4);
+    let rag = { used: false, context: "", sources: [] };
+    try {
+      rag = await ragSearch(companyId, userQuery, 4);
+    } catch (ragErr) {
+      console.error("/chat: RAG error", ragErr);
+    }
+
+    // ✅ Smarter system message: proffsig, tydlig, välkomnar om ny konversation
+    const isNewConversation = (ticket.messages || []).filter((m) => m.role === "user").length <= 1;
 
     const systemMessage = {
       role: "system",
       content:
-        systemPrompt +
-        (rag.used ? `\n\nIntern kunskapsdatabas (om relevant):\n${rag.context}\n\nSvara tydligt och konkret.` : ""),
+        [
+          systemPrompt,
+          "",
+          "VIKTIGT:",
+          "- Svara på svenska.",
+          "- Var tydlig, trevlig, professionell och lösningsorienterad.",
+          "- Ställ en kort följdfråga om något är oklart.",
+          "- Ge steg-för-steg när det är tekniska problem.",
+          "- Om du saknar info: be om exakt det du behöver.",
+          isNewConversation ? "- Börja med en kort välkomstfras." : "",
+          rag.used ? "Intern kunskapsdatabas (om relevant):" : "",
+          rag.used ? rag.context : "",
+        ]
+          .filter(Boolean)
+          .join("\n"),
     };
 
     const messages = [systemMessage, ...conversation];
 
-    const response = await openai.chat.completions.create({
-      model: "gpt-4o-mini",
-      messages,
-    });
-
-    const reply = cleanText(response.choices?.[0]?.message?.content || "Inget svar från AI.");
-
-    ticket.messages.push({ role: "assistant", content: reply, timestamp: new Date() });
-    ticket.lastActivityAt = new Date();
-
-    safeEnsureSla(ticket);
-    await ticket.save();
-
-    return res.json({ reply, ticketId: ticket._id, ragUsed: rag.used, sources: rag.sources });
-  } catch (e) {
-    console.error("❌ Chat error:", e?.message || e);
-    return res.status(500).json({ error: "Serverfel vid chat" });
-  }
-});
-
-/* =====================
-   ✅ USER: My tickets
-===================== */
-app.get("/my/tickets", authenticate, async (req, res) => {
-  const tickets = await Ticket.find({ userId: req.user.id }).sort({ lastActivityAt: -1 }).limit(100);
-  tickets.forEach((t) => safeEnsureSla(t));
-  return res.json(tickets);
-});
-
-app.get("/my/tickets/:ticketId", authenticate, async (req, res) => {
-  const t = await Ticket.findOne({ _id: req.params.ticketId, userId: req.user.id });
-  if (!t) return res.status(404).json({ error: "Ticket hittades inte" });
-  safeEnsureSla(t);
-  return res.json(t);
-});
-
-/* =====================
-   ✅ USER reply in "Mina ärenden"
-===================== */
-app.post("/my/tickets/:ticketId/reply", authenticate, async (req, res) => {
-  try {
-    const { content } = req.body || {};
-    if (!content) return res.status(400).json({ error: "content saknas" });
-
-    const t = await Ticket.findOne({ _id: req.params.ticketId, userId: req.user.id });
-    if (!t) return res.status(404).json({ error: "Ticket hittades inte" });
-
-    t.messages.push({ role: "user", content: cleanText(content), timestamp: new Date() });
-
-    // ✅ öppna igen så agent ser den i Inbox
-    t.status = "open";
-    t.lastActivityAt = new Date();
-
-    // ✅ Om ticket var pending, stoppa pending timer
-    if (t.pendingStartedAt) {
-      const add = msBetween(t.pendingStartedAt, new Date()) || 0;
-      t.pendingTotalMs = Number(t.pendingTotalMs || 0) + add;
-      t.pendingStartedAt = null;
+    let response;
+    try {
+      response = await openai.chat.completions.create({
+        model: "gpt-4o-mini",
+        messages,
+        temperature: 0.4,
+      });
+    } catch (openaiErr) {
+      console.error("/chat: OpenAI error", openaiErr);
+      return res.status(500).json({ error: "OpenAI API-fel: " + (openaiErr?.message || openaiErr) });
     }
 
-    safeEnsureSla(t);
-    await t.save();
-
-    return res.json({ message: "Svar skickat ✅", ticket: t });
-  } catch (e) {
-    console.error("❌ my ticket reply error:", e?.message || e);
-    return res.status(500).json({ error: "Serverfel vid svar i ticket" });
+    // You can add your response handling here, e.g., updating ticket with AI response, etc.
+    // For now, just return the AI response
+    return res.json({ response: response.choices?.[0]?.message?.content || "Ingen respons från AI." });
+  } catch (err) {
+    console.error("/chat: error", err);
+    return res.status(500).json({ error: "Serverfel vid chatt" });
   }
-});
-
-/* =====================
-   ✅ ADMIN/AGENT: Inbox
-===================== */
-app.get("/admin/tickets", authenticate, requireAgentOrAdmin, async (req, res) => {
-  try {
-    const dbUser = await getDbUser(req);
-    const { status, companyId } = req.query || {};
-    const query = {};
-    if (status) query.status = status;
-    if (companyId) query.companyId = companyId;
-
-    // Agent ser bara assigned tickets
-    if (dbUser?.role === "agent") {
-      query.assignedToUserId = dbUser._id;
-    }
-
-    const tickets = await Ticket.find(query).sort({ lastActivityAt: -1 }).limit(500);
-    tickets.forEach((t) => safeEnsureSla(t));
-    return res.json(tickets);
-  } catch {
-    return res.status(500).json({ error: "Serverfel vid inbox" });
-  }
-});
-
-app.get("/admin/tickets/:ticketId", authenticate, requireAgentOrAdmin, async (req, res) => {
-  const dbUser = await getDbUser(req);
-
-  const t = await Ticket.findById(req.params.ticketId);
-  if (!t) return res.status(404).json({ error: "Ticket hittades inte" });
-
-  // Agent only assigned
-  if (dbUser?.role === "agent" && String(t.assignedToUserId || "") !== String(dbUser._id)) {
-    return res.status(403).json({ error: "Du får bara se dina egna tickets" });
-  }
-
-  safeEnsureSla(t);
-  return res.json(t);
-});
-
-/* =====================
-   ✅ TICKET status handling (FIXED)
-   - pending starts timer
-   - open stops timer
-===================== */
-function startPendingTimerIfNeeded(t) {
-  if (!t.pendingStartedAt) t.pendingStartedAt = new Date();
-}
-function stopPendingTimerIfNeeded(t) {
-  if (t.pendingStartedAt) {
-    const add = msBetween(t.pendingStartedAt, new Date()) || 0;
-    t.pendingTotalMs = Number(t.pendingTotalMs || 0) + add;
-    t.pendingStartedAt = null;
-  }
-}
-
-app.post("/admin/tickets/:ticketId/status", authenticate, requireAgentOrAdmin, async (req, res) => {
-  const { status } = req.body || {};
-  if (!["open", "pending", "solved"].includes(status)) return res.status(400).json({ error: "Ogiltig status" });
-
-  const dbUser = await getDbUser(req);
-
-  const t = await Ticket.findById(req.params.ticketId);
-  if (!t) return res.status(404).json({ error: "Ticket hittades inte" });
-
-  if (dbUser?.role === "agent" && String(t.assignedToUserId || "") !== String(dbUser._id)) {
-    return res.status(403).json({ error: "Du får bara uppdatera dina egna tickets" });
-  }
-
-  // pending timer logic
-  if (status === "pending") startPendingTimerIfNeeded(t);
-  if (status === "open") stopPendingTimerIfNeeded(t);
-
-  t.status = status;
-  t.lastActivityAt = new Date();
-
-  if (status === "solved" && !t.solvedAt) {
-    stopPendingTimerIfNeeded(t);
-    t.solvedAt = new Date();
-  }
-  if (status !== "solved") {
-    t.solvedAt = null;
-  }
-
-  safeEnsureSla(t);
-  await t.save();
-
-  // mirror to SLA stats
-  await SLAStat.create({
-    scope: "ticket",
-    agentUserId: t.agentUserId || t.assignedToUserId || null,
-    ticketId: t._id,
-    createdAt: new Date(),
-    firstResponseMs: t.sla?.firstResponseMs ?? null,
-    resolutionMs: t.sla?.resolutionMs ?? null,
-    breachedFirstResponse: !!t.sla?.breachedFirstResponse,
-    breachedResolution: !!t.sla?.breachedResolution,
-    priority: t.priority || "normal",
-    companyId: t.companyId || "",
-  }).catch(() => {});
-
-  return res.json({ message: "Status uppdaterad ✅", ticket: t });
-});
 
 app.post("/admin/tickets/:ticketId/priority", authenticate, requireAgentOrAdmin, async (req, res) => {
   const { priority } = req.body || {};
@@ -1236,200 +1120,108 @@ app.delete("/admin/tickets/:ticketId", authenticate, requireAgentOrAdmin, async 
 /* =====================
    ✅ SLA: weekly trend
 ===================== */
-function weekKey(d) {
-  const dt = new Date(d);
-  if (!dt || isNaN(dt.getTime())) return "unknown";
-  const onejan = new Date(dt.getFullYear(), 0, 1);
-  const day = Math.floor((dt - onejan) / (24 * 60 * 60 * 1000));
-  const week = Math.ceil((day + onejan.getDay() + 1) / 7);
-  return `${dt.getFullYear()}-W${String(week).padStart(2, "0")}`;
-}
+  try {
+    const { companyId, conversation, ticketId } = req.body || {};
+    if (!companyId || !Array.isArray(conversation))
+      return res.status(400).json({ error: "companyId eller konversation saknas" });
 
-function buildTrendWeekly(tickets) {
-  const map = {};
-  for (const t of tickets) {
-    safeEnsureSla(t);
-    const wk = weekKey(t.createdAt);
-
-    if (!map[wk]) {
-      map[wk] = { week: wk, total: 0, firstOk: 0, resOk: 0 };
+    let ticket;
+    if (ticketId) {
+      ticket = await Ticket.findOne({ _id: ticketId, userId: req.user.id });
+      if (!ticket) return res.status(404).json({ error: "Ticket hittades inte" });
+    } else {
+      ticket = await ensureTicket(req.user.id, companyId);
     }
-    map[wk].total++;
 
-    const b1 = !!t.sla?.breachedFirstResponse;
-    const b2 = !!t.sla?.breachedResolution;
+    const lastUser = conversation[conversation.length - 1];
+    const userQuery = cleanText(lastUser?.content || "");
 
-    if (t.sla?.firstResponseMs != null && !b1) map[wk].firstOk++;
-    if (t.sla?.resolutionMs != null && !b2) map[wk].resOk++;
-  }
+    if (lastUser?.role === "user") {
+      ticket.messages.push({ role: "user", content: userQuery, timestamp: new Date() });
+      if (!ticket.title) ticket.title = userQuery.slice(0, 60);
+      ticket.lastActivityAt = new Date();
 
-  const rows = Object.values(map).sort((a, b) => String(a.week).localeCompare(String(b.week)));
-
-  return rows.map((r) => ({
-    week: r.week,
-    tickets: r.total,
-    firstCompliancePct: r.total ? Math.round((r.firstOk / r.total) * 100) : 0,
-    resolutionCompliancePct: r.total ? Math.round((r.resOk / r.total) * 100) : 0,
-  }));
-}
-
-/* =====================
-   ✅ SLA endpoints (Agent/Admin)
-===================== */
-app.get("/admin/sla/overview", authenticate, requireAgentOrAdmin, async (req, res) => {
-  try {
-    const dbUser = await getDbUser(req);
-    if (!dbUser) return res.status(403).json({ error: "User saknas" });
-
-    const rangeDays = Math.max(1, Math.min(365, Number(req.query.days || 30)));
-    const since = new Date(Date.now() - rangeDays * 24 * 60 * 60 * 1000);
-
-    const query = { createdAt: { $gte: since } };
-    if (dbUser.role === "agent") query.assignedToUserId = dbUser._id;
-
-    const tickets = await Ticket.find(query).limit(8000);
-    tickets.forEach((t) => safeEnsureSla(t));
-
-    const firstArr = tickets.map((t) => t.sla?.firstResponseMs).filter((x) => x != null);
-    const resArr = tickets.map((t) => t.sla?.resolutionMs).filter((x) => x != null);
-
-    const breachesFirst = tickets.filter((t) => t.sla?.firstResponseMs != null && t.sla.breachedFirstResponse).length;
-    const breachesRes = tickets.filter((t) => t.sla?.effectiveRunningMs != null && t.sla.breachedResolution).length;
-
-    const complianceFirst = firstArr.length ? Math.round(((firstArr.length - breachesFirst) / firstArr.length) * 100) : null;
-    const complianceRes = resArr.length ? Math.round(((resArr.length - breachesRes) / resArr.length) * 100) : null;
-
-    const byPriority = { low: 0, normal: 0, high: 0 };
-    tickets.forEach((t) => {
-      byPriority[t.priority || "normal"] = (byPriority[t.priority || "normal"] || 0) + 1;
-    });
-
-    return res.json({
-      rangeDays,
-      totalTickets: tickets.length,
-      byPriority,
-      firstResponse: {
-        avgMs: avg(firstArr),
-        medianMs: median(firstArr),
-        breaches: breachesFirst,
-        compliancePct: complianceFirst,
-      },
-      resolution: {
-        avgMs: avg(resArr),
-        medianMs: median(resArr),
-        breaches: breachesRes,
-        compliancePct: complianceRes,
-      },
-    });
-  } catch (e) {
-    console.error("❌ SLA overview error:", e?.message || e);
-    return res.status(500).json({ error: "Serverfel vid SLA overview" });
-  }
-});
-
-app.get("/admin/sla/tickets", authenticate, requireAgentOrAdmin, async (req, res) => {
-  try {
-    const dbUser = await getDbUser(req);
-    if (!dbUser) return res.status(403).json({ error: "User saknas" });
-
-    const rangeDays = Math.max(1, Math.min(365, Number(req.query.days || 30)));
-    const since = new Date(Date.now() - rangeDays * 24 * 60 * 60 * 1000);
-
-    const query = { createdAt: { $gte: since } };
-    if (dbUser.role === "agent") query.assignedToUserId = dbUser._id;
-
-    const tickets = await Ticket.find(query).sort({ createdAt: -1 }).limit(4000);
-
-    const rows = tickets.map((t) => {
-      safeEnsureSla(t);
-      return {
-        ticketId: String(t._id),
-        companyId: t.companyId,
-        status: t.status,
-        priority: t.priority,
-        createdAt: t.createdAt,
-        sla: t.sla,
-      };
-    });
-
-    return res.json({ rangeDays, count: rows.length, rows });
-  } catch (e) {
-    console.error("❌ SLA tickets error:", e?.message || e);
-    return res.status(500).json({ error: "Serverfel vid SLA tickets" });
-  }
-});
-
-app.get("/admin/sla/agents", authenticate, requireAgentOrAdmin, async (req, res) => {
-  try {
-    const dbUser = await getDbUser(req);
-    if (!dbUser) return res.status(403).json({ error: "User saknas" });
-
-    const rangeDays = Math.max(1, Math.min(365, Number(req.query.days || 30)));
-    const since = new Date(Date.now() - rangeDays * 24 * 60 * 60 * 1000);
-
-    const query = { createdAt: { $gte: since }, assignedToUserId: { $ne: null } };
-    if (dbUser.role === "agent") query.assignedToUserId = dbUser._id;
-
-    const tickets = await Ticket.find(query).limit(9000);
-    const users = await User.find({ role: { $in: ["agent", "admin"] } }).select("_id username role");
-
-    const map = {};
-    for (const t of tickets) {
-      safeEnsureSla(t);
-      const agentId = String(t.assignedToUserId);
-
-      if (!map[agentId]) {
-        map[agentId] = { agentId, tickets: 0, pending: 0, firstArr: [], resArr: [], firstBreaches: 0, resBreaches: 0 };
+      // ✅ If user replies while pending => resume SLA
+      if (ticket.status === "pending" && ticket.pendingStartedAt) {
+        const add = msBetween(ticket.pendingStartedAt, new Date()) || 0;
+        ticket.pendingTotalMs = Number(ticket.pendingTotalMs || 0) + add;
+        ticket.pendingStartedAt = null;
+        ticket.status = "open";
       }
 
-      map[agentId].tickets++;
-      if (t.status === "pending") map[agentId].pending++;
+      safeEnsureSla(ticket);
+      await ticket.save();
 
-      if (t.sla?.firstResponseMs != null) {
-        map[agentId].firstArr.push(t.sla.firstResponseMs);
-        if (t.sla.breachedFirstResponse) map[agentId].firstBreaches++;
-      }
-
-      if (t.sla?.resolutionMs != null) {
-        map[agentId].resArr.push(t.sla.resolutionMs);
-        if (t.sla.breachedResolution) map[agentId].resBreaches++;
+      // ✅ Notify agent inbox about NEW message (open ticket)
+      // send to assigned agent if any
+      if (ticket.assignedToUserId) {
+        sseSendToUser(String(ticket.assignedToUserId), "inbox:new", {
+          ticketId: String(ticket._id),
+          title: ticket.title || "",
+          companyId: ticket.companyId,
+          status: ticket.status,
+          lastActivityAt: ticket.lastActivityAt,
+        });
       }
     }
 
-    let rows = Object.values(map).map((s) => {
-      const u = users.find((x) => String(x._id) === String(s.agentId));
-      const firstCompliance = s.firstArr.length ? Math.round(((s.firstArr.length - s.firstBreaches) / s.firstArr.length) * 100) : null;
-      const resCompliance = s.resArr.length ? Math.round(((s.resArr.length - s.resBreaches) / s.resArr.length) * 100) : null;
+    const cat = await Category.findOne({ key: companyId });
+    if (!cat) {
+      console.error("/chat: Ingen kategori hittades för companyId", { companyId });
+      return res.status(404).json({ error: "Ingen AI-kategori hittades för denna chatt" });
+    }
+    const systemPrompt = cat?.systemPrompt || "Du är en professionell och vänlig AI-kundtjänst på svenska.";
 
-      return {
-        agentId: s.agentId,
-        username: u?.username || "(unknown)",
-        role: u?.role || "agent",
-        tickets: s.tickets,
-        pending: s.pending,
-        firstResponse: {
-          avgMs: avg(s.firstArr),
-          medianMs: median(s.firstArr),
-          breaches: s.firstBreaches,
-          compliancePct: firstCompliance,
-        },
-        resolution: {
-          avgMs: avg(s.resArr),
-          medianMs: median(s.resArr),
-          breaches: s.resBreaches,
-          compliancePct: resCompliance,
-        },
-      };
-    });
-
-    if (dbUser.role === "agent") {
-      rows = rows.filter((r) => String(r.agentId) === String(dbUser._id));
+    let rag = { used: false, context: "", sources: [] };
+    try {
+      rag = await ragSearch(companyId, userQuery, 4);
+    } catch (ragErr) {
+      console.error("/chat: RAG error", ragErr);
     }
 
-    return res.json({ rangeDays, count: rows.length, rows });
-  } catch (e) {
-    console.error("❌ SLA agents error:", e?.message || e);
-    return res.status(500).json({ error: "Serverfel vid SLA agents" });
+    // ✅ Smarter system message: proffsig, tydlig, välkomnar om ny konversation
+    const isNewConversation = (ticket.messages || []).filter((m) => m.role === "user").length <= 1;
+
+    const systemMessage = {
+      role: "system",
+      content:
+        [
+          systemPrompt,
+          "",
+          "VIKTIGT:",
+          "- Svara på svenska.",
+          "- Var tydlig, trevlig, professionell och lösningsorienterad.",
+          "- Ställ en kort följdfråga om något är oklart.",
+          "- Ge steg-för-steg när det är tekniska problem.",
+          "- Om du saknar info: be om exakt det du behöver.",
+          isNewConversation ? "- Börja med en kort välkomstfras." : "",
+          rag.used ? "Intern kunskapsdatabas (om relevant):" : "",
+          rag.used ? rag.context : "",
+        ]
+          .filter(Boolean)
+          .join("\n"),
+    };
+
+    const messages = [systemMessage, ...conversation];
+
+    let response;
+    try {
+      response = await openai.chat.completions.create({
+        model: "gpt-4o-mini",
+        messages,
+        temperature: 0.4,
+      });
+    } catch (openaiErr) {
+      console.error("/chat: OpenAI error", openaiErr);
+      return res.status(500).json({ error: "OpenAI API-fel: " + (openaiErr?.message || openaiErr) });
+    }
+
+    // You can add your response handling here, e.g., updating ticket with AI response, etc.
+    // For now, just return the AI response
+    return res.json({ response: response.choices?.[0]?.message?.content || "Ingen respons från AI." });
+  } catch (err) {
+    console.error("/chat: error", err);
+    return res.status(500).json({ error: "Serverfel vid chatt" });
   }
 });
 
