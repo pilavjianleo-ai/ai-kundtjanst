@@ -4,10 +4,13 @@
 // ...existing code...
 // ...existing code...
 // ...existing code...
+// ...existing code...
 // =========================
 // SSE: Realtidsnotiser för agenter (nya ärenden)
 // =========================
 // Flyttad hit efter app-init
+// Placera denna kod EFTER app = express() och app.use(...)
+// --- SSE START ---
 const sseClients = [];
 app.get("/sse/agent-notify", (req, res) => {
   res.setHeader("Content-Type", "text/event-stream");
@@ -25,6 +28,7 @@ function notifyAgentsSSE(data) {
   const msg = `data: ${JSON.stringify(data)}\n\n`;
   sseClients.forEach((res) => res.write(msg));
 }
+// --- SSE END ---
 
 // Exempel: Anropa notifyAgentsSSE({ type: 'new_ticket', ticketId }) när nytt ärende skapas
 // Lägg till i din ticket-creation endpoint:
