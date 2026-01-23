@@ -570,7 +570,7 @@ body[data-theme="light"] .input{
 
 .pill.danger{
   background: rgba(255,77,77,0.14);
-  border-color: rgba(255,77,77,0.35); /* ✅ FIXED BUG */
+  border-color: rgba(255,77,77,0.35);
   color: var(--danger);
 }
 
@@ -599,7 +599,6 @@ body[data-theme="light"] .input{
   margin-bottom:6px;
 }
 
-/* Make roles more readable */
 .ticketMsg.user{
   border-color: rgba(76,125,255,0.28);
   background: rgba(76,125,255,0.10);
@@ -660,12 +659,19 @@ body[data-theme="light"] .input{
 }
 
 /* =========================
-   SLA
+   ✅ SLA / KPI DASHBOARD (UPGRADED)
 ========================= */
+
+/* Main KPI cards (overview) */
 .slaGrid{
   display:grid;
   grid-template-columns: repeat(3, 1fr);
   gap:12px;
+}
+
+/* ✅ extra KPI row support (if you render 4-6 KPIs) */
+.slaGrid.kpiWide{
+  grid-template-columns: repeat(4, 1fr);
 }
 
 .slaCard{
@@ -673,24 +679,91 @@ body[data-theme="light"] .input{
   border:1px solid var(--border);
   border-radius: var(--radius);
   padding:14px;
+  position: relative;
+  overflow:hidden;
+}
+
+.slaCard::before{
+  content:"";
+  position:absolute;
+  inset:0;
+  background: radial-gradient(circle at top left, rgba(76,125,255,0.18), transparent 55%);
+  pointer-events:none;
 }
 
 .slaLabel{
   font-size:12px;
   color: var(--muted);
   margin-bottom:6px;
+  position: relative;
+  z-index: 2;
 }
 
 .slaValue{
   font-size:22px;
   font-weight:900;
   letter-spacing: 0.2px;
+  position: relative;
+  z-index: 2;
 }
 
+.slaSubValue{
+  margin-top: 6px;
+  font-size: 12px;
+  color: var(--muted);
+  position: relative;
+  z-index: 2;
+}
+
+/* ✅ KPI trend indicator (up/down) */
+.kpiDelta{
+  display:inline-flex;
+  align-items:center;
+  gap:6px;
+  font-size:12px;
+  margin-top:8px;
+  color: var(--muted);
+  position: relative;
+  z-index: 2;
+}
+.kpiDelta.up{
+  color: var(--ok);
+}
+.kpiDelta.down{
+  color: var(--danger);
+}
+
+/* chart styling */
 #slaTrendChart{
   border: 1px solid var(--border);
   border-radius: 14px;
   background: rgba(255,255,255,0.02);
+}
+
+/* ✅ Ticket rows in SLA section (when you render "cards") */
+.slaTicketCard{
+  border:1px solid var(--border);
+  border-radius: var(--radius);
+  padding:12px;
+  background: rgba(255,255,255,0.02);
+  margin-bottom:10px;
+}
+
+.slaTicketTop{
+  display:flex;
+  align-items:center;
+  gap:10px;
+  flex-wrap:wrap;
+  margin-bottom:8px;
+}
+
+.slaTicketId{
+  font-weight:800;
+}
+
+.slaTicketMeta{
+  font-size:12px;
+  color: var(--muted);
 }
 
 /* =========================
@@ -765,6 +838,7 @@ body[data-theme="light"] .input{
 @media (max-width: 1100px){
   .kbGrid{ grid-template-columns:1fr; }
   .slaGrid{ grid-template-columns:1fr; }
+  .slaGrid.kpiWide{ grid-template-columns:1fr; }
 }
 
 @media (max-width: 900px){

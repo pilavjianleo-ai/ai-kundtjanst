@@ -84,26 +84,6 @@
 
     <!-- MAIN -->
     <main class="main">
-      <!-- PREMIUM WIDGETS PANEL -->
-      <section id="premiumWidgets" class="view" style="margin-bottom:24px;">
-        <div class="slaGrid">
-          <div class="slaCard" id="widgetAiStats">
-            <div class="slaLabel"><i class="fa-solid fa-robot"></i> AI-svar idag</div>
-            <div class="slaValue" id="aiAnswersToday">–</div>
-            <div class="muted small">Totalt: <span id="aiAnswersTotal">–</span></div>
-          </div>
-          <div class="slaCard" id="widgetAgentStats">
-            <div class="slaLabel"><i class="fa-solid fa-user-tie"></i> Agent-svar idag</div>
-            <div class="slaValue" id="agentAnswersToday">–</div>
-            <div class="muted small">Totalt: <span id="agentAnswersTotal">–</span></div>
-          </div>
-          <div class="slaCard" id="widgetSla">
-            <div class="slaLabel"><i class="fa-solid fa-bolt"></i> SLA (snitt)</div>
-            <div class="slaValue" id="slaAvg">–</div>
-            <div class="muted small">Uppfyllelse: <span id="slaCompliance">–</span>%</div>
-          </div>
-        </div>
-      </section>
 
       <!-- AUTH VIEW -->
       <section id="authView" class="view">
@@ -262,7 +242,6 @@
               Välj ett ärende för att se detaljer.
             </div>
 
-            <!-- ✅ NYTT: fortsätt konversation under "Mina ärenden" -->
             <div class="divider"></div>
 
             <label>Skicka meddelande (fortsätt konversation)</label>
@@ -282,7 +261,7 @@
         <div class="topbar">
           <div>
             <div class="title">SLA Dashboard</div>
-            <div class="subtitle muted">SLA, breaches, median, trend och export (agent/admin).</div>
+            <div class="subtitle muted">SLA, KPI, breaches, median, trend och export (agent/admin).</div>
           </div>
 
           <div class="topbarActions">
@@ -631,7 +610,11 @@
 
     </main>
   </div>
-  
+
+  <!-- ✅ Chart.js (KRÄVS för grafen) -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+  <!-- Din app -->
   <script src="script.js"></script>
 </body>
 </html>
