@@ -5,15 +5,16 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>AI Kundtjänst</title>
 
-  <!-- Font Awesome CDN -->
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
   <link rel="stylesheet" href="style.css" />
+
+  <!-- ✅ Chart.js för proffsig graf -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
 </head>
 
 <body data-theme="dark">
   <div class="app">
 
-    <!-- SIDEBAR -->
     <aside class="sidebar">
       <div class="brand">
         <div class="logo"><i class="fa-solid fa-headset"></i></div>
@@ -39,17 +40,16 @@
           <i class="fa-solid fa-ticket"></i> Mina ärenden
         </button>
 
-        <button id="openInboxView" class="menuBtn adminOnly" style="display:none;" type="button">
+        <button id="openInboxView" class="menuBtn" style="display:none;" type="button">
           <i class="fa-solid fa-inbox"></i> Inbox (Agent)
           <span id="inboxNotifDot" class="notifDot" style="display:none;"></span>
         </button>
 
-        <!-- ✅ SLA-knapp (Agent/Admin) -->
-        <button id="openSlaView" class="menuBtn adminOnly" style="display:none;" type="button">
-          <i class="fa-solid fa-chart-line"></i> SLA
+        <button id="openSlaView" class="menuBtn" style="display:none;" type="button">
+          <i class="fa-solid fa-chart-line"></i> SLA & KPI
         </button>
 
-        <button id="openAdminView" class="menuBtn adminOnly" style="display:none;" type="button">
+        <button id="openAdminView" class="menuBtn" style="display:none;" type="button">
           <i class="fa-solid fa-shield-halved"></i> Admin
         </button>
 
@@ -72,7 +72,6 @@
         </button>
       </div>
 
-      <!-- Debug Panel -->
       <div id="debugPanel" class="debugPanel" style="display:none;">
         <div><b>API:</b> <span id="dbgApi">-</span></div>
         <div><b>Inloggad:</b> <span id="dbgLogged">-</span></div>
@@ -82,8 +81,10 @@
       </div>
     </aside>
 
-    <!-- MAIN -->
     <main class="main">
+
+      <!-- ✅ Toast notifications -->
+      <div id="toastWrap" class="toastWrap"></div>
 
       <!-- AUTH VIEW -->
       <section id="authView" class="view">
@@ -128,7 +129,6 @@
           <div id="authMessage" class="alert error" style="display:none;"></div>
         </div>
 
-        <!-- FORGOT PASSWORD -->
         <div id="forgotCard" class="card authCard" style="display:none;">
           <h2>Återställ lösenord</h2>
           <p class="muted">Skriv din email så skickas en återställningslänk.</p>
@@ -140,15 +140,12 @@
             <button id="sendForgotBtn" class="btn primary" type="button">
               <i class="fa-solid fa-paper-plane"></i> Skicka länk
             </button>
-            <button id="closeForgotBtn" class="btn ghost" type="button">
-              Avbryt
-            </button>
+            <button id="closeForgotBtn" class="btn ghost" type="button">Avbryt</button>
           </div>
 
           <div id="forgotMsg" class="alert" style="display:none;"></div>
         </div>
 
-        <!-- RESET PASSWORD -->
         <div id="resetCard" class="card authCard" style="display:none;">
           <h2>Välj nytt lösenord</h2>
           <p class="muted">Skriv ett nytt lösenord och spara.</p>
@@ -242,7 +239,6 @@
               Välj ett ärende för att se detaljer.
             </div>
 
-            <!-- ✅ NYTT: fortsätt konversation under "Mina ärenden" -->
             <div class="divider"></div>
 
             <label>Skicka meddelande (fortsätt konversation)</label>
@@ -257,12 +253,12 @@
         </div>
       </section>
 
-      <!-- ✅ SLA VIEW -->
+      <!-- SLA VIEW -->
       <section id="slaView" class="view" style="display:none;">
         <div class="topbar">
           <div>
-            <div class="title">SLA Dashboard</div>
-            <div class="subtitle muted">SLA, breaches, median, trend och export (agent/admin).</div>
+            <div class="title">SLA & KPI Dashboard</div>
+            <div class="subtitle muted">Agent ser sin statistik. Admin ser allt.</div>
           </div>
 
           <div class="topbarActions">
@@ -271,12 +267,6 @@
               <option value="14">14 dagar</option>
               <option value="30" selected>30 dagar</option>
               <option value="90">90 dagar</option>
-            </select>
-
-            <select id="slaCompareMode" class="input smallInput">
-              <option value="none" selected>Ingen jämförelse</option>
-              <option value="prevPeriod">Jämför med föregående period</option>
-              <option value="prevWeek">Jämför med föregående vecka</option>
             </select>
 
             <button id="slaRefreshBtn" class="btn ghost" type="button">
@@ -341,7 +331,7 @@
         <div id="slaTicketsBox"></div>
       </section>
 
-      <!-- INBOX VIEW (Agent/Admin) -->
+      <!-- INBOX VIEW -->
       <section id="inboxView" class="view" style="display:none;">
         <div class="topbar">
           <div>
@@ -463,7 +453,7 @@
         <div class="topbar">
           <div>
             <div class="title">Admin Dashboard</div>
-            <div class="subtitle muted">Hantera users, export, KB och kategorier.</div>
+            <div class="subtitle muted">Hantera users, export, KB, kategorier och AI settings.</div>
           </div>
           <div class="topbarActions">
             <button id="adminExportAllBtn" class="btn ghost" type="button">
@@ -479,9 +469,10 @@
           <button class="tabBtn active" data-tab="tabUsers" type="button">Users</button>
           <button class="tabBtn" data-tab="tabKB" type="button">Knowledge Base</button>
           <button class="tabBtn" data-tab="tabCats" type="button">Kategorier</button>
+          <button class="tabBtn" data-tab="tabAI" type="button">AI Settings</button>
+          <button class="tabBtn" data-tab="tabWidget" type="button">Widget</button>
         </div>
 
-        <!-- Users -->
         <div id="tabUsers" class="tabPanel">
           <div class="panel">
             <div class="panelHead">
@@ -496,7 +487,6 @@
           </div>
         </div>
 
-        <!-- KB -->
         <div id="tabKB" class="tabPanel" style="display:none;">
           <div class="panel">
             <div class="panelHead">
@@ -538,12 +528,10 @@
             </div>
 
             <div class="divider"></div>
-
             <div id="kbList" class="list"></div>
           </div>
         </div>
 
-        <!-- Categories -->
         <div id="tabCats" class="tabPanel" style="display:none;">
           <div class="panel">
             <div class="panelHead">
@@ -561,14 +549,83 @@
                 <input id="newCatKey" class="input" placeholder="key (ex: ecommerce)" />
                 <input id="newCatName" class="input" placeholder="Namn (ex: E-handel)" />
                 <textarea id="newCatPrompt" class="input textarea" placeholder="System prompt..."></textarea>
+
+                <div class="grid2">
+                  <div>
+                    <label>Tone</label>
+                    <select id="newCatTone" class="input">
+                      <option value="professional" selected>professional</option>
+                      <option value="friendly">friendly</option>
+                      <option value="strict">strict</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label>Emojis</label>
+                    <select id="newCatEmojis" class="input">
+                      <option value="true" selected>tillåt</option>
+                      <option value="false">blockera</option>
+                    </select>
+                  </div>
+                </div>
+
                 <button id="createCatBtn" class="btn primary full" type="button">Skapa</button>
               </div>
 
               <div class="panel soft">
-                <b>Lista</b>
+                <b>Lista (edit/delete)</b>
                 <div id="catsList" class="list"></div>
               </div>
             </div>
+          </div>
+        </div>
+
+        <!-- ✅ AI Settings -->
+        <div id="tabAI" class="tabPanel" style="display:none;">
+          <div class="panel">
+            <div class="panelHead">
+              <b>AI Chat Settings</b>
+              <button id="aiSettingsRefreshBtn" class="btn ghost small" style="margin-left:auto;" type="button">
+                <i class="fa-solid fa-rotate"></i> Uppdatera
+              </button>
+            </div>
+
+            <div id="aiSettingsMsg" class="alert error" style="display:none;"></div>
+
+            <label>Hälsningsfras</label>
+            <input id="aiGreeting" class="input" placeholder="Hej! 👋 Hur kan jag hjälpa dig idag?" />
+
+            <label>Tips-text</label>
+            <input id="aiTips" class="input" placeholder="Tips: Beskriv problemet tydligt..." />
+
+            <label>Genvägar (en per rad)</label>
+            <textarea id="aiShortcuts" class="input textarea" placeholder="Spåra order&#10;Ändra bokning&#10;Faktura"></textarea>
+
+            <button id="aiSettingsSaveBtn" class="btn primary full" style="margin-top:10px;" type="button">
+              <i class="fa-solid fa-floppy-disk"></i> Spara AI Settings
+            </button>
+          </div>
+        </div>
+
+        <!-- ✅ Widget -->
+        <div id="tabWidget" class="tabPanel" style="display:none;">
+          <div class="panel">
+            <div class="panelHead">
+              <b>Widget (embed)</b>
+            </div>
+
+            <div class="muted small">
+              Detta är en enkel widget du kan ge till kunder att lägga på deras sida.
+              (För riktig produktion kan vi lägga "widget-token per company".)
+            </div>
+
+            <div class="divider"></div>
+
+            <label>Embed kod</label>
+            <textarea id="widgetCode" class="input textarea" readonly></textarea>
+
+            <button id="copyWidgetBtn" class="btn secondary full" style="margin-top:10px;" type="button">
+              <i class="fa-solid fa-copy"></i> Kopiera embed-kod
+            </button>
           </div>
         </div>
 
