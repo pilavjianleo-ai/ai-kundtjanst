@@ -1,248 +1,56 @@
-/* ==========================================================
-   AI Kundtjänst - script.js
-   Matches:
-   - index.html IDs
-   - server.js routes you pasted
-   ========================================================== */
+/* =========================
+   AI Kundtjänst – script.js
+   - Works with your server.js endpoints
+========================= */
 
-const API_BASE = ""; // same origin (Render / localhost). Keep empty.
+const $ = (id) => document.getElementById(id);
 
-const $ = (sel) => document.querySelector(sel);
-const $$ = (sel) => Array.from(document.querySelectorAll(sel));
+const state = {
+  apiBase: "", // same origin
+  token: localStorage.getItem("token") || "",
+  me: null,
+  companyId: "demo",
 
-/* =====================
-   DOM refs
-===================== */
-// Sidebar
-const roleBadge = $("#roleBadge");
-const categorySelect = $("#categorySelect");
+  conversation: [],
+  activeTicketId: null,
+  activeTicketPublicId: null,
 
-const openChatViewBtn = $("#openChatView");
-const openMyTicketsViewBtn = $("#openMyTicketsView");
-const openInboxViewBtn = $("#openInboxView");
-const openSlaViewBtn = $("#openSlaView");
-const openAdminViewBtn = $("#openAdminView");
-const openSettingsViewBtn = $("#openSettingsView");
+  categories: [],
+  debug: false,
 
-const inboxNotifDot = $("#inboxNotifDot");
+  myTickets: [],
+  inboxTickets: [],
+  inboxSelectedTicket: null,
+};
 
-const themeToggleBtn = $("#themeToggle");
-const logoutBtn = $("#logoutBtn");
-const toggleDebugBtn = $("#toggleDebugBtn");
-
-const debugPanel = $("#debugPanel");
-const dbgApi = $("#dbgApi");
-const dbgLogged = $("#dbgLogged");
-const dbgRole = $("#dbgRole");
-const dbgTicket = $("#dbgTicket");
-const dbgRag = $("#dbgRag");
-
-// Views
-const authView = $("#authView");
-const chatView = $("#chatView");
-const myTicketsView = $("#myTicketsView");
-const inboxView = $("#inboxView");
-const adminView = $("#adminView");
-const settingsView = $("#settingsView");
-const slaView = $("#slaView");
-
-// Auth
-const usernameInput = $("#username");
-const emailInput = $("#email");
-const passwordInput = $("#password");
-const togglePassBtn = $("#togglePassBtn");
-const loginBtn = $("#loginBtn");
-const registerBtn = $("#registerBtn");
-const openForgotBtn = $("#openForgotBtn");
-const authMessage = $("#authMessage");
-
-const forgotCard = $("#forgotCard");
-const forgotEmail = $("#forgotEmail");
-const sendForgotBtn = $("#sendForgotBtn");
-const closeForgotBtn = $("#closeForgotBtn");
-const forgotMsg = $("#forgotMsg");
-
-const resetCard = $("#resetCard");
-const resetNewPass = $("#resetNewPass");
-const toggleResetPassBtn = $("#toggleResetPassBtn");
-const resetSaveBtn = $("#resetSaveBtn");
-const resetMsg = $("#resetMsg");
-
-// Chat
-const chatTitle = $("#chatTitle");
-const chatSubtitle = $("#chatSubtitle");
-const newTicketBtn = $("#newTicketBtn");
-const clearChatBtn = $("#clearChatBtn");
-const exportChatBtn = $("#exportChatBtn");
-
-const messagesBox = $("#messages");
-const messageInput = $("#messageInput");
-const sendBtn = $("#sendBtn");
-
-const fbUpBtn = $("#fbUp");
-const fbDownBtn = $("#fbDown");
-const fbMsg = $("#fbMsg");
-
-// My tickets
-const myTicketsRefreshBtn = $("#myTicketsRefreshBtn");
-const myTicketsList = $("#myTicketsList");
-const myTicketsHint = $("#myTicketsHint");
-const myTicketDetails = $("#myTicketDetails");
-const myTicketReplyText = $("#myTicketReplyText");
-const myTicketReplyBtn = $("#myTicketReplyBtn");
-const myTicketReplyMsg = $("#myTicketReplyMsg");
-
-// Inbox (Agent/Admin)
-const inboxRefreshBtn = $("#inboxRefreshBtn");
-const solveAllBtn = $("#solveAllBtn");
-const removeSolvedBtn = $("#removeSolvedBtn");
-
-const inboxStatusFilter = $("#inboxStatusFilter");
-const inboxCategoryFilter = $("#inboxCategoryFilter");
-const inboxSearchInput = $("#inboxSearchInput");
-
-const inboxMsg = $("#inboxMsg");
-const inboxTicketsList = $("#inboxTicketsList");
-
-const inboxTicketMsg = $("#inboxTicketMsg");
-const setStatusOpen = $("#setStatusOpen");
-const setStatusPending = $("#setStatusPending");
-const setStatusSolved = $("#setStatusSolved");
-
-const ticketPrioritySelect = $("#ticketPrioritySelect");
-const setPriorityBtn = $("#setPriorityBtn");
-
-const ticketDetails = $("#ticketDetails");
-
-const agentReplyTextInbox = $("#agentReplyTextInbox");
-const sendAgentReplyInboxBtn = $("#sendAgentReplyInboxBtn");
-
-const internalNoteText = $("#internalNoteText");
-const saveInternalNoteBtn = $("#saveInternalNoteBtn");
-const internalNotesList = $("#internalNotesList");
-const clearInternalNotesBtn = $("#clearInternalNotesBtn");
-
-const assignUserSelect = $("#assignUserSelect");
-const assignTicketBtn = $("#assignTicketBtn");
-
-const deleteTicketBtn = $("#deleteTicketBtn");
-
-// Admin dashboard
-const adminExportAllBtn = $("#adminExportAllBtn");
-const trainingExportBtn = $("#trainingExportBtn");
-const tabBtns = $$(".tabBtn");
-const tabUsers = $("#tabUsers");
-const tabKB = $("#tabKB");
-const tabCats = $("#tabCats");
-
-const adminUsersRefreshBtn = $("#adminUsersRefreshBtn");
-const adminUsersMsg = $("#adminUsersMsg");
-const adminUsersList = $("#adminUsersList");
-
-// KB manager
-const kbCategorySelect = $("#kbCategorySelect");
-const kbRefreshBtn = $("#kbRefreshBtn");
-const kbExportBtn = $("#kbExportBtn");
-const kbMsg = $("#kbMsg");
-
-const kbTextTitle = $("#kbTextTitle");
-const kbTextContent = $("#kbTextContent");
-const kbUploadTextBtn = $("#kbUploadTextBtn");
-
-const kbUrlInput = $("#kbUrlInput");
-const kbUploadUrlBtn = $("#kbUploadUrlBtn");
-
-const kbPdfFile = $("#kbPdfFile");
-const kbUploadPdfBtn = $("#kbUploadPdfBtn");
-
-const kbList = $("#kbList");
-
-// Categories manager
-const catsRefreshBtn = $("#catsRefreshBtn");
-const catsMsg = $("#catsMsg");
-const newCatKey = $("#newCatKey");
-const newCatName = $("#newCatName");
-const newCatPrompt = $("#newCatPrompt");
-const createCatBtn = $("#createCatBtn");
-const catsList = $("#catsList");
-
-// Settings view
-const newUsernameInput = $("#newUsernameInput");
-const changeUsernameBtn = $("#changeUsernameBtn");
-const currentPassInput = $("#currentPassInput");
-const newPassInput = $("#newPassInput");
-const changePasswordBtn = $("#changePasswordBtn");
-const settingsMsg = $("#settingsMsg");
-
-// SLA view
-const slaDaysSelect = $("#slaDaysSelect");
-const slaCompareMode = $("#slaCompareMode");
-const slaRefreshBtn = $("#slaRefreshBtn");
-const slaExportCsvBtn = $("#slaExportCsvBtn");
-const slaClearMyStatsBtn = $("#slaClearMyStatsBtn");
-const slaClearAllStatsBtn = $("#slaClearAllStatsBtn");
-
-const slaOverviewBox = $("#slaOverviewBox");
-const slaTrendChart = $("#slaTrendChart");
-const slaTrendHint = $("#slaTrendHint");
-const slaAgentsBox = $("#slaAgentsBox");
-const slaTicketsBox = $("#slaTicketsBox");
-
-const slaBreachedFilter = $("#slaBreachedFilter");
-const slaBreachTypeFilter = $("#slaBreachTypeFilter");
-const slaSortTickets = $("#slaSortTickets");
-
-/* =====================
-   App State
-===================== */
-let token = localStorage.getItem("kt_token") || "";
-let me = null;
-
-let activeCompanyId = localStorage.getItem("kt_companyId") || "demo";
-
-// Chat state
-let conversation = []; // [{role, content}]
-let activeTicketId = localStorage.getItem("kt_ticketId") || "";
-let activeTicketPublicId = localStorage.getItem("kt_ticketPublicId") || "";
-
-// My tickets state
-let selectedMyTicketId = "";
-
-// Inbox state
-let inboxSelectedTicketId = "";
-
-// Debug
-let debugOn = localStorage.getItem("kt_debug") === "1";
-
-// SLA chart instance (Chart.js-like) => We'll do a tiny native canvas draw.
-let slaTrendData = null;
-
-/* =====================
-   Utils
-===================== */
-function setActiveMenu(btn) {
-  $$(".menuBtn").forEach((b) => b.classList.remove("active"));
-  if (btn) btn.classList.add("active");
+function setDebugLine(id, v) {
+  const el = $(id);
+  if (el) el.textContent = v ?? "-";
 }
 
-function showView(viewEl) {
-  [authView, chatView, myTicketsView, inboxView, adminView, settingsView, slaView].forEach((v) => {
-    if (v) v.style.display = "none";
-  });
-  if (viewEl) viewEl.style.display = "block";
-}
+/* =========================
+   Toast
+========================= */
+function toast(title, text = "", type = "info") {
+  const wrap = $("toastWrap");
+  if (!wrap) return;
 
-function showAlert(el, text, type = "error") {
-  if (!el) return;
-  el.style.display = "block";
-  el.textContent = text;
-  el.classList.toggle("error", type === "error");
-}
+  const div = document.createElement("div");
+  div.className = "toast";
+  div.innerHTML = `
+    <div class="toastTitle">${escapeHtml(title)}</div>
+    <div class="toastText">${escapeHtml(text)}</div>
+  `;
+  wrap.appendChild(div);
 
-function hideAlert(el) {
-  if (!el) return;
-  el.style.display = "none";
-  el.textContent = "";
+  setTimeout(() => {
+    div.style.opacity = "0";
+    div.style.transform = "translateY(6px)";
+  }, 3400);
+
+  setTimeout(() => {
+    div.remove();
+  }, 3800);
 }
 
 function escapeHtml(s) {
@@ -254,1397 +62,1165 @@ function escapeHtml(s) {
     .replaceAll("'", "&#039;");
 }
 
-function prettyDate(ts) {
-  if (!ts) return "";
-  const d = new Date(ts);
-  if (isNaN(d.getTime())) return "";
-  return d.toLocaleString();
+/* =========================
+   API helper
+========================= */
+async function api(path, { method = "GET", body, auth = true } = {}) {
+  const headers = { "Content-Type": "application/json" };
+  if (auth && state.token) headers["Authorization"] = "Bearer " + state.token;
+
+  const res = await fetch(state.apiBase + path, {
+    method,
+    headers,
+    body: body ? JSON.stringify(body) : undefined,
+  });
+
+  let data = null;
+  try {
+    data = await res.json();
+  } catch {
+    data = null;
+  }
+
+  if (!res.ok) {
+    const msg = data?.error || "Serverfel";
+    throw new Error(msg);
+  }
+
+  return data;
 }
 
-function msToPretty(ms) {
-  if (ms == null || !Number.isFinite(ms)) return "";
-  const s = Math.floor(ms / 1000);
-  const m = Math.floor(s / 60);
-  const h = Math.floor(m / 60);
-  const d = Math.floor(h / 24);
-  const hh = h % 24;
-  const mm = m % 60;
-  if (d > 0) return `${d}d ${hh}h ${mm}m`;
-  if (h > 0) return `${h}h ${mm}m`;
-  if (m > 0) return `${m}m`;
-  return `${s}s`;
+/* =========================
+   Views
+========================= */
+function hideAllViews() {
+  const views = ["authView", "chatView", "myTicketsView", "inboxView", "adminView", "settingsView", "slaView"];
+  for (const v of views) {
+    const el = $(v);
+    if (el) el.style.display = "none";
+  }
 }
 
-function pillStatus(status) {
-  if (status === "solved") return `<span class="pill ok"><i class="fa-solid fa-check"></i> Solved</span>`;
-  if (status === "pending") return `<span class="pill warn"><i class="fa-solid fa-hourglass-half"></i> Pending</span>`;
-  return `<span class="pill"><i class="fa-solid fa-circle"></i> Open</span>`;
+function setActiveMenu(btnId) {
+  const ids = ["openChatView", "openMyTicketsView", "openInboxView", "openAdminView", "openSettingsView", "openSlaView"];
+  ids.forEach((id) => $(id)?.classList.remove("active"));
+  $(btnId)?.classList.add("active");
 }
 
-function pillPriority(priority) {
-  if (priority === "high") return `<span class="pill danger"><i class="fa-solid fa-bolt"></i> High</span>`;
-  if (priority === "low") return `<span class="pill"><i class="fa-solid fa-leaf"></i> Low</span>`;
-  return `<span class="pill"><i class="fa-solid fa-flag"></i> Normal</span>`;
+function showView(viewId, menuBtnId) {
+  hideAllViews();
+  $(viewId).style.display = "";
+  if (menuBtnId) setActiveMenu(menuBtnId);
 }
 
-function pillBreach(t) {
-  const b1 = !!t?.sla?.breachedFirstResponse;
-  const b2 = !!t?.sla?.breachedResolution;
-  if (!b1 && !b2) return `<span class="pill ok"><i class="fa-solid fa-shield"></i> OK</span>`;
-  if (b1 && b2) return `<span class="pill danger"><i class="fa-solid fa-triangle-exclamation"></i> 2 breaches</span>`;
-  return `<span class="pill warn"><i class="fa-solid fa-triangle-exclamation"></i> Breach</span>`;
+function updateRoleUI() {
+  const role = state.me?.role || "";
+  const roleBadge = $("roleBadge");
+  const logoutBtn = $("logoutBtn");
+  const settingsBtn = $("openSettingsView");
+
+  if (!state.me) {
+    roleBadge.textContent = "Inte inloggad";
+    logoutBtn.style.display = "none";
+    settingsBtn.style.display = "none";
+    document.querySelectorAll(".adminOnly").forEach((x) => (x.style.display = "none"));
+    return;
+  }
+
+  roleBadge.textContent = `${state.me.username} (${role})`;
+  logoutBtn.style.display = "";
+  settingsBtn.style.display = "";
+
+  // Agent/admin buttons
+  if (role === "admin" || role === "agent") {
+    $("openInboxView").style.display = "";
+    $("openSlaView").style.display = "";
+  }
+  if (role === "admin") {
+    $("openAdminView").style.display = "";
+    $("slaClearAllStatsBtn").style.display = "";
+  }
 }
 
-function viewResetAllMessages() {
-  messagesBox.innerHTML = "";
+/* =========================
+   Theme
+========================= */
+function toggleTheme() {
+  const b = document.body;
+  const cur = b.getAttribute("data-theme") || "dark";
+  b.setAttribute("data-theme", cur === "dark" ? "light" : "dark");
+  localStorage.setItem("theme", b.getAttribute("data-theme"));
 }
 
-function appendChatMessage(role, content) {
-  const wrap = document.createElement("div");
-  wrap.className = `msg ${role === "user" ? "user" : ""}`;
+function loadTheme() {
+  const saved = localStorage.getItem("theme");
+  if (saved) document.body.setAttribute("data-theme", saved);
+}
+
+/* =========================
+   Debug panel
+========================= */
+function renderDebug() {
+  setDebugLine("dbgApi", location.origin);
+  setDebugLine("dbgLogged", state.token ? "JA" : "NEJ");
+  setDebugLine("dbgRole", state.me?.role || "-");
+  setDebugLine("dbgTicket", state.activeTicketPublicId || state.activeTicketId || "-");
+  setDebugLine("dbgRag", "-");
+}
+
+/* =========================
+   Chat UI
+========================= */
+function clearMessages() {
+  const m = $("messages");
+  if (m) m.innerHTML = "";
+}
+
+function addMsg(role, text, meta = "") {
+  const wrap = $("messages");
+  if (!wrap) return;
+
+  const msg = document.createElement("div");
+  msg.className = "msg " + (role === "user" ? "user" : "ai");
 
   const avatar = document.createElement("div");
   avatar.className = "avatar";
   avatar.innerHTML = role === "user" ? `<i class="fa-solid fa-user"></i>` : `<i class="fa-solid fa-robot"></i>`;
 
-  const bubbleWrap = document.createElement("div");
-
   const bubble = document.createElement("div");
   bubble.className = "bubble";
-  bubble.textContent = content || "";
+  bubble.textContent = text || "";
 
-  const meta = document.createElement("div");
-  meta.className = "msgMeta";
-  meta.textContent = new Date().toLocaleTimeString();
+  const box = document.createElement("div");
+  box.appendChild(bubble);
 
-  bubbleWrap.appendChild(bubble);
-  bubbleWrap.appendChild(meta);
+  if (meta) {
+    const metaEl = document.createElement("div");
+    metaEl.className = "msgMeta";
+    metaEl.textContent = meta;
+    box.appendChild(metaEl);
+  }
 
-  wrap.appendChild(avatar);
-  wrap.appendChild(bubbleWrap);
+  msg.appendChild(avatar);
+  msg.appendChild(box);
 
-  messagesBox.appendChild(wrap);
-  messagesBox.scrollTop = messagesBox.scrollHeight;
+  wrap.appendChild(msg);
+  wrap.scrollTop = wrap.scrollHeight;
 }
 
-async function api(path, opts = {}) {
-  const headers = opts.headers || {};
-  if (token) headers.Authorization = `Bearer ${token}`;
-  headers["Content-Type"] = headers["Content-Type"] || "application/json";
+function resetConversation() {
+  state.conversation = [];
+  state.activeTicketId = null;
+  state.activeTicketPublicId = null;
+  clearMessages();
+  addMsg("assistant", "Hej! 👋 Vad kan jag hjälpa dig med?");
+  renderDebug();
+}
 
-  dbgApi && (dbgApi.textContent = path);
+/* =========================
+   Auth
+========================= */
+function showAuthError(msg) {
+  const box = $("authMessage");
+  box.style.display = "";
+  box.textContent = msg;
+}
 
-  const res = await fetch(API_BASE + path, { ...opts, headers });
-  let data = null;
+function hideAuthError() {
+  const box = $("authMessage");
+  box.style.display = "none";
+  box.textContent = "";
+}
+
+async function doLogin() {
+  hideAuthError();
+
+  const username = $("username").value.trim();
+  const password = $("password").value.trim();
+
+  if (!username || !password) return showAuthError("Fyll i användarnamn + lösenord.");
+
   try {
-    data = await res.json();
-  } catch {
-    // ignore
-  }
-  if (!res.ok) {
-    const msg = data?.error || `HTTP ${res.status}`;
-    throw new Error(msg);
-  }
-  return data;
-}
+    const data = await api("/login", { method: "POST", auth: false, body: { username, password } });
+    state.token = data.token;
+    localStorage.setItem("token", state.token);
+    toast("Inloggad", "Välkommen tillbaka ✅");
 
-function setTheme(next) {
-  document.body.setAttribute("data-theme", next);
-  localStorage.setItem("kt_theme", next);
-}
-
-function loadTheme() {
-  const t = localStorage.getItem("kt_theme") || "dark";
-  setTheme(t);
-}
-
-function toggleTheme() {
-  const cur = document.body.getAttribute("data-theme") || "dark";
-  setTheme(cur === "dark" ? "light" : "dark");
-}
-
-function setDebug(on) {
-  debugOn = !!on;
-  localStorage.setItem("kt_debug", debugOn ? "1" : "0");
-  debugPanel.style.display = debugOn ? "block" : "none";
-}
-
-function updateDebug() {
-  dbgLogged && (dbgLogged.textContent = token ? "JA" : "NEJ");
-  dbgRole && (dbgRole.textContent = me?.role || "-");
-  dbgTicket && (dbgTicket.textContent = activeTicketPublicId || activeTicketId || "-");
-  dbgRag && (dbgRag.textContent = "-");
-}
-
-/* =====================
-   Auth + boot
-===================== */
-function setRoleUI() {
-  const adminOnlyEls = $$(".adminOnly");
-  const isAgentOrAdmin = me && (me.role === "admin" || me.role === "agent");
-  const isAdmin = me && me.role === "admin";
-
-  adminOnlyEls.forEach((el) => {
-    // inbox, SLA, admin view buttons have class adminOnly
-    // but we show admin view only for admin
-    if (el === openAdminViewBtn) {
-      el.style.display = isAdmin ? "flex" : "none";
-    } else {
-      el.style.display = isAgentOrAdmin ? "flex" : "none";
-    }
-  });
-
-  openSettingsViewBtn.style.display = me ? "flex" : "none";
-  logoutBtn.style.display = me ? "flex" : "none";
-
-  if (!me) {
-    roleBadge.textContent = "Inte inloggad";
-  } else {
-    roleBadge.textContent = `${me.username} • ${me.role}`;
-  }
-
-  // SLA clear all stats only for admin
-  if (slaClearAllStatsBtn) slaClearAllStatsBtn.style.display = isAdmin ? "inline-flex" : "none";
-}
-
-async function loadMe() {
-  if (!token) {
-    me = null;
-    setRoleUI();
-    updateDebug();
-    return;
-  }
-  try {
-    me = await api("/me", { method: "GET" });
-    setRoleUI();
-    updateDebug();
+    await bootstrapAfterLogin();
   } catch (e) {
-    // token invalid -> logout
-    token = "";
-    localStorage.removeItem("kt_token");
-    me = null;
-    setRoleUI();
-    updateDebug();
+    showAuthError(e.message);
+  }
+}
+
+async function doRegister() {
+  hideAuthError();
+
+  const username = $("username").value.trim();
+  const password = $("password").value.trim();
+  const email = $("email").value.trim();
+
+  if (!username || !password) return showAuthError("Fyll i användarnamn + lösenord.");
+
+  try {
+    await api("/register", { method: "POST", auth: false, body: { username, password, email } });
+    toast("Skapat konto", "Registrering lyckades ✅");
+    await doLogin();
+  } catch (e) {
+    showAuthError(e.message);
+  }
+}
+
+function doLogout() {
+  state.token = "";
+  state.me = null;
+  localStorage.removeItem("token");
+  updateRoleUI();
+  resetConversation();
+  showView("authView", "openChatView");
+  toast("Utloggad", "Du är nu utloggad.");
+}
+
+/* Forgot / Reset password */
+function openForgot() {
+  $("forgotCard").style.display = "";
+  $("resetCard").style.display = "none";
+  $("forgotMsg").style.display = "none";
+}
+function closeForgot() {
+  $("forgotCard").style.display = "none";
+  $("forgotMsg").style.display = "none";
+}
+async function sendForgot() {
+  const email = $("forgotEmail").value.trim();
+  const msg = $("forgotMsg");
+  msg.style.display = "";
+  msg.textContent = "Skickar...";
+
+  try {
+    const data = await api("/auth/forgot-password", { method: "POST", auth: false, body: { email } });
+    msg.classList.remove("error");
+    msg.textContent = data.message || "Skickat ✅";
+  } catch (e) {
+    msg.classList.add("error");
+    msg.textContent = e.message;
+  }
+}
+
+async function resetPasswordFromToken(token) {
+  $("resetCard").style.display = "";
+  $("forgotCard").style.display = "none";
+  $("authMessage").style.display = "none";
+
+  $("resetSaveBtn").onclick = async () => {
+    const newPassword = $("resetNewPass").value.trim();
+    const msg = $("resetMsg");
+    msg.style.display = "";
+    msg.textContent = "Sparar...";
+
+    try {
+      const data = await api("/auth/reset-password", { method: "POST", auth: false, body: { resetToken: token, newPassword } });
+      msg.classList.remove("error");
+      msg.textContent = data.message || "Klart ✅";
+      toast("Lösenord ändrat", "Logga in med ditt nya lösenord.");
+    } catch (e) {
+      msg.classList.add("error");
+      msg.textContent = e.message;
+    }
+  };
+}
+
+/* =========================
+   Bootstrap
+========================= */
+async function loadMe() {
+  if (!state.token) return null;
+  try {
+    const me = await api("/me");
+    state.me = me;
+    return me;
+  } catch {
+    state.me = null;
+    state.token = "";
+    localStorage.removeItem("token");
+    return null;
   }
 }
 
 async function loadCategories() {
-  try {
-    const cats = await fetch(API_BASE + "/categories").then((r) => r.json());
-    if (!Array.isArray(cats)) return;
+  const cats = await api("/categories", { auth: false });
+  state.categories = cats || [];
 
-    categorySelect.innerHTML = "";
-    kbCategorySelect.innerHTML = "";
+  const sel = $("categorySelect");
+  const sel2 = $("kbCategorySelect");
+  const sel3 = $("inboxCategoryFilter");
 
-    inboxCategoryFilter.innerHTML = `<option value="">Alla kategorier</option>`;
-
-    for (const c of cats) {
+  function fill(selectEl, includeAny = false) {
+    if (!selectEl) return;
+    selectEl.innerHTML = "";
+    if (includeAny) {
+      const optAny = document.createElement("option");
+      optAny.value = "";
+      optAny.textContent = "Alla kategorier";
+      selectEl.appendChild(optAny);
+    }
+    for (const c of state.categories) {
       const opt = document.createElement("option");
       opt.value = c.key;
-      opt.textContent = `${c.key} — ${c.name || c.key}`;
-      categorySelect.appendChild(opt);
-
-      const opt2 = document.createElement("option");
-      opt2.value = c.key;
-      opt2.textContent = `${c.key} — ${c.name || c.key}`;
-      kbCategorySelect.appendChild(opt2);
-
-      const opt3 = document.createElement("option");
-      opt3.value = c.key;
-      opt3.textContent = `${c.key} — ${c.name || c.key}`;
-      inboxCategoryFilter.appendChild(opt3);
+      opt.textContent = `${c.key} (${c.name})`;
+      selectEl.appendChild(opt);
     }
+  }
 
-    categorySelect.value = activeCompanyId;
-    kbCategorySelect.value = activeCompanyId;
-  } catch {
-    // ignore
+  fill(sel, false);
+  fill(sel2, false);
+  fill(sel3, true);
+
+  // keep current
+  sel.value = state.companyId;
+  if (sel2) sel2.value = state.companyId;
+
+  renderChatHeader();
+}
+
+function renderChatHeader() {
+  const c = state.categories.find((x) => x.key === state.companyId);
+  $("chatTitle").textContent = c ? `AI Kundtjänst – ${c.name}` : "AI Kundtjänst";
+}
+
+async function bootstrapAfterLogin() {
+  await loadMe();
+  updateRoleUI();
+  renderDebug();
+
+  showView("chatView", "openChatView");
+  resetConversation();
+
+  await refreshMyTickets();
+  if (state.me?.role === "admin" || state.me?.role === "agent") {
+    await refreshInbox();
   }
 }
 
-function setCompany(companyId) {
-  activeCompanyId = companyId || "demo";
-  localStorage.setItem("kt_companyId", activeCompanyId);
-
-  chatTitle.textContent = `AI Kundtjänst • ${activeCompanyId}`;
-  chatSubtitle.textContent = "Ställ en fråga så hjälper jag dig direkt.";
-
-  // also sync KB select if exists
-  if (kbCategorySelect) kbCategorySelect.value = activeCompanyId;
-}
-
-/* =====================
-   Reset token flow
-===================== */
-function getQueryParam(name) {
-  const params = new URLSearchParams(window.location.search);
-  return params.get(name);
-}
-
-function showForgotUI(show) {
-  forgotCard.style.display = show ? "block" : "none";
-  resetCard.style.display = "none";
-}
-
-function showResetUI(show) {
-  resetCard.style.display = show ? "block" : "none";
-  forgotCard.style.display = "none";
-}
-
-async function checkResetTokenInUrl() {
-  const resetToken = getQueryParam("resetToken");
-  if (!resetToken) return;
-  // show reset card directly
-  showResetUI(true);
-  showForgotUI(false);
-  authMessage.style.display = "none";
-
-  resetSaveBtn.onclick = async () => {
-    hideAlert(resetMsg);
-    const newPassword = (resetNewPass.value || "").trim();
-    if (newPassword.length < 6) return showAlert(resetMsg, "Nytt lösenord måste vara minst 6 tecken");
-    try {
-      const data = await fetch(API_BASE + "/auth/reset-password", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ resetToken, newPassword }),
-      }).then((r) => r.json().then((d) => ({ ok: r.ok, d })));
-
-      if (!data.ok) throw new Error(data.d?.error || "Serverfel");
-
-      showAlert(resetMsg, data.d?.message || "Lösenord återställt ✅", "ok");
-      // remove resetToken from url (clean)
-      window.history.replaceState({}, document.title, window.location.pathname);
-      showResetUI(false);
-    } catch (e) {
-      showAlert(resetMsg, e.message || "Serverfel");
-    }
-  };
-}
-
-/* =====================
-   Chat
-===================== */
-function resetTicketContext() {
-  activeTicketId = "";
-  activeTicketPublicId = "";
-  localStorage.removeItem("kt_ticketId");
-  localStorage.removeItem("kt_ticketPublicId");
-  conversation = [];
-  viewResetAllMessages();
-  appendChatMessage("assistant", "Nytt ärende startat ✅ Skriv din fråga så hjälper jag dig.");
-  updateDebug();
-}
-
-async function sendChatMessage() {
-  hideAlert(authMessage);
-  const text = (messageInput.value || "").trim();
+/* =========================
+   Chat logic
+========================= */
+async function sendChat() {
+  const inp = $("messageInput");
+  const text = inp.value.trim();
   if (!text) return;
 
-  messageInput.value = "";
-  appendChatMessage("user", text);
+  inp.value = "";
+  addMsg("user", text);
 
-  conversation.push({ role: "user", content: text });
+  state.conversation.push({ role: "user", content: text });
 
-  // cap local conversation to prevent huge payload
-  if (conversation.length > 30) conversation = conversation.slice(-30);
-
-  // Build payload
-  const payload = {
-    companyId: activeCompanyId,
-    conversation,
-  };
-
-  // Only send ticketId if we have it
-  if (activeTicketId) payload.ticketId = activeTicketId;
-
-  sendBtn.disabled = true;
   try {
-    const data = await api("/chat", {
-      method: "POST",
-      body: JSON.stringify(payload),
-    });
+    const body = {
+      companyId: state.companyId,
+      conversation: state.conversation,
+      ticketId: state.activeTicketId || undefined,
+    };
+
+    const data = await api("/chat", { method: "POST", body });
+
+    state.activeTicketId = data.ticketId;
+    state.activeTicketPublicId = data.ticketPublicId || null;
+    renderDebug();
+    setDebugLine("dbgRag", data.ragUsed ? "JA" : "NEJ");
 
     const reply = data.reply || "Inget svar.";
-    appendChatMessage("assistant", reply);
+    addMsg("assistant", reply, data.ragUsed ? "Svar baserat på kunskapsdatabas ✅" : "");
+    state.conversation.push({ role: "assistant", content: reply });
 
-    conversation.push({ role: "assistant", content: reply });
-
-    // Update ticket context
-    if (data.ticketId) {
-      activeTicketId = data.ticketId;
-      localStorage.setItem("kt_ticketId", activeTicketId);
-    }
-    if (data.ticketPublicId) {
-      activeTicketPublicId = data.ticketPublicId;
-      localStorage.setItem("kt_ticketPublicId", activeTicketPublicId);
-    }
-
-    // Debug RAG
-    dbgRag && (dbgRag.textContent = data.ragUsed ? "JA" : "NEJ");
-    updateDebug();
+    // refresh tickets list so it appears
+    await refreshMyTickets();
   } catch (e) {
-    appendChatMessage("assistant", `❌ Fel: ${e.message}`);
-  } finally {
-    sendBtn.disabled = false;
+    addMsg("assistant", "❌ Fel: " + e.message);
   }
 }
 
 function exportChat() {
-  const rows = conversation.map((m) => `${m.role.toUpperCase()}: ${m.content}`);
-  const content = rows.join("\n\n");
-  const blob = new Blob([content], { type: "text/plain;charset=utf-8" });
+  const data = {
+    companyId: state.companyId,
+    ticketId: state.activeTicketPublicId || state.activeTicketId,
+    conversation: state.conversation,
+    exportedAt: new Date().toISOString(),
+  };
+  const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" });
   const a = document.createElement("a");
   a.href = URL.createObjectURL(blob);
-  a.download = `chat_export_${activeCompanyId}_${new Date().toISOString().slice(0, 10)}.txt`;
+  a.download = `chat_export_${Date.now()}.json`;
   a.click();
 }
 
+function clearChat() {
+  resetConversation();
+  toast("Rensat", "Chatten är rensad.");
+}
+
+function newTicket() {
+  resetConversation();
+  toast("Nytt ärende", "Skapat ny konversation ✅");
+}
+
+/* =========================
+   Feedback
+========================= */
 async function sendFeedback(type) {
-  if (!me) return;
-  fbMsg.textContent = "Sparar...";
+  if (!state.me) return toast("Inte inloggad", "Logga in först.");
   try {
-    await api("/feedback", {
-      method: "POST",
-      body: JSON.stringify({ type, companyId: activeCompanyId }),
-    });
-    fbMsg.textContent = "Tack! ✅";
-    setTimeout(() => (fbMsg.textContent = ""), 1200);
-  } catch (e) {
-    fbMsg.textContent = `Fel: ${e.message}`;
+    await api("/feedback", { method: "POST", body: { type, companyId: state.companyId } });
+    $("fbMsg").textContent = "Tack för feedback ✅";
+    setTimeout(() => ($("fbMsg").textContent = ""), 2200);
+  } catch {
+    $("fbMsg").textContent = "Kunde inte spara feedback";
   }
 }
 
-/* =====================
-   My tickets
-===================== */
-function renderMyTickets(list) {
-  myTicketsList.innerHTML = "";
-  const arr = Array.isArray(list) ? list : [];
-  myTicketsHint.textContent = arr.length ? `${arr.length} st` : "Inga";
+/* =========================
+   My Tickets
+========================= */
+function pill(status) {
+  if (status === "solved") return `<span class="pill ok"><i class="fa-solid fa-check"></i> solved</span>`;
+  if (status === "pending") return `<span class="pill warn"><i class="fa-solid fa-clock"></i> pending</span>`;
+  return `<span class="pill"><i class="fa-solid fa-circle"></i> open</span>`;
+}
 
-  for (const t of arr) {
+function prettyDate(d) {
+  try {
+    const dt = new Date(d);
+    return dt.toLocaleString();
+  } catch {
+    return "";
+  }
+}
+
+async function refreshMyTickets() {
+  if (!state.me) return;
+  try {
+    const tickets = await api("/my/tickets");
+    state.myTickets = tickets || [];
+    renderMyTicketsList();
+  } catch {
+    // ignore
+  }
+}
+
+function renderMyTicketsList() {
+  const list = $("myTicketsList");
+  const hint = $("myTicketsHint");
+  if (!list) return;
+
+  list.innerHTML = "";
+  hint.textContent = state.myTickets.length ? `${state.myTickets.length} st` : "Inga ärenden ännu.";
+
+  for (const t of state.myTickets) {
     const div = document.createElement("div");
-    div.className = `listItem ${String(t._id) === String(selectedMyTicketId) ? "selected" : ""}`;
-
+    div.className = "listItem";
     div.innerHTML = `
       <div class="listItemTitle">
-        <i class="fa-solid fa-ticket"></i>
-        <span>${escapeHtml(t.ticketPublicId || t._id)}</span>
-        <span style="margin-left:auto;display:flex;gap:8px;align-items:center;">
-          ${pillStatus(t.status)}
-          ${pillPriority(t.priority)}
-          ${pillBreach(t)}
-        </span>
+        ${escapeHtml(t.title || "(utan titel)")}
+        <span style="margin-left:auto">${pill(t.status)}</span>
       </div>
       <div class="muted small" style="margin-top:6px;">
-        ${escapeHtml(t.title || "(utan titel)")} • ${escapeHtml(t.companyId || "")}<br/>
-        Senast: ${prettyDate(t.lastActivityAt)}
+        ${escapeHtml(t.ticketPublicId || "")} • ${escapeHtml(t.companyId)} • ${prettyDate(t.lastActivityAt)}
       </div>
     `;
-
-    div.onclick = async () => {
-      selectedMyTicketId = t._id;
-      await loadMyTicketDetails(selectedMyTicketId);
-      // rerender selection
-      renderMyTickets(arr);
-    };
-
-    myTicketsList.appendChild(div);
+    div.onclick = () => openMyTicket(t._id);
+    list.appendChild(div);
   }
 }
 
-function renderTicketDetailsBox(t) {
-  if (!t) {
-    myTicketDetails.innerHTML = `Välj ett ärende för att se detaljer.`;
-    return;
-  }
-
-  const msgs = Array.isArray(t.messages) ? t.messages : [];
-
-  myTicketDetails.innerHTML = `
-    <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;">
-      <b>${escapeHtml(t.ticketPublicId || t._id)}</b>
-      ${pillStatus(t.status)}
-      ${pillPriority(t.priority)}
-      ${pillBreach(t)}
-      <span class="muted small" style="margin-left:auto;">${escapeHtml(t.companyId || "")}</span>
-    </div>
-    <div class="divider"></div>
-    <div class="muted small">
-      <div><b>Titel:</b> ${escapeHtml(t.title || "")}</div>
-      <div><b>Skapad:</b> ${prettyDate(t.createdAt)}</div>
-      <div><b>Senast:</b> ${prettyDate(t.lastActivityAt)}</div>
-    </div>
-    <div class="divider"></div>
-    <div>
-      ${msgs
-        .map((m) => {
-          const r = m.role || "user";
-          const cls = r === "assistant" ? "ai" : r;
-          return `
-            <div class="ticketMsg ${cls}">
-              <div class="ticketMsgHead">
-                <span>${escapeHtml(r)}</span>
-                <span>${prettyDate(m.timestamp)}</span>
-              </div>
-              <div class="ticketMsgBody">${escapeHtml(m.content)}</div>
-            </div>
-          `;
-        })
-        .join("")}
-    </div>
-  `;
-}
-
-async function loadMyTickets() {
-  hideAlert(myTicketReplyMsg);
+async function openMyTicket(ticketId) {
   try {
-    const tickets = await api("/my/tickets", { method: "GET" });
-    renderMyTickets(tickets);
+    const t = await api(`/my/tickets/${ticketId}`);
+    state.activeTicketId = t._id;
+    state.activeTicketPublicId = t.ticketPublicId || null;
+    renderDebug();
 
-    // auto select first if none selected
-    if (!selectedMyTicketId && tickets?.length) {
-      selectedMyTicketId = tickets[0]._id;
-      await loadMyTicketDetails(selectedMyTicketId);
-      renderMyTickets(tickets);
-    }
+    // Render details
+    const box = $("myTicketDetails");
+    box.innerHTML = `
+      <div><b>${escapeHtml(t.title || "(utan titel)")}</b></div>
+      <div class="muted small" style="margin-top:4px;">
+        ${escapeHtml(t.ticketPublicId || "")} • ${escapeHtml(t.companyId)} • status: ${escapeHtml(t.status)}
+      </div>
+      <div class="divider"></div>
+      ${renderTicketMessages(t.messages || [])}
+    `;
+
+    toast("Ticket öppnad", t.ticketPublicId || ticketId);
   } catch (e) {
-    myTicketsList.innerHTML = `<div class="muted small">Fel: ${escapeHtml(e.message)}</div>`;
+    toast("Fel", e.message);
   }
 }
 
-async function loadMyTicketDetails(ticketId) {
-  hideAlert(myTicketReplyMsg);
-  if (!ticketId) return renderTicketDetailsBox(null);
-  try {
-    const t = await api(`/my/tickets/${ticketId}`, { method: "GET" });
-    renderTicketDetailsBox(t);
-  } catch (e) {
-    myTicketDetails.innerHTML = `<div class="muted small">Fel: ${escapeHtml(e.message)}</div>`;
-  }
+function renderTicketMessages(msgs) {
+  if (!msgs.length) return `<div class="muted small">Inga meddelanden.</div>`;
+  return msgs
+    .map((m) => {
+      const role = m.role || "user";
+      const cls = role === "agent" ? "agent" : role === "assistant" ? "ai" : "user";
+      const who = role === "agent" ? "Agent" : role === "assistant" ? "AI" : "Du";
+      return `
+        <div class="ticketMsg ${cls}">
+          <div class="ticketMsgHead">
+            <span>${who}</span>
+            <span>${escapeHtml(prettyDate(m.timestamp))}</span>
+          </div>
+          <div class="ticketMsgBody">${escapeHtml(m.content || "")}</div>
+        </div>
+      `;
+    })
+    .join("");
 }
 
 async function replyMyTicket() {
-  hideAlert(myTicketReplyMsg);
-  const content = (myTicketReplyText.value || "").trim();
-  if (!selectedMyTicketId) return showAlert(myTicketReplyMsg, "Välj ett ärende först");
-  if (!content) return showAlert(myTicketReplyMsg, "Skriv ett meddelande");
+  const ticketId = state.activeTicketId;
+  if (!ticketId) return toast("Välj ticket", "Öppna ett ärende först.");
 
-  myTicketReplyBtn.disabled = true;
+  const text = $("myTicketReplyText").value.trim();
+  if (!text) return;
+
+  $("myTicketReplyText").value = "";
+
   try {
-    const r = await api(`/my/tickets/${selectedMyTicketId}/reply`, {
-      method: "POST",
-      body: JSON.stringify({ content }),
-    });
-
-    myTicketReplyText.value = "";
-    showAlert(myTicketReplyMsg, r.message || "Skickat ✅", "ok");
-    await loadMyTicketDetails(selectedMyTicketId);
-    await loadMyTickets();
+    const data = await api(`/my/tickets/${ticketId}/reply`, { method: "POST", body: { content: text } });
+    toast("Skickat", "Meddelande skickat ✅");
+    await openMyTicket(ticketId);
+    await refreshMyTickets();
   } catch (e) {
-    showAlert(myTicketReplyMsg, e.message || "Serverfel");
-  } finally {
-    myTicketReplyBtn.disabled = false;
+    toast("Fel", e.message);
   }
 }
 
-/* =====================
+/* =========================
    Inbox (Agent/Admin)
-===================== */
-function setInboxMsg(text, isError = true) {
-  if (!text) return hideAlert(inboxMsg);
-  showAlert(inboxMsg, text, isError ? "error" : "ok");
+========================= */
+async function refreshInbox() {
+  if (!state.me) return;
+  if (!(state.me.role === "admin" || state.me.role === "agent")) return;
+
+  try {
+    const status = $("inboxStatusFilter")?.value || "";
+    const companyId = $("inboxCategoryFilter")?.value || "";
+
+    const query = new URLSearchParams();
+    if (status) query.set("status", status);
+    if (companyId) query.set("companyId", companyId);
+
+    const tickets = await api(`/admin/tickets?${query.toString()}`);
+    state.inboxTickets = tickets || [];
+    renderInboxList();
+    updateInboxNotif();
+  } catch (e) {
+    const box = $("inboxMsg");
+    box.style.display = "";
+    box.textContent = e.message;
+  }
 }
 
-function renderInboxTickets(list) {
-  const arr = Array.isArray(list) ? list : [];
-  inboxTicketsList.innerHTML = "";
+function updateInboxNotif() {
+  const dot = $("inboxNotifDot");
+  const btn = $("openInboxView");
+  if (!dot || !btn) return;
 
-  const statusVal = (inboxStatusFilter?.value || "").trim();
-  const catVal = (inboxCategoryFilter?.value || "").trim();
-  const q = (inboxSearchInput?.value || "").trim().toLowerCase();
+  const hasOpen = state.inboxTickets.some((t) => t.status === "open");
+  dot.style.display = hasOpen ? "" : "none";
+  btn.classList.toggle("hasNotif", hasOpen);
+}
 
-  const filtered = arr.filter((t) => {
-    if (statusVal && t.status !== statusVal) return false;
-    if (catVal && t.companyId !== catVal) return false;
-    if (q) {
-      const hay = `${t.ticketPublicId || ""} ${t._id || ""} ${t.title || ""} ${t.companyId || ""}`.toLowerCase();
-      if (!hay.includes(q)) return false;
-    }
-    return true;
+function renderInboxList() {
+  const list = $("inboxTicketsList");
+  if (!list) return;
+
+  const q = ($("inboxSearchInput")?.value || "").trim().toLowerCase();
+  list.innerHTML = "";
+
+  const filtered = state.inboxTickets.filter((t) => {
+    if (!q) return true;
+    const s = `${t.title || ""} ${t.ticketPublicId || ""} ${t.companyId || ""}`.toLowerCase();
+    return s.includes(q);
   });
-
-  // notif dot
-  const hasOpen = filtered.some((t) => t.status === "open");
-  inboxNotifDot.style.display = hasOpen ? "inline-block" : "none";
-  openInboxViewBtn.classList.toggle("hasNotif", hasOpen);
 
   for (const t of filtered) {
     const div = document.createElement("div");
-    div.className = `listItem ${String(t._id) === String(inboxSelectedTicketId) ? "selected" : ""}`;
-
-    const breached = t?.sla?.breachedFirstResponse || t?.sla?.breachedResolution;
-    if (breached) div.classList.add("categoryNotif");
-
+    div.className = "listItem";
     div.innerHTML = `
       <div class="listItemTitle">
-        <i class="fa-solid fa-inbox"></i>
-        <span>${escapeHtml(t.ticketPublicId || t._id)}</span>
-        <span style="margin-left:auto;display:flex;gap:8px;align-items:center;">
-          ${pillStatus(t.status)}
-          ${pillPriority(t.priority)}
-          ${pillBreach(t)}
-        </span>
+        ${escapeHtml(t.title || "(utan titel)")}
+        <span style="margin-left:auto">${pill(t.status)}</span>
       </div>
       <div class="muted small" style="margin-top:6px;">
-        ${escapeHtml(t.title || "(utan titel)")} • ${escapeHtml(t.companyId || "")}<br/>
-        Senast: ${prettyDate(t.lastActivityAt)}
+        ${escapeHtml(t.ticketPublicId || "")} • ${escapeHtml(t.companyId)} • prio: ${escapeHtml(t.priority || "normal")}
       </div>
     `;
-
-    div.onclick = async () => {
-      inboxSelectedTicketId = t._id;
-      await loadInboxTicketDetails(inboxSelectedTicketId);
-      renderInboxTickets(arr);
-    };
-
-    inboxTicketsList.appendChild(div);
-  }
-
-  if (!filtered.length) {
-    inboxTicketsList.innerHTML = `<div class="muted small">Inga tickets matchar filter.</div>`;
+    div.onclick = () => openInboxTicket(t._id);
+    list.appendChild(div);
   }
 }
 
-function renderInternalNotes(t) {
-  const notes = Array.isArray(t?.internalNotes) ? t.internalNotes : [];
-  if (!notes.length) {
-    internalNotesList.innerHTML = `<div class="muted small">Inga interna notes.</div>`;
-    return;
-  }
-
-  internalNotesList.innerHTML = `
-    <div class="noteList">
-      ${notes
-        .map((n) => {
-          return `
-            <div class="noteItem">
-              <div class="noteMeta">
-                ${prettyDate(n.createdAt)}
-                <button class="actionBtn" data-action="deleteNote" data-noteid="${escapeHtml(n._id)}" style="float:right;">
-                  <i class="fa-solid fa-trash"></i> Ta bort
-                </button>
-              </div>
-              <div class="noteText">${escapeHtml(n.content)}</div>
-            </div>
-          `;
-        })
-        .join("")}
-    </div>
-  `;
-}
-
-function renderInboxTicketDetails(t) {
-  if (!t) {
-    ticketDetails.innerHTML = `Välj en ticket.`;
-    internalNotesList.innerHTML = "";
-    return;
-  }
-
-  // sync priority dropdown
-  ticketPrioritySelect.value = t.priority || "normal";
-
-  const msgs = Array.isArray(t.messages) ? t.messages : [];
-
-  ticketDetails.innerHTML = `
-    <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;">
-      <b>${escapeHtml(t.ticketPublicId || t._id)}</b>
-      ${pillStatus(t.status)}
-      ${pillPriority(t.priority)}
-      ${pillBreach(t)}
-      <span class="muted small" style="margin-left:auto;">${escapeHtml(t.companyId || "")}</span>
-    </div>
-
-    <div class="divider"></div>
-
-    <div class="muted small">
-      <div><b>Titel:</b> ${escapeHtml(t.title || "")}</div>
-      <div><b>Skapad:</b> ${prettyDate(t.createdAt)}</div>
-      <div><b>Senast:</b> ${prettyDate(t.lastActivityAt)}</div>
-      <div><b>Assigned:</b> ${escapeHtml(t.assignedToUserId || "")}</div>
-    </div>
-
-    <div class="divider"></div>
-
-    <div>
-      ${msgs
-        .map((m) => {
-          const r = m.role || "user";
-          const cls = r === "assistant" ? "ai" : r;
-          return `
-            <div class="ticketMsg ${cls}">
-              <div class="ticketMsgHead">
-                <span>${escapeHtml(r)}</span>
-                <span>${prettyDate(m.timestamp)}</span>
-              </div>
-              <div class="ticketMsgBody">${escapeHtml(m.content)}</div>
-            </div>
-          `;
-        })
-        .join("")}
-    </div>
-
-    <div class="divider"></div>
-
-    <div class="muted small">
-      <b>SLA:</b><br/>
-      First response: ${escapeHtml(t?.sla?.pretty?.firstResponse || "")}
-      (remaining: ${escapeHtml(t?.sla?.pretty?.firstRemaining || "")})
-      • Breach: ${t?.sla?.breachedFirstResponse ? "YES" : "NO"}<br/>
-      Resolution: ${escapeHtml(t?.sla?.pretty?.resolution || "")}
-      (remaining: ${escapeHtml(t?.sla?.pretty?.resolutionRemaining || "")})
-      • Breach: ${t?.sla?.breachedResolution ? "YES" : "NO"}<br/>
-      Pending total: ${escapeHtml(t?.sla?.pretty?.pendingTotal || "")}<br/>
-      Effective running: ${escapeHtml(t?.sla?.pretty?.effectiveRunning || "")}
-    </div>
-  `;
-
-  renderInternalNotes(t);
-}
-
-let _inboxCache = [];
-async function loadInboxTickets() {
-  setInboxMsg("");
+async function openInboxTicket(ticketId) {
   try {
-    const tickets = await api("/admin/tickets", { method: "GET" });
-    _inboxCache = tickets || [];
-    renderInboxTickets(_inboxCache);
+    const t = await api(`/admin/tickets/${ticketId}`);
+    state.inboxSelectedTicket = t;
 
-    // auto select first if none
-    if (!inboxSelectedTicketId && tickets?.length) {
-      inboxSelectedTicketId = tickets[0]._id;
-      await loadInboxTicketDetails(inboxSelectedTicketId);
-      renderInboxTickets(_inboxCache);
-    }
+    $("ticketPrioritySelect").value = t.priority || "normal";
+
+    $("ticketDetails").innerHTML = `
+      <div><b>${escapeHtml(t.title || "(utan titel)")}</b></div>
+      <div class="muted small" style="margin-top:4px;">
+        ${escapeHtml(t.ticketPublicId || "")} • ${escapeHtml(t.companyId)} • status: ${escapeHtml(t.status)}
+      </div>
+
+      <div class="divider"></div>
+      ${renderTicketMessages(t.messages || [])}
+    `;
+
+    await loadAgentsForAssign();
   } catch (e) {
-    setInboxMsg(e.message || "Serverfel");
-  }
-}
-
-async function loadInboxTicketDetails(ticketId) {
-  hideAlert(inboxTicketMsg);
-  if (!ticketId) return renderInboxTicketDetails(null);
-
-  try {
-    const t = await api(`/admin/tickets/${ticketId}`, { method: "GET" });
-    renderInboxTicketDetails(t);
-  } catch (e) {
-    showAlert(inboxTicketMsg, e.message || "Serverfel");
+    $("inboxTicketMsg").style.display = "";
+    $("inboxTicketMsg").textContent = e.message;
   }
 }
 
 async function setTicketStatus(status) {
-  hideAlert(inboxTicketMsg);
-  if (!inboxSelectedTicketId) return showAlert(inboxTicketMsg, "Välj en ticket först");
+  const t = state.inboxSelectedTicket;
+  if (!t) return toast("Välj ticket", "Öppna en ticket i inboxen först.");
+
   try {
-    await api(`/admin/tickets/${inboxSelectedTicketId}/status`, {
-      method: "POST",
-      body: JSON.stringify({ status }),
-    });
-    await loadInboxTicketDetails(inboxSelectedTicketId);
-    await loadInboxTickets();
+    await api(`/admin/tickets/${t._id}/status`, { method: "POST", body: { status } });
+    toast("Uppdaterat", "Status ändrad ✅");
+    await refreshInbox();
+    await openInboxTicket(t._id);
   } catch (e) {
-    showAlert(inboxTicketMsg, e.message || "Serverfel");
+    toast("Fel", e.message);
   }
 }
 
 async function setTicketPriority() {
-  hideAlert(inboxTicketMsg);
-  if (!inboxSelectedTicketId) return showAlert(inboxTicketMsg, "Välj en ticket först");
+  const t = state.inboxSelectedTicket;
+  if (!t) return toast("Välj ticket", "Öppna en ticket i inboxen först.");
+
+  const priority = $("ticketPrioritySelect").value;
 
   try {
-    await api(`/admin/tickets/${inboxSelectedTicketId}/priority`, {
-      method: "POST",
-      body: JSON.stringify({ priority: ticketPrioritySelect.value }),
-    });
-    await loadInboxTicketDetails(inboxSelectedTicketId);
-    await loadInboxTickets();
+    await api(`/admin/tickets/${t._id}/priority`, { method: "POST", body: { priority } });
+    toast("Uppdaterat", "Prioritet sparad ✅");
+    await refreshInbox();
+    await openInboxTicket(t._id);
   } catch (e) {
-    showAlert(inboxTicketMsg, e.message || "Serverfel");
+    toast("Fel", e.message);
   }
 }
 
-async function sendAgentReply() {
-  hideAlert(inboxTicketMsg);
-  if (!inboxSelectedTicketId) return showAlert(inboxTicketMsg, "Välj en ticket först");
-  const content = (agentReplyTextInbox.value || "").trim();
-  if (!content) return showAlert(inboxTicketMsg, "Skriv ett svar först");
+async function sendAgentReplyInbox() {
+  const t = state.inboxSelectedTicket;
+  if (!t) return toast("Välj ticket", "Öppna en ticket först.");
 
-  sendAgentReplyInboxBtn.disabled = true;
+  const content = $("agentReplyTextInbox").value.trim();
+  if (!content) return;
+
+  $("agentReplyTextInbox").value = "";
+
   try {
-    await api(`/admin/tickets/${inboxSelectedTicketId}/agent-reply`, {
-      method: "POST",
-      body: JSON.stringify({ content }),
-    });
-    agentReplyTextInbox.value = "";
-    await loadInboxTicketDetails(inboxSelectedTicketId);
-    await loadInboxTickets();
+    await api(`/admin/tickets/${t._id}/agent-reply`, { method: "POST", body: { content } });
+    toast("Skickat", "Agent-svar skickat ✅");
+    await refreshInbox();
+    await openInboxTicket(t._id);
   } catch (e) {
-    showAlert(inboxTicketMsg, e.message || "Serverfel");
-  } finally {
-    sendAgentReplyInboxBtn.disabled = false;
+    toast("Fel", e.message);
   }
 }
 
+/* Notes */
 async function saveInternalNote() {
-  hideAlert(inboxTicketMsg);
-  if (!inboxSelectedTicketId) return showAlert(inboxTicketMsg, "Välj en ticket först");
-  const content = (internalNoteText.value || "").trim();
-  if (!content) return showAlert(inboxTicketMsg, "Skriv en note först");
+  const t = state.inboxSelectedTicket;
+  if (!t) return toast("Välj ticket", "Öppna en ticket först.");
 
-  saveInternalNoteBtn.disabled = true;
+  const content = $("internalNoteText").value.trim();
+  if (!content) return;
+
+  $("internalNoteText").value = "";
+
   try {
-    await api(`/admin/tickets/${inboxSelectedTicketId}/internal-note`, {
-      method: "POST",
-      body: JSON.stringify({ content }),
-    });
-    internalNoteText.value = "";
-    await loadInboxTicketDetails(inboxSelectedTicketId);
+    await api(`/admin/tickets/${t._id}/internal-note`, { method: "POST", body: { content } });
+    toast("Sparat", "Intern notering sparad ✅");
+    await openInboxTicket(t._id);
   } catch (e) {
-    showAlert(inboxTicketMsg, e.message || "Serverfel");
-  } finally {
-    saveInternalNoteBtn.disabled = false;
+    toast("Fel", e.message);
   }
 }
 
-async function deleteSingleNote(noteId) {
-  hideAlert(inboxTicketMsg);
-  if (!inboxSelectedTicketId) return;
-  try {
-    // requires admin (per your server.js)
-    await api(`/admin/tickets/${inboxSelectedTicketId}/internal-note/${noteId}`, {
-      method: "DELETE",
-    });
-    await loadInboxTicketDetails(inboxSelectedTicketId);
-  } catch (e) {
-    showAlert(inboxTicketMsg, e.message || "Serverfel");
-  }
-}
-
-async function clearAllNotes() {
-  hideAlert(inboxTicketMsg);
-  if (!inboxSelectedTicketId) return showAlert(inboxTicketMsg, "Välj en ticket först");
+async function clearInternalNotes() {
+  const t = state.inboxSelectedTicket;
+  if (!t) return toast("Välj ticket", "Öppna en ticket först.");
 
   try {
-    await api(`/admin/tickets/${inboxSelectedTicketId}/internal-notes`, {
-      method: "DELETE",
-    });
-    await loadInboxTicketDetails(inboxSelectedTicketId);
+    await api(`/admin/tickets/${t._id}/internal-notes`, { method: "DELETE" });
+    toast("Rensat", "Noteringar borttagna ✅");
+    await openInboxTicket(t._id);
   } catch (e) {
-    showAlert(inboxTicketMsg, e.message || "Serverfel");
-  }
-}
-
-async function assignTicket() {
-  hideAlert(inboxTicketMsg);
-  if (!inboxSelectedTicketId) return showAlert(inboxTicketMsg, "Välj en ticket först");
-  const userId = assignUserSelect.value;
-  if (!userId) return showAlert(inboxTicketMsg, "Välj en agent");
-
-  try {
-    await api(`/admin/tickets/${inboxSelectedTicketId}/assign`, {
-      method: "POST",
-      body: JSON.stringify({ userId }),
-    });
-    await loadInboxTicketDetails(inboxSelectedTicketId);
-    await loadInboxTickets();
-  } catch (e) {
-    showAlert(inboxTicketMsg, e.message || "Serverfel");
+    toast("Fel", e.message);
   }
 }
 
 async function deleteTicket() {
-  hideAlert(inboxTicketMsg);
-  if (!inboxSelectedTicketId) return showAlert(inboxTicketMsg, "Välj en ticket först");
-
-  if (!confirm("Ta bort ticket permanent?")) return;
+  const t = state.inboxSelectedTicket;
+  if (!t) return;
 
   try {
-    await api(`/admin/tickets/${inboxSelectedTicketId}`, { method: "DELETE" });
-    inboxSelectedTicketId = "";
-    renderInboxTicketDetails(null);
-    await loadInboxTickets();
+    await api(`/admin/tickets/${t._id}`, { method: "DELETE" });
+    toast("Borttagen", "Ticket borttagen ✅");
+    state.inboxSelectedTicket = null;
+    $("ticketDetails").textContent = "Välj en ticket.";
+    await refreshInbox();
   } catch (e) {
-    showAlert(inboxTicketMsg, e.message || "Serverfel");
+    toast("Fel", e.message);
   }
 }
 
+/* Assign */
 async function loadAgentsForAssign() {
-  if (!me || (me.role !== "admin" && me.role !== "agent")) return;
+  if (!(state.me?.role === "admin" || state.me?.role === "agent")) return;
+  const sel = $("assignUserSelect");
+  if (!sel) return;
+
   try {
-    const users = await api("/admin/agents", { method: "GET" });
-    assignUserSelect.innerHTML = `<option value="">Välj agent...</option>`;
-    for (const u of users) {
+    const agents = await api("/admin/agents");
+    sel.innerHTML = `<option value="">Välj agent...</option>`;
+    for (const u of agents) {
       const opt = document.createElement("option");
       opt.value = u._id;
       opt.textContent = `${u.username} (${u.role})`;
-      assignUserSelect.appendChild(opt);
+      sel.appendChild(opt);
     }
   } catch {
     // ignore
   }
 }
 
-/* =====================
-   Admin: users panel
-===================== */
-function renderUsers(users) {
-  adminUsersList.innerHTML = "";
-  const arr = Array.isArray(users) ? users : [];
-  if (!arr.length) {
-    adminUsersList.innerHTML = `<div class="muted small">Inga användare.</div>`;
-    return;
-  }
+async function assignTicket() {
+  const t = state.inboxSelectedTicket;
+  if (!t) return toast("Välj ticket", "Öppna en ticket först.");
+  const userId = $("assignUserSelect").value;
+  if (!userId) return toast("Välj agent", "Du måste välja en agent.");
 
-  for (const u of arr) {
-    const div = document.createElement("div");
-    div.className = "listItem";
-
-    div.innerHTML = `
-      <div class="listItemTitle">
-        <i class="fa-solid fa-user"></i>
-        <span>${escapeHtml(u.username)}</span>
-        <span style="margin-left:auto;display:flex;gap:8px;align-items:center;">
-          <span class="pill admin"><i class="fa-solid fa-shield-halved"></i> ${escapeHtml(u.role)}</span>
-        </span>
-      </div>
-      <div class="muted small" style="margin-top:6px;">
-        ${escapeHtml(u.email || "")}<br/>
-        Skapad: ${prettyDate(u.createdAt)}
-      </div>
-
-      <div class="bubbleActions" style="margin-top:10px;flex-wrap:wrap;">
-        <button class="actionBtn" data-action="role" data-userid="${escapeHtml(u._id)}" data-role="user">User</button>
-        <button class="actionBtn" data-action="role" data-userid="${escapeHtml(u._id)}" data-role="agent">Agent</button>
-        <button class="actionBtn" data-action="role" data-userid="${escapeHtml(u._id)}" data-role="admin">Admin</button>
-        <button class="actionBtn" data-action="deleteUser" data-userid="${escapeHtml(u._id)}">
-          <i class="fa-solid fa-trash"></i> Ta bort
-        </button>
-      </div>
-    `;
-
-    adminUsersList.appendChild(div);
-  }
-}
-
-async function loadUsers() {
-  hideAlert(adminUsersMsg);
   try {
-    const users = await api("/admin/users", { method: "GET" });
-    renderUsers(users);
+    await api(`/admin/tickets/${t._id}/assign`, { method: "POST", body: { userId } });
+    toast("Assignad", "Ticket tilldelad ✅");
+    await refreshInbox();
+    await openInboxTicket(t._id);
   } catch (e) {
-    showAlert(adminUsersMsg, e.message || "Serverfel");
+    toast("Fel", e.message);
   }
 }
 
-/* =====================
-   Admin: KB manager
-===================== */
-function renderKbList(items) {
-  kbList.innerHTML = "";
-  const arr = Array.isArray(items) ? items : [];
-  if (!arr.length) {
-    kbList.innerHTML = `<div class="muted small">Ingen KB data.</div>`;
-    return;
-  }
-
-  for (const it of arr) {
-    const div = document.createElement("div");
-    div.className = "listItem";
-    div.innerHTML = `
-      <div class="listItemTitle">
-        <i class="fa-solid fa-database"></i>
-        <span>${escapeHtml(it.title || it.sourceRef || it.sourceType)}</span>
-        <span style="margin-left:auto;" class="muted small">${escapeHtml(it.sourceType)}</span>
-      </div>
-      <div class="muted small" style="margin-top:6px;">
-        ${escapeHtml(it.sourceRef || "")}<br/>
-        Chunk #${it.chunkIndex} • embeddings: ${it.embeddingOk ? "OK" : "NO"} • ${prettyDate(it.createdAt)}
-      </div>
-    `;
-    kbList.appendChild(div);
+/* Solve all / remove solved */
+async function solveAll() {
+  try {
+    await api("/admin/tickets/solve-all", { method: "POST" });
+    toast("Klart", "Solve ALL ✅");
+    await refreshInbox();
+  } catch (e) {
+    toast("Fel", e.message);
   }
 }
 
+async function removeSolved() {
+  try {
+    await api("/admin/tickets/remove-solved", { method: "POST" });
+    toast("Klart", "Solved tickets borttagna ✅");
+    await refreshInbox();
+  } catch (e) {
+    toast("Fel", e.message);
+  }
+}
+
+/* =========================
+   Admin: Users / Export / KB
+========================= */
+async function refreshUsers() {
+  const msg = $("adminUsersMsg");
+  const list = $("adminUsersList");
+  msg.style.display = "none";
+  list.innerHTML = "";
+
+  try {
+    const users = await api("/admin/users");
+    for (const u of users) {
+      const div = document.createElement("div");
+      div.className = "listItem";
+      div.innerHTML = `
+        <div class="listItemTitle">
+          ${escapeHtml(u.username)}
+          <span style="margin-left:auto" class="pill admin">${escapeHtml(u.role)}</span>
+        </div>
+        <div class="muted small" style="margin-top:6px;">${escapeHtml(u.email || "")}</div>
+        <div class="row gap" style="margin-top:10px; flex-wrap:wrap;">
+          <select class="input smallInput" data-role="${u._id}">
+            <option value="user" ${u.role==="user"?"selected":""}>user</option>
+            <option value="agent" ${u.role==="agent"?"selected":""}>agent</option>
+            <option value="admin" ${u.role==="admin"?"selected":""}>admin</option>
+          </select>
+          <button class="btn ghost small" data-save="${u._id}"><i class="fa-solid fa-floppy-disk"></i> Spara roll</button>
+          <button class="btn danger small" data-del="${u._id}"><i class="fa-solid fa-trash"></i> Ta bort</button>
+        </div>
+      `;
+      list.appendChild(div);
+    }
+
+    list.querySelectorAll("[data-save]").forEach((btn) => {
+      btn.onclick = async () => {
+        const id = btn.getAttribute("data-save");
+        const sel = list.querySelector(`[data-role="${id}"]`);
+        const role = sel.value;
+        try {
+          await api(`/admin/users/${id}/role`, { method: "POST", body: { role } });
+          toast("Sparat", "Roll uppdaterad ✅");
+          await refreshUsers();
+        } catch (e) {
+          toast("Fel", e.message);
+        }
+      };
+    });
+
+    list.querySelectorAll("[data-del]").forEach((btn) => {
+      btn.onclick = async () => {
+        const id = btn.getAttribute("data-del");
+        try {
+          await api(`/admin/users/${id}`, { method: "DELETE" });
+          toast("Borttagen", "Användare borttagen ✅");
+          await refreshUsers();
+        } catch (e) {
+          toast("Fel", e.message);
+        }
+      };
+    });
+  } catch (e) {
+    msg.style.display = "";
+    msg.textContent = e.message;
+  }
+}
+
+function openAdminTab(tabId) {
+  document.querySelectorAll(".tabPanel").forEach((p) => (p.style.display = "none"));
+  document.querySelectorAll(".tabBtn").forEach((b) => b.classList.remove("active"));
+  $(tabId).style.display = "";
+  document.querySelector(`.tabBtn[data-tab="${tabId}"]`)?.classList.add("active");
+}
+
+async function exportAll() {
+  try {
+    const res = await fetch("/admin/export/all", {
+      headers: { Authorization: "Bearer " + state.token },
+    });
+    const blob = await res.blob();
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(blob);
+    a.download = `export_all_${Date.now()}.json`;
+    a.click();
+  } catch {
+    toast("Fel", "Kunde inte exportera.");
+  }
+}
+
+async function exportTraining() {
+  try {
+    const url = `/admin/export/training?companyId=${encodeURIComponent(state.companyId)}`;
+    const res = await fetch(url, { headers: { Authorization: "Bearer " + state.token } });
+    const blob = await res.blob();
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(blob);
+    a.download = `training_export_${state.companyId}_${Date.now()}.json`;
+    a.click();
+  } catch {
+    toast("Fel", "Kunde inte exportera training.");
+  }
+}
+
+/* KB */
 async function kbRefresh() {
-  hideAlert(kbMsg);
-  const companyId = kbCategorySelect.value || "demo";
+  const box = $("kbList");
+  const msg = $("kbMsg");
+  msg.style.display = "none";
+  box.innerHTML = "";
+
   try {
-    const items = await api(`/kb/list/${companyId}`, { method: "GET" });
-    renderKbList(items);
+    const companyId = $("kbCategorySelect").value;
+    const items = await api(`/kb/list/${companyId}`);
+    for (const it of items) {
+      const div = document.createElement("div");
+      div.className = "listItem";
+      div.innerHTML = `
+        <div class="listItemTitle">${escapeHtml(it.title || it.sourceRef || "KB")}</div>
+        <div class="muted small" style="margin-top:6px;">
+          ${escapeHtml(it.sourceType)} • chunk ${it.chunkIndex} • ${prettyDate(it.createdAt)}
+        </div>
+      `;
+      box.appendChild(div);
+    }
   } catch (e) {
-    showAlert(kbMsg, e.message || "Serverfel");
+    msg.style.display = "";
+    msg.textContent = e.message;
   }
 }
 
 async function kbUploadText() {
-  hideAlert(kbMsg);
-  const companyId = kbCategorySelect.value || "demo";
-  const title = (kbTextTitle.value || "").trim();
-  const content = (kbTextContent.value || "").trim();
-  if (!content) return showAlert(kbMsg, "Klistra in text först");
-
-  kbUploadTextBtn.disabled = true;
   try {
-    const r = await api("/kb/upload-text", {
-      method: "POST",
-      body: JSON.stringify({ companyId, title, content }),
-    });
-    showAlert(kbMsg, r.message || "Uppladdat ✅", "ok");
-    kbTextContent.value = "";
+    const companyId = $("kbCategorySelect").value;
+    const title = $("kbTextTitle").value.trim();
+    const content = $("kbTextContent").value.trim();
+
+    if (!content) return toast("Saknas", "Klistra in text först.");
+
+    const r = await api("/kb/upload-text", { method: "POST", body: { companyId, title, content } });
+    toast("Uppladdat", r.message || "Text uppladdad ✅");
+    $("kbTextContent").value = "";
     await kbRefresh();
   } catch (e) {
-    showAlert(kbMsg, e.message || "Serverfel");
-  } finally {
-    kbUploadTextBtn.disabled = false;
+    toast("Fel", e.message);
   }
 }
 
 async function kbUploadUrl() {
-  hideAlert(kbMsg);
-  const companyId = kbCategorySelect.value || "demo";
-  const url = (kbUrlInput.value || "").trim();
-  if (!url) return showAlert(kbMsg, "Skriv en URL först");
-
-  kbUploadUrlBtn.disabled = true;
   try {
-    const r = await api("/kb/upload-url", {
-      method: "POST",
-      body: JSON.stringify({ companyId, url }),
-    });
-    showAlert(kbMsg, r.message || "Uppladdat ✅", "ok");
-    kbUrlInput.value = "";
+    const companyId = $("kbCategorySelect").value;
+    const url = $("kbUrlInput").value.trim();
+    if (!url) return toast("Saknas", "Skriv URL först.");
+    const r = await api("/kb/upload-url", { method: "POST", body: { companyId, url } });
+    toast("Uppladdat", r.message || "URL uppladdad ✅");
+    $("kbUrlInput").value = "";
     await kbRefresh();
   } catch (e) {
-    showAlert(kbMsg, e.message || "Serverfel");
-  } finally {
-    kbUploadUrlBtn.disabled = false;
+    toast("Fel", e.message);
   }
 }
 
 function fileToBase64(file) {
   return new Promise((resolve, reject) => {
-    const r = new FileReader();
-    r.onload = () => {
-      const s = String(r.result || "");
-      // "data:application/pdf;base64,...."
+    const reader = new FileReader();
+    reader.onload = () => {
+      const s = String(reader.result || "");
       const base64 = s.split(",")[1] || "";
       resolve(base64);
     };
-    r.onerror = reject;
-    r.readAsDataURL(file);
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
   });
 }
 
 async function kbUploadPdf() {
-  hideAlert(kbMsg);
-  const companyId = kbCategorySelect.value || "demo";
-  const f = kbPdfFile.files?.[0];
-  if (!f) return showAlert(kbMsg, "Välj en PDF först");
-
-  kbUploadPdfBtn.disabled = true;
   try {
-    const base64 = await fileToBase64(f);
-    const r = await api("/kb/upload-pdf", {
-      method: "POST",
-      body: JSON.stringify({ companyId, filename: f.name, base64 }),
-    });
-    showAlert(kbMsg, r.message || "Uppladdat ✅", "ok");
-    kbPdfFile.value = "";
+    const companyId = $("kbCategorySelect").value;
+    const input = $("kbPdfFile");
+    const file = input.files?.[0];
+    if (!file) return toast("Saknas", "Välj en PDF först.");
+
+    const base64 = await fileToBase64(file);
+    const r = await api("/kb/upload-pdf", { method: "POST", body: { companyId, filename: file.name, base64 } });
+    toast("Uppladdat", r.message || "PDF uppladdad ✅");
+    input.value = "";
     await kbRefresh();
   } catch (e) {
-    showAlert(kbMsg, e.message || "Serverfel");
-  } finally {
-    kbUploadPdfBtn.disabled = false;
+    toast("Fel", e.message);
   }
 }
 
-function kbExport() {
-  const companyId = kbCategorySelect.value || "demo";
-  // Browser download with token header isn't possible directly.
-  // We'll fetch and create blob with Authorization.
-  (async () => {
-    hideAlert(kbMsg);
-    try {
-      const res = await fetch(API_BASE + `/export/kb/${companyId}`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      if (!res.ok) {
-        const d = await res.json().catch(() => ({}));
-        throw new Error(d.error || `HTTP ${res.status}`);
-      }
-      const text = await res.text();
-      const blob = new Blob([text], { type: "application/json;charset=utf-8" });
-      const a = document.createElement("a");
-      a.href = URL.createObjectURL(blob);
-      a.download = `kb_${companyId}.json`;
-      a.click();
-    } catch (e) {
-      showAlert(kbMsg, e.message || "Export misslyckades");
-    }
-  })();
+async function kbExport() {
+  try {
+    const companyId = $("kbCategorySelect").value;
+    const res = await fetch(`/export/kb/${companyId}`, { headers: { Authorization: "Bearer " + state.token } });
+    const blob = await res.blob();
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(blob);
+    a.download = `kb_${companyId}_${Date.now()}.json`;
+    a.click();
+  } catch {
+    toast("Fel", "Kunde inte exportera KB.");
+  }
 }
 
-/* =====================
-   Admin: Categories manager
-===================== */
+/* Categories manager */
 async function catsRefresh() {
-  hideAlert(catsMsg);
-  try {
-    const cats = await fetch(API_BASE + "/categories").then((r) => r.json());
-    catsList.innerHTML = "";
-    if (!Array.isArray(cats) || !cats.length) {
-      catsList.innerHTML = `<div class="muted small">Inga kategorier.</div>`;
-      return;
-    }
+  const box = $("catsList");
+  const msg = $("catsMsg");
+  msg.style.display = "none";
+  box.innerHTML = "";
 
-    for (const c of cats) {
+  try {
+    await loadCategories();
+    for (const c of state.categories) {
       const div = document.createElement("div");
       div.className = "listItem";
       div.innerHTML = `
         <div class="listItemTitle">
-          <i class="fa-solid fa-layer-group"></i>
-          <span>${escapeHtml(c.key)}</span>
-          <span class="muted small" style="margin-left:auto;">${escapeHtml(c.name || "")}</span>
+          ${escapeHtml(c.key)} - ${escapeHtml(c.name)}
         </div>
         <div class="muted small" style="margin-top:6px;">
-          <b>Tone:</b> ${escapeHtml(c.settings?.tone || "professional")} •
-          <b>Lang:</b> ${escapeHtml(c.settings?.language || "sv")} •
-          <b>Emojis:</b> ${c.settings?.allowEmojis === false ? "NO" : "YES"}
+          tone: ${escapeHtml(c.settings?.tone || "professional")}
         </div>
       `;
-      catsList.appendChild(div);
+      box.appendChild(div);
     }
   } catch (e) {
-    showAlert(catsMsg, e.message || "Serverfel");
+    msg.style.display = "";
+    msg.textContent = e.message;
   }
 }
 
 async function createCategory() {
-  hideAlert(catsMsg);
-  const key = (newCatKey.value || "").trim();
-  const name = (newCatName.value || "").trim();
-  const systemPrompt = (newCatPrompt.value || "").trim();
+  const key = $("newCatKey").value.trim();
+  const name = $("newCatName").value.trim();
+  const systemPrompt = $("newCatPrompt").value.trim();
 
-  if (!key || !name) return showAlert(catsMsg, "Key + namn krävs");
+  if (!key || !name) return toast("Saknas", "key + namn krävs");
 
-  createCatBtn.disabled = true;
   try {
-    const r = await api("/admin/categories", {
+    await api("/admin/categories", {
       method: "POST",
-      body: JSON.stringify({
-        key,
-        name,
-        systemPrompt,
-        settings: { tone: "professional", language: "sv", allowEmojis: true },
-      }),
+      body: { key, name, systemPrompt, settings: { tone: "professional", language: "sv", allowEmojis: true } },
     });
-    showAlert(catsMsg, r.message || "Kategori skapad ✅", "ok");
-    newCatKey.value = "";
-    newCatName.value = "";
-    newCatPrompt.value = "";
-    await loadCategories();
+    toast("Skapat", "Kategori skapad ✅");
+    $("newCatKey").value = "";
+    $("newCatName").value = "";
+    $("newCatPrompt").value = "";
     await catsRefresh();
   } catch (e) {
-    showAlert(catsMsg, e.message || "Serverfel");
-  } finally {
-    createCatBtn.disabled = false;
+    toast("Fel", e.message);
   }
 }
 
-/* =====================
-   Admin: Export all + Training export
-===================== */
-async function adminExportAll() {
-  // needs bearer -> fetch as blob
-  try {
-    const res = await fetch(API_BASE + "/admin/export/all", {
-      headers: { Authorization: `Bearer ${token}` },
-    });
-    if (!res.ok) {
-      const d = await res.json().catch(() => ({}));
-      throw new Error(d.error || `HTTP ${res.status}`);
-    }
-    const text = await res.text();
-    const blob = new Blob([text], { type: "application/json;charset=utf-8" });
-    const a = document.createElement("a");
-    a.href = URL.createObjectURL(blob);
-    a.download = `export_all_${new Date().toISOString().slice(0, 10)}.json`;
-    a.click();
-  } catch (e) {
-    alert("Export misslyckades: " + (e.message || ""));
-  }
-}
-
-async function trainingExport() {
-  // optional companyId param (we can use activeCompanyId)
-  const companyId = activeCompanyId || "";
-  try {
-    const url = companyId ? `/admin/export/training?companyId=${encodeURIComponent(companyId)}` : `/admin/export/training`;
-    const res = await fetch(API_BASE + url, { headers: { Authorization: `Bearer ${token}` } });
-    if (!res.ok) {
-      const d = await res.json().catch(() => ({}));
-      throw new Error(d.error || `HTTP ${res.status}`);
-    }
-    const text = await res.text();
-    const blob = new Blob([text], { type: "application/json;charset=utf-8" });
-    const a = document.createElement("a");
-    a.href = URL.createObjectURL(blob);
-    a.download = `training_export_${companyId || "all"}_${new Date().toISOString().slice(0, 10)}.json`;
-    a.click();
-  } catch (e) {
-    alert("Training export misslyckades: " + (e.message || ""));
-  }
-}
-
-/* =====================
+/* =========================
    Settings view
-===================== */
+========================= */
 async function changeUsername() {
-  hideAlert(settingsMsg);
-  const newUsername = (newUsernameInput.value || "").trim();
-  if (newUsername.length < 3) return showAlert(settingsMsg, "Nytt username är för kort");
-
-  changeUsernameBtn.disabled = true;
+  const newUsername = $("newUsernameInput").value.trim();
+  if (!newUsername) return;
   try {
-    const r = await api("/auth/change-username", {
-      method: "POST",
-      body: JSON.stringify({ newUsername }),
-    });
-    showAlert(settingsMsg, r.message || "Uppdaterat ✅", "ok");
-    await loadMe();
-    setRoleUI();
+    await api("/auth/change-username", { method: "POST", body: { newUsername } });
+    toast("Sparat", "Username uppdaterat ✅");
+    await bootstrapAfterLogin();
   } catch (e) {
-    showAlert(settingsMsg, e.message || "Serverfel");
-  } finally {
-    changeUsernameBtn.disabled = false;
+    toast("Fel", e.message);
   }
 }
 
 async function changePassword() {
-  hideAlert(settingsMsg);
-  const currentPassword = (currentPassInput.value || "").trim();
-  const newPassword = (newPassInput.value || "").trim();
-  if (!currentPassword || !newPassword) return showAlert(settingsMsg, "Fyll i båda fälten");
-  if (newPassword.length < 6) return showAlert(settingsMsg, "Nytt lösenord måste vara minst 6 tecken");
+  const currentPassword = $("currentPassInput").value.trim();
+  const newPassword = $("newPassInput").value.trim();
+  if (!currentPassword || !newPassword) return toast("Saknas", "Fyll i båda fälten.");
 
-  changePasswordBtn.disabled = true;
   try {
-    const r = await api("/auth/change-password", {
-      method: "POST",
-      body: JSON.stringify({ currentPassword, newPassword }),
-    });
-    showAlert(settingsMsg, r.message || "Lösenord uppdaterat ✅", "ok");
-    currentPassInput.value = "";
-    newPassInput.value = "";
+    await api("/auth/change-password", { method: "POST", body: { currentPassword, newPassword } });
+    toast("Sparat", "Lösenord uppdaterat ✅");
+    $("currentPassInput").value = "";
+    $("newPassInput").value = "";
   } catch (e) {
-    showAlert(settingsMsg, e.message || "Serverfel");
-  } finally {
-    changePasswordBtn.disabled = false;
+    toast("Fel", e.message);
   }
 }
 
-/* =====================
-   SLA Dashboard
-===================== */
-async function slaLoadAll() {
-  hideAlert(inboxTicketMsg);
+/* =========================
+   SLA (basic render only)
+========================= */
+async function refreshSla() {
+  const box = $("slaOverviewBox");
+  box.innerHTML = `<div class="muted small">Laddar SLA...</div>`;
 
-  const days = Number(slaDaysSelect.value || 30);
-  const breachedFilter = slaBreachedFilter.value || "all";
-  const breachType = slaBreachTypeFilter.value || "any";
-  const sortMode = slaSortTickets.value || "newest";
+  const days = $("slaDaysSelect").value || "30";
 
-  // 1) overview
-  const overview = await api(`/admin/sla/overview?days=${days}`, { method: "GET" });
-  renderSlaOverview(overview);
+  try {
+    const ov = await api(`/admin/sla/overview?days=${encodeURIComponent(days)}`);
+    box.innerHTML = `
+      <div class="slaGrid">
+        <div class="slaCard">
+          <div class="slaLabel">Totalt tickets</div>
+          <div class="slaValue">${ov.totalTickets ?? "-"}</div>
+        </div>
+        <div class="slaCard">
+          <div class="slaLabel">First response compliance</div>
+          <div class="slaValue">${ov.firstResponse?.compliancePct ?? "-"}%</div>
+        </div>
+        <div class="slaCard">
+          <div class="slaLabel">Resolution compliance</div>
+          <div class="slaValue">${ov.resolution?.compliancePct ?? "-"}%</div>
+        </div>
+        <div class="slaCard">
+          <div class="slaLabel">Open / Pending / Solved</div>
+          <div class="slaValue">${ov.statusCounts?.open ?? 0} / ${ov.statusCounts?.pending ?? 0} / ${ov.statusCounts?.solved ?? 0}</div>
+        </div>
+      </div>
+    `;
 
-  // 2) trend weekly
-  const trend = await api(`/admin/sla/trend/weekly?days=${days}`, { method: "GET" });
-  slaTrendData = trend?.rows || [];
-  drawSlaTrendChart(slaTrendData);
+    // Trend
+    const trend = await api(`/admin/sla/trend/weekly?days=${encodeURIComponent(days)}`);
+    renderSlaTrendChart(trend.rows || []);
 
-  // 3) agents
-  const agents = await api(`/admin/sla/agents?days=${days}`, { method: "GET" });
-  renderSlaAgents(agents?.rows || []);
+    // Agents
+    const agents = await api(`/admin/sla/agents?days=${encodeURIComponent(days)}`);
+    renderSlaAgents(agents.rows || []);
 
-  // 4) tickets
-  const ticketsRes = await api(`/admin/sla/tickets?days=${days}`, { method: "GET" });
-  let rows = ticketsRes?.rows || [];
+    // Tickets list
+    const t = await api(`/admin/sla/tickets?days=${encodeURIComponent(days)}`);
+    renderSlaTickets(t.rows || []);
+  } catch (e) {
+    box.innerHTML = `<div class="alert error">${escapeHtml(e.message)}</div>`;
+  }
+}
 
-  // filter breached
-  rows = rows.filter((r) => {
-    const b1 = !!r?.sla?.breachedFirstResponse;
-    const b2 = !!r?.sla?.breachedResolution;
-
-    if (breachedFilter === "breachedOnly" && !(b1 || b2)) return false;
-    if (breachedFilter === "okOnly" && (b1 || b2)) return false;
-
-    if (breachType === "first" && !b1) return false;
-    if (breachType === "resolution" && !b2) return false;
-
-    return true;
+function ensureChartJs() {
+  return new Promise((resolve) => {
+    if (window.Chart) return resolve(true);
+    const s = document.createElement("script");
+    s.src = "https://cdn.jsdelivr.net/npm/chart.js";
+    s.onload = () => resolve(true);
+    s.onerror = () => resolve(false);
+    document.head.appendChild(s);
   });
-
-  // sort
-  if (sortMode === "oldest") rows.sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt));
-  if (sortMode === "newest") rows.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
-  if (sortMode === "worstFirst") {
-    rows.sort((a, b) => {
-      const aBad =
-        (a?.sla?.breachedFirstResponse ? 1 : 0) +
-        (a?.sla?.breachedResolution ? 1 : 0) +
-        (a?.sla?.effectiveRunningMs || 0) / 1000000000;
-      const bBad =
-        (b?.sla?.breachedFirstResponse ? 1 : 0) +
-        (b?.sla?.breachedResolution ? 1 : 0) +
-        (b?.sla?.effectiveRunningMs || 0) / 1000000000;
-      return bBad - aBad;
-    });
-  }
-
-  renderSlaTickets(rows);
 }
 
-function renderSlaOverview(o) {
-  if (!o) return;
-
-  const mk = (label, value) => `
-    <div class="slaCard">
-      <div class="slaLabel">${escapeHtml(label)}</div>
-      <div class="slaValue">${escapeHtml(value ?? "-")}</div>
-    </div>
-  `;
-
-  const firstAvg = o?.firstResponse?.avgMs != null ? msToPretty(o.firstResponse.avgMs) : "-";
-  const firstMed = o?.firstResponse?.medianMs != null ? msToPretty(o.firstResponse.medianMs) : "-";
-  const resAvg = o?.resolution?.avgMs != null ? msToPretty(o.resolution.avgMs) : "-";
-  const resMed = o?.resolution?.medianMs != null ? msToPretty(o.resolution.medianMs) : "-";
-
-  slaOverviewBox.innerHTML = `
-    <div class="slaGrid">
-      ${mk("Tickets (period)", o.totalTickets)}
-      ${mk("Open", o.statusCounts?.open ?? 0)}
-      ${mk("Pending", o.statusCounts?.pending ?? 0)}
-      ${mk("Solved", o.statusCounts?.solved ?? 0)}
-
-      ${mk("First avg", firstAvg)}
-      ${mk("First median", firstMed)}
-      ${mk("First compliance", (o.firstResponse?.compliancePct ?? "-") + "%")}
-      ${mk("First breaches", o.firstResponse?.breaches ?? 0)}
-
-      ${mk("Res avg", resAvg)}
-      ${mk("Res median", resMed)}
-      ${mk("Res compliance", (o.resolution?.compliancePct ?? "-") + "%")}
-      ${mk("Res breaches", o.resolution?.breaches ?? 0)}
-    </div>
-  `;
-}
-
-function drawSlaTrendChart(rows) {
-  const canvas = slaTrendChart;
-  if (!canvas) return;
-  const ctx = canvas.getContext("2d");
-  if (!ctx) return;
-
-  // basic canvas chart (no external libs)
-  const w = canvas.width = canvas.clientWidth * devicePixelRatio;
-  const h = canvas.height = canvas.clientHeight * devicePixelRatio;
-
-  ctx.clearRect(0, 0, w, h);
-
-  const pad = 26 * devicePixelRatio;
-  const innerW = w - pad * 2;
-  const innerH = h - pad * 2;
-
-  // axes
-  ctx.globalAlpha = 0.9;
-  ctx.beginPath();
-  ctx.moveTo(pad, pad);
-  ctx.lineTo(pad, pad + innerH);
-  ctx.lineTo(pad + innerW, pad + innerH);
-  ctx.strokeStyle = "rgba(255,255,255,0.25)";
-  ctx.lineWidth = 1 * devicePixelRatio;
-  ctx.stroke();
-
-  if (!rows || !rows.length) {
-    slaTrendHint.textContent = "Ingen trend-data.";
+async function renderSlaTrendChart(rows) {
+  const ok = await ensureChartJs();
+  if (!ok) {
+    $("slaTrendHint").textContent = "Chart.js kunde inte laddas.";
     return;
   }
-  slaTrendHint.textContent = `Visar ${rows.length} veckor (compliance %).`;
 
-  const xs = rows.map((_, i) => i);
-  const first = rows.map((r) => Number(r.firstCompliancePct || 0));
-  const res = rows.map((r) => Number(r.resolutionCompliancePct || 0));
+  const labels = rows.map((r) => r.week);
+  const first = rows.map((r) => r.firstCompliancePct);
+  const res = rows.map((r) => r.resolutionCompliancePct);
 
-  const maxY = 100;
-  const minY = 0;
+  const ctx = $("slaTrendChart").getContext("2d");
+  if (window.__slaChart) window.__slaChart.destroy();
 
-  const xTo = (i) => pad + (i / Math.max(1, xs.length - 1)) * innerW;
-  const yTo = (v) => pad + innerH - ((v - minY) / (maxY - minY)) * innerH;
-
-  // grid lines
-  ctx.globalAlpha = 0.35;
-  for (let y = 0; y <= 100; y += 25) {
-    ctx.beginPath();
-    ctx.moveTo(pad, yTo(y));
-    ctx.lineTo(pad + innerW, yTo(y));
-    ctx.strokeStyle = "rgba(255,255,255,0.12)";
-    ctx.stroke();
-  }
-
-  // draw first line
-  ctx.globalAlpha = 0.9;
-  ctx.beginPath();
-  first.forEach((v, i) => {
-    const x = xTo(i);
-    const y = yTo(v);
-    if (i === 0) ctx.moveTo(x, y);
-    else ctx.lineTo(x, y);
+  window.__slaChart = new Chart(ctx, {
+    type: "line",
+    data: {
+      labels,
+      datasets: [
+        { label: "First response %", data: first },
+        { label: "Resolution %", data: res },
+      ],
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      scales: { y: { min: 0, max: 100 } },
+    },
   });
-  ctx.strokeStyle = "rgba(76,125,255,0.95)";
-  ctx.lineWidth = 2 * devicePixelRatio;
-  ctx.stroke();
 
-  // draw resolution line
-  ctx.beginPath();
-  res.forEach((v, i) => {
-    const x = xTo(i);
-    const y = yTo(v);
-    if (i === 0) ctx.moveTo(x, y);
-    else ctx.lineTo(x, y);
-  });
-  ctx.strokeStyle = "rgba(55,214,122,0.95)";
-  ctx.lineWidth = 2 * devicePixelRatio;
-  ctx.stroke();
-
-  // labels (last)
-  const last = rows[rows.length - 1];
-  ctx.globalAlpha = 0.9;
-  ctx.font = `${12 * devicePixelRatio}px system-ui`;
-  ctx.fillStyle = "rgba(255,255,255,0.75)";
-  ctx.fillText(last.week, pad, pad - 8 * devicePixelRatio);
+  $("slaTrendHint").textContent = `Visar ${rows.length} veckor.`;
 }
 
 function renderSlaAgents(rows) {
-  if (!slaAgentsBox) return;
-  if (!rows || !rows.length) {
-    slaAgentsBox.innerHTML = `<div class="muted small">Ingen agent-data.</div>`;
+  const box = $("slaAgentsBox");
+  if (!rows.length) {
+    box.innerHTML = `<div class="muted small">Ingen agent-data.</div>`;
     return;
   }
 
-  slaAgentsBox.innerHTML = `
+  const html = `
     <div class="tableWrap">
       <table class="table">
         <thead>
@@ -1654,82 +1230,72 @@ function renderSlaAgents(rows) {
             <th>Open</th>
             <th>Pending</th>
             <th>Solved</th>
-            <th>First avg</th>
             <th>First compliance</th>
-            <th>Res avg</th>
             <th>Res compliance</th>
           </tr>
         </thead>
         <tbody>
           ${rows
-            .map((r) => {
-              const favg = r.firstResponse?.avgMs != null ? msToPretty(r.firstResponse.avgMs) : "-";
-              const ravg = r.resolution?.avgMs != null ? msToPretty(r.resolution.avgMs) : "-";
-              return `
-                <tr>
-                  <td>${escapeHtml(r.username)} <span class="muted small">(${escapeHtml(r.role)})</span></td>
-                  <td>${r.tickets}</td>
-                  <td>${r.open}</td>
-                  <td>${r.pending}</td>
-                  <td>${r.solved}</td>
-                  <td>${escapeHtml(favg)}</td>
-                  <td>${escapeHtml((r.firstResponse?.compliancePct ?? "-") + "%")}</td>
-                  <td>${escapeHtml(ravg)}</td>
-                  <td>${escapeHtml((r.resolution?.compliancePct ?? "-") + "%")}</td>
-                </tr>
-              `;
-            })
+            .map(
+              (r) => `
+              <tr>
+                <td>${escapeHtml(r.username)} (${escapeHtml(r.role)})</td>
+                <td>${r.tickets}</td>
+                <td>${r.open}</td>
+                <td>${r.pending}</td>
+                <td>${r.solved}</td>
+                <td>${r.firstResponse?.compliancePct ?? "-"}%</td>
+                <td>${r.resolution?.compliancePct ?? "-"}%</td>
+              </tr>
+            `
+            )
             .join("")}
         </tbody>
       </table>
     </div>
   `;
+  box.innerHTML = html;
 }
 
 function renderSlaTickets(rows) {
-  if (!slaTicketsBox) return;
-  if (!rows || !rows.length) {
-    slaTicketsBox.innerHTML = `<div class="muted small">Inga tickets matchar filter.</div>`;
+  const box = $("slaTicketsBox");
+  if (!rows.length) {
+    box.innerHTML = `<div class="muted small">Ingen ticket-data.</div>`;
     return;
   }
 
-  slaTicketsBox.innerHTML = `
+  box.innerHTML = `
     <div class="tableWrap">
       <table class="table">
         <thead>
           <tr>
             <th>Ticket</th>
-            <th>Company</th>
+            <th>Kategori</th>
             <th>Status</th>
             <th>Prio</th>
-            <th>First</th>
-            <th>Res</th>
-            <th>Pending</th>
-            <th>Running</th>
-            <th>Breaches</th>
-            <th>Created</th>
+            <th>First ms</th>
+            <th>Res ms</th>
+            <th>Breached first</th>
+            <th>Breached res</th>
           </tr>
         </thead>
         <tbody>
           ${rows
-            .map((r) => {
-              const sla = r.sla || {};
-              const breaches = (sla.breachedFirstResponse ? 1 : 0) + (sla.breachedResolution ? 1 : 0);
-              return `
-                <tr>
-                  <td><b>${escapeHtml(r.ticketPublicId || r.ticketId)}</b><br/><span class="muted small">${escapeHtml(r.ticketId)}</span></td>
-                  <td>${escapeHtml(r.companyId)}</td>
-                  <td>${escapeHtml(r.status)}</td>
-                  <td>${escapeHtml(r.priority)}</td>
-                  <td>${escapeHtml(sla.pretty?.firstResponse || "")}</td>
-                  <td>${escapeHtml(sla.pretty?.resolution || "")}</td>
-                  <td>${escapeHtml(sla.pretty?.pendingTotal || "")}</td>
-                  <td>${escapeHtml(sla.pretty?.effectiveRunning || "")}</td>
-                  <td>${breaches}</td>
-                  <td>${prettyDate(r.createdAt)}</td>
-                </tr>
-              `;
-            })
+            .slice(0, 500)
+            .map(
+              (r) => `
+              <tr>
+                <td>${escapeHtml(r.ticketPublicId)}</td>
+                <td>${escapeHtml(r.companyId)}</td>
+                <td>${escapeHtml(r.status)}</td>
+                <td>${escapeHtml(r.priority)}</td>
+                <td>${r.sla?.firstResponseMs ?? ""}</td>
+                <td>${r.sla?.resolutionMs ?? ""}</td>
+                <td>${r.sla?.breachedFirstResponse ? "YES" : "NO"}</td>
+                <td>${r.sla?.breachedResolution ? "YES" : "NO"}</td>
+              </tr>
+            `
+            )
             .join("")}
         </tbody>
       </table>
@@ -1738,437 +1304,213 @@ function renderSlaTickets(rows) {
 }
 
 async function slaExportCsv() {
-  const days = Number(slaDaysSelect.value || 30);
+  const days = $("slaDaysSelect").value || "30";
   try {
-    const res = await fetch(API_BASE + `/admin/sla/export/csv?days=${days}`, {
-      headers: { Authorization: `Bearer ${token}` },
+    const res = await fetch(`/admin/sla/export/csv?days=${encodeURIComponent(days)}`, {
+      headers: { Authorization: "Bearer " + state.token },
     });
-    if (!res.ok) {
-      const d = await res.json().catch(() => ({}));
-      throw new Error(d.error || `HTTP ${res.status}`);
-    }
-    const text = await res.text();
-    const blob = new Blob([text], { type: "text/csv;charset=utf-8" });
+    const blob = await res.blob();
     const a = document.createElement("a");
     a.href = URL.createObjectURL(blob);
-    a.download = `sla_export_${days}d.csv`;
+    a.download = `sla_export_${days}d_${Date.now()}.csv`;
     a.click();
-  } catch (e) {
-    alert("SLA export misslyckades: " + (e.message || ""));
+  } catch {
+    toast("Fel", "Kunde inte exportera CSV.");
   }
 }
 
-async function slaClearMy() {
+async function slaClearMyStats() {
   try {
-    const r = await api(`/admin/sla/clear/my`, { method: "POST", body: JSON.stringify({}) });
-    alert(r.message || "Raderat ✅");
-    await slaLoadAll();
+    await api(`/admin/sla/clear/my`, { method: "POST" });
+    toast("Rensat", "Din SLA statistik raderad ✅");
+    await refreshSla();
   } catch (e) {
-    alert("Fel: " + (e.message || ""));
+    toast("Fel", e.message);
   }
 }
 
-async function slaClearAll() {
-  if (!confirm("Radera ALL SLA statistik?")) return;
+async function slaClearAllStats() {
   try {
-    const r = await api(`/admin/sla/clear/all`, { method: "POST", body: JSON.stringify({}) });
-    alert(r.message || "Raderat ✅");
-    await slaLoadAll();
+    await api(`/admin/sla/clear/all`, { method: "POST" });
+    toast("Rensat", "ALL SLA statistik raderad ✅");
+    await refreshSla();
   } catch (e) {
-    alert("Fel: " + (e.message || ""));
+    toast("Fel", e.message);
   }
 }
 
-/* =====================
-   Navigation
-===================== */
-async function goAuth() {
-  setActiveMenu(null);
-  showView(authView);
-}
-
-async function goChat() {
-  setActiveMenu(openChatViewBtn);
-  showView(chatView);
-}
-
-async function goMyTickets() {
-  setActiveMenu(openMyTicketsViewBtn);
-  showView(myTicketsView);
-  await loadMyTickets();
-}
-
-async function goInbox() {
-  setActiveMenu(openInboxViewBtn);
-  showView(inboxView);
-  await loadAgentsForAssign();
-  await loadInboxTickets();
-}
-
-async function goAdmin() {
-  setActiveMenu(openAdminViewBtn);
-  showView(adminView);
-  // default tab users
-  switchAdminTab("tabUsers");
-  await loadUsers();
-}
-
-async function goSettings() {
-  setActiveMenu(openSettingsViewBtn);
-  showView(settingsView);
-}
-
-async function goSla() {
-  setActiveMenu(openSlaViewBtn);
-  showView(slaView);
-  await slaLoadAll();
-}
-
-function switchAdminTab(tabId) {
-  tabBtns.forEach((b) => b.classList.remove("active"));
-  tabBtns.find((b) => b.dataset.tab === tabId)?.classList.add("active");
-
-  tabUsers.style.display = tabId === "tabUsers" ? "block" : "none";
-  tabKB.style.display = tabId === "tabKB" ? "block" : "none";
-  tabCats.style.display = tabId === "tabCats" ? "block" : "none";
-}
-
-/* =====================
-   Bind events
-===================== */
+/* =========================
+   Events
+========================= */
 function bindEvents() {
-  // Theme
-  themeToggleBtn?.addEventListener("click", toggleTheme);
+  $("themeToggle").onclick = toggleTheme;
 
-  // Debug
-  toggleDebugBtn?.addEventListener("click", () => setDebug(!debugOn));
-
-  // Sidebar nav
-  openChatViewBtn?.addEventListener("click", () => goChat());
-  openMyTicketsViewBtn?.addEventListener("click", () => goMyTickets());
-  openInboxViewBtn?.addEventListener("click", () => goInbox());
-  openAdminViewBtn?.addEventListener("click", () => goAdmin());
-  openSettingsViewBtn?.addEventListener("click", () => goSettings());
-  openSlaViewBtn?.addEventListener("click", () => goSla());
-
-  // Category select
-  categorySelect?.addEventListener("change", () => {
-    setCompany(categorySelect.value);
-    // reset ticket context when company changes
-    resetTicketContext();
-  });
+  $("toggleDebugBtn").onclick = () => {
+    state.debug = !state.debug;
+    $("debugPanel").style.display = state.debug ? "" : "none";
+    renderDebug();
+  };
 
   // Auth
-  togglePassBtn?.addEventListener("click", () => {
-    passwordInput.type = passwordInput.type === "password" ? "text" : "password";
-  });
+  $("loginBtn").onclick = doLogin;
+  $("registerBtn").onclick = doRegister;
+  $("logoutBtn").onclick = doLogout;
 
-  toggleResetPassBtn?.addEventListener("click", () => {
-    resetNewPass.type = resetNewPass.type === "password" ? "text" : "password";
-  });
+  $("togglePassBtn").onclick = () => {
+    const p = $("password");
+    p.type = p.type === "password" ? "text" : "password";
+  };
+  $("toggleResetPassBtn").onclick = () => {
+    const p = $("resetNewPass");
+    p.type = p.type === "password" ? "text" : "password";
+  };
 
-  loginBtn?.addEventListener("click", async () => {
-    hideAlert(authMessage);
-    const username = (usernameInput.value || "").trim();
-    const password = (passwordInput.value || "").trim();
-    if (!username || !password) return showAlert(authMessage, "Fyll i användarnamn och lösenord");
+  $("openForgotBtn").onclick = openForgot;
+  $("closeForgotBtn").onclick = closeForgot;
+  $("sendForgotBtn").onclick = sendForgot;
 
-    loginBtn.disabled = true;
-    try {
-      const res = await fetch(API_BASE + "/login", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ username, password }),
-      }).then((r) => r.json().then((d) => ({ ok: r.ok, d })));
+  // Menu navigation
+  $("openChatView").onclick = () => showView("chatView", "openChatView");
+  $("openMyTicketsView").onclick = async () => {
+    showView("myTicketsView", "openMyTicketsView");
+    await refreshMyTickets();
+  };
 
-      if (!res.ok) throw new Error(res.d?.error || "Login misslyckades");
-      token = res.d.token;
-      localStorage.setItem("kt_token", token);
-      await loadMe();
-      await bootAfterLogin();
-    } catch (e) {
-      showAlert(authMessage, e.message || "Serverfel");
-    } finally {
-      loginBtn.disabled = false;
-    }
-  });
+  $("openInboxView").onclick = async () => {
+    showView("inboxView", "openInboxView");
+    await refreshInbox();
+  };
 
-  registerBtn?.addEventListener("click", async () => {
-    hideAlert(authMessage);
-    const username = (usernameInput.value || "").trim();
-    const password = (passwordInput.value || "").trim();
-    const email = (emailInput.value || "").trim();
+  $("openAdminView").onclick = async () => {
+    showView("adminView", "openAdminView");
+    openAdminTab("tabUsers");
+    await refreshUsers();
+    await catsRefresh();
+    await kbRefresh();
+  };
 
-    if (username.length < 3) return showAlert(authMessage, "Användarnamn måste vara minst 3 tecken");
-    if (password.length < 6) return showAlert(authMessage, "Lösenord måste vara minst 6 tecken");
+  $("openSettingsView").onclick = () => showView("settingsView", "openSettingsView");
 
-    registerBtn.disabled = true;
-    try {
-      const res = await fetch(API_BASE + "/register", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ username, password, email }),
-      }).then((r) => r.json().then((d) => ({ ok: r.ok, d })));
+  $("openSlaView").onclick = async () => {
+    showView("slaView", "openSlaView");
+    await refreshSla();
+  };
 
-      if (!res.ok) throw new Error(res.d?.error || "Registrering misslyckades");
-      showAlert(authMessage, res.d?.message || "Registrering lyckades ✅", "ok");
-    } catch (e) {
-      showAlert(authMessage, e.message || "Serverfel");
-    } finally {
-      registerBtn.disabled = false;
-    }
-  });
+  // Category select
+  $("categorySelect").onchange = () => {
+    state.companyId = $("categorySelect").value;
+    renderChatHeader();
+    resetConversation();
+    toast("Kategori", `Bytte till ${state.companyId}`);
+  };
 
-  openForgotBtn?.addEventListener("click", () => {
-    showForgotUI(true);
-    hideAlert(forgotMsg);
-  });
-
-  closeForgotBtn?.addEventListener("click", () => showForgotUI(false));
-
-  sendForgotBtn?.addEventListener("click", async () => {
-    hideAlert(forgotMsg);
-    const email = (forgotEmail.value || "").trim();
-    if (!email) return showAlert(forgotMsg, "Skriv din email först");
-
-    sendForgotBtn.disabled = true;
-    try {
-      const res = await fetch(API_BASE + "/auth/forgot-password", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email }),
-      }).then((r) => r.json().then((d) => ({ ok: r.ok, d })));
-
-      if (!res.ok) throw new Error(res.d?.error || "Serverfel");
-      showAlert(forgotMsg, res.d?.message || "Skickat ✅", "ok");
-    } catch (e) {
-      showAlert(forgotMsg, e.message || "Serverfel");
-    } finally {
-      sendForgotBtn.disabled = false;
-    }
-  });
-
-  logoutBtn?.addEventListener("click", () => {
-    token = "";
-    me = null;
-    localStorage.removeItem("kt_token");
-    resetTicketContext();
-    setRoleUI();
-    goAuth();
-  });
-
-  // Chat actions
-  sendBtn?.addEventListener("click", sendChatMessage);
-  messageInput?.addEventListener("keydown", (e) => {
+  // Chat
+  $("sendBtn").onclick = sendChat;
+  $("messageInput").addEventListener("keydown", (e) => {
     if (e.key === "Enter") {
       e.preventDefault();
-      sendChatMessage();
+      sendChat();
     }
   });
 
-  newTicketBtn?.addEventListener("click", resetTicketContext);
-  clearChatBtn?.addEventListener("click", () => {
-    conversation = [];
-    viewResetAllMessages();
-  });
-  exportChatBtn?.addEventListener("click", exportChat);
+  $("clearChatBtn").onclick = clearChat;
+  $("exportChatBtn").onclick = exportChat;
+  $("newTicketBtn").onclick = newTicket;
 
-  fbUpBtn?.addEventListener("click", () => sendFeedback("up"));
-  fbDownBtn?.addEventListener("click", () => sendFeedback("down"));
+  // Feedback
+  $("fbUp").onclick = () => sendFeedback("up");
+  $("fbDown").onclick = () => sendFeedback("down");
 
   // My tickets
-  myTicketsRefreshBtn?.addEventListener("click", loadMyTickets);
-  myTicketReplyBtn?.addEventListener("click", replyMyTicket);
+  $("myTicketsRefreshBtn").onclick = refreshMyTickets;
+  $("myTicketReplyBtn").onclick = replyMyTicket;
 
   // Inbox filters
-  inboxRefreshBtn?.addEventListener("click", loadInboxTickets);
-  inboxStatusFilter?.addEventListener("change", () => renderInboxTickets(_inboxCache));
-  inboxCategoryFilter?.addEventListener("change", () => renderInboxTickets(_inboxCache));
-  inboxSearchInput?.addEventListener("input", () => renderInboxTickets(_inboxCache));
+  $("inboxRefreshBtn").onclick = refreshInbox;
+  $("inboxSearchInput").addEventListener("input", renderInboxList);
+  $("inboxStatusFilter").onchange = refreshInbox;
+  $("inboxCategoryFilter").onchange = refreshInbox;
 
-  // Inbox actions
-  setStatusOpen?.addEventListener("click", () => setTicketStatus("open"));
-  setStatusPending?.addEventListener("click", () => setTicketStatus("pending"));
-  setStatusSolved?.addEventListener("click", () => setTicketStatus("solved"));
+  $("setStatusOpen").onclick = () => setTicketStatus("open");
+  $("setStatusPending").onclick = () => setTicketStatus("pending");
+  $("setStatusSolved").onclick = () => setTicketStatus("solved");
+  $("setPriorityBtn").onclick = setTicketPriority;
+  $("sendAgentReplyInboxBtn").onclick = sendAgentReplyInbox;
 
-  setPriorityBtn?.addEventListener("click", setTicketPriority);
+  $("saveInternalNoteBtn").onclick = saveInternalNote;
+  $("clearInternalNotesBtn").onclick = clearInternalNotes;
+  $("assignTicketBtn").onclick = assignTicket;
+  $("deleteTicketBtn").onclick = deleteTicket;
 
-  sendAgentReplyInboxBtn?.addEventListener("click", sendAgentReply);
+  $("solveAllBtn").onclick = solveAll;
+  $("removeSolvedBtn").onclick = removeSolved;
 
-  saveInternalNoteBtn?.addEventListener("click", saveInternalNote);
-  clearInternalNotesBtn?.addEventListener("click", clearAllNotes);
+  // Admin
+  document.querySelectorAll(".tabBtn").forEach((b) => {
+    b.onclick = async () => {
+      const tab = b.getAttribute("data-tab");
+      openAdminTab(tab);
 
-  assignTicketBtn?.addEventListener("click", assignTicket);
-  deleteTicketBtn?.addEventListener("click", deleteTicket);
-
-  // internal notes delete (event delegation)
-  internalNotesList?.addEventListener("click", (e) => {
-    const btn = e.target.closest("[data-action='deleteNote']");
-    if (!btn) return;
-    const noteId = btn.getAttribute("data-noteid");
-    if (!noteId) return;
-    if (!confirm("Ta bort notering? (Admin krävs)")) return;
-    deleteSingleNote(noteId);
+      if (tab === "tabUsers") await refreshUsers();
+      if (tab === "tabKB") await kbRefresh();
+      if (tab === "tabCats") await catsRefresh();
+    };
   });
 
-  // Solve all / remove solved (admin only routes)
-  solveAllBtn?.addEventListener("click", async () => {
-    if (!confirm("Solve ALL tickets? (Admin)")) return;
-    try {
-      const r = await api("/admin/tickets/solve-all", { method: "POST", body: JSON.stringify({}) });
-      alert(r.message || "Done ✅");
-      await loadInboxTickets();
-    } catch (e) {
-      alert(e.message || "Serverfel");
-    }
-  });
-
-  removeSolvedBtn?.addEventListener("click", async () => {
-    if (!confirm("Remove ALL solved tickets? (Admin)")) return;
-    try {
-      const r = await api("/admin/tickets/remove-solved", { method: "POST", body: JSON.stringify({}) });
-      alert(r.message || "Done ✅");
-      await loadInboxTickets();
-    } catch (e) {
-      alert(e.message || "Serverfel");
-    }
-  });
-
-  // Admin tabs
-  tabBtns.forEach((b) =>
-    b.addEventListener("click", async () => {
-      const id = b.dataset.tab;
-      switchAdminTab(id);
-
-      if (id === "tabUsers") await loadUsers();
-      if (id === "tabKB") await kbRefresh();
-      if (id === "tabCats") await catsRefresh();
-    })
-  );
-
-  // Admin users panel actions (delegation)
-  adminUsersList?.addEventListener("click", async (e) => {
-    const roleBtn = e.target.closest("[data-action='role']");
-    const delBtn = e.target.closest("[data-action='deleteUser']");
-
-    if (roleBtn) {
-      const userId = roleBtn.getAttribute("data-userid");
-      const role = roleBtn.getAttribute("data-role");
-      if (!userId || !role) return;
-      if (!confirm(`Byt roll till ${role}?`)) return;
-
-      try {
-        await api(`/admin/users/${userId}/role`, {
-          method: "POST",
-          body: JSON.stringify({ role }),
-        });
-        await loadUsers();
-      } catch (err) {
-        alert(err.message || "Serverfel");
-      }
-    }
-
-    if (delBtn) {
-      const userId = delBtn.getAttribute("data-userid");
-      if (!userId) return;
-      if (!confirm("Ta bort användare?")) return;
-
-      try {
-        await api(`/admin/users/${userId}`, { method: "DELETE" });
-        await loadUsers();
-      } catch (err) {
-        alert(err.message || "Serverfel");
-      }
-    }
-  });
-
-  adminUsersRefreshBtn?.addEventListener("click", loadUsers);
-
-  // Admin export buttons
-  adminExportAllBtn?.addEventListener("click", adminExportAll);
-  trainingExportBtn?.addEventListener("click", trainingExport);
+  $("adminExportAllBtn").onclick = exportAll;
+  $("trainingExportBtn").onclick = exportTraining;
 
   // KB
-  kbRefreshBtn?.addEventListener("click", kbRefresh);
-  kbExportBtn?.addEventListener("click", kbExport);
+  $("kbRefreshBtn").onclick = kbRefresh;
+  $("kbUploadTextBtn").onclick = kbUploadText;
+  $("kbUploadUrlBtn").onclick = kbUploadUrl;
+  $("kbUploadPdfBtn").onclick = kbUploadPdf;
+  $("kbExportBtn").onclick = kbExport;
 
-  kbUploadTextBtn?.addEventListener("click", kbUploadText);
-  kbUploadUrlBtn?.addEventListener("click", kbUploadUrl);
-  kbUploadPdfBtn?.addEventListener("click", kbUploadPdf);
-
-  // Categories
-  catsRefreshBtn?.addEventListener("click", catsRefresh);
-  createCatBtn?.addEventListener("click", createCategory);
+  // Cats
+  $("catsRefreshBtn").onclick = catsRefresh;
+  $("createCatBtn").onclick = createCategory;
 
   // Settings
-  changeUsernameBtn?.addEventListener("click", changeUsername);
-  changePasswordBtn?.addEventListener("click", changePassword);
+  $("changeUsernameBtn").onclick = changeUsername;
+  $("changePasswordBtn").onclick = changePassword;
 
   // SLA
-  slaRefreshBtn?.addEventListener("click", slaLoadAll);
-  slaExportCsvBtn?.addEventListener("click", slaExportCsv);
-  slaClearMyStatsBtn?.addEventListener("click", slaClearMy);
-  slaClearAllStatsBtn?.addEventListener("click", slaClearAll);
-
-  slaDaysSelect?.addEventListener("change", slaLoadAll);
-  slaBreachedFilter?.addEventListener("change", slaLoadAll);
-  slaBreachTypeFilter?.addEventListener("change", slaLoadAll);
-  slaSortTickets?.addEventListener("change", slaLoadAll);
-
-  // Compare mode is in HTML but not used (safe no-op)
-  slaCompareMode?.addEventListener("change", () => {
-    // future feature - kept for compatibility with your UI
-  });
+  $("slaRefreshBtn").onclick = refreshSla;
+  $("slaExportCsvBtn").onclick = slaExportCsv;
+  $("slaClearMyStatsBtn").onclick = slaClearMyStats;
+  $("slaClearAllStatsBtn").onclick = slaClearAllStats;
 }
 
-/* =====================
-   Boot logic
-===================== */
-async function bootAfterLogin() {
-  // update UI
-  setRoleUI();
-
-  // sync company
-  setCompany(activeCompanyId);
-
-  // restore ticket context
-  if (activeTicketId && activeTicketPublicId) {
-    // keep conversation empty - we don't store full server chat history here
-    appendChatMessage("assistant", "Välkommen tillbaka! ✅ Fortsätt skriva i chatten.");
-  } else {
-    resetTicketContext();
-  }
-
-  await goChat();
-
-  // load agent assignment list in background
-  await loadAgentsForAssign();
-}
-
-async function boot() {
+/* =========================
+   Init
+========================= */
+async function init() {
   loadTheme();
-  setDebug(debugOn);
   bindEvents();
+  renderDebug();
+
+  // Reset token flow
+  const params = new URLSearchParams(location.search);
+  const resetToken = params.get("resetToken");
+  if (resetToken) {
+    showView("authView", "openChatView");
+    await resetPasswordFromToken(resetToken);
+  }
 
   await loadCategories();
-  setCompany(activeCompanyId);
 
-  // reset token flow?
-  await checkResetTokenInUrl();
+  const me = await loadMe();
+  updateRoleUI();
 
-  await loadMe();
-
-  if (!me) {
-    await goAuth();
-    return;
+  if (me) {
+    await bootstrapAfterLogin();
+  } else {
+    showView("authView", "openChatView");
   }
-
-  await bootAfterLogin();
 }
 
-/* =====================
-   Start
-===================== */
-boot().catch((e) => {
-  console.error("BOOT ERROR:", e);
+init().catch((e) => {
+  console.error(e);
+  toast("Init-fel", e.message);
 });

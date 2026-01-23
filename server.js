@@ -193,7 +193,7 @@ function safeEnsureSla(t) {
 
 /* =====================
    ✅ Ticket model
-   - includes ticketPublicId (short)
+   ✅ FIX: publicTicketId / ticketPublicId
 ===================== */
 function genPublicId(prefix = "T") {
   const rnd = crypto.randomBytes(5).toString("hex").toUpperCase();
@@ -201,6 +201,10 @@ function genPublicId(prefix = "T") {
 }
 
 const ticketSchema = new mongoose.Schema({
+  // ✅ BACKWARD COMPAT (din DB har publicTicketId_1 unique index)
+  publicTicketId: { type: String, unique: true, index: true, default: () => genPublicId("T") },
+
+  // ✅ NEW field used in responses/UI
   ticketPublicId: { type: String, unique: true, index: true, default: () => genPublicId("T") },
 
   userId: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true },
@@ -258,6 +262,19 @@ const ticketSchema = new mongoose.Schema({
   createdAt: { type: Date, default: Date.now },
 });
 
+// ✅ ensures both id-fields are always set and identical
+ticketSchema.pre("save", function (next) {
+  if (!this.publicTicketId && this.ticketPublicId) this.publicTicketId = this.ticketPublicId;
+  if (!this.ticketPublicId && this.publicTicketId) this.ticketPublicId = this.publicTicketId;
+
+  if (!this.publicTicketId && !this.ticketPublicId) {
+    const id = genPublicId("T");
+    this.publicTicketId = id;
+    this.ticketPublicId = id;
+  }
+  next();
+});
+
 ticketSchema.index({ lastActivityAt: -1 });
 ticketSchema.index({ companyId: 1, status: 1, lastActivityAt: -1 });
 ticketSchema.index({ assignedToUserId: 1, lastActivityAt: -1 });
@@ -292,14 +309,12 @@ const Feedback = mongoose.model("Feedback", feedbackSchema);
 
 /* =====================
    ✅ Category schema
-   - supports "settings" for advanced AI controls
 ===================== */
 const categorySchema = new mongoose.Schema({
   key: { type: String, unique: true, required: true, index: true }, // companyId
   name: { type: String, default: "" },
   systemPrompt: { type: String, default: "" },
 
-  // ✅ advanced category settings (future-proof)
   settings: {
     tone: { type: String, default: "professional" }, // professional | friendly | strict
     language: { type: String, default: "sv" },
@@ -603,7 +618,19 @@ async function ragSearch(companyId, query, topK = 4) {
 ===================== */
 async function ensureTicket(userId, companyId) {
   let t = await Ticket.findOne({ userId, companyId, status: { $ne: "solved" } }).sort({ lastActivityAt: -1 });
-  if (!t) t = await new Ticket({ userId, companyId, messages: [] }).save();
+
+  if (!t) {
+    // ✅ ensure ids are always set at create time
+    const id = genPublicId("T");
+    t = await new Ticket({
+      userId,
+      companyId,
+      messages: [],
+      publicTicketId: id,
+      ticketPublicId: id,
+    }).save();
+  }
+
   safeEnsureSla(t);
   if (!t.sla?.firstResponseLimitMs) await t.save().catch(() => {});
   return t;
@@ -800,7 +827,6 @@ app.post("/feedback", authenticate, async (req, res) => {
 
 /* =====================
    ✅ Categories (dropdown)
-   - sorted
 ===================== */
 app.get("/categories", async (req, res) => {
   try {
@@ -849,8 +875,6 @@ app.post("/ai/settings", authenticate, requireAdmin, async (req, res) => {
 
 /* =====================
    ✅ CHAT
-   - fixed duplicate conversation issues
-   - improved OpenAI error reporting
 ===================== */
 function safeGetOpenAIError(e) {
   const msg = e?.message || "Unknown error";
@@ -929,8 +953,11 @@ app.post("/chat", authenticate, async (req, res) => {
         (rag.used ? `\n\nIntern kunskapsdatabas (om relevant):\n${rag.context}\n\nSvara tydligt och konkret.` : ""),
     };
 
-    // Build OpenAI messages (safe)
-    const messages = [systemMessage, ...conversation.slice(-12).map((m) => ({ role: m.role, content: cleanText(m.content) }))];
+    // Build OpenAI messages
+    const messages = [
+      systemMessage,
+      ...conversation.slice(-12).map((m) => ({ role: m.role, content: cleanText(m.content) })),
+    ];
 
     let response;
     try {
@@ -957,7 +984,13 @@ app.post("/chat", authenticate, async (req, res) => {
     safeEnsureSla(ticket);
     await ticket.save();
 
-    return res.json({ reply, ticketId: ticket._id, ticketPublicId: ticket.ticketPublicId, ragUsed: rag.used, sources: rag.sources });
+    return res.json({
+      reply,
+      ticketId: ticket._id,
+      ticketPublicId: ticket.ticketPublicId || ticket.publicTicketId || "",
+      ragUsed: rag.used,
+      sources: rag.sources,
+    });
   } catch (e) {
     console.error("❌ Chat error:", e?.message || e, e?.stack || "");
     return res.status(500).json({ error: "Serverfel vid chat" });
@@ -1250,8 +1283,6 @@ app.post("/admin/tickets/remove-solved", authenticate, requireAdmin, async (req,
 
 /* =====================
    ✅ Assign ticket
-   - Admin can assign to anyone
-   - Agent can assign to other agents if ticket is theirs
 ===================== */
 app.post("/admin/tickets/:ticketId/assign", authenticate, requireAgentOrAdmin, async (req, res) => {
   const { userId } = req.body || {};
@@ -1302,14 +1333,12 @@ app.delete("/admin/tickets/:ticketId", authenticate, requireAgentOrAdmin, async 
 
 /* =====================
    ✅ USERS (Admin only)
-   - Agent must NOT see admin users panel
 ===================== */
 app.get("/admin/users", authenticate, requireAdmin, async (req, res) => {
   const users = await User.find({}).select("-password").sort({ createdAt: -1 }).limit(2000);
   return res.json(users);
 });
 
-// ✅ Agent/Admin list for assignment (safe list)
 app.get("/admin/agents", authenticate, requireAgentOrAdmin, async (req, res) => {
   const users = await User.find({ role: { $in: ["admin", "agent"] } }).select("_id username role").sort({ createdAt: -1 });
   return res.json(users);
@@ -1362,7 +1391,6 @@ app.delete("/admin/users/:userId", authenticate, requireAdmin, async (req, res) 
 
 /* =====================
    ✅ ADMIN: Categories manager
-   - create / edit / delete
 ===================== */
 app.post("/admin/categories", authenticate, requireAdmin, async (req, res) => {
   try {
@@ -1536,446 +1564,6 @@ app.get("/export/kb/:companyId", authenticate, requireAdmin, async (req, res) =>
   res.setHeader("Content-Type", "application/json");
   res.setHeader("Content-Disposition", `attachment; filename="kb_${req.params.companyId}.json"`);
   return res.send(JSON.stringify(items, null, 2));
-});
-
-/* =====================
-   ✅ SLA endpoints (Agent/Admin)
-===================== */
-app.get("/admin/sla/overview", authenticate, requireAgentOrAdmin, async (req, res) => {
-  try {
-    const dbUser = await getDbUser(req);
-    const rangeDays = Math.max(1, Math.min(365, Number(req.query.days || 30)));
-    const since = new Date(Date.now() - rangeDays * 24 * 60 * 60 * 1000);
-
-    const query = { createdAt: { $gte: since } };
-    if (dbUser.role === "agent") query.assignedToUserId = dbUser._id;
-
-    const tickets = await Ticket.find(query).limit(9000);
-    tickets.forEach((t) => safeEnsureSla(t));
-
-    const firstArr = tickets.map((t) => t.sla?.firstResponseMs).filter((x) => x != null);
-    const resArr = tickets.map((t) => t.sla?.resolutionMs).filter((x) => x != null);
-
-    const breachesFirst = tickets.filter((t) => t.sla?.firstResponseMs != null && t.sla.breachedFirstResponse).length;
-    const breachesRes = tickets.filter((t) => t.sla?.effectiveRunningMs != null && t.sla.breachedResolution).length;
-
-    const complianceFirst = firstArr.length ? Math.round(((firstArr.length - breachesFirst) / firstArr.length) * 100) : null;
-    const complianceRes = resArr.length ? Math.round(((resArr.length - breachesRes) / resArr.length) * 100) : null;
-
-    const byPriority = { low: 0, normal: 0, high: 0 };
-    tickets.forEach((t) => {
-      byPriority[t.priority || "normal"] = (byPriority[t.priority || "normal"] || 0) + 1;
-    });
-
-    const openCount = tickets.filter((t) => t.status === "open").length;
-    const pendingCount = tickets.filter((t) => t.status === "pending").length;
-    const solvedCount = tickets.filter((t) => t.status === "solved").length;
-
-    return res.json({
-      rangeDays,
-      totalTickets: tickets.length,
-      statusCounts: { open: openCount, pending: pendingCount, solved: solvedCount },
-      byPriority,
-
-      firstResponse: {
-        avgMs: avg(firstArr),
-        medianMs: median(firstArr),
-        breaches: breachesFirst,
-        compliancePct: complianceFirst,
-      },
-      resolution: {
-        avgMs: avg(resArr),
-        medianMs: median(resArr),
-        breaches: breachesRes,
-        compliancePct: complianceRes,
-      },
-    });
-  } catch (e) {
-    console.error("❌ SLA overview error:", e?.message || e);
-    return res.status(500).json({ error: "Serverfel vid SLA overview" });
-  }
-});
-
-app.get("/admin/sla/tickets", authenticate, requireAgentOrAdmin, async (req, res) => {
-  try {
-    const dbUser = await getDbUser(req);
-    const rangeDays = Math.max(1, Math.min(365, Number(req.query.days || 30)));
-    const since = new Date(Date.now() - rangeDays * 24 * 60 * 60 * 1000);
-
-    const query = { createdAt: { $gte: since } };
-    if (dbUser.role === "agent") query.assignedToUserId = dbUser._id;
-
-    const tickets = await Ticket.find(query).sort({ createdAt: -1 }).limit(6000);
-
-    const rows = tickets.map((t) => {
-      safeEnsureSla(t);
-      return {
-        ticketId: String(t._id),
-        ticketPublicId: t.ticketPublicId,
-        companyId: t.companyId,
-        status: t.status,
-        priority: t.priority,
-        createdAt: t.createdAt,
-        sla: t.sla,
-      };
-    });
-
-    return res.json({ rangeDays, count: rows.length, rows });
-  } catch (e) {
-    console.error("❌ SLA tickets error:", e?.message || e);
-    return res.status(500).json({ error: "Serverfel vid SLA tickets" });
-  }
-});
-
-app.get("/admin/sla/agents", authenticate, requireAgentOrAdmin, async (req, res) => {
-  try {
-    const dbUser = await getDbUser(req);
-    const rangeDays = Math.max(1, Math.min(365, Number(req.query.days || 30)));
-    const since = new Date(Date.now() - rangeDays * 24 * 60 * 60 * 1000);
-
-    const query = { createdAt: { $gte: since }, assignedToUserId: { $ne: null } };
-    if (dbUser.role === "agent") query.assignedToUserId = dbUser._id;
-
-    const tickets = await Ticket.find(query).limit(12000);
-    const users = await User.find({ role: { $in: ["agent", "admin"] } }).select("_id username role");
-
-    const map = {};
-    for (const t of tickets) {
-      safeEnsureSla(t);
-      const agentId = String(t.assignedToUserId);
-
-      if (!map[agentId]) {
-        map[agentId] = { agentId, tickets: 0, pending: 0, open: 0, solved: 0, firstArr: [], resArr: [], firstBreaches: 0, resBreaches: 0 };
-      }
-
-      map[agentId].tickets++;
-      if (t.status === "pending") map[agentId].pending++;
-      if (t.status === "open") map[agentId].open++;
-      if (t.status === "solved") map[agentId].solved++;
-
-      if (t.sla?.firstResponseMs != null) {
-        map[agentId].firstArr.push(t.sla.firstResponseMs);
-        if (t.sla.breachedFirstResponse) map[agentId].firstBreaches++;
-      }
-
-      if (t.sla?.resolutionMs != null) {
-        map[agentId].resArr.push(t.sla.resolutionMs);
-        if (t.sla.breachedResolution) map[agentId].resBreaches++;
-      }
-    }
-
-    let rows = Object.values(map).map((s) => {
-      const u = users.find((x) => String(x._id) === String(s.agentId));
-      const firstCompliance = s.firstArr.length ? Math.round(((s.firstArr.length - s.firstBreaches) / s.firstArr.length) * 100) : null;
-      const resCompliance = s.resArr.length ? Math.round(((s.resArr.length - s.resBreaches) / s.resArr.length) * 100) : null;
-
-      return {
-        agentId: s.agentId,
-        username: u?.username || "(unknown)",
-        role: u?.role || "agent",
-        tickets: s.tickets,
-        open: s.open,
-        pending: s.pending,
-        solved: s.solved,
-        firstResponse: {
-          avgMs: avg(s.firstArr),
-          medianMs: median(s.firstArr),
-          breaches: s.firstBreaches,
-          compliancePct: firstCompliance,
-        },
-        resolution: {
-          avgMs: avg(s.resArr),
-          medianMs: median(s.resArr),
-          breaches: s.resBreaches,
-          compliancePct: resCompliance,
-        },
-      };
-    });
-
-    if (dbUser.role === "agent") {
-      rows = rows.filter((r) => String(r.agentId) === String(dbUser._id));
-    }
-
-    return res.json({ rangeDays, count: rows.length, rows });
-  } catch (e) {
-    console.error("❌ SLA agents error:", e?.message || e);
-    return res.status(500).json({ error: "Serverfel vid SLA agents" });
-  }
-});
-
-function weekKey(d) {
-  const dt = new Date(d);
-  if (!dt || isNaN(dt.getTime())) return "unknown";
-  const onejan = new Date(dt.getFullYear(), 0, 1);
-  const day = Math.floor((dt - onejan) / (24 * 60 * 60 * 1000));
-  const week = Math.ceil((day + onejan.getDay() + 1) / 7);
-  return `${dt.getFullYear()}-W${String(week).padStart(2, "0")}`;
-}
-
-function buildTrendWeekly(tickets) {
-  const map = {};
-  for (const t of tickets) {
-    safeEnsureSla(t);
-    const wk = weekKey(t.createdAt);
-
-    if (!map[wk]) map[wk] = { week: wk, total: 0, firstOk: 0, resOk: 0 };
-    map[wk].total++;
-
-    const b1 = !!t.sla?.breachedFirstResponse;
-    const b2 = !!t.sla?.breachedResolution;
-
-    if (t.sla?.firstResponseMs != null && !b1) map[wk].firstOk++;
-    if (t.sla?.resolutionMs != null && !b2) map[wk].resOk++;
-  }
-
-  const rows = Object.values(map).sort((a, b) => String(a.week).localeCompare(String(b.week)));
-
-  return rows.map((r) => ({
-    week: r.week,
-    tickets: r.total,
-    firstCompliancePct: r.total ? Math.round((r.firstOk / r.total) * 100) : 0,
-    resolutionCompliancePct: r.total ? Math.round((r.resOk / r.total) * 100) : 0,
-  }));
-}
-
-app.get("/admin/sla/trend/weekly", authenticate, requireAgentOrAdmin, async (req, res) => {
-  try {
-    const dbUser = await getDbUser(req);
-    const rangeDays = Math.max(1, Math.min(365, Number(req.query.days || 30)));
-    const since = new Date(Date.now() - rangeDays * 24 * 60 * 60 * 1000);
-
-    const query = { createdAt: { $gte: since } };
-    if (dbUser.role === "agent") query.assignedToUserId = dbUser._id;
-
-    const tickets = await Ticket.find(query).limit(10000);
-    const rows = buildTrendWeekly(tickets);
-
-    return res.json({ rangeDays, count: rows.length, rows });
-  } catch (e) {
-    console.error("❌ SLA trend weekly error:", e?.message || e);
-    return res.status(500).json({ error: "Serverfel vid SLA trend weekly" });
-  }
-});
-
-app.get("/admin/sla/export/csv", authenticate, requireAgentOrAdmin, async (req, res) => {
-  try {
-    const dbUser = await getDbUser(req);
-    const rangeDays = Math.max(1, Math.min(365, Number(req.query.days || 30)));
-    const since = new Date(Date.now() - rangeDays * 24 * 60 * 60 * 1000);
-
-    const query = { createdAt: { $gte: since } };
-    if (dbUser.role === "agent") query.assignedToUserId = dbUser._id;
-
-    const tickets = await Ticket.find(query).sort({ createdAt: -1 }).limit(6000);
-
-    const rows = tickets.map((t) => {
-      safeEnsureSla(t);
-      return {
-        ticketPublicId: t.ticketPublicId,
-        ticketId: String(t._id),
-        companyId: t.companyId,
-        status: t.status,
-        priority: t.priority,
-        assignedTo: t.assignedToUserId ? String(t.assignedToUserId) : "",
-        createdAt: t.createdAt?.toISOString?.() || "",
-        firstResponseMs: t.sla?.firstResponseMs ?? "",
-        resolutionMs: t.sla?.resolutionMs ?? "",
-        pendingTotalMs: t.sla?.pendingTotalMs ?? "",
-        effectiveRunningMs: t.sla?.effectiveRunningMs ?? "",
-        breachedFirstResponse: t.sla?.breachedFirstResponse ? "YES" : "NO",
-        breachedResolution: t.sla?.breachedResolution ? "YES" : "NO",
-      };
-    });
-
-    const csv = toCsv(rows);
-
-    res.setHeader("Content-Type", "text/csv; charset=utf-8");
-    res.setHeader("Content-Disposition", `attachment; filename="sla_export_${rangeDays}d.csv"`);
-    return res.send(csv);
-  } catch (e) {
-    console.error("❌ SLA CSV export error:", e?.message || e);
-    return res.status(500).json({ error: "Serverfel vid SLA export CSV" });
-  }
-});
-
-/* =====================
-   ✅ SLA CLEAR stats
-   - admin: all / agent
-   - agent: self
-===================== */
-app.post("/admin/sla/clear/all", authenticate, requireAdmin, async (req, res) => {
-  try {
-    const r = await SLAStat.deleteMany({});
-    return res.json({ message: `SLA statistik raderad ✅ (${r.deletedCount} rows)` });
-  } catch {
-    return res.status(500).json({ error: "Serverfel vid radera statistik" });
-  }
-});
-
-app.post("/admin/sla/clear/agent/:agentId", authenticate, requireAdmin, async (req, res) => {
-  try {
-    const agentId = req.params.agentId;
-    const r = await SLAStat.deleteMany({ agentUserId: agentId });
-    return res.json({ message: `Agent statistik raderad ✅ (${r.deletedCount} rows)` });
-  } catch {
-    return res.status(500).json({ error: "Serverfel vid radera agent statistik" });
-  }
-});
-
-app.post("/admin/sla/clear/my", authenticate, requireAgentOrAdmin, async (req, res) => {
-  try {
-    const dbUser = await getDbUser(req);
-    const r = await SLAStat.deleteMany({ agentUserId: dbUser._id });
-    return res.json({ message: `Din SLA statistik raderad ✅ (${r.deletedCount} rows)` });
-  } catch {
-    return res.status(500).json({ error: "Serverfel vid radera din statistik" });
-  }
-});
-
-/* =====================
-   ✅ EXPORT ALL
-===================== */
-app.get("/admin/export/all", authenticate, requireAdmin, async (req, res) => {
-  const users = await User.find({}).select("-password");
-  const tickets = await Ticket.find({});
-  const kb = await KBChunk.find({});
-  const feedback = await Feedback.find({});
-  const categories = await Category.find({});
-  const slaStats = await SLAStat.find({}).limit(20000);
-  const aiSettings = await AISettings.find({});
-
-  res.setHeader("Content-Type", "application/json");
-  res.setHeader("Content-Disposition", `attachment; filename="export_all.json"`);
-
-  return res.send(
-    JSON.stringify(
-      { users, tickets, kb, feedback, categories, slaStats, aiSettings, exportedAt: new Date().toISOString() },
-      null,
-      2
-    )
-  );
-});
-
-/* =====================
-   ✅ TRAINING EXPORT
-===================== */
-app.get("/admin/export/training", authenticate, requireAdmin, async (req, res) => {
-  const { companyId } = req.query || {};
-  const query = {};
-  if (companyId) query.companyId = companyId;
-
-  const tickets = await Ticket.find(query).sort({ createdAt: -1 }).limit(4000);
-
-  const rows = [];
-  for (const t of tickets) {
-    const msgs = t.messages || [];
-    for (let i = 0; i < msgs.length - 1; i++) {
-      const a = msgs[i];
-      const b = msgs[i + 1];
-      if (a.role === "user" && (b.role === "assistant" || b.role === "agent")) {
-        rows.push({
-          companyId: t.companyId,
-          ticketId: String(t._id),
-          ticketPublicId: t.ticketPublicId,
-          question: a.content,
-          answer: b.content,
-          answeredBy: b.role,
-          timestamp: b.timestamp,
-        });
-      }
-    }
-  }
-
-  res.setHeader("Content-Type", "application/json");
-  res.setHeader("Content-Disposition", `attachment; filename="training_export${companyId ? "_" + companyId : ""}.json"`);
-  return res.send(JSON.stringify({ exportedAt: new Date().toISOString(), rows }, null, 2));
-});
-
-/* =====================
-   ✅ Widget Embed Script generator
-===================== */
-app.get("/widget/embed.js", async (req, res) => {
-  // Simple embeddable widget (no auth - intended for demo)
-  // In production: you should add a widget token per company.
-  const js = `
-(function(){
-  if(window.__AI_KT_WIDGET_LOADED__) return;
-  window.__AI_KT_WIDGET_LOADED__ = true;
-
-  const API_BASE = ${JSON.stringify(process.env.APP_URL || "")};
-  const COMPANY = new URLSearchParams(location.search).get("company") || "demo";
-
-  const root = document.createElement("div");
-  root.id = "aiKtWidgetRoot";
-  root.innerHTML = \`
-    <div style="position:fixed;right:18px;bottom:18px;z-index:999999;font-family:system-ui;">
-      <button id="aiKtOpenBtn" style="border:none;background:#2b6cff;color:#fff;padding:12px 14px;border-radius:18px;cursor:pointer;box-shadow:0 12px 30px rgba(0,0,0,.35);display:flex;align-items:center;gap:8px;">
-        💬 Chatta
-      </button>
-      <div id="aiKtPanel" style="display:none;width:360px;max-width:92vw;height:520px;max-height:78vh;background:#0f1220;color:#fff;border:1px solid rgba(255,255,255,.12);border-radius:18px;overflow:hidden;box-shadow:0 22px 50px rgba(0,0,0,.45);margin-top:10px;">
-        <div style="padding:12px 12px;background:rgba(255,255,255,.04);display:flex;align-items:center;justify-content:space-between;">
-          <b>AI Kundtjänst</b>
-          <button id="aiKtCloseBtn" style="border:none;background:transparent;color:#fff;cursor:pointer;font-size:16px;">✖</button>
-        </div>
-        <div id="aiKtMsgs" style="padding:12px;height:420px;overflow:auto;"></div>
-        <div style="display:flex;gap:8px;padding:12px;border-top:1px solid rgba(255,255,255,.12);">
-          <input id="aiKtInput" placeholder="Skriv..." style="flex:1;border:1px solid rgba(255,255,255,.14);background:rgba(255,255,255,.04);color:#fff;border-radius:12px;padding:10px 10px;outline:none;" />
-          <button id="aiKtSend" style="border:none;background:#2b6cff;color:#fff;border-radius:14px;padding:10px 12px;cursor:pointer;">➤</button>
-        </div>
-      </div>
-    </div>
-  \`;
-  document.body.appendChild(root);
-
-  const btn = document.getElementById("aiKtOpenBtn");
-  const panel = document.getElementById("aiKtPanel");
-  const closeBtn = document.getElementById("aiKtCloseBtn");
-  const msgs = document.getElementById("aiKtMsgs");
-  const inp = document.getElementById("aiKtInput");
-  const send = document.getElementById("aiKtSend");
-
-  let conversation = [];
-
-  function add(role, text){
-    const d = document.createElement("div");
-    d.style.marginBottom = "10px";
-    d.innerHTML = '<div style="opacity:.75;font-size:12px;margin-bottom:4px;">'+(role==="user"?"Du":"AI")+'</div><div style="background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.12);padding:10px;border-radius:12px;white-space:pre-wrap;line-height:1.35;">'+String(text||"")+'</div>';
-    msgs.appendChild(d);
-    msgs.scrollTop = msgs.scrollHeight;
-  }
-
-  btn.onclick = ()=>{ panel.style.display = panel.style.display==="none" ? "block" : "none"; };
-  closeBtn.onclick = ()=>{ panel.style.display = "none"; };
-
-  async function sendMsg(){
-    const text = (inp.value||"").trim();
-    if(!text) return;
-    inp.value="";
-    add("user", text);
-    conversation.push({role:"user", content:text});
-    try{
-      const r = await fetch(API_BASE + "/chat", {
-        method:"POST",
-        headers: {"Content-Type":"application/json"},
-        body: JSON.stringify({ companyId: COMPANY, conversation })
-      });
-      const data = await r.json();
-      if(!r.ok) throw new Error(data.error || "Serverfel");
-      add("assistant", data.reply || "Inget svar");
-      conversation.push({role:"assistant", content:data.reply || ""});
-    }catch(e){
-      add("assistant", "Fel: "+(e.message||""));
-    }
-  }
-
-  send.onclick = sendMsg;
-  inp.addEventListener("keydown",(e)=>{ if(e.key==="Enter"){ e.preventDefault(); sendMsg(); }});
-
-  add("assistant","Hej! Hur kan jag hjälpa dig?");
-})();
-`;
-  res.setHeader("Content-Type", "application/javascript; charset=utf-8");
-  return res.send(js);
 });
 
 /* =====================
