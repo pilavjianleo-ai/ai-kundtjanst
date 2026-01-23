@@ -1,173 +1,15 @@
-// =========================
-// SSE: Realtidsnotiser för agenter (nya ärenden)
-// =========================
-function startAgentSSE() {
-  if (!window.EventSource || !state.user || (state.user.role !== "agent" && state.user.role !== "admin")) return;
-  const sse = new EventSource("/sse/agent-notify");
-  sse.onmessage = (e) => {
-    try {
-      const data = JSON.parse(e.data);
-      if (data.type === "new_ticket") {
-        $("openInboxView")?.classList.add("hasNotif");
-        show($("inboxNotifDot"), true);
-        toast(`📩 Nytt ärende: ${data.title || data.ticketId}`);
-      }
-    } catch {}
-  };
-}
-
-// Starta SSE vid inloggning
-const origOnLoggedIn = onLoggedIn;
-onLoggedIn = async function() {
-  await origOnLoggedIn.apply(this, arguments);
-  startAgentSSE();
-};
-// =========================
-// SLA: Visa och nollställ detaljerad statistik (admin/agent)
-// =========================
-async function loadSlaStats() {
-  const box = $("slaStatsBox");
-  if (!box) return;
-  box.innerHTML = `<div class=\"muted small\">Laddar statistik...</div>`;
-  let stats = await safeApi("/api/sla/stats");
-  if (!stats || !Array.isArray(stats)) {
-    box.innerHTML = `<div class=\"muted small\">Kunde inte ladda statistik.</div>`;
-    return;
-  }
-  if (!stats.length) {
-    box.innerHTML = `<div class=\"muted small\">Ingen statistik ännu.</div>`;
-    return;
-  }
-  // Filtrering och sortering
-  let filter = $("slaStatsFilter")?.value?.toLowerCase() || "";
-  let sortBy = $("slaStatsSort")?.value || "createdAt";
-  let sortDir = $("slaStatsSortDir")?.value || "desc";
-  if (filter) {
-    stats = stats.filter(s =>
-      String(s.agentUserId || "").toLowerCase().includes(filter) ||
-      String(s.ticketId || "").toLowerCase().includes(filter) ||
-      String(s.priority || "").toLowerCase().includes(filter)
-    );
-  }
-  stats = stats.sort((a, b) => {
-    let vA = a[sortBy], vB = b[sortBy];
-    if (sortBy === "createdAt") {
-      vA = new Date(vA).getTime();
-      vB = new Date(vB).getTime();
-    }
-    return sortDir === "desc" ? vB - vA : vA - vB;
-  });
-  box.innerHTML = `
-    <div class=\"row gap\" style=\"margin-bottom:10px;\">
-      <input id='slaStatsFilter' class='input smallInput' placeholder='Filtrera agent/ticket/prio...' style='max-width:180px;'>
-      <select id='slaStatsSort' class='input smallInput'>
-        <option value='createdAt'>Datum</option>
-        <option value='firstResponseMs'>First</option>
-        <option value='resolutionMs'>Res</option>
-        <option value='priority'>Prio</option>
-      </select>
-      <select id='slaStatsSortDir' class='input smallInput'>
-        <option value='desc'>Nya först</option>
-        <option value='asc'>Äldst först</option>
-      </select>
-      <button class='btn small' id='slaStatsExportBtn'>Exportera CSV</button>
-    </div>
-    <div class=\"tableWrap\">
-      <table class=\"table\">
-        <thead>
-          <tr>
-            <th>ID</th><th>Agent</th><th>Ticket</th><th>First</th><th>Res</th><th>Prio</th><th>Skapad</th><th></th>
-          </tr>
-        </thead>
-        <tbody>
-          ${stats.map(s => `
-            <tr>
-              <td>${escapeHtml(String(s._id).slice(-8))}</td>
-              <td>${escapeHtml(s.agentUserId || "-")}</td>
-              <td>${escapeHtml(s.ticketId || "-")}</td>
-              <td>${msToPretty(s.firstResponseMs)}</td>
-              <td>${msToPretty(s.resolutionMs)}</td>
-              <td>${escapeHtml(s.priority || "")}</td>
-              <td>${fmtDate(s.createdAt)}</td>
-              <td>${state.user?.role === "admin" ? `<button class='btn danger small' data-reset-stat='${s._id}'>Nollställ</button>` : ""}</td>
-            </tr>
-          `).join("")}
-        </tbody>
-      </table>
-    </div>
-  `;
-  // Event listeners för filter/sort/export
-  $("slaStatsFilter").addEventListener("input", loadSlaStats);
-  $("slaStatsSort").addEventListener("change", loadSlaStats);
-  $("slaStatsSortDir").addEventListener("change", loadSlaStats);
-  $("slaStatsExportBtn").addEventListener("click", () => exportSlaStatsCsv(stats));
-  qsa("[data-reset-stat]").forEach(b => {
-    b.addEventListener("click", async () => {
-      if (!confirm("Nollställ denna statistik?")) return;
-      const statId = b.getAttribute("data-reset-stat");
-      const res = await safeApi("/api/sla/reset", { method: "POST", body: JSON.stringify({ statId }) });
-      if (res && res.message) toast(res.message);
-      await loadSlaStats();
-    });
-  });
-}
-
-function exportSlaStatsCsv(stats) {
-  if (!stats || !stats.length) return;
-  const headers = ["ID","Agent","Ticket","First","Res","Prio","Skapad"];
-  const rows = stats.map(s => [
-    String(s._id).slice(-8),
-    s.agentUserId || "-",
-    s.ticketId || "-",
-    msToPretty(s.firstResponseMs),
-    msToPretty(s.resolutionMs),
-    s.priority || "",
-    fmtDate(s.createdAt)
-  ]);
-  let csv = headers.join(",") + "\n" + rows.map(r => r.map(x => '"'+String(x).replaceAll('"','""')+'"').join(",")).join("\n");
-  const a = document.createElement("a");
-  a.href = URL.createObjectURL(new Blob([csv], { type: "text/csv" }));
-  a.download = `sla_stats_export_${new Date().toISOString().slice(0,10)}.csv`;
-  a.click();
-  URL.revokeObjectURL(a.href);
-}
-// Premium: Exportera SLA-statistik med feedback
-function exportSlaStatsWithStatus() {
-  toast('Exporterar SLA-statistik...', 'info');
-  const days = Number($("slaDaysSelect")?.value || 30);
-  const url = `/admin/sla/export/csv?days=${days}`;
-  fetch(API_BASE + url, {
-    headers: { Authorization: `Bearer ${state.token}` },
-  })
-    .then((r) => {
-      if (!r.ok) throw new Error('Export misslyckades');
-      return r.blob();
-    })
-    .then((blob) => {
-      const a = document.createElement('a');
-      a.href = URL.createObjectURL(blob);
-      a.download = `sla_export_${days}d.csv`;
-      a.click();
-      URL.revokeObjectURL(a.href);
-      toast('SLA-export klar! ✅', 'success');
-    })
-    .catch(() => toast('❌ SLA-export misslyckades', 'error'));
-  }
 /* =========================================================
-   AI Kundtjänst - script.js (STABLE FIXED)
-   ✅ Behåller din layout exakt som index.html
-   ✅ Fixar alla knappar & views
-   ✅ Fixar missing-endpoint krascher (fallback)
-   ✅ Inbox highlight + notif dot
-   ✅ Chat fungerar alltid
-   ✅ SLA fungerar även om vissa endpoints saknas
-   ✅ Admin fungerar utan att "dö"
+   AI Kundtjänst - script.js (FULL)
+   - Matchar din index.html (alla ID:n)
+   - Fixar Chart.js grafen (destroy/recreate)
+   - SLA: KPI + trend + agents + tickets + filter/sort
+   - Inbox + My tickets + Admin + KB + Categories
    ========================================================= */
 
 /* =========================
    CONFIG
 ========================= */
-const API_BASE = ""; // samma origin
+const API_BASE = ""; // samma origin (Render/localhost). Lämna tom.
 
 const LS = {
   token: "ai_token",
@@ -177,8 +19,6 @@ const LS = {
   chatConversation: "ai_chat_conversation",
   currentCompanyId: "ai_company_id",
   lastTicketId: "ai_last_ticket_id",
-  lastInboxOpenCount: "ai_last_inbox_open_count",
-  lastMyTicketsCount: "ai_last_my_tickets_count",
 };
 
 let state = {
@@ -194,10 +34,7 @@ let state = {
 
   debug: localStorage.getItem(LS.debug) === "1",
 
-  chartTrend: null,
-  pollingTimer: null,
-  inboxOpenCount: Number(localStorage.getItem(LS.lastInboxOpenCount) || 0),
-  myTicketsCount: Number(localStorage.getItem(LS.lastMyTicketsCount) || 0),
+  chartTrend: null, // Chart.js instance
 };
 
 /* =========================
@@ -216,7 +53,7 @@ function safeJsonParse(str) {
 }
 
 function setLS(key, value) {
-  if (value === null || value === undefined || value === "") localStorage.removeItem(key);
+  if (value === null || value === undefined) localStorage.removeItem(key);
   else localStorage.setItem(key, value);
 }
 
@@ -247,7 +84,10 @@ async function api(path, opts = {}) {
   if (state.token) headers.Authorization = `Bearer ${state.token}`;
   if (!headers["Content-Type"] && !(opts.body instanceof FormData)) headers["Content-Type"] = "application/json";
 
-  const res = await fetch(API_BASE + path, { ...opts, headers });
+  const res = await fetch(API_BASE + path, {
+    ...opts,
+    headers,
+  });
 
   let data = null;
   const ct = res.headers.get("content-type") || "";
@@ -261,17 +101,8 @@ async function api(path, opts = {}) {
   return data;
 }
 
-// ✅ safeApi: kraschar inte appen, returnerar null vid fel
-async function safeApi(path, opts = {}) {
-  try {
-    return await api(path, opts);
-  } catch {
-    return null;
-  }
-}
-
 /* =========================
-   UI helpers
+   UI feedback helpers
 ========================= */
 function setAlert(el, msg, type = "") {
   if (!el) return;
@@ -333,95 +164,14 @@ function pill(label, kind = "") {
 }
 
 /* =========================
-   Toast
-========================= */
-function toast(msg, type = "") {
-  const t = document.createElement("div");
-  t.className = "toastMsg" + (type ? ` ${type}` : "");
-  if (type === "success") t.innerHTML = `<i class='fa-solid fa-check-circle'></i> ${msg}`;
-  else if (type === "error") t.innerHTML = `<i class='fa-solid fa-exclamation-triangle'></i> ${msg}`;
-  else t.textContent = msg;
-  const c = document.getElementById("toastContainer");
-  (c || document.body).appendChild(t);
-  setTimeout(() => t.classList.add("show"), 30);
-  setTimeout(() => {
-    t.classList.remove("show");
-    setTimeout(() => t.remove(), 300);
-  }, 2500);
-}
-
-// =========================
-// Premium: Custom confirm/alert dialog
-// =========================
-function showDialog({ title = '', message = '', confirmText = 'OK', cancelText = 'Avbryt', onConfirm, onCancel }) {
-  let dlg = document.getElementById('customDialog');
-  if (!dlg) {
-    dlg = document.createElement('div');
-    dlg.id = 'customDialog';
-    dlg.innerHTML = `
-      <div class="dialogOverlay"></div>
-      <div class="dialogBox" role="dialog" aria-modal="true">
-        <div class="dialogTitle"></div>
-        <div class="dialogMsg"></div>
-        <div class="dialogActions">
-          <button class="btn primary dialogConfirm"></button>
-          <button class="btn ghost dialogCancel"></button>
-        </div>
-      </div>
-    `;
-    document.body.appendChild(dlg);
-  }
-  dlg.querySelector('.dialogTitle').textContent = title;
-  dlg.querySelector('.dialogMsg').innerHTML = message;
-  dlg.querySelector('.dialogConfirm').textContent = confirmText;
-  dlg.querySelector('.dialogCancel').textContent = cancelText;
-  dlg.style.display = 'block';
-  dlg.querySelector('.dialogConfirm').onclick = () => {
-    dlg.style.display = 'none';
-    if (onConfirm) onConfirm();
-  };
-  dlg.querySelector('.dialogCancel').onclick = () => {
-    dlg.style.display = 'none';
-    if (onCancel) onCancel();
-  };
-}
-
-// Ersätt confirm med premium-dialog
-function premiumConfirm(message, onConfirm, onCancel) {
-  showDialog({
-    title: 'Bekräfta',
-    message,
-    confirmText: 'Ja',
-    cancelText: 'Nej',
-    onConfirm,
-    onCancel
-  });
-}
-
-// Premium: Custom alert/toast dialog
-function premiumAlert(message, title = 'Info', confirmText = 'OK', onConfirm) {
-  showDialog({
-    title,
-    message,
-    confirmText,
-    cancelText: '',
-    onConfirm
-  });
-  // Dölj cancel-knapp om ej relevant
-  const dlg = document.getElementById('customDialog');
-  if (dlg) {
-    const cancelBtn = dlg.querySelector('.dialogCancel');
-    if (cancelBtn) cancelBtn.style.display = 'none';
-  }
-}
-
-/* =========================
    INIT
 ========================= */
 document.addEventListener("DOMContentLoaded", () => {
+  // Theme init
   const savedTheme = localStorage.getItem(LS.theme);
   if (savedTheme) document.body.setAttribute("data-theme", savedTheme);
 
+  // Debug panel init
   show($("debugPanel"), state.debug);
 
   bindEvents();
@@ -429,18 +179,25 @@ document.addEventListener("DOMContentLoaded", () => {
 });
 
 async function boot() {
+  // Categories dropdown (public endpoint)
   await loadCategories().catch(() => {});
 
+  // Restore companyId selection
   if ($("categorySelect")) $("categorySelect").value = state.companyId;
   if ($("kbCategorySelect")) $("kbCategorySelect").value = state.companyId;
+  if ($("inboxCategoryFilter")) {
+    // will be filled via loadInboxCategoryFilter()
+  }
 
+  // If logged in -> fetch /me to confirm token
   if (state.token) {
-    const me = await safeApi("/me");
-    if (me) {
+    try {
+      const me = await api("/me");
       state.user = me;
       setLS(LS.user, JSON.stringify(me));
       onLoggedIn();
-    } else {
+    } catch (e) {
+      // token invalid
       doLogout(false);
     }
   } else {
@@ -454,6 +211,7 @@ async function boot() {
    EVENTS
 ========================= */
 function bindEvents() {
+  // Sidebar navigation
   $("openChatView")?.addEventListener("click", () => {
     setActiveMenu("openChatView");
     switchView("chatView");
@@ -463,28 +221,25 @@ function bindEvents() {
   $("openMyTicketsView")?.addEventListener("click", async () => {
     setActiveMenu("openMyTicketsView");
     switchView("myTicketsView");
-    await loadMyTickets();
+    await loadMyTickets().catch((e) => setAlert($("myTicketsHint"), e.message, "error"));
   });
 
   $("openInboxView")?.addEventListener("click", async () => {
     setActiveMenu("openInboxView");
     switchView("inboxView");
-    $("openInboxView")?.classList.remove("hasNotif");
-    show($("inboxNotifDot"), false);
-    await loadInboxTickets();
+    await loadInboxTickets().catch((e) => setAlert($("inboxMsg"), e.message, "error"));
   });
 
   $("openSlaView")?.addEventListener("click", async () => {
     setActiveMenu("openSlaView");
     switchView("slaView");
-    await refreshSlaAll();
-    await loadSlaStats();
+    await refreshSlaAll().catch(() => {});
   });
 
   $("openAdminView")?.addEventListener("click", async () => {
     setActiveMenu("openAdminView");
     switchView("adminView");
-    await refreshAdminAll();
+    await refreshAdminAll().catch(() => {});
   });
 
   $("openSettingsView")?.addEventListener("click", () => {
@@ -492,29 +247,16 @@ function bindEvents() {
     switchView("settingsView");
   });
 
+  // Category select
   $("categorySelect")?.addEventListener("change", async (e) => {
     state.companyId = e.target.value || "demo";
     setLS(LS.currentCompanyId, state.companyId);
-    // Hämta systemprompt och återställ chatten vid kategori-byte
-    try {
-      const data = await api("/api/chat/set-category", {
-        method: "POST",
-        body: JSON.stringify({ companyId: state.companyId })
-      });
-      // Återställ konversation och visa ny välkomstfras
-      state.conversation = [];
-      setLS(LS.chatConversation, JSON.stringify(state.conversation));
-      $("messages").innerHTML = "";
-      addSystemMessage(`Kategori bytt till: ${data.name}`);
-      if (data.systemPrompt) addSystemMessage(data.systemPrompt);
-      maybeWelcomeMessage(true);
-    } catch (e) {
-      addSystemMessage("Kunde inte byta kategori: " + (e.message || e));
-    }
+    // update chat subtitle/title maybe
     await updateCategoryUiHints();
     updateDebug();
   });
 
+  // Theme toggle
   $("themeToggle")?.addEventListener("click", () => {
     const cur = document.body.getAttribute("data-theme") || "dark";
     const next = cur === "dark" ? "light" : "dark";
@@ -522,6 +264,7 @@ function bindEvents() {
     localStorage.setItem(LS.theme, next);
   });
 
+  // Debug toggle
   $("toggleDebugBtn")?.addEventListener("click", () => {
     state.debug = !state.debug;
     localStorage.setItem(LS.debug, state.debug ? "1" : "0");
@@ -529,6 +272,7 @@ function bindEvents() {
     updateDebug();
   });
 
+  // Auth buttons
   $("loginBtn")?.addEventListener("click", doLogin);
   $("registerBtn")?.addEventListener("click", doRegister);
   $("logoutBtn")?.addEventListener("click", () => doLogout(true));
@@ -536,6 +280,7 @@ function bindEvents() {
   $("togglePassBtn")?.addEventListener("click", () => togglePass("password", "togglePassBtn"));
   $("toggleResetPassBtn")?.addEventListener("click", () => togglePass("resetNewPass", "toggleResetPassBtn"));
 
+  // Forgot flow
   $("openForgotBtn")?.addEventListener("click", () => openForgot(true));
   $("closeForgotBtn")?.addEventListener("click", () => openForgot(false));
   $("sendForgotBtn")?.addEventListener("click", sendForgotEmail);
@@ -551,8 +296,6 @@ function bindEvents() {
     state.conversation = [];
     setLS(LS.chatConversation, JSON.stringify(state.conversation));
     $("messages").innerHTML = "";
-    addSystemMessage("Chat rensad ✅");
-    maybeWelcomeMessage();
   });
 
   $("exportChatBtn")?.addEventListener("click", exportChat);
@@ -563,10 +306,10 @@ function bindEvents() {
     state.conversation = [];
     setLS(LS.chatConversation, JSON.stringify(state.conversation));
     $("messages").innerHTML = "";
-    addSystemMessage("✅ Nytt ärende startat.");
-    maybeWelcomeMessage(true);
+    addSystemMessage("Nytt ärende startat ✅");
   });
 
+  // Feedback
   $("fbUp")?.addEventListener("click", () => sendFeedback("up"));
   $("fbDown")?.addEventListener("click", () => sendFeedback("down"));
 
@@ -596,8 +339,17 @@ function bindEvents() {
 
   // SLA
   $("slaRefreshBtn")?.addEventListener("click", refreshSlaAll);
-  $("slaExportCsvBtn")?.addEventListener("click", exportSlaStatsWithStatus);
+  $("slaExportCsvBtn")?.addEventListener("click", exportSlaCsv);
+
   $("slaDaysSelect")?.addEventListener("change", refreshSlaAll);
+  $("slaCompareMode")?.addEventListener("change", refreshSlaAll);
+
+  $("slaBreachedFilter")?.addEventListener("change", renderSlaTicketsFromCache);
+  $("slaBreachTypeFilter")?.addEventListener("change", renderSlaTicketsFromCache);
+  $("slaSortTickets")?.addEventListener("change", renderSlaTicketsFromCache);
+
+  $("slaClearMyStatsBtn")?.addEventListener("click", clearMySlaStats);
+  $("slaClearAllStatsBtn")?.addEventListener("click", clearAllSlaStats);
 
   // Admin tabs
   qsa(".tabBtn").forEach((b) => {
@@ -609,11 +361,12 @@ function bindEvents() {
     });
   });
 
+  // Admin actions
   $("adminUsersRefreshBtn")?.addEventListener("click", loadAdminUsers);
-  $("adminExportAllBtn")?.addEventListener("click", exportAllWithStatus);
+  $("adminExportAllBtn")?.addEventListener("click", exportAll);
   $("trainingExportBtn")?.addEventListener("click", exportTraining);
 
-  // KB
+  // KB Manager
   $("kbRefreshBtn")?.addEventListener("click", loadKbList);
   $("kbExportBtn")?.addEventListener("click", exportKb);
   $("kbUploadTextBtn")?.addEventListener("click", kbUploadText);
@@ -621,115 +374,16 @@ function bindEvents() {
   $("kbUploadPdfBtn")?.addEventListener("click", kbUploadPdf);
   $("kbCategorySelect")?.addEventListener("change", loadKbList);
 
-  // Categories admin
+  // Categories Manager
   $("catsRefreshBtn")?.addEventListener("click", loadCategoriesAdmin);
   $("createCatBtn")?.addEventListener("click", createCategory);
 
   // Settings
   $("changeUsernameBtn")?.addEventListener("click", changeUsername);
   $("changePasswordBtn")?.addEventListener("click", changePassword);
-}
 
-// =========================
-// SIDEBAR WIDGETS: Exempel på dynamisk KPI-widget
-// =========================
-function showSidebarKpiWidget(text, icon = "fa-chart-line", color = "#fff") {
-  const w = document.getElementById("sidebarWidgets");
-  if (!w) return;
-  let el = w.querySelector(".kpiWidget");
-  if (!el) {
-    el = document.createElement("div");
-    el.className = "widget kpiWidget";
-    w.appendChild(el);
-  }
-  el.style.display = "flex";
-  el.innerHTML = `<i class="fa-solid ${icon}" style="color:${color}"></i> ${text}`;
-}
-
-function hideSidebarKpiWidget() {
-  const w = document.getElementById("sidebarWidgets");
-  if (!w) return;
-  let el = w.querySelector(".kpiWidget");
-  if (el) el.style.display = "none";
-}
-
-// SIDEBAR WIDGETS: Exempel på notifierings-widget
-function showSidebarNotifWidget(text, icon = "fa-bell", color = "#ffb020") {
-  const w = document.getElementById("sidebarWidgets");
-  if (!w) return;
-  let el = w.querySelector(".notifWidget");
-  if (!el) {
-    el = document.createElement("div");
-    el.className = "widget notifWidget";
-    w.appendChild(el);
-  }
-  el.style.display = "flex";
-  el.innerHTML = `<i class=\"fa-solid ${icon}\" style=\"color:${color}\"></i> ${text}`;
-}
-
-function hideSidebarNotifWidget() {
-  const w = document.getElementById("sidebarWidgets");
-  if (!w) return;
-  let el = w.querySelector(".notifWidget");
-  if (el) el.style.display = "none";
-}
-
-// Exempel: Visa notifiering vid nytt ärende (koppla till SSE/polling)
-function notifyNewTicketSidebar(count) {
-  if (count > 0) {
-    showSidebarNotifWidget(`Nya ärenden: <b>${count}</b>`, "fa-bell", "#ffb020");
-  } else {
-    hideSidebarNotifWidget();
-  }
-}
-
-// Byt användarnamn (inloggad)
-async function changeUsername() {
-  const msg = $("settingsMsg");
-  setAlert(msg, "");
-  try {
-    const newUsername = $("newUsernameInput")?.value?.trim();
-    if (!newUsername || newUsername.length < 3) throw new Error("Nytt användarnamn är för kort.");
-
-    const data = await api("/auth/change-username", {
-      method: "POST",
-      body: JSON.stringify({ newUsername }),
-    });
-
-    setAlert(msg, data.message || "Uppdaterat ✅", "");
-    $("newUsernameInput").value = "";
-
-    const me = await safeApi("/me");
-    if (me) {
-      state.user = me;
-      setLS(LS.user, JSON.stringify(me));
-      onLoggedIn();
-    }
-  } catch (e) {
-    setAlert(msg, e.message, "error");
-  }
-}
-
-// Byt lösenord (inloggad)
-async function changePassword() {
-  const msg = $("settingsMsg");
-  setAlert(msg, "");
-  try {
-    const currentPassword = $("currentPassInput")?.value || "";
-    const newPassword = $("newPassInput")?.value || "";
-    if (!currentPassword || !newPassword) throw new Error("Fyll i båda fälten.");
-
-    const data = await api("/auth/change-password", {
-      method: "POST",
-      body: JSON.stringify({ currentPassword, newPassword }),
-    });
-
-    setAlert(msg, data.message || "Lösenord uppdaterat ✅", "");
-    $("currentPassInput").value = "";
-    $("newPassInput").value = "";
-  } catch (e) {
-    setAlert(msg, e.message, "error");
-  }
+  // Reset token from URL
+  handleResetTokenFromUrl();
 }
 
 function debounce(fn, delay) {
@@ -781,6 +435,7 @@ async function doRegister() {
     });
 
     setAlert($("authMessage"), "Registrering lyckades ✅ Logga in nu.", "");
+    show($("authMessage"), true);
   } catch (e) {
     setAlert($("authMessage"), e.message, "error");
   }
@@ -793,10 +448,7 @@ function doLogout(showMsg = true) {
   setLS(LS.user, "");
   setLS(LS.lastTicketId, "");
   state.lastTicketId = "";
-
-  stopPolling();
   onLoggedOut();
-
   if (showMsg) addSystemMessage("Du är utloggad ✅");
 }
 
@@ -805,11 +457,13 @@ function onLoggedOut() {
   show($("logoutBtn"), false);
   show($("openSettingsView"), false);
 
+  // admin/agent buttons hidden
   qsa(".adminOnly").forEach((x) => (x.style.display = "none"));
 
   switchView("authView");
   setActiveMenu("openChatView");
 
+  // reset chat UI
   $("messages").innerHTML = "";
   state.conversation = [];
   setLS(LS.chatConversation, JSON.stringify(state.conversation));
@@ -821,123 +475,31 @@ async function onLoggedIn() {
   show($("logoutBtn"), true);
   show($("openSettingsView"), true);
 
+  // agent/admin visible?
   const role = state.user?.role || "user";
+  $("roleBadge").textContent = role === "user" ? `Inloggad: ${state.user.username}` : `${state.user.username} (${role})`;
 
-  $("roleBadge").textContent =
-    role === "user"
-      ? `Inloggad: ${state.user.username} • ID: ${String(state.user.id || state.user._id || "").slice(-6)}`
-      : `${state.user.username} (${role}) • ID: ${String(state.user.id || state.user._id || "").slice(-6)}`;
-
-  if (role === "admin") {
+  if (role === "agent" || role === "admin") {
     qsa(".adminOnly").forEach((x) => (x.style.display = ""));
-    show($("openAdminView"), true);
-  } else if (role === "agent") {
-    qsa(".adminOnly").forEach((x) => (x.style.display = ""));
-    show($("openAdminView"), false);
   } else {
     qsa(".adminOnly").forEach((x) => (x.style.display = "none"));
   }
 
+  // SLA clear all only for admin
+  show($("slaClearAllStatsBtn"), role === "admin");
+
+  // default view
   switchView("chatView");
   setActiveMenu("openChatView");
 
+  // load initial chat conversation
   renderConversation();
   scrollMessagesToBottom();
 
-  // Visa exempel-widget med SLA-status
-  showSidebarKpiWidget("SLA: Laddar...", "fa-chart-line", "#fff");
-  // Hämta SLA-data och uppdatera widgeten
-  const overview = await safeApi("/admin/sla/overview?days=30");
-  if (overview && typeof overview.firstResponse?.compliancePct === "number") {
-    showSidebarKpiWidget(
-      `SLA: <b>${overview.firstResponse.compliancePct}%</b> första svar`,
-      "fa-chart-line",
-      overview.firstResponse.compliancePct >= 90 ? "#37d67a" : (overview.firstResponse.compliancePct >= 70 ? "#ffb020" : "#ff4d4d")
-    );
-  } else {
-    showSidebarKpiWidget("SLA: Data saknas", "fa-chart-line", "#ff4d4d");
-  }
-
-  // Premium: Visa AI-statistik-widget
-  const aiStats = await safeApi("/api/ai/stats");
-  const aiStatsWidget = document.getElementById("aiStatsWidget");
-  if (aiStatsWidget && aiStats) {
-    aiStatsWidget.style.display = "block";
-    aiStatsWidget.innerHTML = `<b>AI-statistik</b><br>Totalt svar: <b>${aiStats.totalResponses || 0}</b><br>Snitt svarstid: <b>${aiStats.avgResponseTime || '-'} ms</b>`;
-  }
-
-  // Premium: Visa agentstatistik-widget
-  const agentStats = await safeApi("/api/agent/stats");
-  const agentStatsWidget = document.getElementById("agentStatsWidget");
-  if (agentStatsWidget && agentStats) {
-    agentStatsWidget.style.display = "block";
-    agentStatsWidget.innerHTML = `<b>Agentstatistik</b><br>Ärenden lösta: <b>${agentStats.ticketsSolved || 0}</b><br>Snitt betyg: <b>${agentStats.avgRating || '-'} / 5</b>`;
-  }
-
-  // Premium: Visa SLA-trender-widget
-  const slaTrends = await safeApi("/api/sla/trends");
-  const slaTrendsWidget = document.getElementById("slaTrendsWidget");
-  if (slaTrendsWidget && slaTrends) {
-    slaTrendsWidget.style.display = "block";
-    slaTrendsWidget.innerHTML = `<b>SLA-trender</b><br>Första svar: <b>${slaTrends.firstResponseTrend || '-'}%</b><br>Lösningstid: <b>${slaTrends.resolutionTrend || '-'}%</b>`;
-  }
-
+  // Update dropdowns
   await updateCategoryUiHints();
-  await loadInboxCategoryFilter();
+  await loadInboxCategoryFilter().catch(() => {});
   updateDebug();
-
-  maybeWelcomeMessage();
-
-  startPolling();
-}
-
-/* =========================
-   Polling (Inbox highlight)
-========================= */
-function startPolling() {
-  stopPolling();
-  pollUpdates().catch(() => {});
-  state.pollingTimer = setInterval(() => pollUpdates().catch(() => {}), 5000);
-}
-
-function stopPolling() {
-  if (state.pollingTimer) clearInterval(state.pollingTimer);
-  state.pollingTimer = null;
-}
-
-async function pollUpdates() {
-  if (!state.token || !state.user) return;
-  const role = state.user.role || "user";
-
-  // My tickets count
-  const my = await safeApi("/my/tickets");
-  if (my && Array.isArray(my)) {
-    const count = my.length || 0;
-    if (count !== state.myTicketsCount) {
-      state.myTicketsCount = count;
-      setLS(LS.lastMyTicketsCount, String(count));
-    }
-  }
-
-  if (role === "agent" || role === "admin") {
-    const tickets = await safeApi("/admin/tickets?status=open");
-    if (!tickets || !Array.isArray(tickets)) return;
-
-    const openCount = tickets.length || 0;
-
-    if (openCount > state.inboxOpenCount) {
-      $("openInboxView")?.classList.add("hasNotif");
-      show($("inboxNotifDot"), true);
-      toast(`📩 Nytt ärende inkom! (${openCount} öppna)`);
-    }
-
-    // Visa notifierings-widget i sidebar
-    notifyNewTicketSidebar(openCount);
-
-    state.inboxOpenCount = openCount;
-    setLS(LS.lastInboxOpenCount, String(openCount));
-    show($("inboxNotifDot"), openCount > 0);
-  }
 }
 
 /* =========================
@@ -984,10 +546,12 @@ function handleResetTokenFromUrl() {
   const resetToken = url.searchParams.get("resetToken");
   if (!resetToken) return;
 
+  // show reset UI
   show($("resetCard"), true);
   show($("forgotCard"), false);
   show($("authMessage"), false);
 
+  // store token in memory (not localStorage)
   window.__resetToken = resetToken;
 }
 
@@ -1014,9 +578,7 @@ async function doResetPassword() {
    CATEGORIES
 ========================= */
 async function loadCategories() {
-  const cats = await safeApi("/categories");
-  if (!cats || !Array.isArray(cats)) return;
-
+  const cats = await api("/categories");
   const sel = $("categorySelect");
   const selKb = $("kbCategorySelect");
   const selInbox = $("inboxCategoryFilter");
@@ -1043,43 +605,28 @@ async function loadCategories() {
   fill(sel, false);
   fill(selKb, false);
   fill(selInbox, true);
+
+  updateDebug();
 }
 
 async function loadInboxCategoryFilter() {
+  // just ensure categories exist
   await loadCategories();
 }
 
 async function updateCategoryUiHints() {
-  const title = $("chatTitle");
-  const sub = $("chatSubtitle");
-  if (!title || !sub) return;
-
-  title.textContent = "AI Kundtjänst";
-  sub.textContent = `Kategori: ${state.companyId} • Skriv ditt ärende så hjälper jag dig direkt.`;
+  // Optional: could update chatTitle/subtitle based on category
+  // We'll keep it simple
 }
 
 /* =========================
    CHAT
 ========================= */
-function maybeWelcomeMessage(force = false) {
-  if (!force && state.conversation.length > 0) return;
-
-  const name = state.user?.username || "vän";
-  const cat = state.companyId || "demo";
-
-  const intro = `👋 Hej ${name}!\n\n✅ Du är nu kopplad till AI-kundtjänst (${cat}).\nSkriv ditt ärende så hjälper jag dig direkt.\n\nTips: Beskriv problemet tydligt så ger jag dig snabbaste lösningen.`;
-
-  state.conversation.push({ role: "assistant", content: intro });
-  setLS(LS.chatConversation, JSON.stringify(state.conversation));
-  renderConversation();
-  scrollMessagesToBottom();
-}
-
 function addSystemMessage(text) {
-  addMessageToUI("assistant", text);
+  addMessageToUI("assistant", text, { meta: "System" });
 }
 
-function addMessageToUI(role, content) {
+function addMessageToUI(role, content, opts = {}) {
   const wrap = document.createElement("div");
   wrap.className = "msg " + (role === "user" ? "user" : "assistant");
 
@@ -1091,39 +638,47 @@ function addMessageToUI(role, content) {
   bubble.className = "bubble";
   bubble.textContent = content || "";
 
+  const meta = document.createElement("div");
+  meta.className = "msgMeta";
+  meta.textContent = opts.meta || (role === "user" ? "Du" : "AI");
+
   const bubbleWrap = document.createElement("div");
   bubbleWrap.appendChild(bubble);
 
+  // Actions for assistant messages
   if (role !== "user") {
     const actions = document.createElement("div");
     actions.className = "bubbleActions";
-    actions.innerHTML = `<button class="actionBtn" type="button"><i class="fa-solid fa-copy"></i> Kopiera</button>`;
+    actions.innerHTML = `
+      <button class="actionBtn" type="button"><i class="fa-solid fa-copy"></i> Kopiera</button>
+    `;
     actions.querySelector("button")?.addEventListener("click", () => {
       navigator.clipboard.writeText(content || "").catch(() => {});
-      toast("📋 Kopierat");
     });
     bubbleWrap.appendChild(actions);
   }
 
   wrap.appendChild(avatar);
   wrap.appendChild(bubbleWrap);
+
   $("messages")?.appendChild(wrap);
 }
 
 function renderConversation() {
   if (!$("messages")) return;
   $("messages").innerHTML = "";
-  for (const m of state.conversation) addMessageToUI(m.role, m.content || "");
+
+  // render conversation stored
+  for (const m of state.conversation) {
+    if (!m?.role) continue;
+    addMessageToUI(m.role, m.content || "", { meta: m.role === "user" ? "Du" : "AI" });
+  }
 }
 
-function scrollMessagesToBottom(smooth = true) {
+function scrollMessagesToBottom() {
   const el = $("messages");
   if (!el) return;
-  if (smooth) {
-    el.scrollTo({ top: el.scrollHeight, behavior: "smooth" });
-  } else {
-    el.scrollTop = el.scrollHeight;
-  }
+  el.scrollTop = el.scrollHeight;
 }
 
 async function sendChat() {
@@ -1135,13 +690,19 @@ async function sendChat() {
 
   inp.value = "";
 
+  // push user message locally
   state.conversation.push({ role: "user", content: text });
   setLS(LS.chatConversation, JSON.stringify(state.conversation));
-  addMessageToUI("user", text);
+  addMessageToUI("user", text, { meta: "Du" });
   scrollMessagesToBottom();
 
   try {
-    const payload = { companyId: state.companyId, conversation: state.conversation };
+    // call API
+    const payload = {
+      companyId: state.companyId,
+      conversation: state.conversation,
+    };
+
     if (state.lastTicketId) payload.ticketId = state.lastTicketId;
 
     const data = await api("/chat", {
@@ -1156,12 +717,13 @@ async function sendChat() {
     state.conversation.push({ role: "assistant", content: reply });
     setLS(LS.chatConversation, JSON.stringify(state.conversation));
 
-    addMessageToUI("assistant", reply);
+    addMessageToUI("assistant", reply, { meta: data.ragUsed ? "AI (RAG)" : "AI" });
 
+    // Debug update
     updateDebug({ ragUsed: !!data.ragUsed, ticketId: state.lastTicketId });
     scrollMessagesToBottom();
   } catch (e) {
-    addMessageToUI("assistant", `❌ Fel: ${e.message}`);
+    addMessageToUI("assistant", `❌ Fel: ${e.message}`, { meta: "System" });
     scrollMessagesToBottom();
   }
 }
@@ -1177,17 +739,17 @@ function exportChat() {
 }
 
 async function sendFeedback(type) {
-  const res = await safeApi("/feedback", {
-    method: "POST",
-    body: JSON.stringify({ type, companyId: state.companyId }),
-  });
-
-  if (res) {
+  try {
+    await api("/feedback", {
+      method: "POST",
+      body: JSON.stringify({ type, companyId: state.companyId }),
+    });
     $("fbMsg").textContent = "Tack! ✅";
-  } else {
-    $("fbMsg").textContent = "Kunde ej skicka feedback.";
+    setTimeout(() => ($("fbMsg").textContent = ""), 1200);
+  } catch (e) {
+    $("fbMsg").textContent = `Fel: ${e.message}`;
+    setTimeout(() => ($("fbMsg").textContent = ""), 1500);
   }
-  setTimeout(() => ($("fbMsg").textContent = ""), 1200);
 }
 
 /* =========================
@@ -1200,54 +762,54 @@ async function loadMyTickets() {
   if (list) list.innerHTML = "";
   if (details) details.innerHTML = `<span class="muted small">Laddar...</span>`;
 
-  const tickets = await safeApi("/my/tickets");
-  if (!tickets || !Array.isArray(tickets)) {
-    setAlert($("myTicketsHint"), "Kunde inte ladda tickets.", "error");
+  try {
+    const tickets = await api("/my/tickets");
+    if (!tickets.length) {
+      if (list) list.innerHTML = `<div class="muted small">Inga ärenden ännu.</div>`;
+      if (details) details.innerHTML = `<span class="muted small">Skapa en ny konversation i Chat.</span>`;
+      return;
+    }
+
+    if (list) {
+      list.innerHTML = tickets
+        .map((t) => {
+          const status = t.status || "open";
+          const prio = t.priority || "normal";
+          const title = t.title || "(utan titel)";
+          return `
+            <div class="listItem" data-id="${t._id}">
+              <div class="listItemTitle">
+                ${escapeHtml(title)}
+                ${pill(status, status === "solved" ? "ok" : status === "pending" ? "warn" : "")}
+                ${pill(prio)}
+              </div>
+              <div class="muted small">${escapeHtml(String(t._id).slice(-8))} • ${fmtDate(t.lastActivityAt || t.createdAt)}</div>
+            </div>
+          `;
+        })
+        .join("");
+
+      qsa("#myTicketsList .listItem").forEach((item) => {
+        item.addEventListener("click", async () => {
+          qsa("#myTicketsList .listItem").forEach((x) => x.classList.remove("selected"));
+          item.classList.add("selected");
+          const id = item.getAttribute("data-id");
+          state.selectedMyTicketId = id;
+          await loadMyTicketDetails(id);
+        });
+      });
+    }
+
+    // auto select first
+    const firstId = tickets[0]._id;
+    state.selectedMyTicketId = firstId;
+    const firstEl = qs(`#myTicketsList .listItem[data-id="${firstId}"]`);
+    if (firstEl) firstEl.classList.add("selected");
+    await loadMyTicketDetails(firstId);
+  } catch (e) {
+    setAlert($("myTicketsHint"), e.message, "error");
     if (details) details.innerHTML = `<span class="muted small">Kunde inte ladda.</span>`;
-    return;
   }
-
-  state.myTicketsCount = tickets.length || 0;
-  setLS(LS.lastMyTicketsCount, String(state.myTicketsCount));
-
-  if (!tickets.length) {
-    if (list) list.innerHTML = `<div class="muted small">Inga ärenden ännu.</div>`;
-    if (details) details.innerHTML = `<span class="muted small">Skapa en ny konversation i Chat.</span>`;
-    return;
-  }
-
-  list.innerHTML = tickets
-    .map((t) => {
-      const status = t.status || "open";
-      const prio = t.priority || "normal";
-      const title = t.title || "(utan titel)";
-      return `
-        <div class="listItem" data-id="${t._id}">
-          <div class="listItemTitle">
-            ${escapeHtml(title)}
-            ${pill(status, status === "solved" ? "ok" : status === "pending" ? "warn" : "")}
-            ${pill(prio)}
-          </div>
-          <div class="muted small">${escapeHtml(String(t._id).slice(-8))} • ${fmtDate(t.lastActivityAt || t.createdAt)}</div>
-        </div>
-      `;
-    })
-    .join("");
-
-  qsa("#myTicketsList .listItem").forEach((item) => {
-    item.addEventListener("click", async () => {
-      qsa("#myTicketsList .listItem").forEach((x) => x.classList.remove("selected"));
-      item.classList.add("selected");
-      const id = item.getAttribute("data-id");
-      state.selectedMyTicketId = id;
-      await loadMyTicketDetails(id);
-    });
-  });
-
-  const firstId = tickets[0]._id;
-  state.selectedMyTicketId = firstId;
-  qs(`#myTicketsList .listItem[data-id="${firstId}"]`)?.classList.add("selected");
-  await loadMyTicketDetails(firstId);
 }
 
 async function loadMyTicketDetails(ticketId) {
@@ -1255,39 +817,39 @@ async function loadMyTicketDetails(ticketId) {
   if (!details) return;
   details.innerHTML = `<span class="muted small">Laddar...</span>`;
 
-  const t = await safeApi(`/my/tickets/${ticketId}`);
-  if (!t) {
-    details.innerHTML = `<span class="muted small">Fel: Kunde inte ladda ticket.</span>`;
-    return;
-  }
+  try {
+    const t = await api(`/my/tickets/${ticketId}`);
+    const msgs = t.messages || [];
 
-  const msgs = t.messages || [];
-  const header = `
-    <div style="margin-bottom:10px;">
-      <div><b>${escapeHtml(t.title || "Ärende")}</b></div>
-      <div class="muted small">
-        Status: ${escapeHtml(t.status)} • Prio: ${escapeHtml(t.priority)} • Skapad: ${fmtDate(t.createdAt)}
-      </div>
-    </div>
-  `;
-
-  const body = msgs
-    .map((m) => {
-      const r = m.role;
-      const cls = r === "user" ? "ticketMsg user" : r === "agent" ? "ticketMsg agent" : "ticketMsg ai";
-      return `
-        <div class="${cls}">
-          <div class="ticketMsgHead">
-            <span>${escapeHtml(r)}</span>
-            <span>${fmtDate(m.timestamp)}</span>
-          </div>
-          <div class="ticketMsgBody">${escapeHtml(m.content)}</div>
+    const header = `
+      <div style="margin-bottom:10px;">
+        <div><b>${escapeHtml(t.title || "Ärende")}</b></div>
+        <div class="muted small">
+          Status: ${escapeHtml(t.status)} • Prio: ${escapeHtml(t.priority)} • Skapad: ${fmtDate(t.createdAt)}
         </div>
-      `;
-    })
-    .join("");
+      </div>
+    `;
 
-  details.innerHTML = header + body;
+    const body = msgs
+      .map((m) => {
+        const r = m.role;
+        const cls = r === "user" ? "ticketMsg user" : r === "agent" ? "ticketMsg agent" : "ticketMsg ai";
+        return `
+          <div class="${cls}">
+            <div class="ticketMsgHead">
+              <span>${escapeHtml(r)}</span>
+              <span>${fmtDate(m.timestamp)}</span>
+            </div>
+            <div class="ticketMsgBody">${escapeHtml(m.content)}</div>
+          </div>
+        `;
+      })
+      .join("");
+
+    details.innerHTML = header + body;
+  } catch (e) {
+    details.innerHTML = `<span class="muted small">Fel: ${escapeHtml(e.message)}</span>`;
+  }
 }
 
 async function myTicketReply() {
@@ -1314,7 +876,7 @@ async function myTicketReply() {
 }
 
 /* =========================
-   INBOX
+   INBOX (Agent/Admin)
 ========================= */
 async function loadInboxTickets() {
   setAlert($("inboxMsg"), "");
@@ -1327,62 +889,70 @@ async function loadInboxTickets() {
   const companyId = $("inboxCategoryFilter")?.value || "";
   const search = $("inboxSearchInput")?.value?.trim().toLowerCase() || "";
 
-  const url = new URL(location.origin + "/admin/tickets");
-  if (status) url.searchParams.set("status", status);
-  if (companyId) url.searchParams.set("companyId", companyId);
+  try {
+    const url = new URL(location.origin + "/admin/tickets");
+    if (status) url.searchParams.set("status", status);
+    if (companyId) url.searchParams.set("companyId", companyId);
 
-  let tickets = await safeApi(url.pathname + url.search);
-  if (!tickets || !Array.isArray(tickets)) {
-    setAlert($("inboxMsg"), "Kunde inte ladda inbox (saknar behörighet eller endpoint).", "error");
+    let tickets = await api(url.pathname + url.search);
+
+    // client search
+    if (search) {
+      tickets = tickets.filter((t) => {
+        const id = String(t._id || "").toLowerCase();
+        const title = String(t.title || "").toLowerCase();
+        const cat = String(t.companyId || "").toLowerCase();
+        return id.includes(search) || title.includes(search) || cat.includes(search);
+      });
+    }
+
+    // notif dot: open tickets exist
+    const openCount = tickets.filter((t) => t.status === "open").length;
+    const dot = $("inboxNotifDot");
+    if (dot) show(dot, openCount > 0);
+
+    list.innerHTML = tickets
+      .map((t) => {
+        const statusPill = t.status === "solved" ? pill("solved", "ok") : t.status === "pending" ? pill("pending", "warn") : pill("open");
+        const prioPill =
+          t.priority === "high" ? pill("high", "danger") : t.priority === "low" ? pill("low") : pill("normal");
+        const assigned = t.assignedToUserId ? `<span class="muted small">assigned</span>` : `<span class="muted small">unassigned</span>`;
+
+        return `
+          <div class="listItem" data-id="${t._id}">
+            <div class="listItemTitle">
+              ${escapeHtml(t.title || "(utan titel)")}
+              ${statusPill}
+              ${prioPill}
+            </div>
+            <div class="muted small">
+              ${escapeHtml(String(t.companyId || ""))} • ${escapeHtml(String(t._id).slice(-8))} • ${fmtDate(t.lastActivityAt || t.createdAt)} • ${assigned}
+            </div>
+          </div>
+        `;
+      })
+      .join("");
+
+    qsa("#inboxTicketsList .listItem").forEach((item) => {
+      item.addEventListener("click", async () => {
+        qsa("#inboxTicketsList .listItem").forEach((x) => x.classList.remove("selected"));
+        item.classList.add("selected");
+        const id = item.getAttribute("data-id");
+        state.selectedInboxTicketId = id;
+        await loadInboxTicketDetails(id);
+      });
+    });
+
+    // auto select first if none
+    if (!state.selectedInboxTicketId && tickets[0]) {
+      state.selectedInboxTicketId = tickets[0]._id;
+      const el = qs(`#inboxTicketsList .listItem[data-id="${tickets[0]._id}"]`);
+      if (el) el.classList.add("selected");
+      await loadInboxTicketDetails(tickets[0]._id);
+    }
+  } catch (e) {
+    setAlert($("inboxMsg"), e.message, "error");
     list.innerHTML = `<div class="muted small">Kunde inte ladda tickets.</div>`;
-    return;
-  }
-
-  if (search) {
-    tickets = tickets.filter((t) => {
-      const id = String(t._id || "").toLowerCase();
-      const title = String(t.title || "").toLowerCase();
-      const cat = String(t.companyId || "").toLowerCase();
-      return id.includes(search) || title.includes(search) || cat.includes(search);
-    });
-  }
-
-  const openCount = tickets.filter((t) => t.status === "open").length;
-  show($("inboxNotifDot"), openCount > 0);
-
-  list.innerHTML = tickets
-    .map((t) => {
-      const statusPill = t.status === "solved" ? pill("solved", "ok") : t.status === "pending" ? pill("pending", "warn") : pill("open");
-      const prioPill = t.priority === "high" ? pill("high", "danger") : t.priority === "low" ? pill("low") : pill("normal");
-      return `
-        <div class="listItem ${t.status === "open" ? "newTicketPulse" : ""}" data-id="${t._id}">
-          <div class="listItemTitle">
-            ${escapeHtml(t.title || "(utan titel)")}
-            ${statusPill}
-            ${prioPill}
-          </div>
-          <div class="muted small">
-            ${escapeHtml(String(t.companyId || ""))} • ${escapeHtml(String(t._id).slice(-8))} • ${fmtDate(t.lastActivityAt || t.createdAt)}
-          </div>
-        </div>
-      `;
-    })
-    .join("");
-
-  qsa("#inboxTicketsList .listItem").forEach((item) => {
-    item.addEventListener("click", async () => {
-      qsa("#inboxTicketsList .listItem").forEach((x) => x.classList.remove("selected"));
-      item.classList.add("selected");
-      const id = item.getAttribute("data-id");
-      state.selectedInboxTicketId = id;
-      await loadInboxTicketDetails(id);
-    });
-  });
-
-  if (!state.selectedInboxTicketId && tickets[0]) {
-    state.selectedInboxTicketId = tickets[0]._id;
-    qs(`#inboxTicketsList .listItem[data-id="${tickets[0]._id}"]`)?.classList.add("selected");
-    await loadInboxTicketDetails(tickets[0]._id);
   }
 }
 
@@ -1395,148 +965,160 @@ async function loadInboxTicketDetails(ticketId) {
   box.innerHTML = `<div class="muted small">Laddar...</div>`;
   $("internalNotesList").innerHTML = "";
 
-  const t = await safeApi(`/admin/tickets/${ticketId}`);
-  if (!t) {
-    setAlert(msg, "Kunde inte ladda ticket (saknar endpoint/behörighet).", "error");
-    box.innerHTML = `<div class="muted small">Kunde inte visa ticket.</div>`;
-    return;
-  }
+  try {
+    const t = await api(`/admin/tickets/${ticketId}`);
 
-  if ($("ticketPrioritySelect")) $("ticketPrioritySelect").value = t.priority || "normal";
-  await fillAssignUsers(t.assignedToUserId);
+    // priority select set
+    if ($("ticketPrioritySelect")) $("ticketPrioritySelect").value = t.priority || "normal";
 
-  const top = `
-    <div style="margin-bottom:10px;">
-      <div><b>${escapeHtml(t.title || "Ticket")}</b></div>
-      <div class="muted small">
-        ${escapeHtml(t.companyId)} • ${escapeHtml(String(t._id))} • Skapad ${fmtDate(t.createdAt)}
-      </div>
-      <div style="margin-top:6px; display:flex; gap:8px; flex-wrap:wrap;">
-        ${pill(t.status, t.status === "solved" ? "ok" : t.status === "pending" ? "warn" : "")}
-        ${pill(t.priority, t.priority === "high" ? "danger" : "")}
-      </div>
-    </div>
-    <div class="divider"></div>
-  `;
+    // fill assign users
+    await fillAssignUsers(t.assignedToUserId);
 
-  const msgs = (t.messages || [])
-    .map((m) => {
-      const r = m.role;
-      const cls = r === "user" ? "ticketMsg user" : r === "agent" ? "ticketMsg agent" : "ticketMsg ai";
-      return `
-        <div class="${cls}">
-          <div class="ticketMsgHead">
-            <span>${escapeHtml(r)}</span>
-            <span>${fmtDate(m.timestamp)}</span>
-          </div>
-          <div class="ticketMsgBody">${escapeHtml(m.content)}</div>
+    // SLA badge
+    const sla = t.sla || {};
+    const first = sla.firstResponseMs != null ? msToPretty(sla.firstResponseMs) : "—";
+    const res = sla.resolutionMs != null ? msToPretty(sla.resolutionMs) : "—";
+    const pendingTotal = sla.pendingTotalMs != null ? msToPretty(sla.pendingTotalMs) : "—";
+    const effRun = sla.effectiveRunningMs != null ? msToPretty(sla.effectiveRunningMs) : "—";
+
+    const firstB = sla.breachedFirstResponse ? pill("First breached", "danger") : pill("First OK", "ok");
+    const resB = sla.breachedResolution ? pill("Res breached", "danger") : pill("Res OK", "ok");
+
+    const top = `
+      <div style="margin-bottom:10px;">
+        <div><b>${escapeHtml(t.title || "Ticket")}</b></div>
+        <div class="muted small">
+          ${escapeHtml(t.companyId)} • ${escapeHtml(String(t._id))} • Skapad ${fmtDate(t.createdAt)}
         </div>
-      `;
-    })
-    .join("");
+        <div style="margin-top:6px; display:flex; gap:8px; flex-wrap:wrap;">
+          ${pill(t.status, t.status === "solved" ? "ok" : t.status === "pending" ? "warn" : "")}
+          ${pill(t.priority, t.priority === "high" ? "danger" : "")}
+          ${firstB}
+          ${resB}
+        </div>
+      </div>
 
-  box.innerHTML = top + msgs;
+      <div class="divider"></div>
 
-  renderInternalNotes(t.internalNotes || []);
+      <div class="row gap" style="flex-wrap:wrap;">
+        <div class="pill">First: <b>${escapeHtml(first)}</b></div>
+        <div class="pill">Resolution: <b>${escapeHtml(res)}</b></div>
+        <div class="pill">Pending total: <b>${escapeHtml(pendingTotal)}</b></div>
+        <div class="pill">Effective running: <b>${escapeHtml(effRun)}</b></div>
+      </div>
+
+      <div class="divider"></div>
+    `;
+
+    const msgs = (t.messages || [])
+      .map((m) => {
+        const r = m.role;
+        const cls = r === "user" ? "ticketMsg user" : r === "agent" ? "ticketMsg agent" : "ticketMsg ai";
+        return `
+          <div class="${cls}">
+            <div class="ticketMsgHead">
+              <span>${escapeHtml(r)}</span>
+              <span>${fmtDate(m.timestamp)}</span>
+            </div>
+            <div class="ticketMsgBody">${escapeHtml(m.content)}</div>
+          </div>
+        `;
+      })
+      .join("");
+
+    box.innerHTML = top + msgs;
+
+    // notes
+    renderInternalNotes(t.internalNotes || []);
+  } catch (e) {
+    setAlert($("inboxTicketMsg"), e.message, "error");
+    box.innerHTML = `<div class="muted small">Kunde inte visa ticket.</div>`;
+  }
 }
 
 async function setInboxTicketStatus(status) {
   if (!state.selectedInboxTicketId) return;
   setAlert($("inboxTicketMsg"), "");
-  const ok = await safeApi(`/admin/tickets/${state.selectedInboxTicketId}/status`, {
-    method: "POST",
-    body: JSON.stringify({ status }),
-  });
-  if (!ok) {
-    setAlert($("inboxTicketMsg"), "Kunde inte ändra status (saknar endpoint).", "error");
-    return;
+  try {
+    await api(`/admin/tickets/${state.selectedInboxTicketId}/status`, {
+      method: "POST",
+      body: JSON.stringify({ status }),
+    });
+    await loadInboxTicketDetails(state.selectedInboxTicketId);
+    await loadInboxTickets();
+  } catch (e) {
+    setAlert($("inboxTicketMsg"), e.message, "error");
   }
-  await loadInboxTicketDetails(state.selectedInboxTicketId);
-  await loadInboxTickets();
 }
 
 async function setInboxPriority() {
   if (!state.selectedInboxTicketId) return;
   setAlert($("inboxTicketMsg"), "");
-  const priority = $("ticketPrioritySelect")?.value || "normal";
-
-  const ok = await safeApi(`/admin/tickets/${state.selectedInboxTicketId}/priority`, {
-    method: "POST",
-    body: JSON.stringify({ priority }),
-  });
-
-  if (!ok) {
-    setAlert($("inboxTicketMsg"), "Kunde inte ändra prioritet (saknar endpoint).", "error");
-    return;
+  try {
+    const priority = $("ticketPrioritySelect")?.value || "normal";
+    await api(`/admin/tickets/${state.selectedInboxTicketId}/priority`, {
+      method: "POST",
+      body: JSON.stringify({ priority }),
+    });
+    await loadInboxTicketDetails(state.selectedInboxTicketId);
+    await loadInboxTickets();
+  } catch (e) {
+    setAlert($("inboxTicketMsg"), e.message, "error");
   }
-
-  await loadInboxTicketDetails(state.selectedInboxTicketId);
-  await loadInboxTickets();
 }
 
 async function sendInboxAgentReply() {
   if (!state.selectedInboxTicketId) return;
   setAlert($("inboxTicketMsg"), "");
 
-  const content = $("agentReplyTextInbox")?.value?.trim();
-  if (!content) {
-    setAlert($("inboxTicketMsg"), "Skriv ett svar.", "error");
-    return;
+  try {
+    const content = $("agentReplyTextInbox")?.value?.trim();
+    if (!content) throw new Error("Skriv ett svar.");
+
+    await api(`/admin/tickets/${state.selectedInboxTicketId}/agent-reply`, {
+      method: "POST",
+      body: JSON.stringify({ content }),
+    });
+
+    $("agentReplyTextInbox").value = "";
+    await loadInboxTicketDetails(state.selectedInboxTicketId);
+    await loadInboxTickets();
+  } catch (e) {
+    setAlert($("inboxTicketMsg"), e.message, "error");
   }
-
-  const ok = await safeApi(`/admin/tickets/${state.selectedInboxTicketId}/agent-reply`, {
-    method: "POST",
-    body: JSON.stringify({ content }),
-  });
-
-  if (!ok) {
-    setAlert($("inboxTicketMsg"), "Kunde inte skicka svar (saknar endpoint).", "error");
-    return;
-  }
-
-  $("agentReplyTextInbox").value = "";
-  await loadInboxTicketDetails(state.selectedInboxTicketId);
-  await loadInboxTickets();
 }
 
 async function saveInternalNote() {
   if (!state.selectedInboxTicketId) return;
   setAlert($("inboxTicketMsg"), "");
 
-  const content = $("internalNoteText")?.value?.trim();
-  if (!content) {
-    setAlert($("inboxTicketMsg"), "Skriv en intern notering.", "error");
-    return;
+  try {
+    const content = $("internalNoteText")?.value?.trim();
+    if (!content) throw new Error("Skriv en intern notering.");
+
+    const data = await api(`/admin/tickets/${state.selectedInboxTicketId}/internal-note`, {
+      method: "POST",
+      body: JSON.stringify({ content }),
+    });
+
+    $("internalNoteText").value = "";
+    renderInternalNotes(data.ticket?.internalNotes || []);
+  } catch (e) {
+    setAlert($("inboxTicketMsg"), e.message, "error");
   }
-
-  const data = await safeApi(`/admin/tickets/${state.selectedInboxTicketId}/internal-note`, {
-    method: "POST",
-    body: JSON.stringify({ content }),
-  });
-
-  if (!data) {
-    setAlert($("inboxTicketMsg"), "Kunde inte spara note (saknar endpoint).", "error");
-    return;
-  }
-
-  $("internalNoteText").value = "";
-  renderInternalNotes(data.ticket?.internalNotes || []);
 }
 
 async function clearInternalNotes() {
   if (!state.selectedInboxTicketId) return;
   setAlert($("inboxTicketMsg"), "");
-
-  const ok = await safeApi(`/admin/tickets/${state.selectedInboxTicketId}/internal-notes`, {
-    method: "DELETE",
-  });
-
-  if (!ok) {
-    setAlert($("inboxTicketMsg"), "Kunde inte rensa notes (saknar endpoint).", "error");
-    return;
+  try {
+    await api(`/admin/tickets/${state.selectedInboxTicketId}/internal-notes`, {
+      method: "DELETE",
+    });
+    renderInternalNotes([]);
+  } catch (e) {
+    setAlert($("inboxTicketMsg"), e.message, "error");
   }
-
-  renderInternalNotes([]);
 }
 
 function renderInternalNotes(notes) {
@@ -1570,142 +1152,170 @@ async function fillAssignUsers(selectedId) {
   const sel = $("assignUserSelect");
   if (!sel) return;
 
-  const users = await safeApi("/admin/users");
-  if (!users || !Array.isArray(users)) return;
+  try {
+    const users = await api("/admin/users");
+    const agents = users.filter((u) => u.role === "agent" || u.role === "admin");
 
-  const agents = users.filter((u) => u.role === "agent" || u.role === "admin");
-
-  sel.innerHTML =
-    `<option value="">Välj agent...</option>` +
-    agents
-      .map((u) => {
-        const short = String(u._id || u.id || "").slice(-6);
-        return `<option value="${u._id || u.id}">${escapeHtml(u.username)} (${u.role}) • ID:${short}</option>`;
-      })
-      .join("");
-  sel.value = selectedId || "";
+    sel.innerHTML = `<option value="">Välj agent...</option>` + agents.map((u) => `<option value="${u._id}">${escapeHtml(u.username)} (${u.role})</option>`).join("");
+    sel.value = selectedId || "";
+  } catch {
+    // ignore
+  }
 }
 
 async function assignTicketToAgent() {
   if (!state.selectedInboxTicketId) return;
   setAlert($("inboxTicketMsg"), "");
 
-  const userId = $("assignUserSelect")?.value;
-  if (!userId) {
-    setAlert($("inboxTicketMsg"), "Välj en agent att assigna.", "error");
-    return;
+  try {
+    const userId = $("assignUserSelect")?.value;
+    if (!userId) throw new Error("Välj en agent att assigna.");
+
+    await api(`/admin/tickets/${state.selectedInboxTicketId}/assign`, {
+      method: "POST",
+      body: JSON.stringify({ userId }),
+    });
+
+    await loadInboxTicketDetails(state.selectedInboxTicketId);
+    await loadInboxTickets();
+  } catch (e) {
+    setAlert($("inboxTicketMsg"), e.message, "error");
   }
-
-  const ok = await safeApi(`/admin/tickets/${state.selectedInboxTicketId}/assign`, {
-    method: "POST",
-    body: JSON.stringify({ userId }),
-  });
-
-  if (!ok) {
-    setAlert($("inboxTicketMsg"), "Kunde inte assigna (saknar endpoint).", "error");
-    return;
-  }
-
-  await loadInboxTicketDetails(state.selectedInboxTicketId);
-  await loadInboxTickets();
 }
 
 async function deleteSelectedInboxTicket() {
   if (!state.selectedInboxTicketId) return;
   setAlert($("inboxTicketMsg"), "");
-  premiumConfirm("Ta bort ticket?", async () => {
-    const ok = await safeApi(`/admin/tickets/${state.selectedInboxTicketId}`, { method: "DELETE" });
-    if (!ok) {
-      setAlert($("inboxTicketMsg"), "Kunde inte ta bort (saknar endpoint).", "error");
-      return;
-    }
+
+  if (!confirm("Ta bort ticket?")) return;
+
+  try {
+    await api(`/admin/tickets/${state.selectedInboxTicketId}`, { method: "DELETE" });
     state.selectedInboxTicketId = null;
     $("ticketDetails").innerHTML = `<div class="muted small">Välj en ticket.</div>`;
     renderInternalNotes([]);
     await loadInboxTickets();
-  });
+  } catch (e) {
+    setAlert($("inboxTicketMsg"), e.message, "error");
+  }
 }
 
 async function solveAllTickets() {
   setAlert($("inboxMsg"), "");
-  premiumConfirm("Solve ALL? (Admin)", async () => {
-    const ok = await safeApi("/admin/tickets/solve-all", { method: "POST" });
-    if (!ok) {
-      setAlert($("inboxMsg"), "Kunde inte köra Solve All (saknar endpoint).", "error");
-      return;
-    }
-    setAlert($("inboxMsg"), "Klart ✅", "");
+  if (!confirm("Solve ALL? (Admin)")) return;
+  try {
+    const data = await api("/admin/tickets/solve-all", { method: "POST" });
+    setAlert($("inboxMsg"), data.message || "Klart ✅", "");
     await loadInboxTickets();
-  });
+  } catch (e) {
+    setAlert($("inboxMsg"), e.message, "error");
+  }
 }
 
 async function removeSolvedTickets() {
   setAlert($("inboxMsg"), "");
-  premiumConfirm("Remove solved? (Admin)", async () => {
-    const ok = await safeApi("/admin/tickets/remove-solved", { method: "POST" });
-    if (!ok) {
-      setAlert($("inboxMsg"), "Kunde inte köra Remove solved (saknar endpoint).", "error");
-      return;
-    }
-    setAlert($("inboxMsg"), "Klart ✅", "");
-    return;
-  });
+  if (!confirm("Remove solved? (Admin)")) return;
+  try {
+    const data = await api("/admin/tickets/remove-solved", { method: "POST" });
+    setAlert($("inboxMsg"), data.message || "Klart ✅", "");
+    await loadInboxTickets();
+  } catch (e) {
+    setAlert($("inboxMsg"), e.message, "error");
+  }
 }
 
 /* =========================
-   SLA
+   SLA DASHBOARD (KPI + Chart + tables)
 ========================= */
+let slaCache = {
+  overview: null,
+  trend: null,
+  agents: null,
+  tickets: null,
+};
+
 async function refreshSlaAll() {
+  // Fix chart bugs: remove any previous chart instance before drawing new
+  destroyTrendChart();
+
   const days = Number($("slaDaysSelect")?.value || 30);
-  const overview = await safeApi(`/admin/sla/overview?days=${days}`);
-  slaCache.overview = overview;
-  renderSlaOverview(overview);
+  const compareMode = $("slaCompareMode")?.value || "none";
 
-  const trend = await safeApi(`/admin/sla/trend/weekly?days=${days}`);
-  slaCache.trend = trend;
-  if (trend) renderSlaTrendChart(trend);
-  else $("slaTrendHint").textContent = "Trend endpoint saknas (ok).";
+  // Show placeholder
+  $("slaOverviewBox").innerHTML = `<div class="muted small">Laddar KPI...</div>`;
+  $("slaAgentsBox").innerHTML = `<div class="muted small">Laddar agents...</div>`;
+  $("slaTicketsBox").innerHTML = `<div class="muted small">Laddar tickets...</div>`;
+  $("slaTrendHint").textContent = "";
 
-  const agents = await safeApi(`/admin/sla/agents?days=${days}`);
-  slaCache.agents = agents;
-  if (agents) renderSlaAgents(agents);
-  else $("slaAgentsBox").innerHTML = `<div class="muted small">Agent-data saknas.</div>`;
+  try {
+    // overview
+    const overview = await api(`/admin/sla/overview?days=${days}`);
+    slaCache.overview = overview;
+    renderSlaOverviewKpi(overview);
 
-  const tickets = await safeApi(`/admin/sla/tickets?days=${days}`);
-  slaCache.tickets = tickets;
-  if (tickets) renderSlaTickets(tickets);
-  else $("slaTicketsBox").innerHTML = `<div class="muted small">Ticket-data saknas.</div>`;
+    // trend
+    const trend = await api(`/admin/sla/trend/weekly?days=${days}`);
+    slaCache.trend = trend;
+    renderSlaTrendChart(trend);
+
+    // agents
+    const agents = await api(`/admin/sla/agents?days=${days}`);
+    slaCache.agents = agents;
+    renderSlaAgents(agents);
+
+    // tickets
+    const tickets = await api(`/admin/sla/tickets?days=${days}`);
+    slaCache.tickets = tickets;
+    renderSlaTicketsFromCache();
+
+    // compare (optional)
+    if (compareMode && compareMode !== "none") {
+      // prevPeriod: compare with same days
+      // prevWeek: compare with 7 days
+      const a = days;
+      const b = compareMode === "prevWeek" ? 7 : days;
+      const cmp = await api(`/admin/sla/compare?a=${a}&b=${b}`);
+      renderSlaCompareHint(cmp, compareMode);
+    } else {
+      $("slaTrendHint").textContent = "Tips: välj jämförelseläge för att se förändring mot tidigare period.";
+    }
+  } catch (e) {
+    $("slaOverviewBox").innerHTML = `<div class="alert error">❌ SLA fel: ${escapeHtml(e.message)}</div>`;
+  }
 }
 
-function renderSlaOverview(o) {
+function renderSlaOverviewKpi(o) {
+  if (!o) return;
+
   const total = o.totalTickets ?? 0;
   const byP = o.byPriority || { low: 0, normal: 0, high: 0 };
 
   const frAvg = o.firstResponse?.avgMs;
   const frMed = o.firstResponse?.medianMs;
-  const frP90 = o.firstResponse?.p90Ms;
   const frBr = o.firstResponse?.breaches ?? 0;
   const frComp = o.firstResponse?.compliancePct;
 
   const rsAvg = o.resolution?.avgMs;
   const rsMed = o.resolution?.medianMs;
-  const rsP90 = o.resolution?.p90Ms;
   const rsBr = o.resolution?.breaches ?? 0;
   const rsComp = o.resolution?.compliancePct;
 
+  // ✅ KPI grid + "more features"
   $("slaOverviewBox").innerHTML = `
     <div class="slaGrid">
       <div class="slaCard">
-        <div class="slaLabel">Tickets</div>
+        <div class="slaLabel">Tickets (totalt)</div>
         <div class="slaValue">${escapeHtml(String(total))}</div>
-        <div class="slaSubValue">Low: <b>${byP.low}</b> • Normal: <b>${byP.normal}</b> • High: <b>${byP.high}</b></div>
+        <div class="muted small" style="margin-top:6px;">
+          Low: <b>${byP.low || 0}</b> • Normal: <b>${byP.normal || 0}</b> • High: <b>${byP.high || 0}</b>
+        </div>
       </div>
 
       <div class="slaCard">
-        <div class="slaLabel">First compliance</div>
+        <div class="slaLabel">First response compliance</div>
         <div class="slaValue">${escapeHtml(pct(frComp))}</div>
-        <div class="slaSubValue">
-          Avg: <b>${escapeHtml(msToPretty(frAvg))}</b> • Median: <b>${escapeHtml(msToPretty(frMed))}</b> • P90: <b>${escapeHtml(msToPretty(frP90))}</b><br/>
+        <div class="muted small" style="margin-top:6px;">
+          Avg: <b>${escapeHtml(msToPretty(frAvg))}</b> • Median: <b>${escapeHtml(msToPretty(frMed))}</b><br/>
           Breaches: <b>${escapeHtml(String(frBr))}</b>
         </div>
       </div>
@@ -1713,17 +1323,54 @@ function renderSlaOverview(o) {
       <div class="slaCard">
         <div class="slaLabel">Resolution compliance</div>
         <div class="slaValue">${escapeHtml(pct(rsComp))}</div>
-        <div class="slaSubValue">
-          Avg: <b>${escapeHtml(msToPretty(rsAvg))}</b> • Median: <b>${escapeHtml(msToPretty(rsMed))}</b> • P90: <b>${escapeHtml(msToPretty(rsP90))}</b><br/>
+        <div class="muted small" style="margin-top:6px;">
+          Avg: <b>${escapeHtml(msToPretty(rsAvg))}</b> • Median: <b>${escapeHtml(msToPretty(rsMed))}</b><br/>
           Breaches: <b>${escapeHtml(String(rsBr))}</b>
         </div>
+      </div>
+    </div>
+
+    <div class="divider"></div>
+
+    <div class="panel soft">
+      <b>KPI (extra)</b>
+      <div class="muted small" style="margin-top:6px;">
+        • Om compliance är låg: filtrera på “breached” och sortera “worst first”.<br/>
+        • Pending-tid påverkar resolution (pausar SLA).<br/>
+        • High priority har hårdare limits (1h first response / 24h resolution).
       </div>
     </div>
   `;
 }
 
-// ✅ Du har redan din fixade renderSlaTrendChart() – behåll den.
-// Men vi behöver destroyTrendChart()
+function renderSlaCompareHint(cmp, mode) {
+  const hint = $("slaTrendHint");
+  if (!hint || !cmp?.a || !cmp?.b) return;
+
+  const a = cmp.a;
+  const b = cmp.b;
+
+  const frA = a.firstResponse?.compliancePct;
+  const frB = b.firstResponse?.compliancePct;
+  const rsA = a.resolution?.compliancePct;
+  const rsB = b.resolution?.compliancePct;
+
+  const diff = (x, y) => {
+    if (x == null || y == null) return "";
+    const d = x - y;
+    const sign = d >= 0 ? "+" : "";
+    return `${sign}${d}pp`;
+  };
+
+  const label = mode === "prevWeek" ? "föregående vecka" : "föregående period";
+
+  hint.textContent = `Jämförelse mot ${label}: First ${diff(frA, frB)}, Resolution ${diff(rsA, rsB)}.`;
+}
+
+/* =========================
+   SLA Trend Chart (Chart.js)
+   ✅ FIX: destroy old chart first
+========================= */
 function destroyTrendChart() {
   if (state.chartTrend) {
     try {
@@ -1733,6 +1380,76 @@ function destroyTrendChart() {
   }
 }
 
+function renderSlaTrendChart(tr) {
+  const canvas = $("slaTrendChart");
+  if (!canvas) return;
+
+  // if chart.js missing
+  if (typeof Chart === "undefined") {
+    $("slaTrendHint").textContent =
+      "❌ Chart.js saknas. Lägg in <script src='https://cdn.jsdelivr.net/npm/chart.js'></script> före script.js i index.html";
+    return;
+  }
+
+  destroyTrendChart();
+
+  const rows = tr?.rows || [];
+  if (!rows.length) {
+    $("slaTrendHint").textContent = "Ingen trend-data ännu.";
+    return;
+  }
+
+  const labels = rows.map((r) => r.week);
+  const firstPct = rows.map((r) => r.firstCompliancePct || 0);
+  const resPct = rows.map((r) => r.resolutionCompliancePct || 0);
+
+  const ctx = canvas.getContext("2d");
+
+  state.chartTrend = new Chart(ctx, {
+    type: "line",
+    data: {
+      labels,
+      datasets: [
+        {
+          label: "First response compliance (%)",
+          data: firstPct,
+          tension: 0.35,
+          borderWidth: 2,
+          pointRadius: 3,
+        },
+        {
+          label: "Resolution compliance (%)",
+          data: resPct,
+          tension: 0.35,
+          borderWidth: 2,
+          pointRadius: 3,
+        },
+      ],
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      interaction: { mode: "index", intersect: false },
+      plugins: {
+        legend: { display: true },
+        tooltip: { enabled: true },
+      },
+      scales: {
+        y: {
+          min: 0,
+          max: 100,
+          ticks: { callback: (v) => v + "%" },
+        },
+      },
+    },
+  });
+
+  $("slaTrendHint").textContent = "Trend visar compliance vecka för vecka.";
+}
+
+/* =========================
+   SLA Agents table
+========================= */
 function renderSlaAgents(a) {
   const box = $("slaAgentsBox");
   if (!box) return;
@@ -1750,12 +1467,12 @@ function renderSlaAgents(a) {
           <tr>
             <th>Agent</th>
             <th>Tickets</th>
-            <th>Open</th>
             <th>Pending</th>
-            <th>Solved</th>
             <th>First avg</th>
+            <th>First med</th>
             <th>First compliance</th>
             <th>Res avg</th>
+            <th>Res med</th>
             <th>Res compliance</th>
           </tr>
         </thead>
@@ -1768,12 +1485,12 @@ function renderSlaAgents(a) {
                 <tr>
                   <td>${escapeHtml(r.username)} <span class="muted small">(${escapeHtml(r.role)})</span></td>
                   <td>${escapeHtml(String(r.tickets || 0))}</td>
-                  <td>${escapeHtml(String(r.open || 0))}</td>
                   <td>${escapeHtml(String(r.pending || 0))}</td>
-                  <td>${escapeHtml(String(r.solved || 0))}</td>
                   <td>${escapeHtml(msToPretty(fr.avgMs))}</td>
+                  <td>${escapeHtml(msToPretty(fr.medianMs))}</td>
                   <td>${escapeHtml(pct(fr.compliancePct))}</td>
                   <td>${escapeHtml(msToPretty(rs.avgMs))}</td>
+                  <td>${escapeHtml(msToPretty(rs.medianMs))}</td>
                   <td>${escapeHtml(pct(rs.compliancePct))}</td>
                 </tr>
               `;
@@ -1785,16 +1502,51 @@ function renderSlaAgents(a) {
   `;
 }
 
-function renderSlaTickets(data) {
+/* =========================
+   SLA Tickets (filter/sort)
+========================= */
+function renderSlaTicketsFromCache() {
+  const data = slaCache.tickets;
+  if (!data) return;
+
   const box = $("slaTicketsBox");
   if (!box) return;
 
-  const rows = data.rows || [];
-  if (!rows.length) {
-    box.innerHTML = `<div class="muted small">Inga tickets i perioden.</div>`;
-    return;
+  let rows = data.rows || [];
+
+  // filters
+  const breachedFilter = $("slaBreachedFilter")?.value || "all";
+  const breachType = $("slaBreachTypeFilter")?.value || "any";
+  const sortMode = $("slaSortTickets")?.value || "newest";
+
+  rows = rows.map((r) => ({
+    ...r,
+    _createdAtMs: new Date(r.createdAt).getTime() || 0,
+    _worst:
+      Math.max(
+        r.sla?.firstResponseMs ? (r.sla.firstResponseMs - (r.sla.firstResponseLimitMs || 0)) : 0,
+        r.sla?.effectiveRunningMs ? (r.sla.effectiveRunningMs - (r.sla.resolutionLimitMs || 0)) : 0
+      ) || 0,
+  }));
+
+  if (breachedFilter === "breachedOnly") {
+    rows = rows.filter((r) => r.sla?.breachedFirstResponse || r.sla?.breachedResolution);
+  } else if (breachedFilter === "okOnly") {
+    rows = rows.filter((r) => !r.sla?.breachedFirstResponse && !r.sla?.breachedResolution);
   }
 
+  if (breachType === "first") {
+    rows = rows.filter((r) => r.sla?.breachedFirstResponse);
+  } else if (breachType === "resolution") {
+    rows = rows.filter((r) => r.sla?.breachedResolution);
+  }
+
+  // sort
+  if (sortMode === "newest") rows.sort((a, b) => b._createdAtMs - a._createdAtMs);
+  if (sortMode === "oldest") rows.sort((a, b) => a._createdAtMs - b._createdAtMs);
+  if (sortMode === "worstFirst") rows.sort((a, b) => (b._worst || 0) - (a._worst || 0));
+
+  // render table
   box.innerHTML = `
     <div class="tableWrap">
       <table class="table">
@@ -1807,24 +1559,32 @@ function renderSlaTickets(data) {
             <th>Skapad</th>
             <th>First</th>
             <th>Res</th>
+            <th>Pending total</th>
+            <th>Breaches</th>
           </tr>
         </thead>
         <tbody>
           ${rows
-            .slice(0, 300)
+            .slice(0, 800)
             .map((r) => {
               const sla = r.sla || {};
               const first = sla.firstResponseMs != null ? msToPretty(sla.firstResponseMs) : "—";
               const res = sla.resolutionMs != null ? msToPretty(sla.resolutionMs) : "—";
+              const pending = sla.pendingTotalMs != null ? msToPretty(sla.pendingTotalMs) : "—";
+              const b1 = sla.breachedFirstResponse ? pill("first", "danger") : pill("first", "ok");
+              const b2 = sla.breachedResolution ? pill("res", "danger") : pill("res", "ok");
+
               return `
                 <tr>
-                  <td><span class="muted small">${escapeHtml(String(r.ticketId || r._id || "").slice(-8))}</span></td>
+                  <td><span class="muted small">${escapeHtml(String(r.ticketId).slice(-8))}</span></td>
                   <td>${escapeHtml(r.companyId || "")}</td>
                   <td>${escapeHtml(r.status || "")}</td>
                   <td>${escapeHtml(r.priority || "")}</td>
                   <td>${escapeHtml(fmtDate(r.createdAt))}</td>
                   <td>${escapeHtml(first)}</td>
                   <td>${escapeHtml(res)}</td>
+                  <td>${escapeHtml(pending)}</td>
+                  <td style="display:flex; gap:6px; flex-wrap:wrap;">${b1}${b2}</td>
                 </tr>
               `;
             })
@@ -1839,6 +1599,7 @@ function exportSlaCsv() {
   const days = Number($("slaDaysSelect")?.value || 30);
   const url = `/admin/sla/export/csv?days=${days}`;
 
+  // file download with auth -> use fetch blob
   fetch(API_BASE + url, {
     headers: { Authorization: `Bearer ${state.token}` },
   })
@@ -1856,36 +1617,40 @@ function exportSlaCsv() {
     .catch(() => alert("❌ Export misslyckades"));
 }
 
-// Premium: Exportera SLA-statistik med feedback
-function exportSlaStatsWithStatus() {
-  toast('Exporterar SLA-statistik...', 'info');
-  const days = Number($("slaDaysSelect")?.value || 30);
-  const url = `/admin/sla/export/csv?days=${days}`;
-  fetch(API_BASE + url, {
-    headers: { Authorization: `Bearer ${state.token}` },
-  })
-    .then((r) => {
-      if (!r.ok) throw new Error('Export misslyckades');
-      return r.blob();
-    })
-    .then((blob) => {
-      const a = document.createElement('a');
-      a.href = URL.createObjectURL(blob);
-      a.download = `sla_export_${days}d.csv`;
-      a.click();
-      URL.revokeObjectURL(a.href);
-      toast('SLA-export klar! ✅', 'success');
-    })
-    .catch(() => toast('❌ SLA-export misslyckades', 'error'));
+async function clearMySlaStats() {
+  // I din server.js finns clear agent endpoint som admin.
+  // Den här knappen är "min statistik" men kräver admin i din backend.
+  // Vi försöker ändå visa vettigt fel.
+  try {
+    if (!confirm("Radera min SLA-statistik?")) return;
+    const me = state.user;
+    await api(`/admin/sla/clear/agent/${me.id}`, { method: "POST" });
+    alert("✅ Din statistik raderad.");
+    await refreshSlaAll();
+  } catch (e) {
+    alert(`❌ ${e.message}`);
+  }
+}
+
+async function clearAllSlaStats() {
+  try {
+    if (!confirm("Radera ALL SLA-statistik? (Admin)")) return;
+    await api(`/admin/sla/clear/all`, { method: "POST" });
+    alert("✅ All statistik raderad.");
+    await refreshSlaAll();
+  } catch (e) {
+    alert(`❌ ${e.message}`);
+  }
 }
 
 /* =========================
    ADMIN DASHBOARD
 ========================= */
 async function refreshAdminAll() {
-  await loadAdminUsers();
-  await loadKbList();
-  await loadCategoriesAdmin();
+  // default users tab visible
+  await loadAdminUsers().catch(() => {});
+  await loadKbList().catch(() => {});
+  await loadCategoriesAdmin().catch(() => {});
 }
 
 async function loadAdminUsers() {
@@ -1894,105 +1659,80 @@ async function loadAdminUsers() {
   if (!box) return;
   box.innerHTML = `<div class="muted small">Laddar...</div>`;
 
-  const users = await safeApi("/admin/users");
-  if (!users || !Array.isArray(users)) {
-    setAlert($("adminUsersMsg"), "Kunde inte ladda users (saknar endpoint/behörighet).", "error");
-    box.innerHTML = `<div class="muted small">Kunde inte ladda users.</div>`;
-    return;
-  }
+  try {
+    const users = await api("/admin/users");
+    box.innerHTML = users
+      .map((u) => {
+        const rolePill = u.role === "admin" ? pill("admin", "ok") : u.role === "agent" ? pill("agent", "warn") : pill("user");
+        return `
+          <div class="listItem">
+            <div class="listItemTitle">
+              ${escapeHtml(u.username)} ${rolePill}
+              <span class="muted small" style="margin-left:auto;">${escapeHtml(String(u._id).slice(-8))}</span>
+            </div>
+            <div class="muted small">${escapeHtml(u.email || "")} • ${fmtDate(u.createdAt)}</div>
 
-  box.innerHTML = users
-    .map((u) => {
-      const rolePill = u.role === "admin" ? pill("admin", "ok") : u.role === "agent" ? pill("agent", "warn") : pill("user");
-      const shortId = String(u._id || u.id || "").slice(-8);
+            <div class="row gap" style="margin-top:10px; flex-wrap:wrap;">
+              <select class="input smallInput" data-role-select="${u._id}">
+                <option value="user" ${u.role === "user" ? "selected" : ""}>user</option>
+                <option value="agent" ${u.role === "agent" ? "selected" : ""}>agent</option>
+                <option value="admin" ${u.role === "admin" ? "selected" : ""}>admin</option>
+              </select>
+              <button class="btn ghost small" data-set-role="${u._id}">
+                <i class="fa-solid fa-user-shield"></i> Sätt roll
+              </button>
 
-      return `
-        <div class="listItem">
-          <div class="listItemTitle">
-            ${escapeHtml(u.username)} ${rolePill}
-            <span class="muted small" style="margin-left:auto;">${escapeHtml(shortId)}</span>
+              <button class="btn danger small" data-del-user="${u._id}">
+                <i class="fa-solid fa-trash"></i> Ta bort
+              </button>
+            </div>
           </div>
-          <div class="muted small">${escapeHtml(u.email || "")} • ${fmtDate(u.createdAt)}</div>
-          <div class="muted small">ID: <b>${escapeHtml(shortId)}</b></div>
+        `;
+      })
+      .join("");
 
-          <div class="row gap" style="margin-top:10px; flex-wrap:wrap;">
-            <select class="input smallInput" data-role-select="${u._id || u.id}">
-              <option value="user" ${u.role === "user" ? "selected" : ""}>user</option>
-              <option value="agent" ${u.role === "agent" ? "selected" : ""}>agent</option>
-              <option value="admin" ${u.role === "admin" ? "selected" : ""}>admin</option>
-            </select>
-            <button class="btn ghost small" data-set-role="${u._id || u.id}">
-              <i class="fa-solid fa-user-shield"></i> Sätt roll
-            </button>
-
-            <button class="btn danger small" data-del-user="${u._id || u.id}">
-              <i class="fa-solid fa-trash"></i> Ta bort
-            </button>
-          </div>
-        </div>
-      `;
-    })
-    .join("");
-
-  qsa("[data-set-role]").forEach((b) => {
-    b.addEventListener("click", async () => {
-      const userId = b.getAttribute("data-set-role");
-     
-      const sel = qs(`[data-role-select="${userId}"]`);
-      const role = sel?.value;
-      const ok = await safeApi(`/admin/users/${userId}/role`, {
-        method: "POST",
-        body: JSON.stringify({ role }),
+    qsa("[data-set-role]").forEach((b) => {
+      b.addEventListener("click", async () => {
+        const userId = b.getAttribute("data-set-role");
+        const sel = qs(`[data-role-select="${userId}"]`);
+        const role = sel?.value;
+        try {
+          await api(`/admin/users/${userId}/role`, {
+            method: "POST",
+            body: JSON.stringify({ role }),
+          });
+          setAlert($("adminUsersMsg"), "Roll uppdaterad ✅", "");
+          await loadAdminUsers();
+        } catch (e) {
+          setAlert($("adminUsersMsg"), e.message, "error");
+        }
       });
-      if (!ok) {
-        setAlert($("adminUsersMsg"), "Kunde inte uppdatera roll (saknar endpoint).", "error");
-        return;
-      }
-      setAlert($("adminUsersMsg"), "Roll uppdaterad ✅", "");
-      await loadAdminUsers();
     });
-  });
 
-  qsa("[data-del-user]").forEach((b) => {
-    b.addEventListener("click", async () => {
-      const userId = b.getAttribute("data-del-user");
-      if (!confirm("Ta bort användare?")) return;
-      const ok = await safeApi(`/admin/users/${userId}`, { method: "DELETE" });
-      if (!ok) {
-        setAlert($("adminUsersMsg"), "Kunde inte ta bort användare (saknar endpoint).", "error");
-        return;
-      }
-      setAlert($("adminUsersMsg"), "Användare borttagen ✅", "");
-      await loadAdminUsers();
+    qsa("[data-del-user]").forEach((b) => {
+      b.addEventListener("click", async () => {
+        const userId = b.getAttribute("data-del-user");
+        if (!confirm("Ta bort användare?")) return;
+        try {
+          await api(`/admin/users/${userId}`, { method: "DELETE" });
+          setAlert($("adminUsersMsg"), "Användare borttagen ✅", "");
+          await loadAdminUsers();
+        } catch (e) {
+          setAlert($("adminUsersMsg"), e.message, "error");
+        }
+      });
     });
-  });
-}
-
-// Premium: Exportera all data med status och feedback
-function exportAllWithStatus() {
-  toast('Exporterar all data...', 'info');
-  fetch(API_BASE + '/admin/export/all', {
-    headers: { Authorization: `Bearer ${state.token}` },
-  })
-    .then((r) => {
-      if (!r.ok) throw new Error('Export misslyckades');
-      return r.blob();
-    })
-    .then((blob) => {
-      const a = document.createElement('a');
-      a.href = URL.createObjectURL(blob);
-      a.download = `export_all_${new Date().toISOString().slice(0, 10)}.json`;
-      a.click();
-      URL.revokeObjectURL(a.href);
-      toast('Export klar! ✅', 'success');
-    })
-    .catch(() => toast('❌ Export misslyckades', 'error'));
+  } catch (e) {
+    setAlert($("adminUsersMsg"), e.message, "error");
+    box.innerHTML = `<div class="muted small">Kunde inte ladda users.</div>`;
+  }
 }
 
 /* =========================
    EXPORTS
 ========================= */
 function exportAll() {
+  // download json with auth
   fetch(API_BASE + "/admin/export/all", {
     headers: { Authorization: `Bearer ${state.token}` },
   })
@@ -2013,7 +1753,6 @@ function exportAll() {
 function exportTraining() {
   const url = `/admin/export/training?companyId=${encodeURIComponent(state.companyId)}`;
   fetch(API_BASE + url, { headers: { Authorization: `Bearer ${state.token}` } })
-
     .then((r) => {
       if (!r.ok) throw new Error("Export misslyckades");
       return r.blob();
@@ -2038,34 +1777,33 @@ async function loadKbList() {
   setAlert(msg, "");
   box.innerHTML = `<div class="muted small">Laddar KB...</div>`;
 
-  const companyId = $("kbCategorySelect")?.value || "demo";
-  const items = await safeApi(`/kb/list/${companyId}`);
+  try {
+    const companyId = $("kbCategorySelect")?.value || "demo";
+    const items = await api(`/kb/list/${companyId}`);
 
-  if (!items || !Array.isArray(items)) {
-    setAlert(msg, "Kunde inte ladda KB (saknar endpoint/behörighet).", "error");
-    box.innerHTML = `<div class="muted small">Kunde inte ladda KB.</div>`;
-    return;
-  }
+    if (!items.length) {
+      box.innerHTML = `<div class="muted small">Inga KB chunks ännu.</div>`;
+      return;
+    }
 
-  if (!items.length) {
-    box.innerHTML = `<div class="muted small">Inga KB chunks ännu.</div>`;
-    return;
-  }
-
-  box.innerHTML = items
-    .map((c) => {
-      return `
-        <div class="listItem">
-          <div class="listItemTitle">
-            ${escapeHtml(c.title || c.sourceRef || "KB")}
-            <span class="muted small" style="margin-left:auto;">#${c.chunkIndex}</span>
+    box.innerHTML = items
+      .map((c) => {
+        return `
+          <div class="listItem">
+            <div class="listItemTitle">
+              ${escapeHtml(c.title || c.sourceRef || "KB")}
+              <span class="muted small" style="margin-left:auto;">#${c.chunkIndex}</span>
+            </div>
+            <div class="muted small">${escapeHtml(c.sourceType)} • ${escapeHtml(c.sourceRef || "")}</div>
+            <div class="muted small" style="margin-top:8px;">${escapeHtml((c.content || "").slice(0, 180))}...</div>
           </div>
-          <div class="muted small">${escapeHtml(c.sourceType)} • ${escapeHtml(c.sourceRef || "")}</div>
-          <div class="muted small" style="margin-top:8px;">${escapeHtml((c.content || "").slice(0, 180))}...</div>
-        </div>
-      `;
-    })
-    .join("");
+        `;
+      })
+      .join("");
+  } catch (e) {
+    setAlert(msg, e.message, "error");
+    box.innerHTML = `<div class="muted small">Kunde inte ladda KB.</div>`;
+  }
 }
 
 async function kbUploadText() {
@@ -2120,7 +1858,7 @@ async function kbUploadPdf() {
     if (!file) throw new Error("Välj en PDF fil.");
 
     const base64 = await fileToBase64(file);
-       const data = await api("/kb/upload-pdf", {
+    const data = await api("/kb/upload-pdf", {
       method: "POST",
       body: JSON.stringify({ companyId, filename: file.name, base64 }),
     });
@@ -2138,6 +1876,7 @@ function fileToBase64(file) {
     const fr = new FileReader();
     fr.onload = () => {
       const res = String(fr.result || "");
+      // data:application/pdf;base64,....
       const b64 = res.split(",")[1] || "";
       resolve(b64);
     };
@@ -2165,7 +1904,7 @@ function exportKb() {
 }
 
 /* =========================
-   Categories Admin (STABLE)
+   Categories Admin
 ========================= */
 async function loadCategoriesAdmin() {
   const box = $("catsList");
@@ -2174,22 +1913,9 @@ async function loadCategoriesAdmin() {
   setAlert(msg, "");
   box.innerHTML = `<div class="muted small">Laddar...</div>`;
 
-  const cats = await safeApi("/categories");
-  if (!cats || !Array.isArray(cats)) {
-    setAlert(msg, "Kunde inte ladda kategorier (saknar endpoint).", "error");
-    box.innerHTML = `<div class="muted small">Kunde inte ladda.</div>`;
-    return;
-  }
-
-  box.innerHTML = `
-    <div class="row gap" style="margin-bottom:10px;">
-      <input id="newCatKey" class="input smallInput" placeholder="Kategori-key (unik)">
-      <input id="newCatName" class="input smallInput" placeholder="Namn">
-      <input id="newCatPrompt" class="input smallInput" placeholder="System prompt">
-      <button class="btn small" id="createCatApiBtn">Skapa kategori</button>
-    </div>
-    ` +
-    cats
+  try {
+    const cats = await api("/categories");
+    box.innerHTML = cats
       .map((c) => {
         const locked = ["demo", "law", "tech", "cleaning"].includes(c.key);
         return `
@@ -2198,71 +1924,41 @@ async function loadCategoriesAdmin() {
               ${escapeHtml(c.name)} <span class="muted small">(${escapeHtml(c.key)})</span>
               ${locked ? `<span class="pill ok" style="margin-left:auto;">default</span>` : ""}
             </div>
-            <div class="muted small" style="margin-top:6px;">System prompt:</div>
-            <textarea class="input textarea" style="min-height:80px;" id="catPrompt_${c.key}" ${locked ? "disabled" : ""}>${escapeHtml(c.systemPrompt || "")}</textarea>
-            <div class="row gap" style="margin-top:8px;">
-              <input class="input smallInput" id="catName_${c.key}" value="${escapeHtml(c.name)}" ${locked ? "disabled" : ""}>
-              <button class="btn small" data-edit-cat="${c.key}" ${locked ? "disabled" : ""}>Spara</button>
-              <button class="btn danger small" data-del-cat="${c.key}" ${locked ? "disabled" : ""}>Radera</button>
-            </div>
+            <div class="muted small" style="margin-top:6px;">${escapeHtml((c.systemPrompt || "").slice(0, 120))}...</div>
+            ${
+              locked
+                ? ""
+                : `<button class="btn danger small" style="margin-top:10px;" data-del-cat="${escapeHtml(c.key)}"><i class="fa-solid fa-trash"></i> Ta bort</button>`
+            }
           </div>
         `;
       })
       .join("");
 
-  $("createCatApiBtn")?.addEventListener("click", async () => {
-    const key = $("newCatKey")?.value?.trim();
-    const name = $("newCatName")?.value?.trim();
-    const systemPrompt = $("newCatPrompt")?.value?.trim();
-    if (!key || !name) return setAlert(msg, "Fyll i key och namn", "error");
-    const res = await safeApi("/api/categories", {
-      method: "POST",
-      body: JSON.stringify({ key, name, systemPrompt }),
-    });
-    if (res && res._id) {
-      setAlert(msg, "Kategori skapad ✅", "");
-      await loadCategoriesAdmin();
-    } else {
-      setAlert(msg, res?.error || "Misslyckades", "error");
-    }
-  });
-
-  qsa("[data-edit-cat]").forEach((b) => {
-    b.addEventListener("click", async () => {
-      const key = b.getAttribute("data-edit-cat");
-      const name = $("catName_" + key)?.value?.trim();
-      const systemPrompt = $("catPrompt_" + key)?.value?.trim();
-      const res = await safeApi(`/api/categories/${key}`, {
-        method: "PUT",
-        body: JSON.stringify({ name, systemPrompt }),
+    qsa("[data-del-cat]").forEach((b) => {
+      b.addEventListener("click", async () => {
+        const key = b.getAttribute("data-del-cat");
+        if (!confirm(`Ta bort kategori ${key}?`)) return;
+        try {
+          await api(`/admin/categories/${encodeURIComponent(key)}`, { method: "DELETE" });
+          setAlert(msg, "Kategori borttagen ✅", "");
+          await loadCategories();
+          await loadCategoriesAdmin();
+        } catch (e) {
+          setAlert(msg, e.message, "error");
+        }
       });
-      if (res && res._id) {
-        setAlert(msg, "Kategori uppdaterad ✅", "");
-        await loadCategoriesAdmin();
-      } else {
-        setAlert(msg, res?.error || "Misslyckades", "error");
-      }
     });
-  });
-
-  qsa("[data-del-cat]").forEach((b) => {
-    b.addEventListener("click", async () => {
-      const key = b.getAttribute("data-del-cat");
-      if (!confirm("Radera kategori?")) return;
-      const res = await safeApi(`/api/categories/${key}`, { method: "DELETE" });
-      if (res && res.message) {
-        setAlert(msg, "Kategori raderad ✅", "");
-        await loadCategoriesAdmin();
-      } else {
-        setAlert(msg, res?.error || "Misslyckades", "error");
-      }
-    });
-  });
+  } catch (e) {
+    setAlert(msg, e.message, "error");
+    box.innerHTML = `<div class="muted small">Kunde inte ladda kategorier.</div>`;
+  }
 }
 
 async function createCategory() {
   const msg = $("catsMsg");
   setAlert(msg, "");
+
   try {
     const key = $("newCatKey")?.value?.trim();
     const name = $("newCatName")?.value?.trim();
@@ -2304,12 +2000,11 @@ async function changeUsername() {
     setAlert(msg, data.message || "Uppdaterat ✅", "");
     $("newUsernameInput").value = "";
 
-    const me = await safeApi("/me");
-    if (me) {
-      state.user = me;
-      setLS(LS.user, JSON.stringify(me));
-      onLoggedIn();
-    }
+    // refresh /me
+    const me = await api("/me");
+    state.user = me;
+    setLS(LS.user, JSON.stringify(me));
+    onLoggedIn();
   } catch (e) {
     setAlert(msg, e.message, "error");
   }
