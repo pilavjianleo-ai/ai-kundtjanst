@@ -1,3 +1,243 @@
+// =========================
+// SSE: Realtidsnotiser för agenter (nya ärenden)
+// =========================
+// ...existing code...
+app.get("/sse/agent-notify", (req, res) => {
+  res.setHeader("Content-Type", "text/event-stream");
+  res.setHeader("Cache-Control", "no-cache");
+  res.setHeader("Connection", "keep-alive");
+  res.flushHeaders();
+  sseClients.push(res);
+  req.on("close", () => {
+    const idx = sseClients.indexOf(res);
+    if (idx !== -1) sseClients.splice(idx, 1);
+  });
+});
+
+function notifyAgentsSSE(data) {
+  const msg = `data: ${JSON.stringify(data)}\n\n`;
+  sseClients.forEach((res) => res.write(msg));
+}
+
+// Exempel: Anropa notifyAgentsSSE({ type: 'new_ticket', ticketId }) när nytt ärende skapas
+// Lägg till i din ticket-creation endpoint:
+// notifyAgentsSSE({ type: 'new_ticket', ticketId: ticket._id, title: ticket.title });
+// =========================
+// API: Byt användarnamn (inloggad)
+// =========================
+app.post("/auth/change-username", async (req, res) => {
+  try {
+    if (!req.headers.authorization) return res.status(401).json({ error: "Ingen token" });
+    const token = req.headers.authorization.split(" ")[1];
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    const { newUsername } = req.body;
+    if (!newUsername) return res.status(400).json({ error: "Nytt användarnamn krävs" });
+    const exists = await User.findOne({ username: newUsername });
+    if (exists) return res.status(400).json({ error: "Användarnamnet är upptaget" });
+    const user = await User.findById(decoded.id);
+    if (!user) return res.status(404).json({ error: "Användare saknas" });
+    user.username = newUsername;
+    await user.save();
+    res.json({ message: "Användarnamn uppdaterat" });
+  } catch (e) {
+    res.status(500).json({ error: "Serverfel: " + e.message });
+  }
+});
+
+// =========================
+// API: Byt lösenord (inloggad)
+// =========================
+app.post("/auth/change-password", async (req, res) => {
+  try {
+    if (!req.headers.authorization) return res.status(401).json({ error: "Ingen token" });
+    const token = req.headers.authorization.split(" ")[1];
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    const { currentPassword, newPassword } = req.body;
+    if (!currentPassword || !newPassword) return res.status(400).json({ error: "Båda lösenord krävs" });
+    const user = await User.findById(decoded.id);
+    if (!user) return res.status(404).json({ error: "Användare saknas" });
+    const valid = await bcrypt.compare(currentPassword, user.password);
+    if (!valid) return res.status(400).json({ error: "Fel nuvarande lösenord" });
+    user.password = await bcrypt.hash(newPassword, 10);
+    await user.save();
+    res.json({ message: "Lösenord uppdaterat" });
+  } catch (e) {
+    res.status(500).json({ error: "Serverfel: " + e.message });
+  }
+});
+
+// =========================
+// API: Byt lösenord (utloggad, via reset-token)
+// =========================
+app.post("/auth/reset-password", async (req, res) => {
+  try {
+    const { token, newPassword } = req.body;
+    if (!token || !newPassword) return res.status(400).json({ error: "Token och nytt lösenord krävs" });
+    const user = await User.findOne({ resetTokenHash: token, resetTokenExpiresAt: { $gt: new Date() } });
+    if (!user) return res.status(400).json({ error: "Ogiltig eller utgången token" });
+    user.password = await bcrypt.hash(newPassword, 10);
+    user.resetTokenHash = "";
+    user.resetTokenExpiresAt = null;
+    await user.save();
+    res.json({ message: "Lösenord återställt" });
+  } catch (e) {
+    res.status(500).json({ error: "Serverfel: " + e.message });
+  }
+});
+
+// =========================
+// API: Radera användare (admin)
+// =========================
+app.delete("/admin/users/:id", async (req, res) => {
+  try {
+    if (!req.headers.authorization) return res.status(401).json({ error: "Ingen token" });
+    const token = req.headers.authorization.split(" ")[1];
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    if (decoded.role !== "admin") return res.status(403).json({ error: "Endast admin" });
+    const user = await User.findByIdAndDelete(req.params.id);
+    if (!user) return res.status(404).json({ error: "Användare hittades inte" });
+    res.json({ message: "Användare raderad" });
+  } catch (e) {
+    res.status(500).json({ error: "Serverfel: " + e.message });
+  }
+});
+
+// =========================
+// API: Ändra roll (admin)
+// =========================
+app.post("/admin/users/:id/role", async (req, res) => {
+  try {
+    if (!req.headers.authorization) return res.status(401).json({ error: "Ingen token" });
+    const token = req.headers.authorization.split(" ")[1];
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    if (decoded.role !== "admin") return res.status(403).json({ error: "Endast admin" });
+    const { role } = req.body;
+    if (!role || !["user", "agent", "admin"].includes(role)) return res.status(400).json({ error: "Ogiltig roll" });
+    const user = await User.findById(req.params.id);
+    if (!user) return res.status(404).json({ error: "Användare hittades inte" });
+    user.role = role;
+    await user.save();
+    res.json({ message: "Roll uppdaterad" });
+  } catch (e) {
+    res.status(500).json({ error: "Serverfel: " + e.message });
+  }
+});
+// =========================
+// API: Skapa AI-kategori (admin)
+// =========================
+app.post("/api/categories", async (req, res) => {
+  try {
+    const { key, name, systemPrompt } = req.body;
+    if (!req.headers.authorization) return res.status(401).json({ error: "Ingen token" });
+    const token = req.headers.authorization.split(" ")[1];
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    if (decoded.role !== "admin") return res.status(403).json({ error: "Endast admin" });
+    if (!key || !name) return res.status(400).json({ error: "key och name krävs" });
+    const exists = await Category.findOne({ key });
+    if (exists) return res.status(400).json({ error: "Kategori med denna key finns redan" });
+    const cat = await Category.create({ key, name, systemPrompt });
+    res.json(cat);
+  } catch (e) {
+    res.status(500).json({ error: "Serverfel: " + e.message });
+  }
+});
+
+// =========================
+// API: Redigera AI-kategori (admin)
+// =========================
+app.put("/api/categories/:key", async (req, res) => {
+  try {
+    const { name, systemPrompt } = req.body;
+    if (!req.headers.authorization) return res.status(401).json({ error: "Ingen token" });
+    const token = req.headers.authorization.split(" ")[1];
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    if (decoded.role !== "admin") return res.status(403).json({ error: "Endast admin" });
+    const cat = await Category.findOne({ key: req.params.key });
+    if (!cat) return res.status(404).json({ error: "Kategori hittades inte" });
+    if (name) cat.name = name;
+    if (systemPrompt) cat.systemPrompt = systemPrompt;
+    await cat.save();
+    res.json(cat);
+  } catch (e) {
+    res.status(500).json({ error: "Serverfel: " + e.message });
+  }
+});
+
+// =========================
+// API: Radera AI-kategori (admin)
+// =========================
+app.delete("/api/categories/:key", async (req, res) => {
+  try {
+    if (!req.headers.authorization) return res.status(401).json({ error: "Ingen token" });
+    const token = req.headers.authorization.split(" ")[1];
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    if (decoded.role !== "admin") return res.status(403).json({ error: "Endast admin" });
+    const cat = await Category.findOneAndDelete({ key: req.params.key });
+    if (!cat) return res.status(404).json({ error: "Kategori hittades inte" });
+    res.json({ message: "Kategori raderad" });
+  } catch (e) {
+    res.status(500).json({ error: "Serverfel: " + e.message });
+  }
+});
+// =========================
+// API: Nollställ specifik statistik (admin)
+// =========================
+app.post("/api/sla/reset", async (req, res) => {
+  try {
+    const { statId } = req.body;
+    if (!req.headers.authorization) return res.status(401).json({ error: "Ingen token" });
+    const token = req.headers.authorization.split(" ")[1];
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    if (decoded.role !== "admin") return res.status(403).json({ error: "Endast admin" });
+    if (!statId) return res.status(400).json({ error: "statId krävs" });
+    await SLAStat.deleteOne({ _id: statId });
+    res.json({ message: "Statistik nollställd" });
+  } catch (e) {
+    res.status(500).json({ error: "Serverfel: " + e.message });
+  }
+});
+
+// =========================
+// API: Hämta detaljerad statistik (admin/agent)
+// =========================
+app.get("/api/sla/stats", async (req, res) => {
+  try {
+    if (!req.headers.authorization) return res.status(401).json({ error: "Ingen token" });
+    const token = req.headers.authorization.split(" ")[1];
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    let stats;
+    if (decoded.role === "admin") {
+      stats = await SLAStat.find({}).sort({ createdAt: -1 }).limit(500);
+    } else if (decoded.role === "agent") {
+      stats = await SLAStat.find({ agentUserId: decoded.id }).sort({ createdAt: -1 }).limit(200);
+    } else {
+      return res.status(403).json({ error: "Endast admin eller agent" });
+    }
+    res.json(stats);
+  } catch (e) {
+    res.status(500).json({ error: "Serverfel: " + e.message });
+  }
+});
+// =========================
+// API: Byt AI-kategori för chatten (och återställ kontext)
+// =========================
+app.post("/api/chat/set-category", async (req, res) => {
+  try {
+    const { companyId } = req.body;
+    if (!companyId) return res.status(400).json({ error: "companyId krävs" });
+    // Här kan du lägga till logik för att spara användarens valda kategori i session eller databas om du vill
+    // För demo: returnera kategori-info och ev. systemprompt
+    const cat = await Category.findOne({ key: companyId });
+    if (!cat) return res.status(404).json({ error: "Kategori hittades inte" });
+    res.json({
+      key: cat.key,
+      name: cat.name,
+      systemPrompt: cat.systemPrompt
+    });
+  } catch (e) {
+    res.status(500).json({ error: "Serverfel: " + e.message });
+  }
+});
 // server.js (FULL FIXED + UPGRADED)
 // ✅ Agent kan INTE se Admin panel (blockas även i backend)
 // ✅ Agent kan se SLA som speglar sin statistik (backend filtrerar)
@@ -1417,12 +1657,14 @@ function buildTrendWeekly(tickets) {
     safeEnsureSla(t);
     const wk = weekKey(t.createdAt);
 
-    if (!map[wk]) map[wk] = { week: wk, total: 0, firstOk: 0, resOk: 0 };
+    if (!map[wk]) map[wk] = { week: wk, total: 0, firstOk: 0, resOk: 0, firstArr: [], resArr: [] };
     map[wk].total++;
 
     const b1 = !!t.sla?.breachedFirstResponse;
     const b2 = !!t.sla?.breachedResolution;
 
+    if (t.sla?.firstResponseMs != null) map[wk].firstArr.push(t.sla.firstResponseMs);
+    if (t.sla?.resolutionMs != null) map[wk].resArr.push(t.sla.resolutionMs);
     if (t.sla?.firstResponseMs != null && !b1) map[wk].firstOk++;
     if (t.sla?.resolutionMs != null && !b2) map[wk].resOk++;
   }
@@ -1433,6 +1675,8 @@ function buildTrendWeekly(tickets) {
     tickets: r.total,
     firstCompliancePct: r.total ? Math.round((r.firstOk / r.total) * 100) : 0,
     resolutionCompliancePct: r.total ? Math.round((r.resOk / r.total) * 100) : 0,
+    avgFirstMs: r.firstArr.length ? Math.round(r.firstArr.reduce((a, b) => a + b, 0) / r.firstArr.length) : 0,
+    avgResMs: r.resArr.length ? Math.round(r.resArr.reduce((a, b) => a + b, 0) / r.resArr.length) : 0,
   }));
 }
 

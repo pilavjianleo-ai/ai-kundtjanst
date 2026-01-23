@@ -1,3 +1,136 @@
+// =========================
+// SSE: Realtidsnotiser för agenter (nya ärenden)
+// =========================
+function startAgentSSE() {
+  if (!window.EventSource || !state.user || (state.user.role !== "agent" && state.user.role !== "admin")) return;
+  const sse = new EventSource("/sse/agent-notify");
+  sse.onmessage = (e) => {
+    try {
+      const data = JSON.parse(e.data);
+      if (data.type === "new_ticket") {
+        $("openInboxView")?.classList.add("hasNotif");
+        show($("inboxNotifDot"), true);
+        toast(`📩 Nytt ärende: ${data.title || data.ticketId}`);
+      }
+    } catch {}
+  };
+}
+
+// Starta SSE vid inloggning
+const origOnLoggedIn = onLoggedIn;
+onLoggedIn = async function() {
+  await origOnLoggedIn.apply(this, arguments);
+  startAgentSSE();
+};
+// =========================
+// SLA: Visa och nollställ detaljerad statistik (admin/agent)
+// =========================
+async function loadSlaStats() {
+  const box = $("slaStatsBox");
+  if (!box) return;
+  box.innerHTML = `<div class=\"muted small\">Laddar statistik...</div>`;
+  let stats = await safeApi("/api/sla/stats");
+  if (!stats || !Array.isArray(stats)) {
+    box.innerHTML = `<div class=\"muted small\">Kunde inte ladda statistik.</div>`;
+    return;
+  }
+  if (!stats.length) {
+    box.innerHTML = `<div class=\"muted small\">Ingen statistik ännu.</div>`;
+    return;
+  }
+  // Filtrering och sortering
+  let filter = $("slaStatsFilter")?.value?.toLowerCase() || "";
+  let sortBy = $("slaStatsSort")?.value || "createdAt";
+  let sortDir = $("slaStatsSortDir")?.value || "desc";
+  if (filter) {
+    stats = stats.filter(s =>
+      String(s.agentUserId || "").toLowerCase().includes(filter) ||
+      String(s.ticketId || "").toLowerCase().includes(filter) ||
+      String(s.priority || "").toLowerCase().includes(filter)
+    );
+  }
+  stats = stats.sort((a, b) => {
+    let vA = a[sortBy], vB = b[sortBy];
+    if (sortBy === "createdAt") {
+      vA = new Date(vA).getTime();
+      vB = new Date(vB).getTime();
+    }
+    return sortDir === "desc" ? vB - vA : vA - vB;
+  });
+  box.innerHTML = `
+    <div class=\"row gap\" style=\"margin-bottom:10px;\">
+      <input id='slaStatsFilter' class='input smallInput' placeholder='Filtrera agent/ticket/prio...' style='max-width:180px;'>
+      <select id='slaStatsSort' class='input smallInput'>
+        <option value='createdAt'>Datum</option>
+        <option value='firstResponseMs'>First</option>
+        <option value='resolutionMs'>Res</option>
+        <option value='priority'>Prio</option>
+      </select>
+      <select id='slaStatsSortDir' class='input smallInput'>
+        <option value='desc'>Nya först</option>
+        <option value='asc'>Äldst först</option>
+      </select>
+      <button class='btn small' id='slaStatsExportBtn'>Exportera CSV</button>
+    </div>
+    <div class=\"tableWrap\">
+      <table class=\"table\">
+        <thead>
+          <tr>
+            <th>ID</th><th>Agent</th><th>Ticket</th><th>First</th><th>Res</th><th>Prio</th><th>Skapad</th><th></th>
+          </tr>
+        </thead>
+        <tbody>
+          ${stats.map(s => `
+            <tr>
+              <td>${escapeHtml(String(s._id).slice(-8))}</td>
+              <td>${escapeHtml(s.agentUserId || "-")}</td>
+              <td>${escapeHtml(s.ticketId || "-")}</td>
+              <td>${msToPretty(s.firstResponseMs)}</td>
+              <td>${msToPretty(s.resolutionMs)}</td>
+              <td>${escapeHtml(s.priority || "")}</td>
+              <td>${fmtDate(s.createdAt)}</td>
+              <td>${state.user?.role === "admin" ? `<button class='btn danger small' data-reset-stat='${s._id}'>Nollställ</button>` : ""}</td>
+            </tr>
+          `).join("")}
+        </tbody>
+      </table>
+    </div>
+  `;
+  // Event listeners för filter/sort/export
+  $("slaStatsFilter").addEventListener("input", loadSlaStats);
+  $("slaStatsSort").addEventListener("change", loadSlaStats);
+  $("slaStatsSortDir").addEventListener("change", loadSlaStats);
+  $("slaStatsExportBtn").addEventListener("click", () => exportSlaStatsCsv(stats));
+  qsa("[data-reset-stat]").forEach(b => {
+    b.addEventListener("click", async () => {
+      if (!confirm("Nollställ denna statistik?")) return;
+      const statId = b.getAttribute("data-reset-stat");
+      const res = await safeApi("/api/sla/reset", { method: "POST", body: JSON.stringify({ statId }) });
+      if (res && res.message) toast(res.message);
+      await loadSlaStats();
+    });
+  });
+}
+
+function exportSlaStatsCsv(stats) {
+  if (!stats || !stats.length) return;
+  const headers = ["ID","Agent","Ticket","First","Res","Prio","Skapad"];
+  const rows = stats.map(s => [
+    String(s._id).slice(-8),
+    s.agentUserId || "-",
+    s.ticketId || "-",
+    msToPretty(s.firstResponseMs),
+    msToPretty(s.resolutionMs),
+    s.priority || "",
+    fmtDate(s.createdAt)
+  ]);
+  let csv = headers.join(",") + "\n" + rows.map(r => r.map(x => '"'+String(x).replaceAll('"','""')+'"').join(",")).join("\n");
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(new Blob([csv], { type: "text/csv" }));
+  a.download = `sla_stats_export_${new Date().toISOString().slice(0,10)}.csv`;
+  a.click();
+  URL.revokeObjectURL(a.href);
+}
 /* =========================================================
    AI Kundtjänst - script.js (STABLE FIXED)
    ✅ Behåller din layout exakt som index.html
@@ -184,7 +317,8 @@ function toast(msg) {
   const t = document.createElement("div");
   t.className = "toastMsg";
   t.textContent = msg;
-  document.body.appendChild(t);
+  const c = document.getElementById("toastContainer");
+  (c || document.body).appendChild(t);
   setTimeout(() => t.classList.add("show"), 30);
   setTimeout(() => {
     t.classList.remove("show");
@@ -247,6 +381,7 @@ function bindEvents() {
     setActiveMenu("openInboxView");
     switchView("inboxView");
     $("openInboxView")?.classList.remove("hasNotif");
+    show($("inboxNotifDot"), false);
     await loadInboxTickets();
   });
 
@@ -254,6 +389,7 @@ function bindEvents() {
     setActiveMenu("openSlaView");
     switchView("slaView");
     await refreshSlaAll();
+    await loadSlaStats();
   });
 
   $("openAdminView")?.addEventListener("click", async () => {
@@ -270,6 +406,22 @@ function bindEvents() {
   $("categorySelect")?.addEventListener("change", async (e) => {
     state.companyId = e.target.value || "demo";
     setLS(LS.currentCompanyId, state.companyId);
+    // Hämta systemprompt och återställ chatten vid kategori-byte
+    try {
+      const data = await api("/api/chat/set-category", {
+        method: "POST",
+        body: JSON.stringify({ companyId: state.companyId })
+      });
+      // Återställ konversation och visa ny välkomstfras
+      state.conversation = [];
+      setLS(LS.chatConversation, JSON.stringify(state.conversation));
+      $("messages").innerHTML = "";
+      addSystemMessage(`Kategori bytt till: ${data.name}`);
+      if (data.systemPrompt) addSystemMessage(data.systemPrompt);
+      maybeWelcomeMessage(true);
+    } catch (e) {
+      addSystemMessage("Kunde inte byta kategori: " + (e.message || e));
+    }
     await updateCategoryUiHints();
     updateDebug();
   });
@@ -387,6 +539,50 @@ function bindEvents() {
   // Settings
   $("changeUsernameBtn")?.addEventListener("click", changeUsername);
   $("changePasswordBtn")?.addEventListener("click", changePassword);
+
+// Byt användarnamn (inloggad)
+async function changeUsername() {
+  const msg = $("settingsMsg");
+  setAlert(msg, "");
+  try {
+    const newUsername = $("newUsernameInput")?.value?.trim();
+    if (!newUsername) throw new Error("Fyll i nytt användarnamn");
+    const data = await api("/auth/change-username", {
+      method: "POST",
+      body: JSON.stringify({ newUsername }),
+    });
+    setAlert(msg, data.message || "Uppdaterat ✅", "");
+    $("newUsernameInput").value = "";
+    const me = await safeApi("/me");
+    if (me) {
+      state.user = me;
+      setLS(LS.user, JSON.stringify(me));
+      onLoggedIn();
+    }
+  } catch (e) {
+    setAlert(msg, e.message, "error");
+  }
+}
+
+// Byt lösenord (inloggad)
+async function changePassword() {
+  const msg = $("settingsMsg");
+  setAlert(msg, "");
+  try {
+    const currentPassword = $("currentPassInput")?.value || "";
+    const newPassword = $("newPassInput")?.value || "";
+    if (!currentPassword || !newPassword) throw new Error("Fyll i båda fälten.");
+    const data = await api("/auth/change-password", {
+      method: "POST",
+      body: JSON.stringify({ currentPassword, newPassword }),
+    });
+    setAlert(msg, data.message || "Lösenord uppdaterat ✅", "");
+    $("currentPassInput").value = "";
+    $("newPassInput").value = "";
+  } catch (e) {
+    setAlert(msg, e.message, "error");
+  }
+}
 
   handleResetTokenFromUrl();
 }
@@ -1764,24 +1960,83 @@ async function loadCategoriesAdmin() {
     return;
   }
 
-  box.innerHTML = cats
-    .map((c) => {
-      const locked = ["demo", "law", "tech", "cleaning"].includes(c.key);
-      return `
-        <div class="listItem">
-          <div class="listItemTitle">
-            ${escapeHtml(c.name)} <span class="muted small">(${escapeHtml(c.key)})</span>
-            ${locked ? `<span class="pill ok" style="margin-left:auto;">default</span>` : ""}
+  box.innerHTML = `
+    <div class="row gap" style="margin-bottom:10px;">
+      <input id="newCatKey" class="input smallInput" placeholder="Kategori-key (unik)">
+      <input id="newCatName" class="input smallInput" placeholder="Namn">
+      <input id="newCatPrompt" class="input smallInput" placeholder="System prompt">
+      <button class="btn small" id="createCatApiBtn">Skapa kategori</button>
+    </div>
+    ` +
+    cats
+      .map((c) => {
+        const locked = ["demo", "law", "tech", "cleaning"].includes(c.key);
+        return `
+          <div class="listItem">
+            <div class="listItemTitle">
+              ${escapeHtml(c.name)} <span class="muted small">(${escapeHtml(c.key)})</span>
+              ${locked ? `<span class="pill ok" style="margin-left:auto;">default</span>` : ""}
+            </div>
+            <div class="muted small" style="margin-top:6px;">System prompt:</div>
+            <textarea class="input textarea" style="min-height:80px;" id="catPrompt_${c.key}" ${locked ? "disabled" : ""}>${escapeHtml(c.systemPrompt || "")}</textarea>
+            <div class="row gap" style="margin-top:8px;">
+              <input class="input smallInput" id="catName_${c.key}" value="${escapeHtml(c.name)}" ${locked ? "disabled" : ""}>
+              <button class="btn small" data-edit-cat="${c.key}" ${locked ? "disabled" : ""}>Spara</button>
+              <button class="btn danger small" data-del-cat="${c.key}" ${locked ? "disabled" : ""}>Radera</button>
+            </div>
           </div>
-          <div class="muted small" style="margin-top:6px;">System prompt:</div>
-          <textarea class="input textarea" style="min-height:80px;" disabled>${escapeHtml(c.systemPrompt || "")}</textarea>
-          <div class="muted small" style="margin-top:8px;">
-            (Edit är avstängt här för att INTE krascha om backend saknar PUT/DELETE.)
-          </div>
-        </div>
-      `;
-    })
-    .join("");
+        `;
+      })
+      .join("");
+
+  $("createCatApiBtn")?.addEventListener("click", async () => {
+    const key = $("newCatKey")?.value?.trim();
+    const name = $("newCatName")?.value?.trim();
+    const systemPrompt = $("newCatPrompt")?.value?.trim();
+    if (!key || !name) return setAlert(msg, "Fyll i key och namn", "error");
+    const res = await safeApi("/api/categories", {
+      method: "POST",
+      body: JSON.stringify({ key, name, systemPrompt }),
+    });
+    if (res && res._id) {
+      setAlert(msg, "Kategori skapad ✅", "");
+      await loadCategoriesAdmin();
+    } else {
+      setAlert(msg, res?.error || "Misslyckades", "error");
+    }
+  });
+
+  qsa("[data-edit-cat]").forEach((b) => {
+    b.addEventListener("click", async () => {
+      const key = b.getAttribute("data-edit-cat");
+      const name = $("catName_" + key)?.value?.trim();
+      const systemPrompt = $("catPrompt_" + key)?.value?.trim();
+      const res = await safeApi(`/api/categories/${key}`, {
+        method: "PUT",
+        body: JSON.stringify({ name, systemPrompt }),
+      });
+      if (res && res._id) {
+        setAlert(msg, "Kategori uppdaterad ✅", "");
+        await loadCategoriesAdmin();
+      } else {
+        setAlert(msg, res?.error || "Misslyckades", "error");
+      }
+    });
+  });
+
+  qsa("[data-del-cat]").forEach((b) => {
+    b.addEventListener("click", async () => {
+      const key = b.getAttribute("data-del-cat");
+      if (!confirm("Radera kategori?")) return;
+      const res = await safeApi(`/api/categories/${key}`, { method: "DELETE" });
+      if (res && res.message) {
+        setAlert(msg, "Kategori raderad ✅", "");
+        await loadCategoriesAdmin();
+      } else {
+        setAlert(msg, res?.error || "Misslyckades", "error");
+      }
+    });
+  });
 }
 
 async function createCategory() {
