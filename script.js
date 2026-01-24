@@ -353,7 +353,7 @@ async function loadCompanies() {
   // Endast admin kan hämta /admin/companies
   // Om du inte är admin → vi skapar en "demo-company" lokalt så UI funkar ändå.
   try {
-    const companies = await api("/admin/companies");
+    const companies = await api("/companies");
     state.companies = companies || [];
 
     const sel = $("categorySelect");
@@ -618,7 +618,7 @@ async function refreshCustomers() {
   if (!list) return;
 
   try {
-    const companies = await api("/admin/companies");
+    const companies = await api("/companies");
     list.innerHTML = "";
 
     companies.forEach((c) => {
@@ -649,7 +649,7 @@ async function createCompany() {
   if (!displayName || !email) return toast("Saknas", "Namn och email krävs", "error");
 
   try {
-    await api("/admin/companies", {
+    await api("/companies", {
       method: "POST",
       body: { displayName, orgNumber: orgNr, contactEmail: email, plan },
     });
