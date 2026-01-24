@@ -589,3 +589,53 @@ body[data-theme="light"] .input{ background: rgba(0,0,0,0.02); }
     align-items:flex-start;
   }
 }
+
+/* NYTT FÖR 2025 – små tillägg för nya vyer (CSAT-modal, simulator, billing etc.) */
+
+.modal {
+  position: fixed;
+  top: 0; left: 0; right: 0; bottom: 0;
+  background: rgba(0,0,0,0.65);
+  z-index: 9998;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.chat-preview {
+  background: var(--panel2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 16px;
+  min-height: 140px;
+  box-shadow: var(--shadow);
+}
+
+#settingsSimulator .msg.ai {
+  background: rgba(76,125,255,0.08);
+  border-color: var(--primary);
+}
+
+#billingHistoryList .listItem {
+  padding: 12px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  margin-bottom: 8px;
+}
+
+#customersList .listItem {
+  padding: 14px;
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  margin-bottom: 10px;
+  cursor: pointer;
+}
+
+#customersList .listItem:hover {
+  background: rgba(255,255,255,0.04);
+}
+
+/* Extra padding för nya paneler om det behövs – men återanvänder befintlig */
+.customer-panel {
+  margin-top: 12px;
+}

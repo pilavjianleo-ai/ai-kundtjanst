@@ -24,7 +24,7 @@
       </div>
 
       <div class="sidebarBlock">
-        <div class="label">AI Kategori</div>
+        <div class="label">Företag / Kategori</div>
         <select id="categorySelect" class="input">
           <option value="demo">demo</option>
         </select>
@@ -54,6 +54,19 @@
 
         <button id="openSettingsView" class="menuBtn" style="display:none;" type="button">
           <i class="fa-solid fa-gear"></i> Inställningar
+        </button>
+
+        <!-- NYA MENYKNAPPAR – läggs till sist i menyn -->
+        <button id="openCustomerAdminView" class="menuBtn" style="display:none;" type="button">
+          <i class="fa-solid fa-building"></i> Kunder (CRM)
+        </button>
+
+        <button id="openBillingView" class="menuBtn" style="display:none;" type="button">
+          <i class="fa-solid fa-credit-card"></i> Abonnemang & Fakturor
+        </button>
+
+        <button id="openCustomerSettingsView" class="menuBtn" style="display:none;" type="button">
+          <i class="fa-solid fa-cog"></i> Mina Inställningar
         </button>
       </nav>
 
@@ -640,6 +653,86 @@
           </div>
 
           <div id="settingsMsg" class="alert" style="display:none;"></div>
+        </div>
+      </section>
+
+      <!-- === NYA VYER LÄGG TILL HÄR – längst ner i main === -->
+
+      <!-- NY: KUND-ADMIN / CRM (för admin) -->
+      <section id="customerAdminView" class="view" style="display:none;">
+        <div class="topbar">
+          <div>
+            <div class="title">Kundadministration (CRM)</div>
+            <div class="subtitle muted">Hantera era kunder, abonnemang, status etc.</div>
+          </div>
+          <button id="refreshCustomersBtn" class="btn ghost">Uppdatera</button>
+        </div>
+
+        <div class="panel">
+          <div class="panelHead"><b>Skapa ny kund</b></div>
+          <div class="grid2">
+            <input id="newCompanyDisplayName" class="input" placeholder="Företagsnamn" />
+            <input id="newCompanyOrgNr" class="input" placeholder="Org.nr" />
+            <input id="newCompanyContactEmail" class="input" placeholder="Kontakt email" />
+            <select id="newCompanyPlan" class="input">
+              <option value="bas">BAS</option>
+              <option value="pro">PRO</option>
+            </select>
+          </div>
+          <button id="createCompanyBtn" class="btn primary full">Skapa kund</button>
+        </div>
+
+        <div id="customersList" class="list"></div>
+      </section>
+
+      <!-- NY: BILLING / ABONNEMANG -->
+      <section id="billingView" class="view" style="display:none;">
+        <div class="topbar">
+          <div class="title">Abonnemang & Fakturor</div>
+        </div>
+
+        <div class="panel">
+          <h3>Din nuvarande plan: <span id="currentPlan">Laddar...</span></h3>
+          <p>Status: <span id="subscriptionStatus">-</span></p>
+
+          <button id="upgradeToProBtn" class="btn primary">Uppgradera till PRO</button>
+          <button id="manageBillingBtn" class="btn secondary">Hantera betalning (Stripe Portal)</button>
+
+          <div class="divider"></div>
+
+          <h4>Fakturahistorik</h4>
+          <div id="billingHistoryList" class="list"></div>
+        </div>
+      </section>
+
+      <!-- NY: KUND-INSTÄLLNINGAR + SIMULATOR -->
+      <section id="customerSettingsView" class="view" style="display:none;">
+        <div class="topbar">
+          <div class="title">Mina Företagsinställningar</div>
+        </div>
+
+        <div class="panel">
+          <label>Hälsningsfras</label>
+          <input id="custGreeting" class="input" placeholder="Hej! Hur kan vi hjälpa dig?" />
+
+          <label>Ton</label>
+          <select id="custTone" class="input">
+            <option value="professional">Professionell</option>
+            <option value="friendly">Vänlig</option>
+            <option value="strict">Sträng</option>
+          </select>
+
+          <label>Widget-färg (hex)</label>
+          <input id="custWidgetColor" type="color" value="#0066cc" />
+
+          <button id="saveCustomerSettingsBtn" class="btn primary full">Spara</button>
+
+          <div class="divider"></div>
+
+          <h4>Simulator / Förhandsvisning</h4>
+          <div id="settingsSimulator" class="chat-preview" style="border:1px solid #444; padding:15px; border-radius:12px; min-height:120px;">
+            <div class="msg ai">Förhandsvisning laddas...</div>
+          </div>
         </div>
       </section>
 
