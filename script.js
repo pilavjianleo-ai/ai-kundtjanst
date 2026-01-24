@@ -268,22 +268,62 @@ function resetConversation() {
    - Du kan koppla på riktiga endpoints senare utan att UI dör.
 ========================= */
 async function doLogin() {
-  // Om du har riktig endpoint /auth/login, byt hit senare.
-  toast("Info", "Login endpoint saknas i servern just nu.", "info");
+  const username = $("username")?.value?.trim();
+  const password = $("password")?.value?.trim();
+
+  if (!username || !password) return toast("Saknas", "Fyll i användarnamn & lösenord", "error");
+
+  try {
+    const res = await api("/auth/login", {
+      method: "POST",
+      auth: false,
+      body: { username, password },
+    });
+
+    state.token = res.token;
+    localStorage.setItem("token", res.token);
+
+    state.me = res.user;
+    updateRoleUI();
+
+    toast("Inloggad", "Välkommen ✅", "info");
+
+    await loadCompanies();
+    await bootstrapAfterLogin();
+  } catch (e) {
+    toast("Fel", e.message, "error");
+  }
 }
 
 async function doRegister() {
-  toast("Info", "Register endpoint saknas i servern just nu.", "info");
+  const username = $("username")?.value?.trim();
+  const password = $("password")?.value?.trim();
+  const email = $("email")?.value?.trim();
+
+  if (!username || !password) return toast("Saknas", "Fyll i användarnamn & lösenord", "error");
+
+  try {
+    const res = await api("/auth/register", {
+      method: "POST",
+      auth: false,
+      body: { username, password, email },
+    });
+
+    state.token = res.token;
+    localStorage.setItem("token", res.token);
+
+    state.me = res.user;
+    updateRoleUI();
+
+    toast("Konto skapat", "Du är nu inloggad ✅", "info");
+
+    await loadCompanies();
+    await bootstrapAfterLogin();
+  } catch (e) {
+    toast("Fel", e.message, "error");
+  }
 }
 
-async function doLogout() {
-  state.token = "";
-  state.me = null;
-  localStorage.removeItem("token");
-  updateRoleUI();
-  showView("authView", "openChatView");
-  toast("Utloggad", "Du är nu utloggad.", "info");
-}
 
 /* =========================
    Forgot/Reset – safe placeholders

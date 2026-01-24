@@ -349,6 +349,85 @@ app.get(/.*/, (req, res) => {
 });
 
 /* =====================
+   AUTH ROUTES (FIX)
+===================== */
+
+// Register
+app.post("/auth/register", async (req, res) => {
+  try {
+    const { username, password, email } = req.body;
+
+    if (!username || !password) {
+      return res.status(400).json({ error: "Username och password krävs" });
+    }
+
+    const existing = await User.findOne({ username });
+    if (existing) {
+      return res.status(400).json({ error: "Användarnamn finns redan" });
+    }
+
+    const hashed = await bcrypt.hash(password, 10);
+
+    const user = await new User({
+      username,
+      email: email || "",
+      password: hashed,
+      role: "user",
+    }).save();
+
+    const token = jwt.sign({ id: user._id }, process.env.JWT_SECRET, { expiresIn: "7d" });
+
+    res.json({
+      token,
+      user: {
+        id: user._id,
+        publicUserId: user.publicUserId,
+        username: user.username,
+        role: user.role,
+        email: user.email || "",
+      },
+    });
+  } catch (err) {
+    console.error("Register error:", err);
+    res.status(500).json({ error: "Serverfel vid registrering" });
+  }
+});
+
+// Login
+app.post("/auth/login", async (req, res) => {
+  try {
+    const { username, password } = req.body;
+
+    if (!username || !password) {
+      return res.status(400).json({ error: "Username och password krävs" });
+    }
+
+    const user = await User.findOne({ username });
+    if (!user) return res.status(400).json({ error: "Fel användarnamn eller lösenord" });
+
+    const ok = await bcrypt.compare(password, user.password);
+    if (!ok) return res.status(400).json({ error: "Fel användarnamn eller lösenord" });
+
+    const token = jwt.sign({ id: user._id }, process.env.JWT_SECRET, { expiresIn: "7d" });
+
+    res.json({
+      token,
+      user: {
+        id: user._id,
+        publicUserId: user.publicUserId,
+        username: user.username,
+        role: user.role,
+        email: user.email || "",
+      },
+    });
+  } catch (err) {
+    console.error("Login error:", err);
+    res.status(500).json({ error: "Serverfel vid inloggning" });
+  }
+});
+
+
+/* =====================
    Starta servern
 ===================== */
 const PORT = process.env.PORT || 3000;
