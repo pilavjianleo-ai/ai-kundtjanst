@@ -1,6 +1,6 @@
 /* =========================
    AI Kundtjänst – script.js
-   - Works with your server.js endpoints
+   - Works with updated server.js endpoints
 ========================= */
 
 const $ = (id) => document.getElementById(id);
@@ -23,9 +23,21 @@ const state = {
   inboxSelectedTicket: null,
 };
 
+/* =========================
+   Small helpers
+========================= */
 function setDebugLine(id, v) {
   const el = $(id);
   if (el) el.textContent = v ?? "-";
+}
+
+function escapeHtml(s) {
+  return String(s ?? "")
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("'", "&#039;");
 }
 
 /* =========================
@@ -48,18 +60,7 @@ function toast(title, text = "", type = "info") {
     div.style.transform = "translateY(6px)";
   }, 3400);
 
-  setTimeout(() => {
-    div.remove();
-  }, 3800);
-}
-
-function escapeHtml(s) {
-  return String(s ?? "")
-    .replaceAll("&", "&amp;")
-    .replaceAll("<", "&lt;")
-    .replaceAll(">", "&gt;")
-    .replaceAll('"', "&quot;")
-    .replaceAll("'", "&#039;");
+  setTimeout(() => div.remove(), 3800);
 }
 
 /* =========================
@@ -123,7 +124,12 @@ function updateRoleUI() {
     roleBadge.textContent = "Inte inloggad";
     logoutBtn.style.display = "none";
     settingsBtn.style.display = "none";
-    document.querySelectorAll(".adminOnly").forEach((x) => (x.style.display = "none"));
+
+    $("openInboxView").style.display = "none";
+    $("openSlaView").style.display = "none";
+    $("openAdminView").style.display = "none";
+
+    $("slaClearAllStatsBtn").style.display = "none";
     return;
   }
 
@@ -131,7 +137,6 @@ function updateRoleUI() {
   logoutBtn.style.display = "";
   settingsBtn.style.display = "";
 
-  // Agent/admin buttons
   if (role === "admin" || role === "agent") {
     $("openInboxView").style.display = "";
     $("openSlaView").style.display = "";
@@ -376,10 +381,11 @@ async function loadCategories() {
   fill(sel3, true);
 
   // keep current
-  sel.value = state.companyId;
+  if (sel) sel.value = state.companyId;
   if (sel2) sel2.value = state.companyId;
 
   renderChatHeader();
+  renderWidgetCode();
 }
 
 function renderChatHeader() {
@@ -387,6 +393,40 @@ function renderChatHeader() {
   $("chatTitle").textContent = c ? `AI Kundtjänst – ${c.name}` : "AI Kundtjänst";
 }
 
+/* =========================
+   Widget embed generator
+========================= */
+function renderWidgetCode() {
+  const ta = $("widgetCode");
+  if (!ta) return;
+
+  const base = location.origin;
+  const code = `
+<!-- AI Kundtjänst Widget -->
+<div id="ai-kundtjanst-widget"></div>
+<script>
+  (function(){
+    var el = document.getElementById("ai-kundtjanst-widget");
+    el.innerHTML = '<iframe src="${base}" style="width:420px;height:640px;border:0;border-radius:18px;box-shadow:0 12px 40px rgba(0,0,0,0.35)"></iframe>';
+  })();
+</script>
+<!-- /AI Kundtjänst Widget -->
+`.trim();
+
+  ta.value = code;
+}
+
+function copyWidget() {
+  const ta = $("widgetCode");
+  if (!ta) return;
+  ta.select();
+  document.execCommand("copy");
+  toast("Kopierat", "Widget-koden är kopierad ✅");
+}
+
+/* =========================
+   After login
+========================= */
 async function bootstrapAfterLogin() {
   await loadMe();
   updateRoleUI();
@@ -396,6 +436,7 @@ async function bootstrapAfterLogin() {
   resetConversation();
 
   await refreshMyTickets();
+
   if (state.me?.role === "admin" || state.me?.role === "agent") {
     await refreshInbox();
   }
@@ -425,6 +466,7 @@ async function sendChat() {
 
     state.activeTicketId = data.ticketId;
     state.activeTicketPublicId = data.ticketPublicId || null;
+
     renderDebug();
     setDebugLine("dbgRag", data.ragUsed ? "JA" : "NEJ");
 
@@ -432,7 +474,6 @@ async function sendChat() {
     addMsg("assistant", reply, data.ragUsed ? "Svar baserat på kunskapsdatabas ✅" : "");
     state.conversation.push({ role: "assistant", content: reply });
 
-    // refresh tickets list so it appears
     await refreshMyTickets();
   } catch (e) {
     addMsg("assistant", "❌ Fel: " + e.message);
@@ -446,6 +487,7 @@ function exportChat() {
     conversation: state.conversation,
     exportedAt: new Date().toISOString(),
   };
+
   const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" });
   const a = document.createElement("a");
   a.href = URL.createObjectURL(blob);
@@ -523,7 +565,9 @@ function renderMyTicketsList() {
         <span style="margin-left:auto">${pill(t.status)}</span>
       </div>
       <div class="muted small" style="margin-top:6px;">
-        ${escapeHtml(t.ticketPublicId || "")} • ${escapeHtml(t.companyId)} • ${prettyDate(t.lastActivityAt)}
+        ${escapeHtml(t.ticketPublicId || t.publicTicketId || "")} • ${escapeHtml(t.companyId)} • ${prettyDate(
+      t.lastActivityAt
+    )}
       </div>
     `;
     div.onclick = () => openMyTicket(t._id);
@@ -535,15 +579,16 @@ async function openMyTicket(ticketId) {
   try {
     const t = await api(`/my/tickets/${ticketId}`);
     state.activeTicketId = t._id;
-    state.activeTicketPublicId = t.ticketPublicId || null;
+    state.activeTicketPublicId = t.ticketPublicId || t.publicTicketId || null;
     renderDebug();
 
-    // Render details
     const box = $("myTicketDetails");
     box.innerHTML = `
       <div><b>${escapeHtml(t.title || "(utan titel)")}</b></div>
       <div class="muted small" style="margin-top:4px;">
-        ${escapeHtml(t.ticketPublicId || "")} • ${escapeHtml(t.companyId)} • status: ${escapeHtml(t.status)}
+        ${escapeHtml(t.ticketPublicId || t.publicTicketId || "")} • ${escapeHtml(t.companyId)} • status: ${escapeHtml(
+      t.status
+    )}
       </div>
       <div class="divider"></div>
       ${renderTicketMessages(t.messages || [])}
@@ -585,7 +630,7 @@ async function replyMyTicket() {
   $("myTicketReplyText").value = "";
 
   try {
-    const data = await api(`/my/tickets/${ticketId}/reply`, { method: "POST", body: { content: text } });
+    await api(`/my/tickets/${ticketId}/reply`, { method: "POST", body: { content: text } });
     toast("Skickat", "Meddelande skickat ✅");
     await openMyTicket(ticketId);
     await refreshMyTickets();
@@ -639,7 +684,7 @@ function renderInboxList() {
 
   const filtered = state.inboxTickets.filter((t) => {
     if (!q) return true;
-    const s = `${t.title || ""} ${t.ticketPublicId || ""} ${t.companyId || ""}`.toLowerCase();
+    const s = `${t.title || ""} ${t.ticketPublicId || t.publicTicketId || ""} ${t.companyId || ""}`.toLowerCase();
     return s.includes(q);
   });
 
@@ -652,7 +697,9 @@ function renderInboxList() {
         <span style="margin-left:auto">${pill(t.status)}</span>
       </div>
       <div class="muted small" style="margin-top:6px;">
-        ${escapeHtml(t.ticketPublicId || "")} • ${escapeHtml(t.companyId)} • prio: ${escapeHtml(t.priority || "normal")}
+        ${escapeHtml(t.ticketPublicId || t.publicTicketId || "")} • ${escapeHtml(t.companyId)} • prio: ${escapeHtml(
+      t.priority || "normal"
+    )}
       </div>
     `;
     div.onclick = () => openInboxTicket(t._id);
@@ -670,7 +717,9 @@ async function openInboxTicket(ticketId) {
     $("ticketDetails").innerHTML = `
       <div><b>${escapeHtml(t.title || "(utan titel)")}</b></div>
       <div class="muted small" style="margin-top:4px;">
-        ${escapeHtml(t.ticketPublicId || "")} • ${escapeHtml(t.companyId)} • status: ${escapeHtml(t.status)}
+        ${escapeHtml(t.ticketPublicId || t.publicTicketId || "")} • ${escapeHtml(t.companyId)} • status: ${escapeHtml(
+      t.status
+    )}
       </div>
 
       <div class="divider"></div>
@@ -838,11 +887,13 @@ async function removeSolved() {
 }
 
 /* =========================
-   Admin: Users / Export / KB
+   Admin: Users / Export / KB / Cats / AI Settings
 ========================= */
 async function refreshUsers() {
   const msg = $("adminUsersMsg");
   const list = $("adminUsersList");
+  if (!msg || !list) return;
+
   msg.style.display = "none";
   list.innerHTML = "";
 
@@ -859,9 +910,9 @@ async function refreshUsers() {
         <div class="muted small" style="margin-top:6px;">${escapeHtml(u.email || "")}</div>
         <div class="row gap" style="margin-top:10px; flex-wrap:wrap;">
           <select class="input smallInput" data-role="${u._id}">
-            <option value="user" ${u.role==="user"?"selected":""}>user</option>
-            <option value="agent" ${u.role==="agent"?"selected":""}>agent</option>
-            <option value="admin" ${u.role==="admin"?"selected":""}>admin</option>
+            <option value="user" ${u.role === "user" ? "selected" : ""}>user</option>
+            <option value="agent" ${u.role === "agent" ? "selected" : ""}>agent</option>
+            <option value="admin" ${u.role === "admin" ? "selected" : ""}>admin</option>
           </select>
           <button class="btn ghost small" data-save="${u._id}"><i class="fa-solid fa-floppy-disk"></i> Spara roll</button>
           <button class="btn danger small" data-del="${u._id}"><i class="fa-solid fa-trash"></i> Ta bort</button>
@@ -912,9 +963,7 @@ function openAdminTab(tabId) {
 
 async function exportAll() {
   try {
-    const res = await fetch("/admin/export/all", {
-      headers: { Authorization: "Bearer " + state.token },
-    });
+    const res = await fetch("/admin/export/all", { headers: { Authorization: "Bearer " + state.token } });
     const blob = await res.blob();
     const a = document.createElement("a");
     a.href = URL.createObjectURL(blob);
@@ -943,27 +992,64 @@ async function exportTraining() {
 async function kbRefresh() {
   const box = $("kbList");
   const msg = $("kbMsg");
+  if (!box || !msg) return;
+
   msg.style.display = "none";
   box.innerHTML = "";
 
   try {
     const companyId = $("kbCategorySelect").value;
     const items = await api(`/kb/list/${companyId}`);
+
     for (const it of items) {
       const div = document.createElement("div");
       div.className = "listItem";
+
       div.innerHTML = `
-        <div class="listItemTitle">${escapeHtml(it.title || it.sourceRef || "KB")}</div>
+        <div class="listItemTitle" style="gap:8px; align-items:center;">
+          <span>${escapeHtml(it.title || it.sourceRef || "KB")}</span>
+          <span class="muted small" style="margin-left:auto;">chunk ${it.chunkIndex}</span>
+          <button class="btn danger small" data-kbdel="${it._id}" type="button" style="margin-left:8px;">
+            <i class="fa-solid fa-trash"></i>
+          </button>
+        </div>
         <div class="muted small" style="margin-top:6px;">
-          ${escapeHtml(it.sourceType)} • chunk ${it.chunkIndex} • ${prettyDate(it.createdAt)}
+          ${escapeHtml(it.sourceType)} • ${escapeHtml(it.sourceRef || "")}
         </div>
       `;
       box.appendChild(div);
     }
+
+    box.querySelectorAll("[data-kbdel]").forEach((btn) => {
+      btn.onclick = async (e) => {
+        e.stopPropagation();
+        const id = btn.getAttribute("data-kbdel");
+        try {
+          await api(`/kb/item/${id}`, { method: "DELETE" });
+          toast("Borttagen", "KB item borttagen ✅");
+          await kbRefresh();
+        } catch (err) {
+          toast("Fel", err.message);
+        }
+      };
+    });
   } catch (e) {
     msg.style.display = "";
     msg.textContent = e.message;
   }
+}
+
+function fileToBase64(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => {
+      const s = String(reader.result || "");
+      const base64 = s.split(",")[1] || "";
+      resolve(base64);
+    };
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+  });
 }
 
 async function kbUploadText() {
@@ -988,6 +1074,7 @@ async function kbUploadUrl() {
     const companyId = $("kbCategorySelect").value;
     const url = $("kbUrlInput").value.trim();
     if (!url) return toast("Saknas", "Skriv URL först.");
+
     const r = await api("/kb/upload-url", { method: "POST", body: { companyId, url } });
     toast("Uppladdat", r.message || "URL uppladdad ✅");
     $("kbUrlInput").value = "";
@@ -995,19 +1082,6 @@ async function kbUploadUrl() {
   } catch (e) {
     toast("Fel", e.message);
   }
-}
-
-function fileToBase64(file) {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = () => {
-      const s = String(reader.result || "");
-      const base64 = s.split(",")[1] || "";
-      resolve(base64);
-    };
-    reader.onerror = reject;
-    reader.readAsDataURL(file);
-  });
 }
 
 async function kbUploadPdf() {
@@ -1045,24 +1119,87 @@ async function kbExport() {
 async function catsRefresh() {
   const box = $("catsList");
   const msg = $("catsMsg");
+  if (!box || !msg) return;
+
   msg.style.display = "none";
   box.innerHTML = "";
 
   try {
     await loadCategories();
+
     for (const c of state.categories) {
       const div = document.createElement("div");
       div.className = "listItem";
+
       div.innerHTML = `
         <div class="listItemTitle">
           ${escapeHtml(c.key)} - ${escapeHtml(c.name)}
+          <span style="margin-left:auto" class="muted small">tone: ${escapeHtml(c.settings?.tone || "professional")}</span>
         </div>
-        <div class="muted small" style="margin-top:6px;">
-          tone: ${escapeHtml(c.settings?.tone || "professional")}
+
+        <div class="row gap" style="margin-top:10px; flex-wrap:wrap;">
+          <button class="btn ghost small" data-cat-edit="${escapeHtml(c.key)}" type="button">
+            <i class="fa-solid fa-pen"></i> Edit
+          </button>
+          <button class="btn danger small" data-cat-del="${escapeHtml(c.key)}" type="button">
+            <i class="fa-solid fa-trash"></i> Delete
+          </button>
         </div>
       `;
       box.appendChild(div);
     }
+
+    box.querySelectorAll("[data-cat-del]").forEach((btn) => {
+      btn.onclick = async () => {
+        const key = btn.getAttribute("data-cat-del");
+        if (["demo", "law", "tech", "cleaning"].includes(key)) {
+          return toast("Blockerat", "Default-kategorier kan inte tas bort.");
+        }
+
+        if (!confirm(`Ta bort kategori "${key}"? Detta tar även bort KB + tickets för kategorin.`)) return;
+
+        try {
+          await api(`/admin/categories/${encodeURIComponent(key)}`, { method: "DELETE" });
+          toast("Borttagen", "Kategori borttagen ✅");
+          await catsRefresh();
+        } catch (e) {
+          toast("Fel", e.message);
+        }
+      };
+    });
+
+    box.querySelectorAll("[data-cat-edit]").forEach((btn) => {
+      btn.onclick = async () => {
+        const key = btn.getAttribute("data-cat-edit");
+        const cat = state.categories.find((x) => x.key === key);
+        if (!cat) return;
+
+        const newName = prompt("Nytt namn:", cat.name || "");
+        if (newName == null) return;
+
+        const newPrompt = prompt("Ny system prompt:", cat.systemPrompt || "");
+        if (newPrompt == null) return;
+
+        try {
+          await api(`/admin/categories/${encodeURIComponent(key)}`, {
+            method: "PATCH",
+            body: {
+              name: newName,
+              systemPrompt: newPrompt,
+              settings: {
+                tone: cat.settings?.tone || "professional",
+                language: "sv",
+                allowEmojis: cat.settings?.allowEmojis !== false,
+              },
+            },
+          });
+          toast("Sparat", "Kategori uppdaterad ✅");
+          await catsRefresh();
+        } catch (e) {
+          toast("Fel", e.message);
+        }
+      };
+    });
   } catch (e) {
     msg.style.display = "";
     msg.textContent = e.message;
@@ -1074,18 +1211,57 @@ async function createCategory() {
   const name = $("newCatName").value.trim();
   const systemPrompt = $("newCatPrompt").value.trim();
 
+  const tone = $("newCatTone")?.value || "professional";
+  const allowEmojis = ($("newCatEmojis")?.value || "true") === "true";
+
   if (!key || !name) return toast("Saknas", "key + namn krävs");
 
   try {
     await api("/admin/categories", {
       method: "POST",
-      body: { key, name, systemPrompt, settings: { tone: "professional", language: "sv", allowEmojis: true } },
+      body: { key, name, systemPrompt, settings: { tone, language: "sv", allowEmojis } },
     });
+
     toast("Skapat", "Kategori skapad ✅");
     $("newCatKey").value = "";
     $("newCatName").value = "";
     $("newCatPrompt").value = "";
     await catsRefresh();
+  } catch (e) {
+    toast("Fel", e.message);
+  }
+}
+
+/* AI Settings */
+async function aiSettingsRefresh() {
+  const msg = $("aiSettingsMsg");
+  if (msg) msg.style.display = "none";
+
+  try {
+    const s = await api("/ai/settings");
+    $("aiGreeting").value = s.greeting || "";
+    $("aiTips").value = s.tips || "";
+    $("aiShortcuts").value = (s.shortcuts || []).join("\n");
+  } catch (e) {
+    if (msg) {
+      msg.style.display = "";
+      msg.textContent = e.message;
+    }
+  }
+}
+
+async function aiSettingsSave() {
+  try {
+    const greeting = $("aiGreeting").value.trim();
+    const tips = $("aiTips").value.trim();
+    const shortcuts = $("aiShortcuts")
+      .value.split("\n")
+      .map((x) => x.trim())
+      .filter(Boolean)
+      .slice(0, 12);
+
+    await api("/ai/settings", { method: "POST", body: { greeting, tips, shortcuts } });
+    toast("Sparat", "AI Settings sparade ✅");
   } catch (e) {
     toast("Fel", e.message);
   }
@@ -1097,6 +1273,7 @@ async function createCategory() {
 async function changeUsername() {
   const newUsername = $("newUsernameInput").value.trim();
   if (!newUsername) return;
+
   try {
     await api("/auth/change-username", { method: "POST", body: { newUsername } });
     toast("Sparat", "Username uppdaterat ✅");
@@ -1122,10 +1299,11 @@ async function changePassword() {
 }
 
 /* =========================
-   SLA (basic render only)
+   SLA (render)
 ========================= */
 async function refreshSla() {
   const box = $("slaOverviewBox");
+  if (!box) return;
   box.innerHTML = `<div class="muted small">Laddar SLA...</div>`;
 
   const days = $("slaDaysSelect").value || "30";
@@ -1153,15 +1331,12 @@ async function refreshSla() {
       </div>
     `;
 
-    // Trend
     const trend = await api(`/admin/sla/trend/weekly?days=${encodeURIComponent(days)}`);
     renderSlaTrendChart(trend.rows || []);
 
-    // Agents
     const agents = await api(`/admin/sla/agents?days=${encodeURIComponent(days)}`);
     renderSlaAgents(agents.rows || []);
 
-    // Tickets list
     const t = await api(`/admin/sla/tickets?days=${encodeURIComponent(days)}`);
     renderSlaTickets(t.rows || []);
   } catch (e) {
@@ -1169,21 +1344,9 @@ async function refreshSla() {
   }
 }
 
-function ensureChartJs() {
-  return new Promise((resolve) => {
-    if (window.Chart) return resolve(true);
-    const s = document.createElement("script");
-    s.src = "https://cdn.jsdelivr.net/npm/chart.js";
-    s.onload = () => resolve(true);
-    s.onerror = () => resolve(false);
-    document.head.appendChild(s);
-  });
-}
-
 async function renderSlaTrendChart(rows) {
-  const ok = await ensureChartJs();
-  if (!ok) {
-    $("slaTrendHint").textContent = "Chart.js kunde inte laddas.";
+  if (!window.Chart) {
+    $("slaTrendHint").textContent = "Chart.js saknas.";
     return;
   }
 
@@ -1191,7 +1354,10 @@ async function renderSlaTrendChart(rows) {
   const first = rows.map((r) => r.firstCompliancePct);
   const res = rows.map((r) => r.resolutionCompliancePct);
 
-  const ctx = $("slaTrendChart").getContext("2d");
+  const canvas = $("slaTrendChart");
+  if (!canvas) return;
+
+  const ctx = canvas.getContext("2d");
   if (window.__slaChart) window.__slaChart.destroy();
 
   window.__slaChart = new Chart(ctx, {
@@ -1215,12 +1381,14 @@ async function renderSlaTrendChart(rows) {
 
 function renderSlaAgents(rows) {
   const box = $("slaAgentsBox");
+  if (!box) return;
+
   if (!rows.length) {
     box.innerHTML = `<div class="muted small">Ingen agent-data.</div>`;
     return;
   }
 
-  const html = `
+  box.innerHTML = `
     <div class="tableWrap">
       <table class="table">
         <thead>
@@ -1254,11 +1422,12 @@ function renderSlaAgents(rows) {
       </table>
     </div>
   `;
-  box.innerHTML = html;
 }
 
 function renderSlaTickets(rows) {
   const box = $("slaTicketsBox");
+  if (!box) return;
+
   if (!rows.length) {
     box.innerHTML = `<div class="muted small">Ingen ticket-data.</div>`;
     return;
@@ -1371,6 +1540,7 @@ function bindEvents() {
 
   // Menu navigation
   $("openChatView").onclick = () => showView("chatView", "openChatView");
+
   $("openMyTicketsView").onclick = async () => {
     showView("myTicketsView", "openMyTicketsView");
     await refreshMyTickets();
@@ -1397,10 +1567,11 @@ function bindEvents() {
   };
 
   // Category select
-  $("categorySelect").onchange = () => {
+  $("categorySelect").onchange = async () => {
     state.companyId = $("categorySelect").value;
     renderChatHeader();
     resetConversation();
+    await refreshMyTickets();
     toast("Kategori", `Bytte till ${state.companyId}`);
   };
 
@@ -1445,7 +1616,7 @@ function bindEvents() {
   $("solveAllBtn").onclick = solveAll;
   $("removeSolvedBtn").onclick = removeSolved;
 
-  // Admin
+  // Admin tabs
   document.querySelectorAll(".tabBtn").forEach((b) => {
     b.onclick = async () => {
       const tab = b.getAttribute("data-tab");
@@ -1454,11 +1625,15 @@ function bindEvents() {
       if (tab === "tabUsers") await refreshUsers();
       if (tab === "tabKB") await kbRefresh();
       if (tab === "tabCats") await catsRefresh();
+      if (tab === "tabAI") await aiSettingsRefresh();
+      if (tab === "tabWidget") renderWidgetCode();
     };
   });
 
+  // Admin
   $("adminExportAllBtn").onclick = exportAll;
   $("trainingExportBtn").onclick = exportTraining;
+  $("adminUsersRefreshBtn").onclick = refreshUsers;
 
   // KB
   $("kbRefreshBtn").onclick = kbRefresh;
@@ -1480,6 +1655,13 @@ function bindEvents() {
   $("slaExportCsvBtn").onclick = slaExportCsv;
   $("slaClearMyStatsBtn").onclick = slaClearMyStats;
   $("slaClearAllStatsBtn").onclick = slaClearAllStats;
+
+  // Widget
+  $("copyWidgetBtn").onclick = copyWidget;
+
+  // AI settings
+  $("aiSettingsRefreshBtn").onclick = aiSettingsRefresh;
+  $("aiSettingsSaveBtn").onclick = aiSettingsSave;
 }
 
 /* =========================

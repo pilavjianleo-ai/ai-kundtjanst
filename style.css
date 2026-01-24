@@ -404,10 +404,6 @@ body[data-theme="light"] .input{ background: rgba(0,0,0,0.02); }
 }
 .listItem:hover{ background: rgba(255,255,255,0.04); }
 .listItem:active{ transform: translateY(1px); }
-.listItem.selected{
-  border-color: rgba(76,125,255,0.45);
-  box-shadow: 0 0 0 2px rgba(76,125,255,0.12);
-}
 
 .listItemTitle{
   display:flex;
@@ -536,6 +532,13 @@ body[data-theme="light"] .input{ background: rgba(0,0,0,0.02); }
 }
 .table tbody tr:nth-child(even){ background: rgba(255,255,255,0.02); }
 .table tbody tr:hover{ background: rgba(255,255,255,0.04); }
+
+/* Widget textarea */
+#widgetCode{
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+  font-size: 12px;
+  min-height: 210px;
+}
 
 /* Responsive */
 @media (max-width: 1100px){
