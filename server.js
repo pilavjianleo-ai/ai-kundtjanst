@@ -177,6 +177,26 @@ const requireAdmin = async (req, res, next) => {
   next();
 };
 
+app.get("/me", authenticate, async (req, res) => {
+  try {
+    const user = await User.findById(req.user.id).select("-password");
+    if (!user) {
+      return res.status(404).json({ error: "Användare hittades inte" });
+    }
+    
+    res.json({
+      id: user._id,
+      publicUserId: user.publicUserId,
+      username: user.username,
+      role: user.role,
+      email: user.email || "",
+    });
+  } catch (err) {
+    console.error("Fel i /me-route:", err.message);
+    res.status(500).json({ error: "Serverfel vid hämtning av användare" });
+  }
+});
+
 /* =====================
    ROUTES – Company
 ===================== */
@@ -194,6 +214,8 @@ app.post("/admin/companies", authenticate, requireAdmin, async (req, res) => {
   const company = await new Company({ companyId, displayName, orgNumber, contactEmail }).save();
   res.json(company);
 });
+
+
 
 /* =====================
    Kundinställningar
