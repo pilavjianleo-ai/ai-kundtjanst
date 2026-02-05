@@ -78,7 +78,7 @@ async function api(path, { method = "GET", body, auth = true } = {}) {
   let data = null;
   try {
     data = await res.json();
-  } catch {}
+  } catch { }
 
   if (!res.ok) {
     const msg = data?.error || `Serverfel (${res.status})`;
@@ -365,6 +365,18 @@ async function loadCompanies() {
     }
   }
 
+  // Also populate KB select
+  const kbSel = $("kbCategorySelect");
+  if (kbSel) {
+    kbSel.innerHTML = "";
+    state.companies.forEach((c) => {
+      const opt = document.createElement("option");
+      opt.value = c.companyId;
+      opt.textContent = `${c.companyId} - ${c.displayName}`;
+      kbSel.appendChild(opt);
+    });
+  }
+
   state.currentCompany =
     state.companies.find((c) => c.companyId === state.companyId) || state.companies[0] || null;
 
@@ -446,7 +458,7 @@ async function refreshMyTickets() {
     const tickets = await api("/tickets/my");
     state.myTickets = tickets || [];
     renderMyTicketsList();
-  } catch {}
+  } catch { }
 }
 
 async function renderMyTicketDetails(ticketId) {
@@ -797,6 +809,137 @@ async function simulateSettings() {
 }
 
 /* =========================
+   KB & Tabs
+========================= */
+function initTabs() {
+  const tabs = document.querySelectorAll(".tabBtn");
+  tabs.forEach((t) => {
+    t.addEventListener("click", () => {
+      // Remove active from all tabs
+      tabs.forEach((b) => b.classList.remove("active"));
+      // Hide all panels
+      document.querySelectorAll(".tabPanel").forEach((p) => (p.style.display = "none"));
+
+      // Activate clicked
+      t.classList.add("active");
+      const target = t.getAttribute("data-tab");
+      const p = $(target);
+      if (p) p.style.display = "";
+    });
+  });
+}
+
+async function loadKb() {
+  const companyId = $("kbCategorySelect")?.value || "demo";
+  const list = $("kbList");
+  if (!list) return;
+
+  try {
+    const docs = await api(`/admin/kb?companyId=${encodeURIComponent(companyId)}`);
+    list.innerHTML = "";
+
+    if (docs.length === 0) {
+      list.innerHTML = "<div class='muted small'>Inga dokument ännu.</div>";
+      return;
+    }
+
+    docs.forEach((d) => {
+      const div = document.createElement("div");
+      div.className = "listItem";
+
+      const icon = d.sourceType === "pdf" ? "fa-file-pdf" : d.sourceType === "url" ? "fa-link" : "fa-file-lines";
+
+      div.innerHTML = `
+        <div class="listItemTitle">
+          <i class="fa-solid ${icon}"></i> ${escapeHtml(d.title)} 
+          <span class="muted small">(${d.sourceType})</span>
+        </div>
+      `;
+
+      const delBtn = document.createElement("button");
+      delBtn.className = "btn ghost small danger";
+      delBtn.innerHTML = '<i class="fa-solid fa-trash"></i>';
+      delBtn.onclick = async (e) => {
+        e.stopPropagation();
+        if (!confirm(`Ta bort "${d.title}"?`)) return;
+        await api("/admin/kb/" + d._id, { method: "DELETE" });
+        await loadKb();
+      };
+
+      div.appendChild(delBtn);
+      list.appendChild(div);
+    });
+  } catch (e) {
+    list.textContent = "Fel: " + e.message;
+  }
+}
+
+async function uploadKbText() {
+  const companyId = $("kbCategorySelect")?.value || "demo";
+  const title = $("kbTextTitle")?.value.trim();
+  const content = $("kbTextContent")?.value.trim();
+
+  if (!title || !content) return toast("Saknas", "Fyll i titel och innehåll", "error");
+
+  try {
+    await api("/admin/kb/text", { method: "POST", body: { companyId, title, content } });
+    toast("Sparat", "Textblock sparad", "info");
+    $("kbTextTitle").value = "";
+    $("kbTextContent").value = "";
+    await loadKb();
+  } catch (e) {
+    toast("Fel", e.message, "error");
+  }
+}
+
+async function uploadKbUrl() {
+  const companyId = $("kbCategorySelect")?.value || "demo";
+  const url = $("kbUrlInput")?.value.trim();
+
+  if (!url) return toast("Saknas", "Fyll i URL", "error");
+
+  try {
+    toast("Laddar...", "Hämtar URL innehåll...", "info");
+    await api("/admin/kb/url", { method: "POST", body: { companyId, url } });
+    toast("Klar", "URL sparad", "info");
+    $("kbUrlInput").value = "";
+    await loadKb();
+  } catch (e) {
+    toast("Fel", e.message, "error");
+  }
+}
+
+async function uploadKbPdf() {
+  const companyId = $("kbCategorySelect")?.value || "demo";
+  const fileInput = $("kbPdfFile");
+  const file = fileInput?.files?.[0];
+
+  if (!file) return toast("Saknas", "Välj en fil", "error");
+
+  const formData = new FormData();
+  formData.append("pdf", file);
+  formData.append("companyId", companyId);
+
+  try {
+    toast("Laddar...", "Laddar upp PDF...", "info");
+    // Special params for FormData
+    const res = await fetch(state.apiBase + "/admin/kb/pdf", {
+      method: "POST",
+      headers: { "Authorization": "Bearer " + state.token }, // No Content-Type, browser sets boundary
+      body: formData
+    });
+
+    if (!res.ok) throw new Error("Upload failed");
+
+    toast("Klar", "PDF sparad", "info");
+    fileInput.value = "";
+    await loadKb();
+  } catch (e) {
+    toast("Fel", e.message, "error");
+  }
+}
+
+/* =========================
    Events
 ========================= */
 function bindEvents() {
@@ -859,6 +1002,14 @@ function bindEvents() {
   });
 
   on("adminUsersRefreshBtn", "click", loadAdminUsers);
+
+  // KB Events
+  initTabs();
+  on("kbRefreshBtn", "click", loadKb);
+  on("kbUploadTextBtn", "click", uploadKbText);
+  on("kbUploadUrlBtn", "click", uploadKbUrl);
+  on("kbUploadPdfBtn", "click", uploadKbPdf);
+  on("kbCategorySelect", "change", loadKb); // reload when changing KB company dropdown
 
   // ✅ CRM
   on("openCustomerAdminView", "click", async () => {
