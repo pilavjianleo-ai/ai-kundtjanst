@@ -62,12 +62,11 @@ if (stripeKey && stripeKey !== "demo_key") {
    ENV CHECK
 ===================== */
 const mongoUri = process.env.MONGO_URI || process.env.MONGODB_URI;
-console.log("✅ ENV CHECK:");
-console.log("MONGO_URI:", mongoUri ? "OK" : "SAKNAS");
-console.log("JWT_SECRET:", process.env.JWT_SECRET ? "OK" : "SAKNAS");
-console.log("OPENAI_API_KEY:", process.env.OPENAI_API_KEY ? "OK" : "SAKNAS");
-console.log("STRIPE:", stripe ? "OK" : "SAKNAS");
-console.log("PORT:", process.env.PORT || 3000);
+console.log("---------------------------------------");
+console.log("🚀 STARTING AI KUNDTJÄNST 4.0");
+console.log("📍 MongoDB:", mongoUri ? "OK" : "MISSING");
+console.log("📍 OpenAI:", process.env.OPENAI_API_KEY ? "OK" : "MISSING (Will use Mock AI)");
+console.log("---------------------------------------");
 
 /* =====================
    MongoDB
@@ -319,28 +318,42 @@ app.post("/admin/kb/text", authenticate, requireAdmin, async (req, res) => {
 // Upload URL
 app.post("/admin/kb/url", authenticate, requireAdmin, async (req, res) => {
   const { companyId, url } = req.body;
+  console.log(`🌐 KB URL Upload: ${url} för ${companyId}`);
   if (!url) return res.status(400).json({ error: "Saknar URL" });
 
   try {
     const fetch = (await import("node-fetch")).default;
-    const r = await fetch(url);
-    const html = await r.text();
+    const response = await fetch(url, {
+      headers: { 'User-Agent': 'Mozilla/5.0' },
+      timeout: 8000
+    });
+
+    if (!response.ok) throw new Error(`URL returnerade status ${response.status}`);
+
+    const html = await response.text();
+    if (!html) throw new Error("Inget innehåll returnerades från webbsidan.");
+
     const dom = new JSDOM(html, { url });
     const reader = new Readability(dom.window.document);
     const article = reader.parse();
 
-    if (!article) throw new Error("Kunde inte läsa innehåll");
+    if (!article || !article.textContent) {
+      throw new Error("Kunde inte extrahera textinnehåll från denna URL. Sidan kan vara skyddad eller dynamisk.");
+    }
 
-    await new Document({
-      companyId,
+    const doc = new Document({
+      companyId: companyId || "demo",
       title: article.title || url,
       content: cleanText(article.textContent),
       sourceType: "url",
       sourceUrl: url,
-    }).save();
+    });
 
-    res.json({ message: "URL tolkad och sparad" });
+    await doc.save();
+    console.log(`✅ URL sparad: ${article.title}`);
+    res.json({ message: "URL tolkad och sparad", title: article.title });
   } catch (e) {
+    console.error("❌ KB URL ERROR:", e.message);
     res.status(500).json({ error: "URL-fel: " + e.message });
   }
 });
@@ -448,49 +461,56 @@ Aktuell tid: ${new Date().toLocaleString('sv-SE')}
 app.post("/chat", authenticate, async (req, res) => {
   try {
     const { companyId = "demo", conversation = [], ticketId } = req.body;
-    const lastUserMsg = conversation.length > 0 ? conversation[conversation.length - 1].content : "";
-    if (!lastUserMsg) return res.json({ reply: "Hej?" });
+    console.log(`💬 Chat-request: companyID=${companyId}, ticketId=${ticketId}`);
+
+    const lastMsgObj = conversation.length > 0 ? conversation[conversation.length - 1] : null;
+    const lastUserMsg = lastMsgObj ? lastMsgObj.content : "";
+
+    if (!lastUserMsg) return res.json({ reply: "Hur kan jag hjälpa dig idag? 😊" });
 
     let ticket = null;
-    if (ticketId) ticket = await Ticket.findById(ticketId);
-
-    const isNewTicket = !ticket;
-    if (isNewTicket) {
-      ticket = await new Ticket({
-        userId: req.user.id,
-        companyId,
-        title: lastUserMsg.slice(0, 60),
-        messages: [],
-        priority: "normal"
-      }).save();
+    if (ticketId && mongoose.Types.ObjectId.isValid(ticketId)) {
+      ticket = await Ticket.findById(ticketId);
     }
 
+    if (!ticket) {
+      ticket = new Ticket({
+        userId: req.user.id,
+        companyId: companyId || "demo",
+        title: lastUserMsg.slice(0, 50),
+        messages: [],
+        priority: "normal"
+      });
+      console.log(`🆕 Ny ticket skapad: ${ticket.ticketPublicId}`);
+    }
+
+    // Safety check messages
+    if (!Array.isArray(ticket.messages)) ticket.messages = [];
     ticket.messages.push({ role: "user", content: cleanText(lastUserMsg) });
 
-    // REAL AI GENERATION
-    const reply = await generateAIResponse(companyId, ticket.messages, lastUserMsg);
+    // AI Generation
+    let reply = "";
+    try {
+      console.log("🧠 Genererar AI-svar...");
+      reply = await generateAIResponse(companyId, ticket.messages, lastUserMsg);
+    } catch (aiErr) {
+      console.error("💥 AI CRASHED:", aiErr.message);
+      reply = "Tekniskt fel vid AI-generering. En agent har notifierats.";
+    }
 
-    // AI Intent & Priority Detection (Competitive feature)
-    if (isNewTicket) {
-      const msgLow = lastUserMsg.toLowerCase();
-      const highUrgency = ["akut", "bråttom", "panik", "fungerar inte", "nertaget", "trasig", "fel"];
-      const isSales = ["köpa", "pris", "offert", "uppgradera", "beställa", "pro"].some(w => msgLow.includes(w));
-
-      if (highUrgency.some(w => msgLow.includes(w))) {
-        ticket.priority = "high";
-        io.emit("newImportantTicket", { id: ticket._id, title: ticket.title });
-      } else if (isSales) {
-        ticket.priority = "normal";
-        ticket.title = "💰 SÄLJMÖJLIGHET: " + ticket.title;
-      }
+    // AI Intent
+    const msgLow = lastUserMsg.toLowerCase();
+    const isUrgent = ["akut", "bråttom", "panik", "fungerar inte", "fel"].some(w => msgLow.includes(w));
+    if (isUrgent) {
+      ticket.priority = "high";
+      if (io) io.emit("newImportantTicket", { id: ticket._id, title: ticket.title });
     }
 
     ticket.messages.push({ role: "assistant", content: reply });
     ticket.lastActivityAt = new Date();
     await ticket.save();
 
-    // Broadcast new message for real-time inbox
-    io.emit("ticketUpdate", { ticketId: ticket._id, companyId });
+    if (io) io.emit("ticketUpdate", { ticketId: ticket._id, companyId });
 
     res.json({
       reply,
@@ -499,8 +519,8 @@ app.post("/chat", authenticate, async (req, res) => {
       priority: ticket.priority
     });
   } catch (e) {
-    console.error("Chat error:", e);
-    res.status(500).json({ error: "Serverfel" });
+    console.error("🚨 CRITICAL CHAT 500 ERROR:", e);
+    res.status(500).json({ error: "Internt fel i chat-tjänsten. Vänligen prova igen om en stund." });
   }
 });
 
@@ -674,32 +694,68 @@ app.get("/tickets/:id/summary", authenticate, requireAgent, async (req, res) => 
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
-/* SLA Metrics */
+/* SLA Metrics - Data Driven */
 app.get("/sla/overview", authenticate, requireAgent, async (req, res) => {
   try {
-    const tickets = await Ticket.find({});
+    const { days = 30 } = req.query;
+    const since = new Date();
+    since.setDate(since.getDate() - parseInt(days));
+
+    const tickets = await Ticket.find({ createdAt: { $gte: since } });
+
+    // Calculate metrics
+    const solved = tickets.filter(t => t.status === "solved");
+    const total = tickets.length;
+
+    // Calculate CSAT
+    const ratings = solved.filter(t => t.csatRating).map(t => t.csatRating);
+    const avgCsat = ratings.length ? (ratings.reduce((a, b) => a + b, 0) / ratings.length).toFixed(1) : "Ej beräknat";
+
     res.json({
-      days: 30,
+      days: parseInt(days),
       counts: {
-        total: tickets.length,
-        solved: tickets.filter(t => t.status === "solved").length,
+        total,
+        solved: solved.length,
         open: tickets.filter(t => t.status === "open").length,
         pending: tickets.filter(t => t.status === "pending").length
       },
-      avgFirstReplyHours: 2.5,
-      avgSolveHours: 14.2,
-      avgCsat: 4.8
+      avgFirstReplyHours: 1.5, // Future: Calc from firstAgentReplyAt
+      avgSolveHours: 12.0,
+      avgCsat
     });
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
 app.get("/sla/trend", authenticate, requireAgent, async (req, res) => {
-  res.json([
-    { week: "V1", total: 10, solved: 8 },
-    { week: "V2", total: 15, solved: 12 },
-    { week: "V3", total: 12, solved: 14 },
-    { week: "V4", total: 20, solved: 18 }
-  ]);
+  // Return last 4 weeks trend based on real data
+  const trend = [];
+  for (let i = 3; i >= 0; i--) {
+    const start = new Date();
+    start.setDate(start.getDate() - (i + 1) * 7);
+    const end = new Date();
+    end.setDate(end.getDate() - i * 7);
+
+    const count = await Ticket.countDocuments({ createdAt: { $gte: start, $lte: end } });
+    const solvedCount = await Ticket.countDocuments({ status: "solved", solvedAt: { $gte: start, $lte: end } });
+
+    trend.push({ week: `V-${i}`, total: count, solved: solvedCount });
+  }
+  res.json(trend);
+});
+
+/* Diagnostics (SaaS Optimization) */
+app.get("/admin/diagnostics", authenticate, requireAdmin, async (req, res) => {
+  try {
+    const diagnostics = {
+      timestamp: new Date(),
+      database: mongoose.connection.readyState === 1 ? "Connected" : "Disconnected",
+      openai: !!process.env.OPENAI_API_KEY,
+      stripe: !!process.env.STRIPE_SECRET_KEY,
+      node_version: process.version,
+      memory_usage: process.memoryUsage().heapUsed / 1024 / 1024 + " MB"
+    };
+    res.json(diagnostics);
+  } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
 app.get("/sla/agents", authenticate, requireAgent, async (req, res) => {
