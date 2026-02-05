@@ -20,3 +20,9 @@ build/
 
 # optional
 *.local
+
+# Nya: Redis, Elastic, Sentry, tests
+redis-data/
+elastic-data/
+coverage/
+sentry.config.js
