@@ -718,30 +718,6 @@ async function loadAdminUsers() {
       <div class="listItemTitle">${escapeHtml(u.username)} <span class="pill">${escapeHtml(u.role)}</span></div>
       <div class="muted small">${escapeHtml(u.email || "-")}</div>
     `;
-
-    // Only allow changing roles if I'm admin and not for myself
-    if (state.me?.role === "admin" && state.me?.id !== u._id) {
-      const sel = document.createElement("select");
-      sel.className = "input small";
-      sel.style.width = "auto";
-      sel.style.marginLeft = "10px";
-      ["user", "agent", "admin"].forEach(r => {
-        const opt = document.createElement("option");
-        opt.value = r;
-        opt.textContent = r;
-        if (u.role === r) opt.selected = true;
-        sel.appendChild(opt);
-      });
-      sel.onchange = async () => {
-        try {
-          await api(`/admin/users/${u._id}/role`, { method: "PATCH", body: { role: sel.value } });
-          toast("Klart", "Roll uppdaterad", "info");
-          await loadAdminUsers();
-        } catch (e) { toast("Fel", e.message, "error"); }
-      };
-      div.appendChild(sel);
-    }
-
     list.appendChild(div);
   });
 }
@@ -773,6 +749,12 @@ async function refreshCustomers() {
 }
 
 async function createCompany() {
+  const displayName = $("newCompanyDisplayName")?.value?.trim() || "";
+  const orgNr = $("newCompanyOrgNr")?.value?.trim() || "";
+  const email = $("newCompanyContactEmail")?.value?.trim() || "";
+  const plan = $("newCompanyPlan")?.value || "bas";
+
+  if (!displayName || !email) return toast("Saknas", "Namn och email krävs", "error");
 
   await api("/admin/companies", {
     method: "POST",
@@ -1076,19 +1058,6 @@ async function init() {
   } else {
     showView("authView", "openChatView");
   }
-
-  // Back button support
-  window.addEventListener("hashchange", () => {
-    const hash = window.location.hash.replace("#", "");
-    if (hash && $(hash)) {
-      // Find mapping from hash to viewId if needed, 
-      // but our hash usually matches viewId conceptually or we can just ignore.
-      // Simplest: if hash is 'inbox', and we have 'openInboxView' button:
-      const btnId = "open" + hash.charAt(0).toUpperCase() + hash.slice(1) + "View";
-      const btn = $(btnId);
-      if (btn) btn.click();
-    }
-  });
 }
 
 init().catch((e) => {
