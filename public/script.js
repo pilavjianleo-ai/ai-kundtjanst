@@ -417,8 +417,11 @@ async function sendChat() {
     state.activeTicketId = data.ticketId || state.activeTicketId;
     state.activeTicketPublicId = data.ticketPublicId || state.activeTicketPublicId;
 
-    renderDebug();
+    if (data.priority === "high") {
+      toast("Viktigt", "Detta ärende har markerats som hög prioritet!", "warning");
+    }
 
+    renderDebug();
     await refreshMyTickets();
   } catch (e) {
     addMsg("assistant", "❌ Fel: " + e.message);
@@ -519,15 +522,17 @@ function renderInboxList() {
     return;
   }
 
-  state.inboxTickets.forEach((t) => {
+  (state.inboxTickets || []).forEach((t) => {
     const div = document.createElement("div");
     div.className = "listItem";
+    const priClass = t.priority === "high" ? "danger" : t.priority === "low" ? "muted" : "info";
     div.innerHTML = `
       <div class="listItemTitle">
         ${escapeHtml(t.title || "Ticket")}
+        <span class="pill ${priClass}">${escapeHtml(t.priority || "normal")}</span>
         <span class="pill">${escapeHtml(t.status)}</span>
       </div>
-      <div class="muted small">${escapeHtml(t.ticketPublicId)} • ${escapeHtml(t.companyId)} • ${escapeHtml(t.priority)}</div>
+      <div class="muted small">${escapeHtml(t.ticketPublicId)} • ${escapeHtml(t.companyId)} • ${new Date(t.lastActivityAt).toLocaleString('sv-SE')}</div>
     `;
     div.addEventListener("click", () => selectInboxTicket(t._id));
     list.appendChild(div);
@@ -633,7 +638,7 @@ async function loadSlaDashboard() {
   const agentsBox = $("slaAgentsBox");
   if (agentsBox) {
     agentsBox.innerHTML = "";
-    agents.forEach((a) => {
+    (agents || []).forEach((a) => {
       const div = document.createElement("div");
       div.className = "listItem";
       div.innerHTML = `
@@ -675,7 +680,7 @@ async function loadBilling() {
   if (!list) return;
 
   list.innerHTML = "";
-  const invoices = data.invoices || [];
+  const invoices = data?.invoices || [];
 
   if (invoices.length === 0) {
     list.innerHTML = "<div class='muted small'>Inga fakturor ännu.</div>";
@@ -711,13 +716,37 @@ async function loadAdminUsers() {
   const users = await api("/admin/users");
   list.innerHTML = "";
 
-  users.forEach((u) => {
+  (users || []).forEach((u) => {
     const div = document.createElement("div");
     div.className = "listItem";
     div.innerHTML = `
       <div class="listItemTitle">${escapeHtml(u.username)} <span class="pill">${escapeHtml(u.role)}</span></div>
       <div class="muted small">${escapeHtml(u.email || "-")}</div>
     `;
+
+    // Role changing for admins (except self)
+    if (state.me?.role === "admin" && state.me?._id !== u._id) {
+      const sel = document.createElement("select");
+      sel.className = "input small";
+      sel.style.width = "auto";
+      sel.style.marginLeft = "10px";
+      ["user", "agent", "admin"].forEach(r => {
+        const opt = document.createElement("option");
+        opt.value = r;
+        opt.textContent = r;
+        if (u.role === r) opt.selected = true;
+        sel.appendChild(opt);
+      });
+      sel.onchange = async () => {
+        try {
+          await api(`/admin/users/${u._id}/role`, { method: "PATCH", body: { role: sel.value } });
+          toast("Klart", "Roll uppdaterad", "info");
+          await loadAdminUsers();
+        } catch (e) { toast("Fel", e.message, "error"); }
+      };
+      div.appendChild(sel);
+    }
+
     list.appendChild(div);
   });
 }
@@ -732,7 +761,7 @@ async function refreshCustomers() {
   const companies = await api("/admin/companies"); // ADMIN LIST
   list.innerHTML = "";
 
-  companies.forEach((c) => {
+  (companies || []).forEach((c) => {
     const div = document.createElement("div");
     div.className = "listItem";
     div.innerHTML = `
@@ -750,19 +779,24 @@ async function refreshCustomers() {
 
 async function createCompany() {
   const displayName = $("newCompanyDisplayName")?.value?.trim() || "";
-  const orgNr = $("newCompanyOrgNr")?.value?.trim() || "";
-  const email = $("newCompanyContactEmail")?.value?.trim() || "";
+  const contactEmail = $("newCompanyContactEmail")?.value?.trim() || "";
   const plan = $("newCompanyPlan")?.value || "bas";
 
-  if (!displayName || !email) return toast("Saknas", "Namn och email krävs", "error");
+  if (!displayName) return toast("Saknas", "Namn krävs", "error");
 
-  await api("/admin/companies", {
-    method: "POST",
-    body: { displayName, orgNumber: orgNr, contactEmail: email, plan },
-  });
+  try {
+    await api("/admin/companies", {
+      method: "POST",
+      body: { displayName, contactEmail, plan },
+    });
 
-  toast("Skapat", "Ny kund skapad ✅", "info");
-  await refreshCustomers();
+    toast("Skapat", "Ny kund skapad ✅", "info");
+    $("newCompanyDisplayName").value = "";
+    $("newCompanyContactEmail").value = "";
+    await refreshCustomers();
+  } catch (e) {
+    toast("Fel", e.message, "error");
+  }
 }
 
 /* =========================
@@ -1058,6 +1092,16 @@ async function init() {
   } else {
     showView("authView", "openChatView");
   }
+
+  // Back button support
+  window.addEventListener("hashchange", () => {
+    const hash = window.location.hash.replace("#", "");
+    if (hash) {
+      const btnId = "open" + hash.charAt(0).toUpperCase() + hash.slice(1) + "View";
+      const btn = $(btnId);
+      if (btn) btn.click();
+    }
+  });
 }
 
 init().catch((e) => {
