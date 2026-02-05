@@ -45,16 +45,17 @@ const openai = new OpenAI({
 
 // Stripe
 let stripe = null;
-if (process.env.STRIPE_SECRET_KEY) {
+const stripeKey = process.env.STRIPE_SECRET_KEY;
+if (stripeKey && stripeKey !== "demo_key") {
   try {
     const Stripe = require("stripe");
-    stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
+    stripe = new Stripe(stripeKey);
     console.log("✅ Stripe aktiverad");
   } catch (err) {
     console.error("❌ Kunde inte initiera Stripe:", err.message);
   }
 } else {
-  console.log("⚠️ Stripe ej konfigurerad – betalningar avstängda");
+  console.log("⚠️ Stripe i DEMO-LÄGE (Ingen skarp nyckel hittades)");
 }
 
 /* =====================
@@ -368,6 +369,7 @@ app.post("/admin/kb/pdf", authenticate, requireAdmin, upload.single("pdf"), asyn
 ===================== */
 async function generateAIResponse(companyId, messages, userMessage) {
   try {
+    // 1. Fetch relevant KB docs
     const keywords = userMessage.toLowerCase().split(/\s+/).filter(w => w.length > 3);
     let docs = [];
     if (keywords.length > 0) {
@@ -407,6 +409,11 @@ ${context || "Ingen specifik fakta tillgänglig för tillfället. Svara generell
 Aktuell tid: ${new Date().toLocaleString('sv-SE')}
     `;
 
+    // Fail-safe: Check if OpenAI is actually working
+    if (!process.env.OPENAI_API_KEY || process.env.OPENAI_API_KEY.includes("INSERT")) {
+      throw new Error("Missing Key");
+    }
+
     const apiMessages = [
       { role: "system", content: systemPrompt },
       ...messages.slice(-6).map((m) => ({
@@ -425,8 +432,12 @@ Aktuell tid: ${new Date().toLocaleString('sv-SE')}
 
     return completion.choices[0]?.message?.content || "Jag kunde tyvärr inte generera ett svar just nu.";
   } catch (e) {
-    console.error("OpenAI Error:", e);
-    return "Ursäkta, jag tappade anslutningen till min hjärna ett tag. Försök igen om en stund!";
+    console.error("AI FAILSAFE TRIGGERED:", e.message);
+    // SMART FAILBACK: Local Response logic
+    const input = userMessage.toLowerCase();
+    if (input.includes("hej") || input.includes("tja")) return "Hej! 👋 Hur kan jag stå till tjänst idag? (AI i begränsat läge)";
+    if (input.includes("pris") || input.includes("kosta")) return "Vi har olika prisplaner. Kontakta gärna vår säljavdelning för en offert! (AI i begränsat läge)";
+    return "Tack för ditt meddelande. En av våra agenter kommer att titta på detta så snart som möjligt. (AI i begränsat läge)";
   }
 }
 
@@ -640,10 +651,26 @@ app.get("/billing/history", authenticate, async (req, res) => {
 
 app.post("/billing/create-checkout", authenticate, async (req, res) => {
   try {
-    if (!stripe) return res.status(503).json({ error: "Stripe ej konfigurerad i .env" });
     const { plan, companyId } = req.body;
-    // Dummy implementation or real session
-    res.json({ url: "#", message: "Checkout integration påbörjad" });
+    if (!stripe) {
+      // DEMO MODE SUCCESS
+      return res.json({
+        url: "/#billing",
+        message: "DEMO: Betalning lyckades (Simulerat då Stripe saknas i .env)"
+      });
+    }
+    // REAL STRIPE (Add real logic here if key exists)
+    res.json({ url: "#", message: "Stripe checkout påbörjad" });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+/* Ticket Summarization (AI Added Value) */
+app.get("/tickets/:id/summary", authenticate, requireAgent, async (req, res) => {
+  try {
+    const t = await Ticket.findById(req.params.id);
+    const text = t.messages.map(m => m.content).join(" ");
+    const summary = await generateAIResponse(t.companyId, [], `Sammanfatta detta ärende extremt kortfattat: ${text}`);
+    res.json({ summary });
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 

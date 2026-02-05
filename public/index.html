@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="sv">
+
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
@@ -404,6 +405,12 @@
             <div class="divider"></div>
 
             <label>Agent-svar (syns för kunden)</label>
+            <div class="row gap small" style="margin-bottom:5px;">
+              <button class="btn ghost tiny" onclick="useQuickReply('greeting')">Hej</button>
+              <button class="btn ghost tiny" onclick="useQuickReply('working')">Jobbar på det</button>
+              <button class="btn ghost tiny" onclick="useQuickReply('solved')">Löst</button>
+              <button class="btn ghost tiny" onclick="useQuickReply('thanks')">Tack</button>
+            </div>
             <textarea id="agentReplyTextInbox" class="input textarea" placeholder="Skriv ett svar..."></textarea>
             <button id="sendAgentReplyInboxBtn" class="btn primary full" type="button">
               <i class="fa-solid fa-reply"></i> Skicka svar
@@ -591,7 +598,8 @@
             <input id="aiTips" class="input" placeholder="Tips: Beskriv problemet tydligt..." />
 
             <label>Genvägar (en per rad)</label>
-            <textarea id="aiShortcuts" class="input textarea" placeholder="Spåra order&#10;Ändra bokning&#10;Faktura"></textarea>
+            <textarea id="aiShortcuts" class="input textarea"
+              placeholder="Spåra order&#10;Ändra bokning&#10;Faktura"></textarea>
 
             <button id="aiSettingsSaveBtn" class="btn primary full" style="margin-top:10px;" type="button">
               <i class="fa-solid fa-floppy-disk"></i> Spara AI Settings
@@ -646,7 +654,8 @@
             <div>
               <label>Byt lösenord</label>
               <input id="currentPassInput" type="password" class="input" placeholder="Nuvarande lösenord" />
-              <input id="newPassInput" type="password" class="input" placeholder="Nytt lösenord" style="margin-top:10px;" />
+              <input id="newPassInput" type="password" class="input" placeholder="Nytt lösenord"
+                style="margin-top:10px;" />
               <button id="changePasswordBtn" class="btn secondary full" style="margin-top:10px;" type="button">
                 <i class="fa-solid fa-lock"></i> Byt lösenord
               </button>
@@ -731,7 +740,8 @@
           <div class="divider"></div>
 
           <h4>Simulator / Förhandsvisning</h4>
-          <div id="settingsSimulator" class="chat-preview" style="border:1px solid #444; padding:15px; border-radius:12px; min-height:120px;">
+          <div id="settingsSimulator" class="chat-preview"
+            style="border:1px solid #444; padding:15px; border-radius:12px; min-height:120px;">
             <div class="msg ai">Förhandsvisning laddas...</div>
           </div>
         </div>
@@ -742,4 +752,5 @@
 
   <script src="script.js"></script>
 </body>
+
 </html>

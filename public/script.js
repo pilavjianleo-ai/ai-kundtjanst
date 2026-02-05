@@ -67,7 +67,12 @@ function toast(title, text = "", type = "info") {
 
 async function api(path, { method = "GET", body, auth = true } = {}) {
   const headers = { "Content-Type": "application/json" };
-  if (auth && state.token) headers["Authorization"] = "Bearer " + state.token;
+  if (auth && state.token) {
+    headers["Authorization"] = "Bearer " + state.token;
+  } else if (auth && !state.token) {
+    // If auth is required but no token, we might want to skip or handle it silently
+    // For now, let's just proceed, but this is where we could redirect to login
+  }
 
   const res = await fetch(state.apiBase + path, {
     method,
@@ -553,20 +558,52 @@ async function selectInboxTicket(ticketId) {
   const box = $("ticketDetails");
   if (!box || !state.inboxSelectedTicket) return;
 
-  const t = await api("/tickets/" + ticketId); // reuse ticket endpoint
+  const t = await api("/tickets/" + ticketId);
   const msgs = (t.messages || [])
     .map((m) => `<div class="muted small"><b>${escapeHtml(m.role)}:</b> ${escapeHtml(m.content)}</div>`)
     .join("<br>");
 
   box.innerHTML = `
-    <div><b>${escapeHtml(t.title || "Ticket")}</b></div>
-    <div class="muted small">${escapeHtml(t.ticketPublicId)} • ${escapeHtml(t.status)} • ${escapeHtml(t.priority)}</div>
+    <div class="row" style="justify-content:space-between; align-items:flex-start;">
+        <div>
+            <b>${escapeHtml(t.title || "Ticket")}</b><br>
+            <span class="muted small">${escapeHtml(t.ticketPublicId)} • ${escapeHtml(t.status)}</span>
+        </div>
+        <button class="btn ghost small" onclick="summarizeTicket('${t._id}')">
+            <i class="fa-solid fa-wand-magic-sparkles"></i> AI Sammanfatta
+        </button>
+    </div>
+    <div id="ticketSummaryContent" class="alert info small" style="display:none; margin-top:10px;"></div>
     <div class="divider"></div>
     ${msgs || "<div class='muted small'>Inga meddelanden ännu.</div>"}
   `;
 
   const priSel = $("ticketPrioritySelect");
   if (priSel) priSel.value = t.priority || "normal";
+}
+
+async function summarizeTicket(id) {
+  const contentBox = $("ticketSummaryContent");
+  if (contentBox) {
+    contentBox.style.display = "block";
+    contentBox.textContent = "Genererar sammanfattning... ✨";
+    try {
+      const res = await api(`/tickets/${id}/summary`);
+      contentBox.textContent = "AI Sammanfattning: " + res.summary;
+    } catch (e) { contentBox.textContent = "Kunde inte sammanfatta: " + e.message; }
+  }
+}
+
+function useQuickReply(type) {
+  const area = $("agentReplyTextInbox");
+  if (!area) return;
+  const templates = {
+    greeting: "Hej! Tack för att du hör av dig. Hur kan jag hjälpa dig idag?",
+    working: "Vi tittar på ditt ärende just nu och återkommer så snart vi har mer information.",
+    solved: "Hoppas detta löser ditt ärende! Jag markerar ticketen som löst nu. Ha en fin dag!",
+    thanks: "Tack för din feedback! Vi uppskattar att du hörde av dig."
+  };
+  area.value = templates[type] || "";
 }
 
 async function setInboxStatus(status) {
@@ -699,11 +736,21 @@ async function loadBilling() {
 }
 
 async function upgradeToPro() {
-  const res = await api("/billing/create-checkout", {
-    method: "POST",
-    body: { plan: "pro", companyId: state.companyId },
-  });
-  if (res?.url) window.location.href = res.url;
+  try {
+    const res = await api("/billing/create-checkout", {
+      method: "POST",
+      body: { plan: "pro", companyId: state.companyId },
+    });
+    if (res?.message?.includes("DEMO")) {
+      toast("Demo Mode", res.message, "info");
+    } else if (res?.url && res.url !== "#") {
+      window.location.href = res.url;
+    } else {
+      toast("Stripe", "Stripe integration påbörjad. Se .env för att aktivera skarpt läge.", "info");
+    }
+  } catch (e) {
+    toast("Fel", e.message, "error");
+  }
 }
 
 /* =========================
