@@ -12,11 +12,18 @@ const { Readability } = require("@mozilla/readability");
 const { JSDOM } = require("jsdom");
 const pdf = require("pdf-parse");
 const OpenAI = require("openai");
+const http = require("http");
+const { Server } = require("socket.io");
 
 /* =====================
    Init & Config
 ===================== */
 const app = express();
+const server = http.createServer(app);
+const io = new Server(server, {
+  cors: { origin: "*", credentials: true }
+});
+
 app.set("trust proxy", 1);
 app.use(express.json({ limit: "18mb" }));
 app.use(express.urlencoded({ extended: true }));
@@ -85,6 +92,10 @@ function cleanText(text) {
   return sanitizeHtml(text || "", { allowedTags: [], allowedAttributes: {} })
     .replace(/\s+/g, " ")
     .trim();
+}
+
+function escapeRegExp(string) {
+  return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
 
 function genPublicId(prefix = "T") {
@@ -360,7 +371,7 @@ async function generateAIResponse(companyId, messages, userMessage) {
     const keywords = userMessage.toLowerCase().split(/\s+/).filter(w => w.length > 3);
     let docs = [];
     if (keywords.length > 0) {
-      const regexArr = keywords.map(kw => new RegExp(kw, "i"));
+      const regexArr = keywords.map(kw => new RegExp(escapeRegExp(kw), "i"));
       docs = await Document.find({
         companyId,
         $or: [
@@ -380,18 +391,18 @@ async function generateAIResponse(companyId, messages, userMessage) {
 
     const systemPrompt = `
 Du är en expert-AI-kundtjänstagent för ${company?.displayName || "vår tjänst"}.
-DIN ROLL: Hjälp kunden snabbt, vänligt och professionellt.
+DIN ROLL: Hjälp kunden snabbt, vänligt och professionellt. Du är systemets ansikte utåt.
 TONALITET: ${tone}.
 SPRÅK: Alltid svenska.
 
 INSTRUKTIONER:
-1. Använd endast tillhandahållen FAKTA nedan.
-2. Om svaret inte finns i fakta, säg: "Jag hittar tyvärr ingen specifik information om det, men jag kan eskalera ärendet till en mänsklig agent åt dig."
-3. Var koncis men hjälpsam.
-4. Formatera med bullet points om det behövs för tydlighet.
+1. Använd endast tillhandahållen FAKTA nedan. Var källkritisk.
+2. Om svaret inte finns i fakta, säg: "Jag hittar tyvärr ingen specifik information om det, men jag skapar en prioriterad ticket så att en expert kan återkomma till dig."
+3. Identifiera säljmöjligheter: Om kunden frågar om priser eller vill köpa, var extra välkomnande.
+4. Var koncis men varm. Använd emojis sparsamt och proffsigt.
 
 FAKTA/KONTEXT:
-${context || "Ingen specifik fakta tillgänglig för tillfället."}
+${context || "Ingen specifik fakta tillgänglig för tillfället. Svara generellt om ditt företag och be om kontaktuppgifter."}
 
 Aktuell tid: ${new Date().toLocaleString('sv-SE')}
     `;
@@ -448,18 +459,27 @@ app.post("/chat", authenticate, async (req, res) => {
     // REAL AI GENERATION
     const reply = await generateAIResponse(companyId, ticket.messages, lastUserMsg);
 
-    // If it's a new ticket, let's also detect priority/sentiment for a 'sales-ready' feel
+    // AI Intent & Priority Detection (Competitive feature)
     if (isNewTicket) {
-      // Simple internal logic or a quick AI call (could be optimized)
-      const urgentKeywords = ["bråttom", "panik", "fel", "fungerar inte", "urgent", "kryptera"];
-      if (urgentKeywords.some(w => lastUserMsg.toLowerCase().includes(w))) {
+      const msgLow = lastUserMsg.toLowerCase();
+      const highUrgency = ["akut", "bråttom", "panik", "fungerar inte", "nertaget", "trasig", "fel"];
+      const isSales = ["köpa", "pris", "offert", "uppgradera", "beställa", "pro"].some(w => msgLow.includes(w));
+
+      if (highUrgency.some(w => msgLow.includes(w))) {
         ticket.priority = "high";
+        io.emit("newImportantTicket", { id: ticket._id, title: ticket.title });
+      } else if (isSales) {
+        ticket.priority = "normal";
+        ticket.title = "💰 SÄLJMÖJLIGHET: " + ticket.title;
       }
     }
 
     ticket.messages.push({ role: "assistant", content: reply });
     ticket.lastActivityAt = new Date();
     await ticket.save();
+
+    // Broadcast new message for real-time inbox
+    io.emit("ticketUpdate", { ticketId: ticket._id, companyId });
 
     res.json({
       reply,
@@ -682,5 +702,13 @@ app.get(/(.*)/, (req, res) => {
   res.sendFile(path.join(__dirname, "public", "index.html"));
 });
 
+/* =====================
+   Socket.io
+===================== */
+io.on("connection", (socket) => {
+  console.log("⚡ Ny klient ansluten:", socket.id);
+  socket.on("disconnect", () => console.log("🔌 Klient bortkopplad"));
+});
+
 const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => console.log(`✅ Server körs: http://localhost:${PORT}`));
+server.listen(PORT, () => console.log(`🚀 AI KUNDTJÄNST 4.0: http://localhost:${PORT}`));
