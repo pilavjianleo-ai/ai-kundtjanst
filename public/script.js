@@ -109,6 +109,7 @@ function hideAllViews() {
     "customerAdminView",
     "billingView",
     "customerSettingsView",
+    "simulatorView",
   ];
   views.forEach((v) => {
     const el = $(v);
@@ -127,6 +128,7 @@ function setActiveMenu(btnId) {
     "openCustomerAdminView",
     "openBillingView",
     "openCustomerSettingsView",
+    "openSimulatorView",
   ];
   ids.forEach((id) => $(id)?.classList.remove("active"));
   $(btnId)?.classList.add("active");
@@ -158,6 +160,7 @@ function updateRoleUI() {
   const customerAdminBtn = $("openCustomerAdminView");
   const billingBtn = $("openBillingView");
   const customerSettingsBtn = $("openCustomerSettingsView");
+  const simulatorBtn = $("openSimulatorView");
   const slaClearAllStatsBtn = $("slaClearAllStatsBtn");
 
   if (!state.me) {
@@ -171,6 +174,7 @@ function updateRoleUI() {
     if (customerAdminBtn) customerAdminBtn.style.display = "none";
     if (billingBtn) billingBtn.style.display = "none";
     if (customerSettingsBtn) customerSettingsBtn.style.display = "none";
+    if (simulatorBtn) simulatorBtn.style.display = "none";
     if (slaClearAllStatsBtn) slaClearAllStatsBtn.style.display = "none";
     return;
   }
@@ -178,6 +182,9 @@ function updateRoleUI() {
   if (roleBadge) roleBadge.textContent = `${state.me.username} (${role})`;
   if (logoutBtn) logoutBtn.style.display = "";
   if (settingsBtn) settingsBtn.style.display = "";
+
+  // Simulator is available for all logged-in users
+  if (simulatorBtn) simulatorBtn.style.display = "";
 
   if (role === "admin" || role === "agent") {
     if (inboxBtn) inboxBtn.style.display = "";
@@ -2449,6 +2456,18 @@ function bindEvents() {
   });
   on("saveCustomerSettingsBtn", "click", saveCustomerSettings);
 
+  // ✅ Product Simulator
+  on("openSimulatorView", "click", async () => {
+    showView("simulatorView", "openSimulatorView");
+    await loadSimHistory();
+  });
+  on("simGenerateBtn", "click", generateSimulation);
+  on("simResetBtn", "click", resetSimulator);
+  on("simDownloadBtn", "click", downloadSimResult);
+  on("simShareBtn", "click", shareSimResult);
+  on("simProductFile", "change", () => handleSimImageUpload("simProductFile", "simProductPreview", true));
+  on("simRoomFile", "change", () => handleSimImageUpload("simRoomFile", "simRoomPreview", false));
+
   // Chat send
   on("sendBtn", "click", sendChat);
   on("messageInput", "keydown", (e) => {
@@ -2493,6 +2512,301 @@ function initSocket() {
     }
   });
 }
+
+/* =========================
+   Product Simulator
+========================= */
+let simProductImageBase64 = null;
+let simRoomImageBase64 = null;
+let simRoomMode = 'custom'; // 'custom' or 'ai'
+
+function setSimRoomType(type) {
+  simRoomMode = type;
+
+  const customBtn = $("simRoomTypeCustom");
+  const aiBtn = $("simRoomTypeAi");
+  const customPanel = $("simRoomCustom");
+  const aiPanel = $("simRoomAi");
+
+  if (type === 'custom') {
+    customBtn?.classList.add("active", "secondary");
+    customBtn?.classList.remove("ghost");
+    aiBtn?.classList.remove("active", "secondary");
+    aiBtn?.classList.add("ghost");
+    if (customPanel) customPanel.style.display = "block";
+    if (aiPanel) aiPanel.style.display = "none";
+  } else {
+    aiBtn?.classList.add("active", "secondary");
+    aiBtn?.classList.remove("ghost");
+    customBtn?.classList.remove("active", "secondary");
+    customBtn?.classList.add("ghost");
+    if (customPanel) customPanel.style.display = "none";
+    if (aiPanel) aiPanel.style.display = "block";
+  }
+}
+
+function handleSimImageUpload(inputId, previewId, isProduct) {
+  const input = $(inputId);
+  const preview = $(previewId);
+
+  if (!input || !input.files || !input.files[0]) return;
+
+  const file = input.files[0];
+  if (file.size > 5 * 1024 * 1024) {
+    toast("Fel", "Bilden är för stor (max 5MB)", "error");
+    return;
+  }
+
+  const reader = new FileReader();
+  reader.onload = (e) => {
+    const base64 = e.target.result;
+
+    if (isProduct) {
+      simProductImageBase64 = base64;
+    } else {
+      simRoomImageBase64 = base64;
+    }
+
+    if (preview) {
+      preview.innerHTML = `
+        <div style="position:relative; display:inline-block;">
+          <img src="${base64}" style="max-width:100%; max-height:150px; border-radius:8px;" />
+          <button class="btn danger small" style="position:absolute; top:5px; right:5px;" onclick="clearSimImage('${isProduct ? 'product' : 'room'}')">
+            <i class="fa-solid fa-xmark"></i>
+          </button>
+        </div>
+        <p class="muted tiny" style="margin-top:5px;">${file.name}</p>
+      `;
+      preview.style.display = "block";
+    }
+
+    // Hide dropzone
+    const dropzoneId = isProduct ? "simProductDropzone" : "simRoomDropzone";
+    const dropzone = $(dropzoneId);
+    if (dropzone) dropzone.style.display = "none";
+  };
+  reader.readAsDataURL(file);
+}
+
+function clearSimImage(type) {
+  if (type === 'product') {
+    simProductImageBase64 = null;
+    const preview = $("simProductPreview");
+    if (preview) {
+      preview.innerHTML = "";
+      preview.style.display = "none";
+    }
+    const dropzone = $("simProductDropzone");
+    if (dropzone) dropzone.style.display = "flex";
+    const input = $("simProductFile");
+    if (input) input.value = "";
+  } else {
+    simRoomImageBase64 = null;
+    const preview = $("simRoomPreview");
+    if (preview) {
+      preview.innerHTML = "";
+      preview.style.display = "none";
+    }
+    const dropzone = $("simRoomDropzone");
+    if (dropzone) dropzone.style.display = "flex";
+    const input = $("simRoomFile");
+    if (input) input.value = "";
+  }
+}
+
+async function generateSimulation() {
+  const productName = $("simProductName")?.value?.trim();
+
+  if (!productName) {
+    toast("Fel", "Ange ett produktnamn eller beskrivning", "error");
+    return;
+  }
+
+  const status = $("simStatus");
+  const statusText = $("simStatusText");
+  const generateBtn = $("simGenerateBtn");
+
+  // Show loading
+  if (status) status.style.display = "block";
+  if (statusText) statusText.textContent = "Skapar AI-visualisering...";
+  if (generateBtn) generateBtn.disabled = true;
+
+  try {
+    const payload = {
+      productName,
+      productCategory: $("simProductCategory")?.value || "other",
+      productImage: simProductImageBase64,
+      roomType: simRoomMode,
+      roomImage: simRoomImageBase64,
+      roomDescription: $("simRoomDescription")?.value || "",
+      roomStyle: $("simRoomStyle")?.value || "modern",
+      roomTypeSelect: $("simRoomType")?.value || "living_room",
+      placement: $("simPlacement")?.value || "center",
+      lighting: $("simLighting")?.value || "daylight",
+      angle: $("simAngle")?.value || "front"
+    };
+
+    const result = await api("/simulator/generate", {
+      method: "POST",
+      body: JSON.stringify(payload)
+    });
+
+    if (result.success && result.imageUrl) {
+      // Show result
+      const placeholder = $("simResultPlaceholder");
+      const resultImg = $("simResultImage");
+      const img = $("simResultImg");
+
+      if (placeholder) placeholder.style.display = "none";
+      if (resultImg) resultImg.style.display = "block";
+      if (img) {
+        img.src = result.imageUrl;
+        img.alt = `Visualisering av ${productName}`;
+      }
+
+      // Show action buttons
+      const downloadBtn = $("simDownloadBtn");
+      const shareBtn = $("simShareBtn");
+      if (downloadBtn) downloadBtn.style.display = "inline-flex";
+      if (shareBtn) shareBtn.style.display = "inline-flex";
+
+      toast("Klart! ✨", "Visualisering skapad!", "success");
+
+      // Reload history
+      loadSimHistory();
+    } else {
+      throw new Error(result.error || "Okänt fel");
+    }
+
+  } catch (e) {
+    console.error("Simulator error:", e);
+    toast("Fel", e.message || "Kunde inte skapa visualisering", "error");
+  } finally {
+    if (status) status.style.display = "none";
+    if (generateBtn) generateBtn.disabled = false;
+  }
+}
+
+async function loadSimHistory() {
+  try {
+    const history = await api("/simulator/history");
+    const container = $("simHistory");
+
+    if (!container) return;
+
+    if (!history || history.length === 0) {
+      container.innerHTML = '<div class="muted small center" style="padding: 20px;">Inga tidigare visualiseringar</div>';
+      return;
+    }
+
+    container.innerHTML = `
+      <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(80px, 1fr)); gap: 8px;">
+        ${history.map(sim => `
+          <div class="sim-history-item" onclick="loadSimResult('${sim.imageUrl}')" style="cursor:pointer;">
+            <img src="${sim.imageUrl}" alt="${escapeHtml(sim.productName)}" 
+              style="width:100%; aspect-ratio:1; object-fit:cover; border-radius:8px; transition: transform 0.2s;" 
+              onmouseover="this.style.transform='scale(1.05)'" 
+              onmouseout="this.style.transform='scale(1)'" />
+            <div class="muted tiny" style="margin-top:4px; text-overflow:ellipsis; overflow:hidden; white-space:nowrap;">${escapeHtml(sim.productName)}</div>
+          </div>
+        `).join("")}
+      </div>
+    `;
+  } catch (e) {
+    console.error("Load sim history error:", e);
+  }
+}
+
+function loadSimResult(imageUrl) {
+  const placeholder = $("simResultPlaceholder");
+  const resultImg = $("simResultImage");
+  const img = $("simResultImg");
+
+  if (placeholder) placeholder.style.display = "none";
+  if (resultImg) resultImg.style.display = "block";
+  if (img) img.src = imageUrl;
+
+  const downloadBtn = $("simDownloadBtn");
+  const shareBtn = $("simShareBtn");
+  if (downloadBtn) downloadBtn.style.display = "inline-flex";
+  if (shareBtn) shareBtn.style.display = "inline-flex";
+}
+
+function downloadSimResult() {
+  const img = $("simResultImg");
+  if (!img || !img.src) {
+    toast("Fel", "Ingen bild att ladda ner", "error");
+    return;
+  }
+
+  const link = document.createElement("a");
+  link.href = img.src;
+  link.download = `produktvisualisering_${Date.now()}.png`;
+  link.target = "_blank";
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+
+  toast("Laddar ner", "Bilden laddas ner...", "info");
+}
+
+function shareSimResult() {
+  const img = $("simResultImg");
+  if (!img || !img.src) {
+    toast("Fel", "Ingen bild att dela", "error");
+    return;
+  }
+
+  if (navigator.share) {
+    navigator.share({
+      title: "Produktvisualisering",
+      text: "Kolla in denna produktvisualisering!",
+      url: img.src
+    }).catch(console.error);
+  } else {
+    // Fallback: copy to clipboard
+    navigator.clipboard.writeText(img.src).then(() => {
+      toast("Kopierad! 📋", "Bildlänken har kopierats till urklipp", "success");
+    }).catch(() => {
+      toast("Fel", "Kunde inte kopiera länken", "error");
+    });
+  }
+}
+
+function resetSimulator() {
+  // Clear product
+  $("simProductName").value = "";
+  $("simProductCategory").value = "furniture";
+  clearSimImage('product');
+
+  // Clear room
+  $("simRoomDescription").value = "";
+  $("simRoomType").value = "living_room";
+  $("simRoomStyle").value = "modern";
+  clearSimImage('room');
+  setSimRoomType('custom');
+
+  // Reset settings
+  $("simPlacement").value = "center";
+  $("simLighting").value = "daylight";
+  $("simAngle").value = "front";
+
+  // Hide result
+  const placeholder = $("simResultPlaceholder");
+  const resultImg = $("simResultImage");
+  if (placeholder) placeholder.style.display = "flex";
+  if (resultImg) resultImg.style.display = "none";
+
+  const downloadBtn = $("simDownloadBtn");
+  const shareBtn = $("simShareBtn");
+  if (downloadBtn) downloadBtn.style.display = "none";
+  if (shareBtn) shareBtn.style.display = "none";
+
+  toast("Återställt", "Simulatorn har återställts", "info");
+}
+
+// Make setSimRoomType available globally
+window.setSimRoomType = setSimRoomType;
 
 /* =========================
    Init

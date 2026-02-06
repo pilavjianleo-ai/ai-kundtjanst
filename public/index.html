@@ -70,6 +70,10 @@
         <button id="openCustomerSettingsView" class="menuBtn" style="display:none;" type="button">
           <i class="fa-solid fa-cog"></i> Mina Inställningar
         </button>
+
+        <button id="openSimulatorView" class="menuBtn" style="display:none;" type="button">
+          <i class="fa-solid fa-wand-magic-sparkles"></i> Produktsimulator
+        </button>
       </nav>
 
       <div class="sidebarFooter">
@@ -1214,6 +1218,198 @@
           <div id="settingsSimulator" class="chat-preview"
             style="border:1px solid #444; padding:15px; border-radius:12px; min-height:120px;">
             <div class="msg ai">Förhandsvisning laddas...</div>
+          </div>
+        </div>
+      </section>
+
+      <!-- PRODUCT VISUALIZATION SIMULATOR -->
+      <section id="simulatorView" class="view" style="display:none;">
+        <div class="topbar">
+          <div>
+            <div class="title"><i class="fa-solid fa-wand-magic-sparkles" style="color:var(--primary);"></i>
+              Produktsimulator</div>
+            <div class="subtitle muted">Visualisera produkter i verkliga miljöer med AI</div>
+          </div>
+          <div class="topbarActions">
+            <button id="simResetBtn" class="btn ghost" type="button">
+              <i class="fa-solid fa-rotate-left"></i> Börja om
+            </button>
+          </div>
+        </div>
+
+        <div class="grid2" style="margin-top: 15px;">
+          <!-- LEFT: INPUT PANEL -->
+          <div class="panel" style="border-left: 3px solid var(--primary);">
+            <div class="panelHead"><b><i class="fa-solid fa-cube"></i> Steg 1: Produkt</b></div>
+
+            <div class="sim-step" style="margin-top: 15px;">
+              <label>Produktnamn / Beskrivning</label>
+              <input id="simProductName" class="input" placeholder="T.ex. Modern taklampa med mässingdetaljer" />
+
+              <label style="margin-top: 15px;">Produktkategori</label>
+              <select id="simProductCategory" class="input">
+                <option value="furniture">Möbler</option>
+                <option value="lighting">Belysning</option>
+                <option value="decor">Heminredning</option>
+                <option value="electronics">Elektronik</option>
+                <option value="art">Konst & Tavlor</option>
+                <option value="appliances">Vitvaror</option>
+                <option value="outdoor">Utemöbler</option>
+                <option value="other">Övrigt</option>
+              </select>
+
+              <label style="margin-top: 15px;">Produktbild (valfritt)</label>
+              <div class="file-upload-zone" id="simProductDropzone"
+                onclick="document.getElementById('simProductFile').click()">
+                <i class="fa-solid fa-cloud-arrow-up"
+                  style="font-size: 32px; color: var(--primary); margin-bottom: 10px;"></i>
+                <p class="muted small">Dra och släpp eller klicka för att ladda upp</p>
+                <p class="muted tiny">PNG, JPG, WEBP (max 5MB)</p>
+                <input type="file" id="simProductFile" accept="image/*" style="display: none;" />
+              </div>
+              <div id="simProductPreview" class="image-preview" style="display:none;"></div>
+            </div>
+
+            <div class="divider"></div>
+
+            <div class="panelHead"><b><i class="fa-solid fa-home"></i> Steg 2: Rum / Miljö</b></div>
+
+            <div class="sim-step" style="margin-top: 15px;">
+              <div class="row gap" style="margin-bottom: 15px;">
+                <button id="simRoomTypeCustom" class="btn secondary active" type="button"
+                  onclick="setSimRoomType('custom')">
+                  <i class="fa-solid fa-upload"></i> Egen bild
+                </button>
+                <button id="simRoomTypeAi" class="btn ghost" type="button" onclick="setSimRoomType('ai')">
+                  <i class="fa-solid fa-wand-sparkles"></i> AI-genererad
+                </button>
+              </div>
+
+              <div id="simRoomCustom">
+                <label>Ladda upp din rumbild</label>
+                <div class="file-upload-zone" id="simRoomDropzone"
+                  onclick="document.getElementById('simRoomFile').click()">
+                  <i class="fa-solid fa-image" style="font-size: 32px; color: var(--ok); margin-bottom: 10px;"></i>
+                  <p class="muted small">Dra och släpp eller klicka för att ladda upp</p>
+                  <p class="muted tiny">Bild på rummet där produkten ska placeras</p>
+                  <input type="file" id="simRoomFile" accept="image/*" style="display: none;" />
+                </div>
+                <div id="simRoomPreview" class="image-preview" style="display:none;"></div>
+              </div>
+
+              <div id="simRoomAi" style="display: none;">
+                <label>Beskriv rummet</label>
+                <textarea id="simRoomDescription" class="input textarea"
+                  placeholder="T.ex. Modernt vardagsrum med vita väggar, trätak, stora fönster och minimalistisk inredning"></textarea>
+
+                <label style="margin-top: 15px;">Rumstyp</label>
+                <select id="simRoomType" class="input">
+                  <option value="living_room">Vardagsrum</option>
+                  <option value="bedroom">Sovrum</option>
+                  <option value="kitchen">Kök</option>
+                  <option value="bathroom">Badrum</option>
+                  <option value="office">Kontor</option>
+                  <option value="outdoor">Utomhus / Terrass</option>
+                </select>
+
+                <label style="margin-top: 15px;">Stil</label>
+                <select id="simRoomStyle" class="input">
+                  <option value="modern">Modern / Minimalistisk</option>
+                  <option value="scandinavian">Skandinavisk</option>
+                  <option value="industrial">Industriell</option>
+                  <option value="classic">Klassisk / Traditionell</option>
+                  <option value="bohemian">Bohemisk</option>
+                  <option value="rustic">Rustik / Lantlig</option>
+                </select>
+              </div>
+            </div>
+
+            <div class="divider"></div>
+
+            <div class="panelHead"><b><i class="fa-solid fa-sliders"></i> Steg 3: Inställningar</b></div>
+
+            <div class="sim-step" style="margin-top: 15px;">
+              <label>Placering i rummet</label>
+              <select id="simPlacement" class="input">
+                <option value="center">Centralt i rummet</option>
+                <option value="corner">I ett hörn</option>
+                <option value="wall">Mot vägg</option>
+                <option value="ceiling">I taket (för lampor)</option>
+                <option value="floor">På golvet</option>
+                <option value="table">På bord / Yta</option>
+              </select>
+
+              <label style="margin-top: 15px;">Ljussättning</label>
+              <select id="simLighting" class="input">
+                <option value="daylight">Dagsljus</option>
+                <option value="warm">Varmt ljus (kväll)</option>
+                <option value="cool">Kallt ljus</option>
+                <option value="dramatic">Dramatiskt / Spotligt</option>
+              </select>
+
+              <label style="margin-top: 15px;">Kameravinkel</label>
+              <select id="simAngle" class="input">
+                <option value="front">Framifrån</option>
+                <option value="angle">Snett vinkel (45°)</option>
+                <option value="wide">Vidvinkel (hela rummet)</option>
+                <option value="close">Närbild på produkten</option>
+              </select>
+            </div>
+
+            <div class="divider"></div>
+
+            <button id="simGenerateBtn" class="btn primary full" style="padding: 16px; font-size: 16px;" type="button">
+              <i class="fa-solid fa-wand-magic-sparkles"></i> Generera Visualisering
+            </button>
+
+            <div id="simStatus" class="alert info" style="display: none; margin-top: 15px;">
+              <i class="fa-solid fa-spinner fa-spin"></i> <span id="simStatusText">Genererar...</span>
+            </div>
+          </div>
+
+          <!-- RIGHT: RESULT PANEL -->
+          <div class="panel" style="border-left: 3px solid var(--ok);">
+            <div class="panelHead">
+              <b><i class="fa-solid fa-image"></i> Resultat</b>
+              <div style="margin-left: auto; display: flex; gap: 8px;">
+                <button id="simDownloadBtn" class="btn ghost small" style="display:none;" type="button">
+                  <i class="fa-solid fa-download"></i> Ladda ner
+                </button>
+                <button id="simShareBtn" class="btn ghost small" style="display:none;" type="button">
+                  <i class="fa-solid fa-share"></i> Dela
+                </button>
+              </div>
+            </div>
+
+            <div id="simResultContainer" style="margin-top: 15px;">
+              <div id="simResultPlaceholder" class="sim-placeholder">
+                <i class="fa-solid fa-image" style="font-size: 64px; color: var(--muted); margin-bottom: 20px;"></i>
+                <h3 style="color: var(--muted);">Ingen visualisering ännu</h3>
+                <p class="muted small" style="max-width: 300px; text-align: center;">
+                  Fyll i produktinformation och klicka på "Generera Visualisering" för att se hur din produkt ser ut i
+                  en miljö.
+                </p>
+              </div>
+
+              <div id="simResultImage" style="display: none;">
+                <img id="simResultImg" src="" alt="Produktvisualisering"
+                  style="width: 100%; border-radius: 12px; box-shadow: 0 10px 40px rgba(0,0,0,0.3);" />
+              </div>
+            </div>
+
+            <div class="divider"></div>
+
+            <div class="panelHead"><b><i class="fa-solid fa-clock-rotate-left"></i> Tidigare Visualiseringar</b></div>
+            <div id="simHistory" class="sim-history" style="margin-top: 10px;">
+              <div class="muted small center" style="padding: 20px;">Inga tidigare visualiseringar</div>
+            </div>
+
+            <div class="divider"></div>
+
+            <div class="alert info" style="font-size: 12px;">
+              <i class="fa-solid fa-lightbulb"></i> <b>Tips:</b> För bästa resultat, beskriv produkten detaljerat och
+              använd högkvalitativa bilder. AI:n fungerar bäst med tydliga beskrivningar av färg, material och storlek.
+            </div>
           </div>
         </div>
       </section>

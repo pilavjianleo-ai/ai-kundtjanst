@@ -1392,6 +1392,170 @@ app.delete("/sla/clear/my", authenticate, requireAgent, async (req, res) => {
 });
 
 /* =====================
+   PRODUCT SIMULATOR
+===================== */
+
+// Simulation History Schema (in-memory for now, could be MongoDB)
+const simHistory = new Map(); // userId -> array of simulations
+
+// Generate product visualization
+app.post("/simulator/generate", authenticate, async (req, res) => {
+  try {
+    const {
+      productName,
+      productCategory,
+      productImage, // base64 or URL
+      roomType,      // 'custom' or 'ai'
+      roomImage,     // base64 for custom room
+      roomDescription,
+      roomStyle,
+      roomTypeSelect,
+      placement,
+      lighting,
+      angle
+    } = req.body;
+
+    if (!productName) {
+      return res.status(400).json({ error: "Produktnamn krävs" });
+    }
+
+    // Build the prompt for DALL-E
+    const categoryLabels = {
+      furniture: "möbel",
+      lighting: "lampa/belysning",
+      decor: "heminredningsprodukt",
+      electronics: "elektronikprodukt",
+      art: "konstföremål/tavla",
+      appliances: "vitvara/apparat",
+      outdoor: "utemöbel",
+      other: "produkt"
+    };
+
+    const placementLabels = {
+      center: "placerad centralt i rummet",
+      corner: "placerad i ett hörn",
+      wall: "placerad mot väggen",
+      ceiling: "hängande från taket",
+      floor: "stående på golvet",
+      table: "placerad på ett bord"
+    };
+
+    const lightingLabels = {
+      daylight: "med naturligt dagsljus",
+      warm: "med varmt kvällsljus",
+      cool: "med kallt modernt ljus",
+      dramatic: "med dramatisk spotbelysning"
+    };
+
+    const angleLabels = {
+      front: "fotograferad rakt framifrån",
+      angle: "fotograferad i 45 graders vinkel",
+      wide: "fotograferad med vidvinkel som visar hela rummet",
+      close: "närbild fokuserad på produkten"
+    };
+
+    const roomTypeLabels = {
+      living_room: "vardagsrum",
+      bedroom: "sovrum",
+      kitchen: "kök",
+      bathroom: "badrum",
+      office: "hemmakontor",
+      outdoor: "utomhusterrass"
+    };
+
+    const styleLabels = {
+      modern: "modern minimalistisk",
+      scandinavian: "skandinavisk",
+      industrial: "industriell",
+      classic: "klassisk traditionell",
+      bohemian: "bohemisk",
+      rustic: "rustik lantlig"
+    };
+
+    let prompt = "";
+
+    if (roomType === "ai") {
+      // AI-generated room
+      const roomDesc = roomDescription || `Ett ${styleLabels[roomStyle] || "modernt"} ${roomTypeLabels[roomTypeSelect] || "vardagsrum"}`;
+      prompt = `Fotorealistisk inredningsbild: ${roomDesc}. I rummet finns en ${productName} (${categoryLabels[productCategory] || "produkt"}) ${placementLabels[placement] || "centralt i rummet"}. Bilden är tagen ${angleLabels[angle] || "framifrån"} ${lightingLabels[lighting] || "med naturligt ljus"}. Professionell inredningsfotografi, hög kvalitet, 8K, detaljerad.`;
+    } else {
+      // Custom room image - describe inserting product
+      prompt = `Fotorealistisk produktvisualisering: En ${productName} (${categoryLabels[productCategory] || "produkt"}) ${placementLabels[placement] || "centralt i rummet"} i ett modernt rum. Produkten är ${angleLabels[angle] || "framifrån"} ${lightingLabels[lighting] || "med naturligt ljus"}. Professionell inredningsfotografi, sömlös integration, fotorealistisk, 8K kvalitet.`;
+    }
+
+    console.log("🎨 Simulator prompt:", prompt);
+
+    // Generate image with DALL-E 3
+    const imageResponse = await openai.images.generate({
+      model: "dall-e-3",
+      prompt: prompt,
+      n: 1,
+      size: "1024x1024",
+      quality: "hd",
+      style: "natural"
+    });
+
+    const generatedImageUrl = imageResponse.data[0].url;
+    const revisedPrompt = imageResponse.data[0].revised_prompt;
+
+    // Store in history
+    const userId = req.user.id;
+    if (!simHistory.has(userId)) {
+      simHistory.set(userId, []);
+    }
+
+    const simulation = {
+      id: Date.now().toString(),
+      productName,
+      productCategory,
+      roomType,
+      imageUrl: generatedImageUrl,
+      prompt: revisedPrompt || prompt,
+      createdAt: new Date()
+    };
+
+    simHistory.get(userId).unshift(simulation);
+    // Keep only last 10
+    if (simHistory.get(userId).length > 10) {
+      simHistory.get(userId).pop();
+    }
+
+    res.json({
+      success: true,
+      imageUrl: generatedImageUrl,
+      revisedPrompt,
+      simulation
+    });
+
+  } catch (e) {
+    console.error("Simulator error:", e);
+    res.status(500).json({ error: e.message || "Kunde inte generera visualisering" });
+  }
+});
+
+// Get simulation history
+app.get("/simulator/history", authenticate, async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const history = simHistory.get(userId) || [];
+    res.json(history);
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// Clear simulation history
+app.delete("/simulator/history", authenticate, async (req, res) => {
+  try {
+    const userId = req.user.id;
+    simHistory.set(userId, []);
+    res.json({ message: "Historik rensad" });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+/* =====================
    Fallback
 ===================== */
 app.get(/(.*)/, (req, res) => {
