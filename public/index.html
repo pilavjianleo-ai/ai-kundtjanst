@@ -495,14 +495,21 @@
         </div>
 
         <div class="tabs">
-          <button class="tabBtn active" data-tab="tabUsers" type="button">Users</button>
-          <button class="tabBtn" data-tab="tabKB" type="button">Knowledge Base</button>
-          <button class="tabBtn" data-tab="tabCats" type="button">Kategorier</button>
-          <button class="tabBtn" data-tab="tabAI" type="button">AI Settings</button>
-          <button class="tabBtn" data-tab="tabWidget" type="button">Widget</button>
+          <button class="tabBtn active" data-tab="tabAdminStats" type="button"><i class="fa-solid fa-microchip"></i>
+            System Health</button>
+          <button class="tabBtn" data-tab="tabUsers" type="button"><i class="fa-solid fa-users-gear"></i> Users</button>
+          <button class="tabBtn" data-tab="tabKB" type="button"><i class="fa-solid fa-book"></i> Knowledge Base</button>
+          <button class="tabBtn" data-tab="tabCats" type="button"><i class="fa-solid fa-folder-tree"></i>
+            Kategorier</button>
+          <button class="tabBtn" data-tab="tabAI" type="button"><i class="fa-solid fa-sliders"></i> AI Settings</button>
+          <button class="tabBtn" data-tab="tabWidget" type="button"><i class="fa-solid fa-code"></i> Widget</button>
         </div>
 
-        <div id="tabUsers" class="tabPanel">
+        <div id="tabAdminStats" class="tabPanel">
+          <div id="diagnosticsBox"></div>
+        </div>
+
+        <div id="tabUsers" class="tabPanel" style="display:none;">
           <div class="panel">
             <div class="panelHead">
               <b>Användare</b>
@@ -527,8 +534,8 @@
                 <button id="kbRefreshBtn" class="btn ghost small" type="button">
                   <i class="fa-solid fa-rotate"></i> Uppdatera
                 </button>
-                <button id="kbExportBtn" class="btn ghost small" type="button">
-                  <i class="fa-solid fa-download"></i> Export KB
+                <button id="kbBulkDeleteBtn" class="btn danger small" type="button">
+                  <i class="fa-solid fa-trash-can"></i> Rensa Allt
                 </button>
               </div>
             </div>

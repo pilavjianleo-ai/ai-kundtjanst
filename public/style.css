@@ -1173,3 +1173,36 @@ body[data-theme="light"] .input {
   margin: 0 auto;
   line-height: 1.5;
 }
+
+/* Admin Specific */
+.tabPanel {
+  animation: fadeIn 0.3s ease;
+}
+
+#diagnosticsBox .slaCard {
+  background: linear-gradient(145deg, var(--panel), var(--panel2));
+  border-color: rgba(255, 255, 255, 0.05);
+}
+
+.status-dot {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  margin-right: 6px;
+}
+
+.status-dot.ok {
+  background: var(--ok);
+  box-shadow: 0 0 6px var(--ok);
+}
+
+.status-dot.err {
+  background: var(--danger);
+  box-shadow: 0 0 6px var(--danger);
+}
+
+.status-dot.warn {
+  background: var(--warn);
+  box-shadow: 0 0 6px var(--warn);
+}

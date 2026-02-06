@@ -886,15 +886,48 @@ app.get("/sla/trend", authenticate, requireAgent, async (req, res) => {
 /* Diagnostics (SaaS Optimization) */
 app.get("/admin/diagnostics", authenticate, requireAdmin, async (req, res) => {
   try {
+    const userCount = await User.countDocuments();
+    const ticketCount = await Ticket.countDocuments();
+    const kbCount = await Document.countDocuments();
+
     const diagnostics = {
       timestamp: new Date(),
+      status: "Operational",
       database: mongoose.connection.readyState === 1 ? "Connected" : "Disconnected",
-      openai: !!process.env.OPENAI_API_KEY,
-      stripe: !!process.env.STRIPE_SECRET_KEY,
-      node_version: process.version,
-      memory_usage: process.memoryUsage().heapUsed / 1024 / 1024 + " MB"
+      stats: {
+        users: userCount,
+        tickets: ticketCount,
+        knowledgeDocs: kbCount
+      },
+      env: {
+        openai: !!process.env.OPENAI_API_KEY,
+        stripe: !!process.env.STRIPE_SECRET_KEY,
+        mongo: !!process.env.MONGO_URI || !!process.env.MONGODB_URI
+      },
+      server: {
+        node_version: process.version,
+        memory_usage: (process.memoryUsage().heapUsed / 1024 / 1024).toFixed(2) + " MB",
+        uptime: Math.floor(process.uptime()) + "s"
+      }
     };
     res.json(diagnostics);
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+app.delete("/admin/users/:id", authenticate, requireAdmin, async (req, res) => {
+  try {
+    if (req.params.id === req.user.id) return res.status(400).json({ error: "Du kan inte radera dig själv" });
+    await User.findByIdAndDelete(req.params.id);
+    res.json({ message: "Användare borttagen" });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+app.delete("/admin/kb/bulk-delete", authenticate, requireAdmin, async (req, res) => {
+  try {
+    const { companyId } = req.body;
+    if (!companyId) return res.status(400).json({ error: "CompanyId krävs" });
+    await Document.deleteMany({ companyId });
+    res.json({ message: "KB rensad för valt bolag" });
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 

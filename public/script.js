@@ -1050,42 +1050,132 @@ async function loadAdminUsers() {
   const list = $("adminUsersList");
   if (!list) return;
 
-  const users = await api("/admin/users");
-  list.innerHTML = "";
+  try {
+    const users = await api("/admin/users");
+    list.innerHTML = "";
 
-  (users || []).forEach((u) => {
-    const div = document.createElement("div");
-    div.className = "listItem";
-    div.innerHTML = `
-      <div class="listItemTitle">${escapeHtml(u.username)} <span class="pill">${escapeHtml(u.role)}</span></div>
-      <div class="muted small">${escapeHtml(u.email || "-")}</div>
-    `;
+    (users || []).forEach((u) => {
+      const div = document.createElement("div");
+      div.className = "listItem";
+      div.style.display = "flex";
+      div.style.alignItems = "center";
+      div.style.justifyContent = "space-between";
 
-    // Role changing for admins (except self)
-    if (state.me?.role === "admin" && state.me?._id !== u._id) {
-      const sel = document.createElement("select");
-      sel.className = "input small";
-      sel.style.width = "auto";
-      sel.style.marginLeft = "10px";
-      ["user", "agent", "admin"].forEach(r => {
-        const opt = document.createElement("option");
-        opt.value = r;
-        opt.textContent = r;
-        if (u.role === r) opt.selected = true;
-        sel.appendChild(opt);
-      });
-      sel.onchange = async () => {
-        try {
-          await api(`/admin/users/${u._id}/role`, { method: "PATCH", body: { role: sel.value } });
-          toast("Klart", "Roll uppdaterad", "info");
-          await loadAdminUsers();
-        } catch (e) { toast("Fel", e.message, "error"); }
-      };
-      div.appendChild(sel);
-    }
+      const info = document.createElement("div");
+      info.innerHTML = `
+        <div class="listItemTitle">${escapeHtml(u.username)} <span class="pill ${u.role === 'admin' ? 'admin' : (u.role === 'agent' ? 'ok' : '')}">${escapeHtml(u.role)}</span></div>
+        <div class="muted small">${escapeHtml(u.email || "Ingen e-post")} • ID: ${u._id.slice(-6)}</div>
+      `;
+      div.appendChild(info);
 
-    list.appendChild(div);
-  });
+      const actions = document.createElement("div");
+      actions.style.display = "flex";
+      actions.style.gap = "8px";
+
+      // Role select
+      if (state.me?.role === "admin" && state.me?._id !== u._id) {
+        const sel = document.createElement("select");
+        sel.className = "input smallInput";
+        sel.style.width = "auto";
+        ["user", "agent", "admin"].forEach(r => {
+          const opt = document.createElement("option");
+          opt.value = r;
+          opt.textContent = r;
+          if (u.role === r) opt.selected = true;
+          sel.appendChild(opt);
+        });
+        sel.onchange = async () => {
+          try {
+            await api(`/admin/users/${u._id}/role`, { method: "PATCH", body: { role: sel.value } });
+            toast("Uppdaterat", `Roll ändrad till ${sel.value}`, "info");
+            await loadAdminUsers();
+          } catch (e) { toast("Fel", e.message, "error"); }
+        };
+        actions.appendChild(sel);
+
+        const delBtn = document.createElement("button");
+        delBtn.className = "btn danger small";
+        delBtn.innerHTML = `<i class="fa-solid fa-user-slash"></i>`;
+        delBtn.title = "Ta bort användare";
+        delBtn.onclick = async () => {
+          if (!confirm(`Är du säker på att du vill radera ${u.username}? Detta kan ej ångras.`)) return;
+          try {
+            await api(`/admin/users/${u._id}`, { method: "DELETE" });
+            toast("Borttagen", "Användaren har raderats", "info");
+            await loadAdminUsers();
+          } catch (e) { toast("Fel", e.message, "error"); }
+        };
+        actions.appendChild(delBtn);
+      }
+
+      div.appendChild(actions);
+      list.appendChild(div);
+    });
+  } catch (e) { toast("Fel", "Kunde inte ladda användare", "error"); }
+}
+
+async function loadAdminDiagnostics() {
+  const box = $("diagnosticsBox");
+  if (!box) return;
+
+  try {
+    const d = await api("/admin/diagnostics");
+    box.innerHTML = `
+            <div class="slaGrid">
+                <div class="slaCard">
+                    <div class="slaLabel"><i class="fa-solid fa-heart-pulse"></i> Status</div>
+                    <div class="slaValue" style="color:var(--ok)">${d.status}</div>
+                    <div class="slaDelta up">Systemet mår bra</div>
+                </div>
+                <div class="slaCard">
+                    <div class="slaLabel"><i class="fa-solid fa-database"></i> Database</div>
+                    <div class="slaValue">${d.database}</div>
+                    <div class="slaDelta up">Mongoose v${d.server.node_version}</div>
+                </div>
+                <div class="slaCard">
+                    <div class="slaLabel"><i class="fa-solid fa-microchip"></i> Memory</div>
+                    <div class="slaValue">${d.server.memory_usage}</div>
+                    <div class="slaDelta">Heap Used</div>
+                </div>
+                <div class="slaCard">
+                    <div class="slaLabel"><i class="fa-solid fa-clock"></i> Uptime</div>
+                    <div class="slaValue">${d.server.uptime}</div>
+                    <div class="slaDelta up">Senaste omstart</div>
+                </div>
+            </div>
+            
+            <div class="grid2" style="margin-top:20px;">
+                <div class="panel">
+                    <div class="panelHead"><b><i class="fa-solid fa-chart-pie"></i> Databas-statistik</b></div>
+                    <div class="list">
+                        <div class="listItem" style="cursor:default"><b>Totalt användare:</b> ${d.stats.users}</div>
+                        <div class="listItem" style="cursor:default"><b>Totalt tickets:</b> ${d.stats.tickets}</div>
+                        <div class="listItem" style="cursor:default"><b>KB Dokument:</b> ${d.stats.knowledgeDocs}</div>
+                    </div>
+                </div>
+                <div class="panel">
+                    <div class="panelHead"><b><i class="fa-solid fa-lock"></i> Miljövariabler (Check)</b></div>
+                    <div class="list">
+                        <div class="listItem" style="cursor:default">OpenAI Key: ${d.env.openai ? '✅ Aktiv' : '❌ Saknas'}</div>
+                        <div class="listItem" style="cursor:default">Stripe Key: ${d.env.stripe ? '✅ Aktiv' : '⚠️ Ej konfig'}</div>
+                        <div class="listItem" style="cursor:default">MongoDB: ${d.env.mongo ? '✅ Ansluten' : '❌ Fel'}</div>
+                    </div>
+                </div>
+            </div>
+        `;
+  } catch (e) { box.innerHTML = `<div class="alert error">Kunde inte ladda systemdiagnostik.</div>`; }
+}
+
+async function bulkDeleteKb() {
+  if (!confirm("VARNING: Detta raderar ALLA dokument i kunskapsbasen för valt bolag. Är du säker?")) return;
+  try {
+    await api("/admin/kb/bulk-delete", {
+      method: "DELETE",
+      body: { companyId: $("kbCategorySelect").value }
+    });
+    toast("Rensat", "Kunskapsbasen har tömts ✅", "info");
+    await loadKb();
+  } catch (e) { toast("Fel", e.message, "error"); }
 }
 
 /* =========================
@@ -1384,10 +1474,12 @@ function bindEvents() {
   // ✅ ADMIN
   on("openAdminView", "click", async () => {
     showView("adminView", "openAdminView");
+    await loadAdminDiagnostics();
     await loadAdminUsers();
   });
 
   on("adminUsersRefreshBtn", "click", loadAdminUsers);
+  on("kbBulkDeleteBtn", "click", bulkDeleteKb);
 
   // KB Events
   initTabs();
