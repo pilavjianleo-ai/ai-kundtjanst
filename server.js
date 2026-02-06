@@ -616,6 +616,20 @@ Aktuell tid: ${new Date().toLocaleString('sv-SE')}
    Endpoints: Chat & Tickets
 ===================== */
 
+app.delete("/inbox/tickets/solved", authenticate, requireAgent, async (req, res) => {
+  try {
+    const { companyId } = req.query;
+    const q = { status: "solved" };
+    if (companyId && companyId !== "undefined" && companyId !== "null") {
+      q.companyId = String(companyId).trim();
+    }
+    const result = await Ticket.deleteMany(q);
+    res.json({ message: `Rensade ${result.deletedCount} lösta ärenden` });
+  } catch (e) {
+    res.status(500).json({ error: String(e.message) });
+  }
+});
+
 app.post("/chat", authenticate, async (req, res) => {
   const fs = require("fs");
   const log = (msg) => fs.appendFileSync("chat_debug.log", `[${new Date().toISOString()}] ${msg}\n`);

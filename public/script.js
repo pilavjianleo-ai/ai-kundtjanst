@@ -4010,3 +4010,45 @@ if (document.readyState === "loading") {
 }
 // Expose for re-binding
 window.bindInboxActions = bindInboxActions;
+
+/* === SAFETY OVERRIDE === */
+window.inboxAction = async function (action) {
+    const companyId = document.getElementById("inboxCategoryFilter")?.value || "";
+
+    if (!companyId) {
+        alert("Vänligen välj ett företag i filtret först för att undvika att påverka alla.");
+        return;
+    }
+
+    if (action === 'solve') {
+        if (!confirm("Markera ALLA ärenden för detta företag som lösta?")) return;
+        try {
+            await api("/inbox/tickets/solve-all", { method: "PATCH", body: { companyId } });
+            toast("Klart", "Alla ärenden lösta", "success");
+            if (window.loadInboxTickets) window.loadInboxTickets();
+        } catch (e) { toast("Fel", e.message, "error"); }
+    }
+
+    if (action === 'remove') {
+        if (!confirm("Ta bort ALLA lösta ärenden permanent för detta företag?")) return;
+        try {
+            await api(`/inbox/tickets/solved?companyId=${encodeURIComponent(companyId)}`, { method: "DELETE" });
+            toast("Klart", "Rensat lösta ärenden", "success");
+            if (window.loadInboxTickets) window.loadInboxTickets();
+        } catch (e) { toast("Fel", e.message, "error"); }
+    }
+};
+
+// Re-bind buttons to use the safe global function
+function rebindSafeActions() {
+    const solveBtn = document.getElementById("solveAllBtn");
+    const removeBtn = document.getElementById("removeSolvedBtn");
+    if (solveBtn) solveBtn.onclick = () => window.inboxAction('solve');
+    if (removeBtn) removeBtn.onclick = () => window.inboxAction('remove');
+    console.log("Safe Inbox Actions Bound");
+}
+// Run immediately and on DOMContentLoaded just in case
+rebindSafeActions();
+if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", rebindSafeActions);
+}
