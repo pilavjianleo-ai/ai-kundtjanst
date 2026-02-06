@@ -2079,31 +2079,78 @@ function renderCrmCustomersList() {
   if (countEl) countEl.textContent = `(${filtered.length} kunder)`;
 
   // Render list
-  list.innerHTML = filtered.length ? filtered.map(c => {
+  if (!filtered.length) {
+    list.innerHTML = `<div class="muted small center" style="padding: 40px;">Inga kunder matchar sökningen.</div>`;
+    return;
+  }
+
+  list.innerHTML = filtered.map(c => {
     const initials = (c.displayName || "??").substring(0, 2).toUpperCase();
     const plan = c.plan || "bas";
     const status = c.status || "active";
+    const org = c.orgNr || c.orgNumber || "Ej angivet";
 
     return `
-      <div class="crmCustomerCard" onclick="openCustomerModal('${c.companyId}')">
-        <div class="avatar-small">${initials}</div>
+      <div class="crmCustomerCard" onclick="openCustomerModal('${c.companyId}')" style="display: grid; grid-template-columns: 50px 2fr 1.5fr 1fr 1fr auto; align-items: center; gap: 15px; padding: 15px; cursor: pointer; transition: background 0.2s;">
+        <div class="avatar-small" style="background:var(--primary); color:white;">${initials}</div>
+        
         <div class="info">
-          <div class="name">${escapeHtml(c.displayName)}</div>
-          <div class="muted small">${escapeHtml(c.companyId)} • ${c.contactEmail || 'Ingen e-post'}</div>
+          <div class="name" style="font-weight:bold; font-size:16px; color:var(--text);">${escapeHtml(c.displayName)}</div>
+          <div class="muted small" style="margin-top:2px;">
+            <i class="fa-solid fa-building"></i> ${escapeHtml(org)}
+          </div>
         </div>
-        <span class="planBadge ${plan}">${plan.toUpperCase()}</span>
-        <span class="statusBadge ${status}">${status === 'active' ? 'Aktiv' : status === 'pending' ? 'Väntar' : 'Inaktiv'}</span>
-        <div class="actions">
-          <button class="btn ghost small" onclick="event.stopPropagation(); editCustomer('${c.companyId}')" title="Redigera">
-            <i class="fa-solid fa-pen"></i>
+        
+        <div class="contact muted small">
+           <div style="margin-bottom:2px;"><i class="fa-solid fa-envelope"></i> ${escapeHtml(c.contactEmail || '-')}</div>
+           <div><i class="fa-solid fa-tag"></i> ${escapeHtml(c.companyId)}</div>
+        </div>
+
+        <div style="text-align:center;">
+            <span class="planBadge ${plan}" style="padding: 4px 10px; border-radius: 12px; font-size: 12px; font-weight: bold; text-transform:uppercase;">${plan}</span>
+        </div>
+        
+        <div style="text-align:center;">
+             <span class="statusBadge ${status}" style="font-weight:bold; text-transform:uppercase;">${status}</span>
+        </div>
+        
+        <div class="actions" style="display:flex; gap:10px;">
+          <button class="btn secondary small" onclick="event.stopPropagation(); editCustomer('${c.companyId}')" title="Redigera">
+            <i class="fa-solid fa-pen"></i> <span class="hide-mobile">Redigera</span>
           </button>
-          <button class="btn ghost small danger" onclick="event.stopPropagation(); deleteCompanyFromCrm('${c.companyId}', '${escapeHtml(c.displayName)}')" title="Ta bort">
+          <button class="btn danger small" onclick="event.stopPropagation(); deleteCompanyFromCrm('${c.companyId}', '${escapeHtml(c.displayName)}')" title="Ta bort">
             <i class="fa-solid fa-trash"></i>
           </button>
         </div>
       </div>
     `;
-  }).join("") : `<div class="muted small center" style="padding: 40px;">Inga kunder matchar sökningen.</div>`;
+  }).join("");
+}
+
+async function deleteCompanyFromCrm(companyId, name) {
+  if (!confirm(`VARNING: Vill du verkligen TABORT ${name} (${companyId})?\n\nDetta raderar ALLA användare, ärenden och dokument kopplade till bolaget.\nDetta går inte att ångra.`)) return;
+
+  try {
+    await api(`/admin/companies/${companyId}`, { method: "DELETE" });
+    toast("Raderat", `${name} har tagits bort och datan är rensad.`, "info");
+    await refreshCustomers();
+  } catch (e) {
+    toast("Fel", e.message, "error");
+  }
+}
+
+function togglePasswordVisibility(inputId) {
+  const input = document.getElementById(inputId);
+  if (!input) return;
+  const isPass = input.type === 'password';
+  input.type = isPass ? 'text' : 'password';
+  const btn = input.nextElementSibling || input.parentElement.querySelector('button');
+  if (btn) {
+    const icon = btn.querySelector('i');
+    if (icon) {
+      icon.className = isPass ? 'fa-solid fa-eye-slash' : 'fa-solid fa-eye';
+    }
+  }
 }
 
 async function openCustomerModal(companyId) {

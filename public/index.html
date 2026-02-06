@@ -123,7 +123,8 @@
           <label>Lösenord</label>
           <div class="passRow">
             <input id="password" type="password" class="input" placeholder="••••••••" />
-            <button id="togglePassBtn" class="btn ghost small" type="button">
+            <button id="togglePassBtn" class="btn ghost small" type="button"
+              onclick="togglePasswordVisibility('password')">
               <i class="fa-solid fa-eye"></i>
             </button>
           </div>
@@ -170,7 +171,8 @@
           <label>Nytt lösenord</label>
           <div class="passRow">
             <input id="resetNewPass" type="password" class="input" placeholder="Nytt lösenord" />
-            <button id="toggleResetPassBtn" class="btn ghost small" type="button">
+            <button id="toggleResetPassBtn" class="btn ghost small" type="button"
+              onclick="togglePasswordVisibility('resetNewPass')">
               <i class="fa-solid fa-eye"></i>
             </button>
           </div>
@@ -1301,6 +1303,63 @@
             </div>
           </div>
         </div>
+      </section>
+
+      <!-- SETTINGS VIEW / PROFILE -->
+      <section id="settingsView" class="view" style="display:none;">
+        <div class="topbar">
+          <div>
+            <div class="title">Inställningar & Profil</div>
+          </div>
+        </div>
+
+        <div class="grid2">
+          <div class="panel">
+            <div class="panelHead"><b><i class="fa-solid fa-user"></i> Profil</b></div>
+
+            <div class="row gap" style="margin-top:15px; margin-bottom:15px;">
+              <div id="profileAvatar" class="avatar-large"
+                style="width:64px; height:64px; font-size:24px; display:flex; align-items:center; justify-content:center; background:var(--primary); color:white; border-radius:50%;">
+                XX</div>
+              <div style="flex:1">
+                <div id="profileNameDisplay" class="title" style="font-size:20px;">Användarnamn</div>
+                <span id="profileRoleBadge" class="badge">Roll</span>
+              </div>
+            </div>
+
+            <label>E-post</label>
+            <input id="profileEmail" class="input" disabled />
+
+            <label>Användarnamn</label>
+            <input id="newUsernameInput" class="input" />
+            <button id="changeUsernameBtn" class="btn secondary full" style="margin-top:10px;">Byt användarnamn</button>
+          </div>
+
+          <div class="panel">
+            <div class="panelHead"><b><i class="fa-solid fa-lock"></i> Säkerhet</b></div>
+            <p class="muted small">Här kan du byta ditt lösenord.</p>
+
+            <label>Nuvarande lösenord</label>
+            <div class="passRow" style="display:flex; gap:8px;">
+              <input id="currentPassInput" type="password" class="input" placeholder="••••••••" />
+              <button onclick="togglePasswordVisibility('currentPassInput')" class="btn ghost small" type="button"><i
+                  class="fa-solid fa-eye"></i></button>
+            </div>
+
+            <label>Nytt lösenord</label>
+            <div class="passRow" style="display:flex; gap:8px; margin-top:10px;">
+              <input id="newPassInput" type="password" class="input" placeholder="••••••••" />
+              <button onclick="togglePasswordVisibility('newPassInput')" class="btn ghost small" type="button"><i
+                  class="fa-solid fa-eye"></i></button>
+            </div>
+
+            <button id="changePasswordBtn" class="btn primary full" style="margin-top:20px;">
+              <i class="fa-solid fa-floppy-disk"></i> Uppdatera lösenord
+            </button>
+          </div>
+        </div>
+
+        <div id="roleBasedStats" style="margin-top:20px;"></div>
       </section>
 
       <!-- NY: BILLING / ABONNEMANG -->

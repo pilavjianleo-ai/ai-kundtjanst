@@ -121,13 +121,17 @@ const userSchema = new mongoose.Schema({
 const User = mongoose.model("User", userSchema);
 
 // Company
+// Company
 const companySchema = new mongoose.Schema({
   companyId: { type: String, unique: true, required: true },
   displayName: { type: String, required: true },
-  orgNumber: { type: String, default: "" },
+  orgNr: { type: String, default: "" },
+  contactName: { type: String, default: "" },
   contactEmail: { type: String, default: "" },
-  status: { type: String, enum: ["trial", "active", "past_due", "canceled"], default: "trial" },
-  plan: { type: String, enum: ["bas", "pro"], default: "bas" },
+  phone: { type: String, default: "" },
+  notes: { type: String, default: "" },
+  status: { type: String, enum: ["trial", "active", "pending", "inactive", "past_due", "canceled"], default: "active" },
+  plan: { type: String, enum: ["trial", "bas", "pro", "enterprise"], default: "bas" },
   settings: {
     greeting: { type: String, default: "Hej! 👋 Hur kan jag hjälpa dig idag?" },
     tone: { type: String, default: "professional", enum: ["professional", "friendly", "strict"] },
@@ -1097,6 +1101,91 @@ app.delete("/admin/users/:id", authenticate, requireAdmin, async (req, res) => {
     if (req.params.id === req.user.id) return res.status(400).json({ error: "Du kan inte radera dig själv" });
     await User.findByIdAndDelete(req.params.id);
     res.json({ message: "Användare borttagen" });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+/* ==================
+   Company Admin (CRM)
+   ================== */
+app.get("/admin/companies", authenticate, requireAgent, async (req, res) => {
+  try {
+    const companies = await Company.find().sort({ createdAt: -1 });
+    res.json(companies);
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+app.post("/admin/companies", authenticate, requireAdmin, async (req, res) => {
+  try {
+    const { displayName, contactEmail, plan, status, orgNr, contactName, phone, notes } = req.body;
+    if (!displayName) return res.status(400).json({ error: "Namn krävs" });
+
+    // Generate ID from name
+    const companyId = displayName.toLowerCase().replace(/[^a-z0-9]/g, '-').slice(0, 30);
+
+    const existing = await Company.findOne({ companyId });
+    if (existing) return res.status(400).json({ error: "Bolag med liknande ID finns redan" });
+
+    const c = new Company({
+      companyId,
+      displayName,
+      contactEmail: contactEmail || "",
+      plan: plan || "bas",
+      status: status || "active",
+      orgNr: orgNr || "",
+      contactName: contactName || "",
+      phone: phone || "",
+      notes: notes || "",
+      createdAt: new Date()
+    });
+    await c.save();
+    res.json(c);
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+app.delete("/admin/companies/:id", authenticate, requireAdmin, async (req, res) => {
+  try {
+    const companyId = req.params.id;
+    await Company.findOneAndDelete({ companyId });
+    await User.deleteMany({ companyId });
+    await Ticket.deleteMany({ companyId });
+    await Document.deleteMany({ companyId });
+    res.json({ message: "Bolag och all data raderad" });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+app.get("/company/settings", authenticate, async (req, res) => {
+  const { companyId } = req.query;
+  if (companyId && (req.user.role === 'admin' || req.user.role === 'agent')) {
+    const c = await Company.findOne({ companyId });
+    return res.json(c?.settings || {});
+  }
+  res.json({});
+});
+
+app.patch("/company/settings", authenticate, requireAgent, async (req, res) => {
+  try {
+    const { companyId, settings } = req.body;
+    const c = await Company.findOne({ companyId });
+    if (!c) return res.status(404).json({ error: "Bolag ej hittat" });
+
+    // Settings sub-object
+    if (settings.greeting) c.settings.greeting = settings.greeting;
+    if (settings.tone) c.settings.tone = settings.tone;
+    if (settings.widgetColor) c.settings.widgetColor = settings.widgetColor;
+
+    // Root fields
+    if (settings.displayName) c.displayName = settings.displayName;
+    if (settings.contactName) c.contactName = settings.contactName;
+    if (settings.contactEmail) c.contactEmail = settings.contactEmail;
+    if (settings.phone) c.phone = settings.phone;
+    if (settings.plan) c.plan = settings.plan;
+    if (settings.status) c.status = settings.status;
+    if (settings.orgNr) c.orgNr = settings.orgNr;
+    if (settings.notes) c.notes = settings.notes;
+
+    c.markModified('settings');
+    await c.save();
+    res.json(c);
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
