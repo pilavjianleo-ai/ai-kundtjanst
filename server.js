@@ -748,6 +748,14 @@ app.patch("/admin/users/:id/role", authenticate, requireAdmin, async (req, res) 
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
+app.patch("/inbox/tickets/solve-all", authenticate, requireAgent, async (req, res) => {
+  try {
+    await Ticket.updateMany({ status: { $ne: "solved" } }, { status: "solved", solvedAt: new Date() });
+    io.emit("ticketUpdate", { message: "Bulk solve completed" });
+    res.json({ message: "Alla ärenden markerade som lösta" });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
 app.get("/admin/companies", authenticate, requireAdmin, async (req, res) => {
   try {
     const companies = await Company.find({}).sort({ createdAt: -1 });

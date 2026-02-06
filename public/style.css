@@ -862,6 +862,13 @@ body[data-theme="light"] .input {
   color: var(--danger);
 }
 
+/* Chart Fixing */
+.chart-container {
+  position: relative;
+  height: 300px;
+  width: 100%;
+}
+
 #slaTrendChart {
   border: 1px solid var(--border);
   border-radius: 14px;

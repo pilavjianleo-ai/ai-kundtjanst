@@ -1351,6 +1351,14 @@ function bindEvents() {
   });
 
   on("inboxRefreshBtn", "click", loadInboxTickets);
+  on("solveAllBtn", "click", async () => {
+    if (!confirm("Är du säker på att du vill markera ALLA öppna ärenden som lösta?")) return;
+    try {
+      await api("/inbox/tickets/solve-all", { method: "PATCH" });
+      toast("Inbox", "Alla ärenden har markerats som lösta ✅", "info");
+      await loadInboxTickets();
+    } catch (e) { toast("Fel", e.message, "error"); }
+  });
   on("setStatusOpen", "click", () => setInboxStatus("open"));
   on("setStatusPending", "click", () => setInboxStatus("pending"));
   on("setStatusSolved", "click", () => setInboxStatus("solved"));
