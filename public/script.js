@@ -1509,6 +1509,543 @@ async function changeUsername() {
   } catch (e) { toast("Fel", e.message, "error"); }
 }
 
+async function changePassword() {
+  const current = $("currentPassInput")?.value;
+  const next = $("newPassInput")?.value;
+  if (!current || !next) return toast("Fel", "Fyll i båda fält", "error");
+  try {
+    await api("/me/password", { method: "PATCH", body: { current, next } });
+    toast("Klart", "Lösenord bytt ✅", "info");
+    $("currentPassInput").value = "";
+    $("newPassInput").value = "";
+  } catch (e) { toast("Fel", e.message, "error"); }
+}
+
+/* =========================
+   MY TICKETS (FULLT)
+========================= */
+function renderMyTicketsList() {
+  const list = $("myTicketsList");
+  if (!list) return;
+  list.innerHTML = "";
+  if (state.myTickets.length === 0) {
+    list.innerHTML = `<div class="muted small">Inga ärenden ännu.</div>`;
+    return;
+  }
+  state.myTickets.forEach((t) => {
+    const div = document.createElement("div");
+    div.className = "listItem";
+    div.innerHTML = `
+      <div class="listItemTitle">
+        ${escapeHtml(t.title || "Ärende")}
+        <span class="pill">${escapeHtml(t.status)}</span>
+      </div>
+      <div class="muted small">${escapeHtml(t.publicTicketId || "")}</div>
+    `;
+    div.addEventListener("click", () => renderMyTicketDetails(t._id));
+    list.appendChild(div);
+  });
+}
+
+async function refreshMyTickets() {
+  try {
+    const tickets = await api("/tickets/my");
+    state.myTickets = tickets || [];
+    renderMyTicketsList();
+  } catch { }
+}
+
+async function renderMyTicketDetails(ticketId) {
+  const box = $("myTicketDetails");
+  if (!box) return;
+  try {
+    const t = await api("/tickets/" + ticketId);
+    state.activeTicketId = t._id;
+    state.activeTicketPublicId = t.publicTicketId;
+    renderDebug();
+    const msgs = (t.messages || [])
+      .map((m) => `<div class="muted small"><b>${escapeHtml(m.role)}:</b> ${escapeHtml(m.content)}</div>`)
+      .join("<br>");
+    box.innerHTML = `
+      <div><b>${escapeHtml(t.title || "Ärende")}</b></div>
+      <div class="muted small">${escapeHtml(t.publicTicketId)} • ${escapeHtml(t.status)} • ${escapeHtml(t.priority)}</div>
+      <div class="divider"></div>
+      ${msgs || "<div class='muted small'>Inga meddelanden ännu.</div>"}
+    `;
+  } catch (e) { box.textContent = "Kunde inte ladda ticket: " + e.message; }
+}
+
+async function replyMyTicket() {
+  const text = $("myTicketReplyText")?.value?.trim();
+  if (!text) return toast("Saknas", "Skriv ett meddelande", "error");
+  if (!state.activeTicketId) return toast("Saknas", "Välj ett ärende först", "error");
+  try {
+    await api(`/tickets/${state.activeTicketId}/reply`, { method: "POST", body: { message: text } });
+    $("myTicketReplyText").value = "";
+    toast("Skickat", "Ditt meddelande skickades ✅", "info");
+    await renderMyTicketDetails(state.activeTicketId);
+    await refreshMyTickets();
+  } catch (e) { toast("Fel", e.message, "error"); }
+}
+
+/* =========================
+   INBOX (agent/admin)
+========================= */
+function renderInboxList() {
+  const list = $("inboxTicketsList");
+  if (!list) return;
+  list.innerHTML = "";
+  if (state.inboxTickets.length === 0) {
+    list.innerHTML = `<div class="muted small">Inga tickets hittades.</div>`;
+    return;
+  }
+  state.inboxTickets.forEach((t) => {
+    const div = document.createElement("div");
+    const isHigh = t.priority === "high";
+    const priClass = isHigh ? "danger" : t.priority === "low" ? "muted" : "info";
+    div.className = "listItem " + (isHigh ? "important-highlight" : "");
+    div.innerHTML = `
+      <div class="listItemTitle">
+        ${isHigh ? '<i class="fa-solid fa-triangle-exclamation" style="color:var(--danger)"></i> ' : ""}
+        ${escapeHtml(t.title || "Ticket")}
+        <span class="pill ${priClass}">${escapeHtml(t.priority || "normal")}</span>
+        <span class="pill">${escapeHtml(t.status)}</span>
+      </div>
+      <div class="muted small">${escapeHtml(t.publicTicketId)} • ${escapeHtml(t.companyId)} • ${new Date(t.lastActivityAt).toLocaleString('sv-SE')}</div>
+    `;
+    div.addEventListener("click", () => selectInboxTicket(t._id));
+    list.appendChild(div);
+  });
+}
+
+async function loadInboxTickets() {
+  try {
+    const status = $("inboxStatusFilter")?.value || "";
+    const companyId = $("inboxCategoryFilter")?.value || "";
+    const tickets = await api(`/inbox/tickets?status=${encodeURIComponent(status)}&companyId=${encodeURIComponent(companyId)}`);
+    state.inboxTickets = tickets || [];
+    renderInboxList();
+  } catch (e) { console.error("Inbox Load Error:", e); }
+}
+
+async function selectInboxTicket(ticketId) {
+  state.inboxSelectedTicket = state.inboxTickets.find((t) => t._id === ticketId) || null;
+  const box = $("ticketDetails");
+  if (!box || !state.inboxSelectedTicket) return;
+  const t = await api("/tickets/" + ticketId);
+  const msgs = (t.messages || [])
+    .map((m) => `<div class="muted small"><b>${escapeHtml(m.role)}:</b> ${escapeHtml(m.content)}</div>`)
+    .join("<br>");
+  box.innerHTML = `
+    <div class="row" style="justify-content:space-between; align-items:flex-start;">
+        <div>
+            <b>${escapeHtml(t.title || "Ticket")}</b><br>
+            <span class="muted small">${escapeHtml(t.publicTicketId)} • ${escapeHtml(t.status)}</span>
+        </div>
+        <button class="btn ghost small" onclick="summarizeTicket('${t._id}')">
+            <i class="fa-solid fa-wand-magic-sparkles"></i> AI Sammanfatta
+        </button>
+    </div>
+    <div id="ticketSummaryContent" class="alert info small" style="display:none; margin-top:10px;"></div>
+    <div class="divider"></div>
+    ${msgs || "<div class='muted small'>Inga meddelanden ännu.</div>"}
+  `;
+  const priSel = $("ticketPrioritySelect");
+  if (priSel) priSel.value = t.priority || "normal";
+  if (t.internalNotes && t.internalNotes.length > 0) {
+    const notesHtml = t.internalNotes.map(n => `<div class="alert info tiny" style="margin-top:5px; border-style:dashed;"><i class="fa-solid fa-note-sticky"></i> ${escapeHtml(n.content)}</div>`).join("");
+    box.innerHTML += `<div style="margin-top:15px;"><b>Interna noter:</b>${notesHtml}</div>`;
+  }
+  const userSel = $("assignUserSelect");
+  if (userSel) userSel.value = t.assignedToUserId || "";
+}
+
+async function summarizeTicket(id) {
+  const contentBox = $("ticketSummaryContent");
+  if (contentBox) {
+    contentBox.style.display = "block";
+    contentBox.textContent = "Genererar sammanfattning... ✨";
+    try {
+      const res = await api(`/tickets/${id}/summary`);
+      contentBox.textContent = "AI Sammanfattning: " + res.summary;
+    } catch (e) { contentBox.textContent = "Kunde inte sammanfatta: " + e.message; }
+  }
+}
+
+async function setInboxStatus(status) {
+  if (!state.inboxSelectedTicket) return toast("Saknas", "Välj en ticket först", "error");
+  await api(`/inbox/tickets/${state.inboxSelectedTicket._id}/status`, { method: "PATCH", body: { status } });
+  toast("OK", "Status uppdaterad ✅", "info");
+  await loadInboxTickets();
+}
+
+async function setInboxPriority() {
+  if (!state.inboxSelectedTicket) return toast("Saknas", "Välj en ticket först", "error");
+  const priority = $("ticketPrioritySelect")?.value || "normal";
+  await api(`/inbox/tickets/${state.inboxSelectedTicket._id}/priority`, { method: "PATCH", body: { priority } });
+  toast("OK", "Prioritet uppdaterad ✅", "info");
+  await loadInboxTickets();
+}
+
+async function sendAgentReplyInbox() {
+  if (!state.inboxSelectedTicket) return toast("Saknas", "Välj en ticket först", "error");
+  const text = $("agentReplyTextInbox")?.value?.trim();
+  if (!text) return toast("Saknas", "Skriv ett svar", "error");
+  await api(`/inbox/tickets/${state.inboxSelectedTicket._id}/reply`, { method: "POST", body: { message: text } });
+  $("agentReplyTextInbox").value = "";
+  toast("Skickat", "Svar skickat ✅", "info");
+  await selectInboxTicket(state.inboxSelectedTicket._id);
+  await loadInboxTickets();
+}
+
+async function saveInternalNote() {
+  if (!state.inboxSelectedTicket) return toast("Saknas", "Välj en ticket först", "error");
+  const content = $("internalNoteText")?.value?.trim();
+  if (!content) return toast("Saknas", "Skriv en note", "error");
+  await api(`/inbox/tickets/${state.inboxSelectedTicket._id}/note`, { method: "POST", body: { content } });
+  $("internalNoteText").value = "";
+  toast("Klar", "Intern note sparad ✅", "info");
+  await selectInboxTicket(state.inboxSelectedTicket._id);
+}
+
+async function clearInternalNotes() {
+  if (!state.inboxSelectedTicket) return toast("Saknas", "Välj en ticket först", "error");
+  if (!confirm("Vill du radera alla interna noter på denna ticket?")) return;
+  await api(`/inbox/tickets/${state.inboxSelectedTicket._id}/notes`, { method: "DELETE" });
+  toast("Raderat", "Notes raderade ✅", "info");
+  await selectInboxTicket(state.inboxSelectedTicket._id);
+}
+
+async function assignTicket() {
+  if (!state.inboxSelectedTicket) return toast("Saknas", "Välj en ticket först", "error");
+  const userId = $("assignUserSelect")?.value;
+  await api(`/inbox/tickets/${state.inboxSelectedTicket._id}/assign`, { method: "PATCH", body: { userId } });
+  toast("Klar", "Ärende tilldelat ✅", "info");
+  await loadInboxTickets();
+}
+
+async function deleteTicket() {
+  if (!state.inboxSelectedTicket) return toast("Saknas", "Välj en ticket först", "error");
+  if (!confirm("ÄR DU SÄKER? Detta raderar ticketen permanent!")) return;
+  await api(`/inbox/tickets/${state.inboxSelectedTicket._id}`, { method: "DELETE" });
+  toast("Raderat", "Ticket borta för alltid", "warning");
+  state.inboxSelectedTicket = null;
+  $("ticketDetails").innerHTML = "Välj en ticket.";
+  await loadInboxTickets();
+}
+
+/* =========================
+   SLA
+========================= */
+async function loadSlaDashboard() {
+  const days = $("slaDaysSelect")?.value || "30";
+  try {
+    const overview = await api(`/sla/overview?days=${encodeURIComponent(days)}`);
+    const trend = await api(`/sla/trend?days=${encodeURIComponent(days)}`);
+    const agents = await api(`/sla/agents?days=${encodeURIComponent(days)}`);
+    const topTopics = await api(`/sla/top-topics`);
+    const overviewBox = $("slaOverviewBox");
+    if (overviewBox) {
+      overviewBox.innerHTML = `
+            <div class="slaGrid">
+                <div class="slaCard">
+                    <div class="slaLabel"><i class="fa-solid fa-ticket"></i> Total Tickets</div>
+                    <div class="slaValue">${overview.counts.total}</div>
+                    <div class="slaDelta up">Last ${days} days</div>
+                </div>
+                <div class="slaCard">
+                    <div class="slaLabel"><i class="fa-solid fa-robot"></i> AI Solve Rate</div>
+                    <div class="slaValue">${overview.aiRate}%</div>
+                    <div class="slaDelta up">Automatic handling</div>
+                </div>
+                <div class="slaCard">
+                    <div class="slaLabel"><i class="fa-solid fa-stopwatch"></i> Avg. Solve Time</div>
+                    <div class="slaValue">${overview.avgSolveHours}h</div>
+                    <div class="slaDelta">Resolution SLA</div>
+                </div>
+                <div class="slaCard">
+                    <div class="slaLabel"><i class="fa-solid fa-star"></i> Customer CSAT</div>
+                    <div class="slaValue">${overview.avgCsat}</div>
+                    <div class="slaDelta up">Avg Rating</div>
+                </div>
+            </div>
+        `;
+    }
+    const topicsBox = $("slaTopTopicsBox");
+    if (topicsBox) {
+      topicsBox.innerHTML = topTopics.length ? topTopics.map(t => `<div class="listItem" style="cursor:default">
+                <div class="listItemTitle">
+                    <span class="muted" style="width:24px">#</span> ${escapeHtml(t.topic)}
+                    <span class="pill" style="margin-left:auto">${t.count} träffar</span>
+                </div>
+            </div>`).join("") : '<div class="muted small p-10">Ingen trend-data tillgänglig än.</div>';
+    }
+    const tableBody = $("slaAgentsTableBody");
+    if (tableBody) {
+      tableBody.innerHTML = agents.length ? agents.map(a => `<tr><td><b>${escapeHtml(a.agentName)}</b></td><td>${a.handled}</td><td>${a.solved}</td><td><div class="pill ${a.efficiency > 70 ? 'ok' : 'warn'}">${a.efficiency}%</div></td></tr>`).join("") : '<tr><td colspan="4" class="muted center">Inga agenter aktiva under perioden.</td></tr>';
+    }
+    if (window.Chart && $("slaTrendChart")) {
+      const ctx = $("slaTrendChart").getContext("2d");
+      if (window.__slaChart) window.__slaChart.destroy();
+      window.__slaChart = new Chart(ctx, {
+        type: "line",
+        data: {
+          labels: trend.map(r => r.week),
+          datasets: [
+            { label: "Inkommande", data: trend.map(r => r.total), borderColor: "#4c7dff", backgroundColor: "rgba(76, 125, 255, 0.1)", fill: true, tension: 0.4 },
+            { label: "Lösta", data: trend.map(r => r.solved), borderColor: "#37d67a", backgroundColor: "rgba(55, 214, 122, 0.1)", fill: true, tension: 0.4 }
+          ]
+        },
+        options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: true, labels: { color: '#a6abc6', usePointStyle: true } } }, scales: { x: { grid: { display: false }, ticks: { color: '#a6abc6' } }, y: { grid: { color: 'rgba(255,255,255,0.05)' }, ticks: { color: '#a6abc6' } } } }
+      });
+    }
+  } catch (e) { toast("Fel", "Kunde inte ladda dashboard-data", "error"); }
+}
+
+async function exportSlaCsv() {
+  toast("Export", "Förbereder CSV...", "info");
+  const days = $("slaDaysSelect")?.value || "30";
+  try {
+    const [overview, agents] = await Promise.all([api(`/sla/overview?days=${days}`), api(`/sla/agents?days=${days}`)]);
+    let csv = "Metric,Value\nTotal Tickets," + overview.counts.total + "\nSolved Tickets," + overview.counts.solved + "\nAI Solve Rate," + overview.aiRate + "%\nAvg Solve Time," + overview.avgSolveHours + "h\nAvg CSAT," + overview.avgCsat + "\n\nAgent,Handled,Solved,Efficiency\n";
+    agents.forEach(a => { csv += `${a.agentName},${a.handled},${a.solved},${a.efficiency}%\n`; });
+    const blob = new Blob([csv], { type: 'text/csv' });
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.setAttribute('href', url);
+    a.setAttribute('download', `SLA_Report_${new Date().toISOString().split('T')[0]}.csv`);
+    a.click();
+  } catch (e) { toast("Fel", "Export misslyckades", "error"); }
+}
+
+async function clearSla(scope) {
+  const msg = scope === 'all' ? "Vill du radera ALL statistik (hela databasen)?" : "Vill du radera DIN statistik?";
+  if (!confirm(msg)) return;
+  try {
+    await api(scope === 'all' ? "/sla/clear/all" : "/sla/clear/my", { method: "DELETE" });
+    toast("Raderat", "Statistik har rensats ✅", "info");
+    await loadSlaDashboard();
+  } catch (e) { toast("Fel", e.message, "error"); }
+}
+
+/* =========================
+   Billing
+========================= */
+async function loadBilling() {
+  try {
+    const [details, history] = await Promise.all([api("/billing/details"), api("/billing/history")]);
+    if ($("currentPlanName")) $("currentPlanName").textContent = details.plan.toUpperCase();
+    if ($("currentPlanStatus")) $("currentPlanStatus").textContent = details.status;
+    if ($("billingUsageVal")) $("billingUsageVal").textContent = details.usage.percent + "%";
+    if ($("billingUsageLabel")) $("billingUsageLabel").textContent = `${details.usage.current} / ${details.usage.limit} ärenden`;
+    if ($("nextBillingDate")) $("nextBillingDate").textContent = details.nextInvoice;
+    const activeLabel = $("activePlanLabel");
+    if (activeLabel) activeLabel.textContent = details.planInfo.name;
+    const activeFeatures = $("activePlanFeatures");
+    if (activeFeatures) activeFeatures.innerHTML = details.planInfo.features.map(f => `<li style="font-size:13px;"><i class="fa-solid fa-circle-check" style="color:var(--ok)"></i> ${f}</li>`).join("");
+    const proCard = $("planCardPro");
+    const basCard = $("planCardBas");
+    if (details.plan === "pro") {
+      if (proCard) { proCard.style.boxShadow = "0 0 20px rgba(76, 125, 255, 0.3)"; proCard.style.borderColor = "var(--primary)"; }
+      const upBtn = $("upgradeToProBtn");
+      if (upBtn) { upBtn.textContent = "Din nuvarande plan"; upBtn.disabled = true; upBtn.className = "btn ghost full"; }
+    } else if (basCard) { basCard.style.boxShadow = "0 0 20px rgba(55, 214, 122, 0.15)"; }
+    const list = $("billingHistoryList");
+    if (list) list.innerHTML = history.invoices.length ? history.invoices.map(inv => `<tr><td>${inv.date}</td><td><b>${inv.amount}</b></td><td><span class="pill ok">${inv.status}</span></td><td style="text-align:right"><a href="${inv.url}" class="btn ghost small"><i class="fa-solid fa-file-pdf"></i></a></td></tr>`).join("") : '<tr><td colspan="4" class="muted center">Inga fakturor än.</td></tr>';
+  } catch (e) { toast("Fel", "Kunde inte ladda betalningsinformation", "error"); }
+}
+
+async function upgradeToPro() {
+  try {
+    const res = await api("/billing/create-checkout", { method: "POST", body: { plan: "pro", companyId: state.companyId } });
+    if (res?.message?.includes("DEMO")) toast("Demo Mode", res.message, "info");
+    else if (res?.url && res.url !== "#") window.location.href = res.url;
+    else toast("Stripe", "Stripe integration påbörjad. Se .env för att aktivera skarpt läge.", "info");
+  } catch (e) { toast("Fel", e.message, "error"); }
+}
+
+/* =========================
+   Admin
+========================= */
+async function loadAdminUsers() {
+  const list = $("adminUsersList");
+  if (!list) return;
+  try {
+    const users = await api("/admin/users");
+    list.innerHTML = "";
+    (users || []).forEach((u) => {
+      const div = document.createElement("div"); div.className = "listItem"; div.style.display = "flex"; div.style.alignItems = "center"; div.style.justifyContent = "space-between";
+      const info = document.createElement("div"); info.innerHTML = `<div class="listItemTitle">${escapeHtml(u.username)} <span class="pill ${u.role === 'admin' ? 'admin' : (u.role === 'agent' ? 'ok' : '')}">${escapeHtml(u.role)}</span></div><div class="muted small">${escapeHtml(u.email || "Ingen e-post")} • ID: ${u._id.slice(-6)}</div>`;
+      div.appendChild(info);
+      const actions = document.createElement("div"); actions.style.display = "flex"; actions.style.gap = "8px";
+      if (state.me?.role === "admin" && state.me?._id !== u._id) {
+        const sel = document.createElement("select"); sel.className = "input smallInput"; sel.style.width = "auto";
+        ["user", "agent", "admin"].forEach(r => { const opt = document.createElement("option"); opt.value = r; opt.textContent = r; if (u.role === r) opt.selected = true; sel.appendChild(opt); });
+        sel.onchange = async () => { try { await api(`/admin/users/${u._id}/role`, { method: "PATCH", body: { role: sel.value } }); toast("Uppdaterat", `Roll ändrad till ${sel.value}`, "info"); await loadAdminUsers(); } catch (e) { toast("Fel", e.message, "error"); } };
+        actions.appendChild(sel);
+        const delBtn = document.createElement("button"); delBtn.className = "btn danger small"; delBtn.innerHTML = `<i class="fa-solid fa-user-slash"></i>`; delBtn.onclick = async () => { if (!confirm(`Vill du radera ${u.username}?`)) return; try { await api(`/admin/users/${u._id}`, { method: "DELETE" }); toast("Borttagen", "Användaren har raderats", "info"); await loadAdminUsers(); } catch (e) { toast("Fel", e.message, "error"); } };
+        actions.appendChild(delBtn);
+      }
+      div.appendChild(actions); list.appendChild(div);
+    });
+  } catch (e) { toast("Fel", "Kunde inte ladda användare", "error"); }
+}
+
+async function loadAdminDiagnostics() {
+  const box = $("diagnosticsBox");
+  if (!box) return;
+  try {
+    const d = await api("/admin/diagnostics");
+    box.innerHTML = `
+            <div class="slaGrid">
+                <div class="slaCard">
+                    <div class="slaLabel"><i class="fa-solid fa-heart-pulse"></i> Status</div>
+                    <div class="slaValue" style="color:var(--ok)">${d.status}</div>
+                    <div class="slaDelta up">Systemet mår bra</div>
+                </div>
+                <div class="slaCard">
+                    <div class="slaLabel"><i class="fa-solid fa-database"></i> Database</div>
+                    <div class="slaValue">${d.database}</div>
+                    <div class="slaDelta up">Mongoose v${d.server.node_version}</div>
+                </div>
+                <div class="slaCard">
+                    <div class="slaLabel"><i class="fa-solid fa-microchip"></i> Memory</div>
+                    <div class="slaValue">${d.server.memory_usage}</div>
+                    <div class="slaDelta">Heap Used</div>
+                </div>
+                <div class="slaCard">
+                    <div class="slaLabel"><i class="fa-solid fa-clock"></i> Uptime</div>
+                    <div class="slaValue">${d.server.uptime}</div>
+                    <div class="slaDelta up">Senaste omstart</div>
+                </div>
+            </div>
+            <div class="grid2" style="margin-top:20px;">
+                <div class="panel">
+                    <div class="panelHead"><b><i class="fa-solid fa-chart-pie"></i> Databas-statistik</b></div>
+                    <div class="list">
+                        <div class="listItem" style="cursor:default"><b>Totalt användare:</b> ${d.stats.users}</div>
+                        <div class="listItem" style="cursor:default"><b>Totalt tickets:</b> ${d.stats.tickets}</div>
+                        <div class="listItem" style="cursor:default"><b>KB Dokument:</b> ${d.stats.knowledgeDocs}</div>
+                    </div>
+                </div>
+                <div class="panel">
+                    <div class="panelHead"><b><i class="fa-solid fa-lock"></i> Miljövariabler (Check)</b></div>
+                    <div class="list">
+                        <div class="listItem" style="cursor:default">OpenAI Key: ${d.env.openai ? '✅ Aktiv' : '❌ Saknas'}</div>
+                        <div class="listItem" style="cursor:default">Stripe Key: ${d.env.stripe ? '✅ Aktiv' : '⚠️ Ej konfig'}</div>
+                        <div class="listItem" style="cursor:default">MongoDB: ${d.env.mongo ? '✅ Ansluten' : '❌ Fel'}</div>
+                    </div>
+                </div>
+            </div>
+        `;
+  } catch (e) { box.innerHTML = `<div class="alert error">Kunde inte ladda systemdiagnostik.</div>`; }
+}
+
+async function bulkDeleteKb() {
+  if (!confirm("VARNING: Detta raderar ALLA dokument i kunskapsbasen för valt bolag. Är du säker?")) return;
+  try {
+    await api("/admin/kb/bulk-delete", { method: "DELETE", body: { companyId: $("kbCategorySelect").value } });
+    toast("Rensat", "Kunskapsbasen har tömts ✅", "info");
+    await loadKb();
+  } catch (e) { toast("Fel", e.message, "error"); }
+}
+
+/* =========================
+   CRM Admin (admin)
+========================= */
+async function refreshCustomers() {
+  const list = $("customersList");
+  if (!list) return;
+  try {
+    const companies = await api("/admin/companies");
+    list.innerHTML = "";
+    (companies || []).forEach((c) => {
+      const div = document.createElement("div"); div.className = "listItem";
+      div.innerHTML = `<div class="listItemTitle">${escapeHtml(c.displayName)} (${escapeHtml(c.companyId)}) <span class="pill">${escapeHtml(c.status)}</span></div><div class="muted small">Plan: ${escapeHtml(String(c.plan || "bas")).toUpperCase()} • ${escapeHtml(c.contactEmail || "-")}</div>`;
+      list.appendChild(div);
+    });
+  } catch (e) { console.error("CRM Load Error:", e); }
+}
+
+async function createCompany() {
+  const displayName = $("newCompanyDisplayName")?.value?.trim() || "";
+  const contactEmail = $("newCompanyContactEmail")?.value?.trim() || "";
+  const plan = $("newCompanyPlan")?.value || "bas";
+  if (!displayName) return toast("Saknas", "Namn krävs", "error");
+  try {
+    await api("/admin/companies", { method: "POST", body: { displayName, contactEmail, plan } });
+    toast("Skapat", "Ny kund skapad ✅", "info");
+    $("newCompanyDisplayName").value = ""; $("newCompanyContactEmail").value = "";
+    await refreshCustomers();
+  } catch (e) { toast("Fel", e.message, "error"); }
+}
+
+/* =========================
+   Customer settings
+========================= */
+async function loadCustomerSettings() {
+  try {
+    const settings = await api("/company/settings?companyId=" + encodeURIComponent(state.companyId));
+    $("custGreeting").value = settings.greeting || "";
+    $("custTone").value = settings.tone || "professional";
+    $("custWidgetColor").value = settings.widgetColor || "#0066cc";
+  } catch (e) { console.error("Settings Load Error:", e); }
+}
+
+async function saveCustomerSettings() {
+  try {
+    const settings = { greeting: $("custGreeting")?.value?.trim() || "", tone: $("custTone")?.value || "professional", widgetColor: $("custWidgetColor")?.value || "#0066cc" };
+    await api("/company/settings", { method: "PATCH", body: { companyId: state.companyId, settings } });
+    toast("Sparat", "Inställningar uppdaterade ✅", "info");
+  } catch (e) { toast("Fel", e.message, "error"); }
+}
+
+async function simulateSettings() {
+  const previewBox = $("settingsSimulator");
+  if (!previewBox) return;
+  try {
+    const res = await api("/company/simulator", { method: "POST", body: { companyId: state.companyId, message: "Hej!" } });
+    const p = res.preview;
+    previewBox.innerHTML = `<div class="msg ai" style="border:1px solid ${p.widgetColor}; border-radius:12px; padding:12px;">${escapeHtml(p.greeting)}<br><br>Exempelsvar: ${escapeHtml(p.replyExample)}</div>`;
+  } catch (e) { previewBox.textContent = "Simulering misslyckades."; }
+}
+
+/* =========================
+   KB & Tabs
+========================= */
+function initTabs() {
+  const tabs = document.querySelectorAll(".tabBtn");
+  tabs.forEach((t) => {
+    t.addEventListener("click", () => {
+      tabs.forEach((b) => b.classList.remove("active"));
+      document.querySelectorAll(".tabPanel").forEach((p) => (p.style.display = "none"));
+      t.classList.add("active");
+      const target = t.getAttribute("data-tab");
+      const p = $(target);
+      if (p) p.style.display = "";
+    });
+  });
+}
+
+async function loadKb() {
+  const companyId = $("kbCategorySelect")?.value || "demo";
+  const list = $("kbList");
+  if (!list) return;
+  try {
+    const docs = await api(`/admin/kb?companyId=${encodeURIComponent(companyId)}`);
+    list.innerHTML = "";
+    if (docs.length === 0) { list.innerHTML = "<div class='muted small'>Inga dokument ännu.</div>"; return; }
+    docs.forEach((d) => {
+      const div = document.createElement("div"); div.className = "listItem";
+      const icon = d.sourceType === "pdf" ? "fa-file-pdf" : d.sourceType === "url" ? "fa-link" : "fa-file-lines";
+      div.innerHTML = `<div class="listItemTitle"><i class="fa-solid ${icon}"></i> ${escapeHtml(d.title)} <span class="muted small">(${d.sourceType})</span></div>`;
+      const delBtn = document.createElement("button"); delBtn.className = "btn ghost small danger"; delBtn.innerHTML = '<i class="fa-solid fa-trash"></i>';
+      delBtn.onclick = async (e) => { e.stopPropagation(); if (!confirm(`Ta bort "${d.title}"?`)) return; await api("/admin/kb/" + d._id, { method: "DELETE" }); await loadKb(); };
+      div.appendChild(delBtn); list.appendChild(div);
+    });
+  } catch (e) { list.textContent = "Fel: " + e.message; }
+}
+
 /* =========================
    Events
 ========================= */
