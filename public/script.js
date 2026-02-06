@@ -2163,7 +2163,7 @@ async function openCustomerModal(companyId) {
 
   nameEl.textContent = customer.displayName;
 
-  // Get ticket count for this customer
+  // Get ticket count
   let tickets = [];
   try {
     tickets = await api(`/inbox/tickets?companyId=${companyId}`);
@@ -2175,27 +2175,51 @@ async function openCustomerModal(companyId) {
   bodyEl.innerHTML = `
     <div class="grid2" style="gap: 20px;">
       <div>
-        <h4 style="margin-top: 0;"><i class="fa-solid fa-info-circle"></i> Grundläggande Info</h4>
+        <h4 style="margin-top: 0;"><i class="fa-solid fa-pen-to-square"></i> Redigera Uppgifter</h4>
         <div class="panel soft" style="padding: 15px;">
-          <p><b>Företag:</b> ${escapeHtml(customer.displayName)}</p>
-          <p><b>ID:</b> ${escapeHtml(customer.companyId)}</p>
-          <p><b>Org.nr:</b> ${escapeHtml(customer.orgNr || '-')}</p>
-          <p><b>Kontakt:</b> ${escapeHtml(customer.contactName || '-')}</p>
-          <p><b>E-post:</b> ${escapeHtml(customer.contactEmail || '-')}</p>
-          <p><b>Telefon:</b> ${escapeHtml(customer.phone || '-')}</p>
+          <label>Företag / Namn</label>
+          <input id="crmModalName" class="input" value="${escapeHtml(customer.displayName || '')}" />
+          
+          <label>Org.nr</label>
+          <input id="crmModalOrg" class="input" value="${escapeHtml(customer.orgNr || '')}" />
+          
+          <label>Kontaktperson</label>
+          <input id="crmModalContact" class="input" value="${escapeHtml(customer.contactName || '')}" />
+          
+          <label>E-post</label>
+          <input id="crmModalEmail" class="input" value="${escapeHtml(customer.contactEmail || '')}" />
+
+          <label>Telefon</label>
+          <input id="crmModalPhone" class="input" value="${escapeHtml(customer.phone || '')}" />
+
+          <label>Plan</label>
+          <select id="crmModalPlan" class="input">
+              <option value="trial" ${customer.plan === 'trial' ? 'selected' : ''}>Trial</option>
+              <option value="bas" ${customer.plan === 'bas' ? 'selected' : ''}>BAS</option>
+              <option value="pro" ${customer.plan === 'pro' ? 'selected' : ''}>PRO</option>
+              <option value="enterprise" ${customer.plan === 'enterprise' ? 'selected' : ''}>Enterprise</option>
+          </select>
+          
+          <button id="crmSaveBtn" class="btn primary full" style="margin-top:15px;">
+            <i class="fa-solid fa-floppy-disk"></i> Spara ändringar
+          </button>
+        </div>
+        
+        <div class="panel soft" style="padding:15px; margin-top:15px; border-color:${customer.status === 'active' ? 'var(--ok)' : 'var(--danger)'}">
+           <label>Status & Åtkomst</label>
+           <div class="row gap" style="align-items:center; justify-content:space-between;">
+               <span class="statusBadge ${customer.status}" style="font-size:14px;">${customer.status.toUpperCase()}</span>
+               
+               <button class="btn secondary small" onclick="toggleCompanyStatus('${companyId}', '${customer.status === 'active' ? 'inactive' : 'active'}')">
+                  ${customer.status === 'active' ? '<i class="fa-solid fa-ban"></i> Inaktivera' : '<i class="fa-solid fa-check"></i> Aktivera'}
+               </button>
+           </div>
         </div>
       </div>
+      
       <div>
         <h4 style="margin-top: 0;"><i class="fa-solid fa-chart-bar"></i> Statistik</h4>
         <div class="slaGrid" style="grid-template-columns: repeat(2, 1fr);">
-          <div class="slaCard small">
-            <div class="slaLabel">Plan</div>
-            <div class="slaValue" style="font-size: 18px;"><span class="planBadge ${customer.plan || 'bas'}">${(customer.plan || 'bas').toUpperCase()}</span></div>
-          </div>
-          <div class="slaCard small">
-            <div class="slaLabel">Status</div>
-            <div class="slaValue" style="font-size: 18px;"><span class="statusBadge ${customer.status || 'active'}">${customer.status === 'active' ? 'Aktiv' : customer.status === 'pending' ? 'Väntar' : 'Inaktiv'}</span></div>
-          </div>
           <div class="slaCard small">
             <div class="slaLabel">Öppna ärenden</div>
             <div class="slaValue" style="font-size: 18px;">${openTickets}</div>
@@ -2205,44 +2229,71 @@ async function openCustomerModal(companyId) {
             <div class="slaValue" style="font-size: 18px;">${solvedTickets}</div>
           </div>
         </div>
-      </div>
-    </div>
+
+        <h4 style="margin-top: 20px;"><i class="fa-solid fa-cog"></i> AI-inställningar</h4>
+        <div class="panel soft" style="padding: 15px;">
+             <p class="muted small">Dessa inställningar kan ändras via Företagsinställningar eller av admin i separat vy.</p>
+            <p><b>Tonalitet:</b> ${customer.settings?.tone || 'professional'}</p>
+            <p><b>Hälsning:</b> ${escapeHtml(customer.settings?.greeting || 'Standard')}</p>
+        </div>
     
-    <div style="margin-top: 20px;">
-      <h4><i class="fa-solid fa-cog"></i> AI-inställningar</h4>
-      <div class="panel soft" style="padding: 15px;">
-        <p><b>Tonalitet:</b> ${customer.settings?.tone || 'professional'}</p>
-        <p><b>Hälsningsfras:</b> ${escapeHtml(customer.settings?.greeting || 'Standard')}</p>
-        <p><b>Widgetfärg:</b> <span style="background: ${customer.settings?.widgetColor || '#0066cc'}; padding: 2px 10px; border-radius: 4px; color: white;">${customer.settings?.widgetColor || '#0066cc'}</span></p>
-      </div>
-    </div>
-    
-    <div style="margin-top: 20px;">
-      <h4><i class="fa-solid fa-clock-rotate-left"></i> Senaste ärenden</h4>
-      <div class="list" style="max-height: 200px; overflow-y: auto;">
-        ${tickets.slice(0, 5).map(t => `
-          <div class="listItem" style="padding: 10px;">
-            <div class="listItemTitle">
-              ${escapeHtml(t.title || 'Ärende')}
-              <span class="pill ${t.status === 'solved' ? 'ok' : t.status === 'pending' ? 'warn' : 'info'}">${t.status}</span>
+        <h4 style="margin-top: 20px;"><i class="fa-solid fa-clock-rotate-left"></i> Senaste ärenden</h4>
+        <div class="list" style="max-height: 200px; overflow-y: auto;">
+            ${tickets.slice(0, 5).map(t => `
+            <div class="listItem" style="padding: 10px;">
+                <div class="listItemTitle">
+                ${escapeHtml(t.title || 'Ärende')}
+                <span class="pill ${t.status === 'solved' ? 'ok' : t.status === 'pending' ? 'warn' : 'info'}">${t.status}</span>
+                </div>
+                <div class="muted small">${new Date(t.createdAt).toLocaleString('sv-SE')}</div>
             </div>
-            <div class="muted small">${new Date(t.createdAt).toLocaleString('sv-SE')}</div>
-          </div>
-        `).join("") || '<div class="muted small center">Inga ärenden.</div>'}
+            `).join("") || '<div class="muted small center">Inga ärenden.</div>'}
+        </div>
       </div>
-    </div>
-    
-    <div class="row gap" style="margin-top: 20px;">
-      <button class="btn secondary" onclick="editCustomer('${companyId}')">
-        <i class="fa-solid fa-pen"></i> Redigera kund
-      </button>
-      <button class="btn ghost" onclick="switchCompany('${companyId}'); closeCrmModal();">
-        <i class="fa-solid fa-comments"></i> Öppna i chat
-      </button>
     </div>
   `;
 
   modal.style.display = "flex";
+
+  // Bind save
+  const saveBtn = document.getElementById("crmSaveBtn");
+  if (saveBtn) {
+    saveBtn.onclick = async () => {
+      try {
+        await api("/company/settings", {
+          method: "PATCH",
+          body: {
+            companyId,
+            settings: {
+              displayName: $("crmModalName").value,
+              contactName: $("crmModalContact").value,
+              contactEmail: $("crmModalEmail").value,
+              phone: $("crmModalPhone").value,
+              plan: $("crmModalPlan").value,
+              orgNr: $("crmModalOrg").value
+            }
+          }
+        });
+        toast("Sparat", "Kundinformation uppdaterad", "info");
+        await refreshCustomers();
+        openCustomerModal(companyId);
+      } catch (e) {
+        toast("Fel", "Kunde inte spara: " + e.message, "error");
+      }
+    };
+  }
+}
+
+async function toggleCompanyStatus(companyId, newStatus) {
+  try {
+    await api("/company/settings", {
+      method: "PATCH",
+      body: { companyId, settings: { status: newStatus } }
+    });
+    toast("Uppdaterat", `Status ändrad till ${newStatus}`, "info");
+    await refreshCustomers();
+    openCustomerModal(companyId);
+  } catch (e) { toast("Fel", e.message, "error"); }
 }
 
 function closeCrmModal() {
