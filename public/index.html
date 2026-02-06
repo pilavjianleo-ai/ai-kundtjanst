@@ -270,12 +270,13 @@
         </div>
       </section>
 
-      <!-- SLA VIEW -->
+      <!-- SLA VIEW - ANALYTICS COMMAND CENTER -->
       <section id="slaView" class="view" style="display:none;">
         <div class="topbar">
           <div>
-            <div class="title">SLA & KPI Dashboard</div>
-            <div class="subtitle muted">Agent ser sin statistik. Admin ser allt.</div>
+            <div class="title"><i class="fa-solid fa-chart-pie" style="color:var(--primary);"></i> Analytics Command
+              Center</div>
+            <div class="subtitle muted">Avancerad statistik, insikter och KPI:er för hela organisationen</div>
           </div>
 
           <div class="topbarActions">
@@ -283,6 +284,7 @@
               <option value="7">7 dagar</option>
               <option value="14">14 dagar</option>
               <option value="30" selected>30 dagar</option>
+              <option value="60">60 dagar</option>
               <option value="90">90 dagar</option>
             </select>
 
@@ -290,69 +292,318 @@
               <i class="fa-solid fa-rotate"></i> Uppdatera
             </button>
 
-            <button id="slaExportCsvBtn" class="btn ghost" type="button">
-              <i class="fa-solid fa-file-csv"></i> Export CSV
+            <button id="slaExportCsvBtn" class="btn secondary" type="button">
+              <i class="fa-solid fa-file-csv"></i> Export Rapport
             </button>
 
-            <button id="slaClearMyStatsBtn" class="btn danger" type="button">
-              <i class="fa-solid fa-eraser"></i> Radera min statistik
+            <button id="slaClearMyStatsBtn" class="btn danger small" type="button">
+              <i class="fa-solid fa-eraser"></i> Rensa min
             </button>
 
-            <button id="slaClearAllStatsBtn" class="btn danger" type="button" style="display:none;">
-              <i class="fa-solid fa-trash"></i> Radera ALL statistik
+            <button id="slaClearAllStatsBtn" class="btn danger small" type="button" style="display:none;">
+              <i class="fa-solid fa-trash"></i> Rensa allt
             </button>
           </div>
         </div>
 
-        <div class="divider"></div>
-        <div id="slaOverviewBox"></div>
+        <!-- NAVIGATION TABS -->
+        <div class="tabs" style="margin-top: 15px;">
+          <button class="tabBtn active" data-tab="tabSlaOverview" type="button">
+            <i class="fa-solid fa-gauge-high"></i> Översikt
+          </button>
+          <button class="tabBtn" data-tab="tabSlaEscalation" type="button">
+            <i class="fa-solid fa-arrow-right-arrow-left"></i> Eskalering
+          </button>
+          <button class="tabBtn" data-tab="tabSlaQuestions" type="button">
+            <i class="fa-solid fa-comments"></i> Frågor & Meddelanden
+          </button>
+          <button class="tabBtn" data-tab="tabSlaComparison" type="button">
+            <i class="fa-solid fa-code-compare"></i> Jämförelse
+          </button>
+          <button class="tabBtn" data-tab="tabSlaInsights" type="button">
+            <i class="fa-solid fa-lightbulb"></i> Insikter & Tips
+          </button>
+          <button class="tabBtn" data-tab="tabSlaAgents" type="button">
+            <i class="fa-solid fa-trophy"></i> Leaderboard
+          </button>
+        </div>
 
-        <div class="divider"></div>
-        <div class="grid2">
+        <!-- TAB 1: OVERVIEW DASHBOARD -->
+        <div id="tabSlaOverview" class="tabPanel">
+          <div id="slaOverviewBox" style="margin-top: 15px;"></div>
+
+          <div class="divider"></div>
+          <div class="grid2">
+            <div class="panel">
+              <div class="panelHead">
+                <b><i class="fa-solid fa-chart-line"></i> Ärendetrend (veckovis)</b>
+              </div>
+              <div class="chart-container" style="height: 250px;">
+                <canvas id="slaTrendChart"></canvas>
+              </div>
+            </div>
+            <div class="panel">
+              <div class="panelHead">
+                <b><i class="fa-solid fa-clock"></i> Trafik per timme</b>
+              </div>
+              <div class="chart-container" style="height: 250px;">
+                <canvas id="slaHourlyChart"></canvas>
+              </div>
+            </div>
+          </div>
+
+          <div class="divider"></div>
+          <div class="grid2">
+            <div class="panel">
+              <div class="panelHead">
+                <b><i class="fa-solid fa-tags"></i> Trendande Ämnen</b>
+              </div>
+              <div id="slaTopTopicsBox" class="list" style="margin-top:10px; max-height: 200px; overflow-y: auto;">
+              </div>
+            </div>
+            <div class="panel">
+              <div class="panelHead">
+                <b><i class="fa-solid fa-calendar-week"></i> Dagfördelning</b>
+              </div>
+              <div id="slaDailyDistribution" style="margin-top:10px;"></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- TAB 2: ESCALATION STATS -->
+        <div id="tabSlaEscalation" class="tabPanel" style="display:none;">
+          <div class="grid2" style="margin-top: 15px;">
+            <div class="panel" style="border-left: 3px solid var(--primary);">
+              <div class="panelHead"><b><i class="fa-solid fa-robot"></i> AI vs Människa</b></div>
+              <div id="slaEscalationOverview" style="padding: 15px;">
+                <div class="muted small center">Laddar eskaleringsstatistik...</div>
+              </div>
+            </div>
+            <div class="panel" style="border-left: 3px solid var(--warning);">
+              <div class="panelHead"><b><i class="fa-solid fa-arrow-trend-up"></i> Eskaleringsflöde</b></div>
+              <div id="slaEscalationFlow" style="padding: 15px;">
+                <div class="slaGrid" style="gap:10px;">
+                  <div class="slaCard small">
+                    <div class="slaLabel"><i class="fa-solid fa-ticket"></i> Totalt</div>
+                    <div class="slaValue" id="escTotalVal">-</div>
+                  </div>
+                  <div class="slaCard small">
+                    <div class="slaLabel"><i class="fa-solid fa-robot"></i> AI Löste</div>
+                    <div class="slaValue" id="escAiVal">-</div>
+                    <div class="slaDelta up" id="escAiRate">-</div>
+                  </div>
+                  <div class="slaCard small">
+                    <div class="slaLabel"><i class="fa-solid fa-user"></i> Eskalerade</div>
+                    <div class="slaValue" id="escHumanVal">-</div>
+                    <div class="slaDelta" id="escHumanRate">-</div>
+                  </div>
+                  <div class="slaCard small">
+                    <div class="slaLabel"><i class="fa-solid fa-stopwatch"></i> Tid till Eskalering</div>
+                    <div class="slaValue" id="escTimeVal">-</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="divider"></div>
           <div class="panel">
-            <div class="panelHead">
-              <b><i class="fa-solid fa-chart-line"></i> Trend vecka för vecka</b>
-            </div>
-            <div class="chart-container">
-              <canvas id="slaTrendChart"></canvas>
+            <div class="panelHead"><b><i class="fa-solid fa-magnifying-glass-chart"></i> Vanligaste
+                Eskaleringsorsaker</b></div>
+            <div id="slaEscalationReasons" class="list" style="margin-top: 10px;">
+              <div class="muted small center">Analyserar orsaker...</div>
             </div>
           </div>
+        </div>
+
+        <!-- TAB 3: QUESTION/MESSAGE STATS -->
+        <div id="tabSlaQuestions" class="tabPanel" style="display:none;">
+          <div id="slaQuestionsOverview" style="margin-top: 15px;">
+            <div class="slaGrid">
+              <div class="slaCard">
+                <div class="slaLabel"><i class="fa-solid fa-message"></i> Totalt Meddelanden</div>
+                <div class="slaValue" id="qTotalMessages">-</div>
+              </div>
+              <div class="slaCard">
+                <div class="slaLabel"><i class="fa-solid fa-user"></i> Från Kunder</div>
+                <div class="slaValue" id="qUserMessages">-</div>
+              </div>
+              <div class="slaCard">
+                <div class="slaLabel"><i class="fa-solid fa-robot"></i> AI Svar</div>
+                <div class="slaValue" id="qAiMessages">-</div>
+              </div>
+              <div class="slaCard">
+                <div class="slaLabel"><i class="fa-solid fa-headset"></i> Agent Svar</div>
+                <div class="slaValue" id="qAgentMessages">-</div>
+              </div>
+              <div class="slaCard">
+                <div class="slaLabel"><i class="fa-solid fa-layer-group"></i> Snitt/Konversation</div>
+                <div class="slaValue" id="qAvgConv">-</div>
+              </div>
+              <div class="slaCard">
+                <div class="slaLabel"><i class="fa-solid fa-reply-all"></i> Svar-ratio</div>
+                <div class="slaValue" id="qResponseRatio">-</div>
+              </div>
+            </div>
+          </div>
+
+          <div class="divider"></div>
+          <div class="grid2">
+            <div class="panel">
+              <div class="panelHead"><b><i class="fa-solid fa-pie-chart"></i> Frågetyper (Kategorisering)</b></div>
+              <div id="slaQuestionTypes" class="list" style="margin-top: 10px; max-height: 300px; overflow-y: auto;">
+                <div class="muted small center">Analyserar frågor...</div>
+              </div>
+            </div>
+            <div class="panel">
+              <div class="panelHead"><b><i class="fa-solid fa-chart-bar"></i> Frågekategorier (Graf)</b></div>
+              <div class="chart-container" style="height: 280px;">
+                <canvas id="slaQuestionTypesChart"></canvas>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- TAB 4: COMPARISON (Period vs Period) -->
+        <div id="tabSlaComparison" class="tabPanel" style="display:none;">
+          <div class="panel"
+            style="margin-top: 15px; background: linear-gradient(135deg, rgba(76, 125, 255, 0.05), rgba(138, 43, 226, 0.05));">
+            <div class="panelHead"><b><i class="fa-solid fa-code-compare"></i> Period-jämförelse</b></div>
+            <p class="muted small" style="margin-bottom: 15px;">Jämför nuvarande period med föregående period för att se
+              trender och utveckling.</p>
+
+            <div id="slaComparisonBox">
+              <div class="slaGrid" style="gap: 15px;">
+                <!-- Current Period -->
+                <div class="slaCard" style="border-top: 3px solid var(--ok);">
+                  <div class="slaLabel" style="font-weight:600; color: var(--ok);"><i
+                      class="fa-solid fa-calendar-check"></i> Nuvarande Period</div>
+                  <div id="compCurrentStats" style="margin-top: 10px;">
+                    <div class="muted small">Laddar...</div>
+                  </div>
+                </div>
+
+                <!-- Previous Period -->
+                <div class="slaCard" style="border-top: 3px solid var(--muted);">
+                  <div class="slaLabel" style="font-weight:600;"><i class="fa-solid fa-calendar-minus"></i> Föregående
+                    Period</div>
+                  <div id="compPreviousStats" style="margin-top: 10px;">
+                    <div class="muted small">Laddar...</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="divider"></div>
           <div class="panel">
-            <div class="panelHead">
-              <b><i class="fa-solid fa-tags"></i> Top Topics (Trending)</b>
+            <div class="panelHead"><b><i class="fa-solid fa-arrow-trend-up"></i> Förändring (Deltas)</b></div>
+            <div id="slaComparisonDeltas" class="slaGrid" style="margin-top: 15px; gap: 10px;">
+              <div class="slaCard small">
+                <div class="slaLabel">Totalt</div>
+                <div class="slaValue" id="deltaTotal">-</div>
+              </div>
+              <div class="slaCard small">
+                <div class="slaLabel">Lösta</div>
+                <div class="slaValue" id="deltaSolved">-</div>
+              </div>
+              <div class="slaCard small">
+                <div class="slaLabel">AI Lösta</div>
+                <div class="slaValue" id="deltaAiSolved">-</div>
+              </div>
+              <div class="slaCard small">
+                <div class="slaLabel">High Priority</div>
+                <div class="slaValue" id="deltaHighPriority">-</div>
+              </div>
             </div>
-            <div id="slaTopTopicsBox" class="list" style="margin-top:10px;"></div>
           </div>
         </div>
 
-        <div class="divider"></div>
-        <div class="panel">
-          <div class="panelHead">
-            <b><i class="fa-solid fa-users"></i> Agent Performance Leaderboard</b>
+        <!-- TAB 5: AI INSIGHTS & TIPS -->
+        <div id="tabSlaInsights" class="tabPanel" style="display:none;">
+          <div class="grid2" style="margin-top: 15px;">
+            <div class="panel" style="border-left: 3px solid var(--primary);">
+              <div class="panelHead"><b><i class="fa-solid fa-brain"></i> AI-Genererade Insikter</b></div>
+              <div id="slaInsightsBox" class="list" style="margin-top: 10px;">
+                <div class="muted small center">Genererar insikter...</div>
+              </div>
+            </div>
+
+            <div class="panel" style="border-left: 3px solid var(--warning);">
+              <div class="panelHead"><b><i class="fa-solid fa-lightbulb"></i> Tips & Rekommendationer</b></div>
+              <div id="slaTipsBox" class="list" style="margin-top: 10px;">
+                <div class="muted small center">Laddar tips...</div>
+              </div>
+            </div>
           </div>
-          <div class="tableWrap" style="margin-top:10px;">
-            <table class="table">
-              <thead>
-                <tr>
-                  <th>Agent</th>
-                  <th>Handled</th>
-                  <th>Solved</th>
-                  <th>Efficiency %</th>
-                </tr>
-              </thead>
-              <tbody id="slaAgentsTableBody"></tbody>
-            </table>
+
+          <div class="divider"></div>
+          <div class="panel"
+            style="background: linear-gradient(135deg, rgba(55, 214, 122, 0.05), rgba(76, 125, 255, 0.05));">
+            <div class="panelHead"><b><i class="fa-solid fa-wand-magic-sparkles"></i> Optimeringsförslag</b></div>
+            <div id="slaOptimizationTips" style="padding: 15px;">
+              <div class="alert info" style="margin-bottom: 10px;">
+                <i class="fa-solid fa-rocket"></i> <b>Pro-tips för att öka AI-lösningsgraden:</b>
+                <ul style="margin: 10px 0 0 20px; font-size: 13px;">
+                  <li>Lägg till fler FAQ-dokument i kunskapsbasen</li>
+                  <li>Använd tydliga rubriker och strukturerad text</li>
+                  <li>Inkludera vanliga frågor och svar från lösta ärenden</li>
+                  <li>Uppdatera regelbundet med ny produktinformation</li>
+                </ul>
+              </div>
+              <div class="alert warn" style="font-size: 12px;">
+                <i class="fa-solid fa-clock"></i> <b>SLA Best Practice:</b> Svara på high-priority ärenden inom 2 timmar
+                för optimal kundnöjdhet.
+              </div>
+            </div>
           </div>
         </div>
 
-        <div class="divider"></div>
+        <!-- TAB 6: AGENT LEADERBOARD -->
+        <div id="tabSlaAgents" class="tabPanel" style="display:none;">
+          <div class="panel" style="margin-top: 15px;">
+            <div class="panelHead">
+              <b><i class="fa-solid fa-trophy" style="color: gold;"></i> Agent Performance Leaderboard</b>
+              <span class="pill ok" style="margin-left: 10px;">Gamification</span>
+            </div>
+            <div class="tableWrap" style="margin-top:10px;">
+              <table class="table">
+                <thead>
+                  <tr>
+                    <th style="width:40px;">#</th>
+                    <th>Agent</th>
+                    <th>Hanterade</th>
+                    <th>Lösta</th>
+                    <th>High-Prio</th>
+                    <th>Snitt Msgs</th>
+                    <th>Effektivitet</th>
+                    <th>CSAT</th>
+                    <th style="text-align:right;"><i class="fa-solid fa-star" style="color:gold;"></i> Poäng</th>
+                  </tr>
+                </thead>
+                <tbody id="slaAgentsTableBody"></tbody>
+              </table>
+            </div>
+          </div>
 
-        <div class="row gap" style="margin-bottom:10px; flex-wrap:wrap;">
-          <b>Tickets</b>
-          <span class="muted small">Visar upp till 1200 tickets (för prestanda).</span>
+          <div class="divider"></div>
+          <div class="grid2">
+            <div class="panel soft">
+              <div class="panelHead"><b><i class="fa-solid fa-chart-pie"></i> Fördelning per Agent</b></div>
+              <div class="chart-container" style="height: 200px;">
+                <canvas id="slaAgentPieChart"></canvas>
+              </div>
+            </div>
+            <div class="panel soft">
+              <div class="panelHead"><b><i class="fa-solid fa-medal"></i> Top Performer</b></div>
+              <div id="slaTopPerformer" style="padding: 20px; text-align: center;">
+                <div class="avatar-large" id="topPerformerAvatar" style="margin: 0 auto;">🏆</div>
+                <h3 id="topPerformerName" style="margin-top: 10px;">-</h3>
+                <div class="muted small" id="topPerformerStats">Laddar...</div>
+              </div>
+            </div>
+          </div>
         </div>
-
-        <div id="slaTicketsBox"></div>
       </section>
 
       <!-- INBOX VIEW -->

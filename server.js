@@ -1049,6 +1049,338 @@ app.get("/sla/top-topics", authenticate, requireAgent, async (req, res) => {
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
+/* =====================
+   ADVANCED SLA ANALYTICS
+===================== */
+
+// Escalation Statistics (AI → Human handoff)
+app.get("/sla/escalation", authenticate, requireAgent, async (req, res) => {
+  try {
+    const { days = 30 } = req.query;
+    const since = new Date();
+    since.setDate(since.getDate() - parseInt(days));
+
+    const allTickets = await Ticket.find({ createdAt: { $gte: since } });
+    const total = allTickets.length;
+
+    // Escalated = tickets that got assigned to an agent (human handoff)
+    const escalated = allTickets.filter(t => t.assignedToUserId != null);
+    const escalatedCount = escalated.length;
+    const escalationRate = total > 0 ? ((escalatedCount / total) * 100).toFixed(1) : 0;
+
+    // AI-only solved (no human needed)
+    const aiOnlySolved = allTickets.filter(t => t.status === "solved" && !t.assignedToUserId).length;
+    const aiSolveRate = total > 0 ? ((aiOnlySolved / total) * 100).toFixed(1) : 0;
+
+    // Analyze escalation reasons (keywords in messages before handoff)
+    const escalationReasons = {};
+    const triggerWords = ["människa", "person", "agent", "arg", "missnöjd", "fel", "fungerar inte", "hjälp"];
+
+    escalated.forEach(t => {
+      const allText = t.messages.map(m => m.content?.toLowerCase() || "").join(" ");
+      triggerWords.forEach(word => {
+        if (allText.includes(word)) {
+          escalationReasons[word] = (escalationReasons[word] || 0) + 1;
+        }
+      });
+    });
+
+    const topReasons = Object.entries(escalationReasons)
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 5)
+      .map(([reason, count]) => ({ reason, count, percentage: ((count / escalatedCount) * 100).toFixed(1) }));
+
+    // Average time to escalation
+    let avgTimeToEscalation = 0;
+    const escalatedWithTime = escalated.filter(t => t.firstAgentReplyAt && t.createdAt);
+    if (escalatedWithTime.length > 0) {
+      const totalMinutes = escalatedWithTime.reduce((sum, t) => {
+        return sum + (t.firstAgentReplyAt - t.createdAt) / (1000 * 60);
+      }, 0);
+      avgTimeToEscalation = (totalMinutes / escalatedWithTime.length).toFixed(1);
+    }
+
+    res.json({
+      total,
+      escalatedCount,
+      escalationRate,
+      aiOnlySolved,
+      aiSolveRate,
+      avgTimeToEscalation: avgTimeToEscalation + " min",
+      topReasons
+    });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// Period Comparison Statistics
+app.get("/sla/comparison", authenticate, requireAgent, async (req, res) => {
+  try {
+    const { days = 30 } = req.query;
+    const daysNum = parseInt(days);
+
+    // Current period
+    const currentStart = new Date();
+    currentStart.setDate(currentStart.getDate() - daysNum);
+    const currentEnd = new Date();
+
+    // Previous period
+    const prevStart = new Date();
+    prevStart.setDate(prevStart.getDate() - daysNum * 2);
+    const prevEnd = new Date();
+    prevEnd.setDate(prevEnd.getDate() - daysNum);
+
+    const currentTickets = await Ticket.find({ createdAt: { $gte: currentStart, $lte: currentEnd } });
+    const prevTickets = await Ticket.find({ createdAt: { $gte: prevStart, $lte: prevEnd } });
+
+    // Calculate metrics
+    const calcMetrics = (tickets) => {
+      const total = tickets.length;
+      const solved = tickets.filter(t => t.status === "solved").length;
+      const aiSolved = tickets.filter(t => t.status === "solved" && !t.assignedToUserId).length;
+      const highPriority = tickets.filter(t => t.priority === "high").length;
+      const avgMessages = total > 0 ? (tickets.reduce((sum, t) => sum + (t.messages?.length || 0), 0) / total).toFixed(1) : 0;
+      return { total, solved, aiSolved, highPriority, avgMessages };
+    };
+
+    const current = calcMetrics(currentTickets);
+    const previous = calcMetrics(prevTickets);
+
+    // Calculate deltas (percentage change)
+    const delta = (curr, prev) => {
+      if (prev === 0) return curr > 0 ? "+100" : "0";
+      return ((curr - prev) / prev * 100).toFixed(1);
+    };
+
+    res.json({
+      period: `${daysNum} dagar`,
+      current: {
+        ...current,
+        solveRate: current.total > 0 ? ((current.solved / current.total) * 100).toFixed(1) : 0,
+        aiRate: current.total > 0 ? ((current.aiSolved / current.total) * 100).toFixed(1) : 0
+      },
+      previous: {
+        ...previous,
+        solveRate: previous.total > 0 ? ((previous.solved / previous.total) * 100).toFixed(1) : 0,
+        aiRate: previous.total > 0 ? ((previous.aiSolved / previous.total) * 100).toFixed(1) : 0
+      },
+      deltas: {
+        total: delta(current.total, previous.total),
+        solved: delta(current.solved, previous.solved),
+        aiSolved: delta(current.aiSolved, previous.aiSolved),
+        highPriority: delta(current.highPriority, previous.highPriority)
+      }
+    });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// Question/Message Statistics
+app.get("/sla/questions", authenticate, requireAgent, async (req, res) => {
+  try {
+    const { days = 30 } = req.query;
+    const since = new Date();
+    since.setDate(since.getDate() - parseInt(days));
+
+    const tickets = await Ticket.find({ createdAt: { $gte: since } });
+
+    let totalMessages = 0;
+    let userMessages = 0;
+    let aiMessages = 0;
+    let agentMessages = 0;
+    let avgConversationLength = 0;
+    const questionTypes = {};
+
+    tickets.forEach(t => {
+      const msgs = t.messages || [];
+      totalMessages += msgs.length;
+
+      msgs.forEach(m => {
+        if (m.role === "user") {
+          userMessages++;
+          // Classify question types
+          const content = (m.content || "").toLowerCase();
+          if (content.includes("pris") || content.includes("kosta")) {
+            questionTypes["Prisfrågor"] = (questionTypes["Prisfrågor"] || 0) + 1;
+          } else if (content.includes("hjälp") || content.includes("problem")) {
+            questionTypes["Supportfrågor"] = (questionTypes["Supportfrågor"] || 0) + 1;
+          } else if (content.includes("order") || content.includes("leverans")) {
+            questionTypes["Order/Leverans"] = (questionTypes["Order/Leverans"] || 0) + 1;
+          } else if (content.includes("retur") || content.includes("återbetalning")) {
+            questionTypes["Returer"] = (questionTypes["Returer"] || 0) + 1;
+          } else if (content.includes("konto") || content.includes("lösenord")) {
+            questionTypes["Kontofrågor"] = (questionTypes["Kontofrågor"] || 0) + 1;
+          } else {
+            questionTypes["Övrigt"] = (questionTypes["Övrigt"] || 0) + 1;
+          }
+        } else if (m.role === "assistant") {
+          aiMessages++;
+        } else if (m.role === "agent") {
+          agentMessages++;
+        }
+      });
+    });
+
+    avgConversationLength = tickets.length > 0 ? (totalMessages / tickets.length).toFixed(1) : 0;
+
+    const typeBreakdown = Object.entries(questionTypes)
+      .sort((a, b) => b[1] - a[1])
+      .map(([type, count]) => ({
+        type,
+        count,
+        percentage: userMessages > 0 ? ((count / userMessages) * 100).toFixed(1) : 0
+      }));
+
+    res.json({
+      totalMessages,
+      userMessages,
+      aiMessages,
+      agentMessages,
+      avgConversationLength,
+      responseRatio: userMessages > 0 ? ((aiMessages + agentMessages) / userMessages).toFixed(2) : 0,
+      typeBreakdown
+    });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// Hourly Distribution (for traffic patterns)
+app.get("/sla/hourly", authenticate, requireAgent, async (req, res) => {
+  try {
+    const { days = 7 } = req.query;
+    const since = new Date();
+    since.setDate(since.getDate() - parseInt(days));
+
+    const tickets = await Ticket.find({ createdAt: { $gte: since } });
+
+    // Initialize hourly buckets
+    const hourly = Array(24).fill(0);
+    const dailyDistribution = { Mon: 0, Tue: 0, Wed: 0, Thu: 0, Fri: 0, Sat: 0, Sun: 0 };
+    const dayNames = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+
+    tickets.forEach(t => {
+      const hour = new Date(t.createdAt).getHours();
+      const dayIndex = new Date(t.createdAt).getDay();
+      hourly[hour]++;
+      dailyDistribution[dayNames[dayIndex]]++;
+    });
+
+    // Find peak hours
+    const peakHour = hourly.indexOf(Math.max(...hourly));
+    const quietHour = hourly.indexOf(Math.min(...hourly));
+
+    res.json({
+      hourly,
+      dailyDistribution,
+      peakHour: `${peakHour}:00 - ${peakHour + 1}:00`,
+      quietHour: `${quietHour}:00 - ${quietHour + 1}:00`,
+      totalAnalyzed: tickets.length
+    });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// AI Insights & Tips
+app.get("/sla/insights", authenticate, requireAgent, async (req, res) => {
+  try {
+    const { days = 30 } = req.query;
+    const since = new Date();
+    since.setDate(since.getDate() - parseInt(days));
+
+    const tickets = await Ticket.find({ createdAt: { $gte: since } });
+    const total = tickets.length;
+    const solved = tickets.filter(t => t.status === "solved").length;
+    const escalated = tickets.filter(t => t.assignedToUserId).length;
+    const highPriority = tickets.filter(t => t.priority === "high").length;
+
+    const insights = [];
+    const tips = [];
+
+    // Generate contextual insights
+    if (total === 0) {
+      insights.push({ type: "info", icon: "fa-circle-info", text: "Ingen data tillgänglig för den valda perioden." });
+    } else {
+      // Solve rate insight
+      const solveRate = (solved / total) * 100;
+      if (solveRate >= 80) {
+        insights.push({ type: "success", icon: "fa-trophy", text: `Utmärkt! ${solveRate.toFixed(1)}% av ärenden löstes under perioden.` });
+      } else if (solveRate >= 50) {
+        insights.push({ type: "warning", icon: "fa-chart-line", text: `${solveRate.toFixed(1)}% lösningsgrad - det finns utrymme för förbättring.` });
+      } else {
+        insights.push({ type: "danger", icon: "fa-exclamation-triangle", text: `Endast ${solveRate.toFixed(1)}% lösningsgrad. Granska era processer.` });
+      }
+
+      // AI performance insight
+      const aiHandled = tickets.filter(t => !t.assignedToUserId).length;
+      const aiRate = (aiHandled / total) * 100;
+      if (aiRate >= 70) {
+        insights.push({ type: "success", icon: "fa-robot", text: `AI hanterar ${aiRate.toFixed(1)}% av alla ärenden självständigt. Stark automation!` });
+      } else {
+        tips.push({ icon: "fa-lightbulb", text: "Förbättra AI-kunskapsbasen för att minska eskaleringarna.", priority: "high" });
+      }
+
+      // Escalation insight
+      const escRate = (escalated / total) * 100;
+      if (escRate > 40) {
+        insights.push({ type: "warning", icon: "fa-user-group", text: `${escRate.toFixed(1)}% av ärenden eskalerades till mänsklig agent.` });
+        tips.push({ icon: "fa-book", text: "Lägg till fler FAQ-dokument i kunskapsbasen för vanliga frågor.", priority: "medium" });
+      }
+
+      // High priority insight
+      if (highPriority > total * 0.2) {
+        insights.push({ type: "danger", icon: "fa-fire", text: `${highPriority} ärenden (${((highPriority / total) * 100).toFixed(1)}%) markerades som hög prioritet.` });
+        tips.push({ icon: "fa-bell", text: "Överväg att justera prioriteringsreglerna eller utöka supportteamet.", priority: "high" });
+      }
+    }
+
+    // Always add some general tips
+    tips.push({ icon: "fa-clock", text: "Svara inom 2 timmar på high-priority ärenden för bästa kundnöjdhet.", priority: "medium" });
+    tips.push({ icon: "fa-star", text: "Be om feedback efter lösta ärenden för att förbättra CSAT.", priority: "low" });
+
+    res.json({ insights, tips });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// Extended Agent Performance
+app.get("/sla/agents/detailed", authenticate, requireAgent, async (req, res) => {
+  try {
+    const { days = 30 } = req.query;
+    const since = new Date();
+    since.setDate(since.getDate() - parseInt(days));
+
+    const stats = await Ticket.aggregate([
+      { $match: { assignedToUserId: { $ne: null }, createdAt: { $gte: since } } },
+      {
+        $group: {
+          _id: "$assignedToUserId",
+          handled: { $sum: 1 },
+          solved: { $sum: { $cond: [{ $eq: ["$status", "solved"] }, 1, 0] } },
+          highPriority: { $sum: { $cond: [{ $eq: ["$priority", "high"] }, 1, 0] } },
+          totalMessages: { $sum: { $size: { $ifNull: ["$messages", []] } } },
+          avgRating: { $avg: "$csatRating" }
+        }
+      }
+    ]);
+
+    const agents = await User.find({ _id: { $in: stats.map(s => s._id) } });
+
+    const results = stats.map(s => {
+      const user = agents.find(u => u._id.toString() === s._id.toString());
+      return {
+        agentId: s._id,
+        agentName: user ? user.username : "Okänd",
+        email: user?.email || "-",
+        role: user?.role || "agent",
+        handled: s.handled,
+        solved: s.solved,
+        highPriority: s.highPriority,
+        avgMessagesPerTicket: s.handled > 0 ? (s.totalMessages / s.handled).toFixed(1) : 0,
+        efficiency: s.handled > 0 ? Math.round((s.solved / s.handled) * 100) : 0,
+        avgCsat: s.avgRating ? s.avgRating.toFixed(1) : "N/A",
+        score: Math.round((s.solved * 10) + (s.highPriority * 5) + (s.avgRating || 3) * 2) // Gamification score
+      };
+    }).sort((a, b) => b.score - a.score); // Sort by score
+
+    res.json(results || []);
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
 app.delete("/sla/clear/all", authenticate, requireAdmin, async (req, res) => {
   await Ticket.deleteMany({});
   res.json({ message: "All statistik raderad." });

@@ -1739,51 +1739,99 @@ async function deleteTicket() {
 ========================= */
 async function loadSlaDashboard() {
   const days = $("slaDaysSelect")?.value || "30";
+
   try {
-    const overview = await api(`/sla/overview?days=${encodeURIComponent(days)}`);
-    const trend = await api(`/sla/trend?days=${encodeURIComponent(days)}`);
-    const agents = await api(`/sla/agents?days=${encodeURIComponent(days)}`);
-    const topTopics = await api(`/sla/top-topics`);
+    // Fetch all data in parallel for performance
+    const [overview, trend, agents, topTopics, escalation, comparison, questions, hourly, insights] = await Promise.all([
+      api(`/sla/overview?days=${encodeURIComponent(days)}`),
+      api(`/sla/trend?days=${encodeURIComponent(days)}`),
+      api(`/sla/agents/detailed?days=${encodeURIComponent(days)}`),
+      api(`/sla/top-topics`),
+      api(`/sla/escalation?days=${encodeURIComponent(days)}`),
+      api(`/sla/comparison?days=${encodeURIComponent(days)}`),
+      api(`/sla/questions?days=${encodeURIComponent(days)}`),
+      api(`/sla/hourly?days=${Math.min(days, 14)}`),
+      api(`/sla/insights?days=${encodeURIComponent(days)}`)
+    ]);
+
+    // ===== TAB 1: OVERVIEW =====
     const overviewBox = $("slaOverviewBox");
     if (overviewBox) {
       overviewBox.innerHTML = `
-            <div class="slaGrid">
-                <div class="slaCard">
-                    <div class="slaLabel"><i class="fa-solid fa-ticket"></i> Total Tickets</div>
-                    <div class="slaValue">${overview.counts.total}</div>
-                    <div class="slaDelta up">Last ${days} days</div>
-                </div>
-                <div class="slaCard">
-                    <div class="slaLabel"><i class="fa-solid fa-robot"></i> AI Solve Rate</div>
-                    <div class="slaValue">${overview.aiRate}%</div>
-                    <div class="slaDelta up">Automatic handling</div>
-                </div>
-                <div class="slaCard">
-                    <div class="slaLabel"><i class="fa-solid fa-stopwatch"></i> Avg. Solve Time</div>
-                    <div class="slaValue">${overview.avgSolveHours}h</div>
-                    <div class="slaDelta">Resolution SLA</div>
-                </div>
-                <div class="slaCard">
-                    <div class="slaLabel"><i class="fa-solid fa-star"></i> Customer CSAT</div>
-                    <div class="slaValue">${overview.avgCsat}</div>
-                    <div class="slaDelta up">Avg Rating</div>
-                </div>
+        <div class="slaGrid">
+          <div class="slaCard">
+            <div class="slaLabel"><i class="fa-solid fa-ticket"></i> Total Ärenden</div>
+            <div class="slaValue">${overview.counts.total}</div>
+            <div class="slaDelta up">Senaste ${days} dagar</div>
+          </div>
+          <div class="slaCard">
+            <div class="slaLabel"><i class="fa-solid fa-circle-check"></i> Lösta</div>
+            <div class="slaValue">${overview.counts.solved}</div>
+            <div class="slaDelta ${overview.counts.solved > overview.counts.total * 0.5 ? 'up' : 'down'}">${overview.counts.total > 0 ? ((overview.counts.solved / overview.counts.total) * 100).toFixed(1) : 0}%</div>
+          </div>
+          <div class="slaCard">
+            <div class="slaLabel"><i class="fa-solid fa-robot"></i> AI Solve Rate</div>
+            <div class="slaValue">${overview.aiRate}%</div>
+            <div class="slaDelta up">Automatisk hantering</div>
+          </div>
+          <div class="slaCard">
+            <div class="slaLabel"><i class="fa-solid fa-stopwatch"></i> Snitt Lösningstid</div>
+            <div class="slaValue">${overview.avgSolveHours}h</div>
+            <div class="slaDelta">Resolution SLA</div>
+          </div>
+          <div class="slaCard">
+            <div class="slaLabel"><i class="fa-solid fa-star"></i> Kundnöjdhet</div>
+            <div class="slaValue">${overview.avgCsat}</div>
+            <div class="slaDelta up">CSAT Score</div>
+          </div>
+          <div class="slaCard">
+            <div class="slaLabel"><i class="fa-solid fa-fire"></i> High Priority</div>
+            <div class="slaValue" style="color: ${overview.counts.total > 0 && (overview.counts.total * 0.2) < (overview.counts.open || 0) ? 'var(--error)' : 'inherit'}">
+              ${((overview.counts.open || 0) + (overview.counts.pending || 0))}
             </div>
-        `;
+            <div class="slaDelta">Öppna/Väntande</div>
+          </div>
+        </div>
+      `;
     }
+
+    // Top Topics
     const topicsBox = $("slaTopTopicsBox");
     if (topicsBox) {
-      topicsBox.innerHTML = topTopics.length ? topTopics.map(t => `<div class="listItem" style="cursor:default">
-                <div class="listItemTitle">
-                    <span class="muted" style="width:24px">#</span> ${escapeHtml(t.topic)}
-                    <span class="pill" style="margin-left:auto">${t.count} träffar</span>
-                </div>
-            </div>`).join("") : '<div class="muted small p-10">Ingen trend-data tillgänglig än.</div>';
+      topicsBox.innerHTML = topTopics.length ? topTopics.map((t, i) => `
+        <div class="listItem" style="cursor:default">
+          <div class="listItemTitle">
+            <span class="muted" style="width:24px; font-weight:bold;">#${i + 1}</span>
+            ${escapeHtml(t.topic)}
+            <span class="pill" style="margin-left:auto">${t.count} träffar</span>
+          </div>
+        </div>
+      `).join("") : '<div class="muted small p-10">Ingen trend-data tillgänglig än.</div>';
     }
-    const tableBody = $("slaAgentsTableBody");
-    if (tableBody) {
-      tableBody.innerHTML = agents.length ? agents.map(a => `<tr><td><b>${escapeHtml(a.agentName)}</b></td><td>${a.handled}</td><td>${a.solved}</td><td><div class="pill ${a.efficiency > 70 ? 'ok' : 'warn'}">${a.efficiency}%</div></td></tr>`).join("") : '<tr><td colspan="4" class="muted center">Inga agenter aktiva under perioden.</td></tr>';
+
+    // Daily Distribution
+    const dailyBox = $("slaDailyDistribution");
+    if (dailyBox && hourly.dailyDistribution) {
+      const dayLabels = { Mon: "Mån", Tue: "Tis", Wed: "Ons", Thu: "Tor", Fri: "Fre", Sat: "Lör", Sun: "Sön" };
+      const maxVal = Math.max(...Object.values(hourly.dailyDistribution)) || 1;
+      dailyBox.innerHTML = `
+        <div style="display:flex; gap:8px; align-items:flex-end; height:100px;">
+          ${Object.entries(hourly.dailyDistribution).map(([day, count]) => `
+            <div style="flex:1; text-align:center;">
+              <div style="background:var(--primary); height:${Math.max(5, (count / maxVal) * 80)}px; border-radius:4px 4px 0 0; transition: height 0.3s;"></div>
+              <div class="muted tiny" style="margin-top:5px;">${dayLabels[day] || day}</div>
+              <div class="muted tiny">${count}</div>
+            </div>
+          `).join("")}
+        </div>
+        <div class="muted small" style="margin-top:10px; text-align:center;">
+          <i class="fa-solid fa-sun"></i> Peak: <b>${hourly.peakHour}</b> | 
+          <i class="fa-solid fa-moon"></i> Lugnt: <b>${hourly.quietHour}</b>
+        </div>
+      `;
     }
+
+    // Trend Chart
     if (window.Chart && $("slaTrendChart")) {
       const ctx = $("slaTrendChart").getContext("2d");
       if (window.__slaChart) window.__slaChart.destroy();
@@ -1796,10 +1844,244 @@ async function loadSlaDashboard() {
             { label: "Lösta", data: trend.map(r => r.solved), borderColor: "#37d67a", backgroundColor: "rgba(55, 214, 122, 0.1)", fill: true, tension: 0.4 }
           ]
         },
-        options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: true, labels: { color: '#a6abc6', usePointStyle: true } } }, scales: { x: { grid: { display: false }, ticks: { color: '#a6abc6' } }, y: { grid: { color: 'rgba(255,255,255,0.05)' }, ticks: { color: '#a6abc6' } } } }
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: { legend: { display: true, labels: { color: '#a6abc6', usePointStyle: true } } },
+          scales: { x: { grid: { display: false }, ticks: { color: '#a6abc6' } }, y: { grid: { color: 'rgba(255,255,255,0.05)' }, ticks: { color: '#a6abc6' } } }
+        }
       });
     }
-  } catch (e) { toast("Fel", "Kunde inte ladda dashboard-data", "error"); }
+
+    // Hourly Chart
+    if (window.Chart && $("slaHourlyChart") && hourly.hourly) {
+      const ctx2 = $("slaHourlyChart").getContext("2d");
+      if (window.__slaHourlyChart) window.__slaHourlyChart.destroy();
+      window.__slaHourlyChart = new Chart(ctx2, {
+        type: "bar",
+        data: {
+          labels: hourly.hourly.map((_, i) => `${i}:00`),
+          datasets: [{
+            label: "Ärenden",
+            data: hourly.hourly,
+            backgroundColor: "rgba(76, 125, 255, 0.6)",
+            borderRadius: 4
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: { legend: { display: false } },
+          scales: { x: { grid: { display: false }, ticks: { color: '#a6abc6', maxRotation: 45 } }, y: { grid: { color: 'rgba(255,255,255,0.05)' }, ticks: { color: '#a6abc6' } } }
+        }
+      });
+    }
+
+    // ===== TAB 2: ESCALATION =====
+    $("escTotalVal").textContent = escalation.total;
+    $("escAiVal").textContent = escalation.aiOnlySolved;
+    $("escAiRate").textContent = escalation.aiSolveRate + "%";
+    $("escHumanVal").textContent = escalation.escalatedCount;
+    $("escHumanRate").textContent = escalation.escalationRate + "%";
+    $("escTimeVal").textContent = escalation.avgTimeToEscalation;
+
+    const escOverview = $("slaEscalationOverview");
+    if (escOverview) {
+      const aiRate = parseFloat(escalation.aiSolveRate) || 0;
+      const humanRate = parseFloat(escalation.escalationRate) || 0;
+      escOverview.innerHTML = `
+        <div style="display:flex; align-items:center; gap:20px;">
+          <div style="flex:1;">
+            <div style="display:flex; height:20px; border-radius:10px; overflow:hidden; background:#222;">
+              <div style="width:${aiRate}%; background: linear-gradient(90deg, #37d67a, #4c7dff); transition: width 0.5s;"></div>
+              <div style="width:${humanRate}%; background: linear-gradient(90deg, #ff6b6b, #ffa726); transition: width 0.5s;"></div>
+            </div>
+            <div class="row gap" style="margin-top:10px; font-size:12px;">
+              <span><i class="fa-solid fa-robot" style="color:#37d67a;"></i> AI: ${aiRate}%</span>
+              <span style="margin-left:auto;"><i class="fa-solid fa-user" style="color:#ffa726;"></i> Människa: ${humanRate}%</span>
+            </div>
+          </div>
+        </div>
+      `;
+    }
+
+    const escReasons = $("slaEscalationReasons");
+    if (escReasons && escalation.topReasons) {
+      escReasons.innerHTML = escalation.topReasons.length ? escalation.topReasons.map((r, i) => `
+        <div class="listItem" style="cursor:default; padding:10px;">
+          <div class="listItemTitle">
+            <span class="pill ${i === 0 ? 'warn' : ''}" style="margin-right:10px;">#${i + 1}</span>
+            <b>"${escapeHtml(r.reason)}"</b>
+            <span style="margin-left:auto;">${r.count} ggr (${r.percentage}%)</span>
+          </div>
+        </div>
+      `).join("") : '<div class="muted small center">Inga tydliga eskaleringsorsaker hittades.</div>';
+    }
+
+    // ===== TAB 3: QUESTIONS =====
+    $("qTotalMessages").textContent = questions.totalMessages;
+    $("qUserMessages").textContent = questions.userMessages;
+    $("qAiMessages").textContent = questions.aiMessages;
+    $("qAgentMessages").textContent = questions.agentMessages;
+    $("qAvgConv").textContent = questions.avgConversationLength;
+    $("qResponseRatio").textContent = questions.responseRatio + "x";
+
+    const qTypes = $("slaQuestionTypes");
+    if (qTypes && questions.typeBreakdown) {
+      qTypes.innerHTML = questions.typeBreakdown.length ? questions.typeBreakdown.map((t, i) => `
+        <div class="listItem" style="cursor:default; padding:10px;">
+          <div class="listItemTitle">
+            <span class="pill" style="margin-right:10px;">${i + 1}</span>
+            <b>${escapeHtml(t.type)}</b>
+            <span style="margin-left:auto;">${t.count} (${t.percentage}%)</span>
+          </div>
+          <div style="margin-top:5px; height:6px; background:#333; border-radius:3px; overflow:hidden;">
+            <div style="width:${t.percentage}%; height:100%; background: linear-gradient(90deg, #4c7dff, #8a2be2);"></div>
+          </div>
+        </div>
+      `).join("") : '<div class="muted small center">Ingen frågedata tillgänglig.</div>';
+    }
+
+    // Question Types Chart
+    if (window.Chart && $("slaQuestionTypesChart") && questions.typeBreakdown?.length) {
+      const ctx3 = $("slaQuestionTypesChart").getContext("2d");
+      if (window.__slaQuestionsChart) window.__slaQuestionsChart.destroy();
+      window.__slaQuestionsChart = new Chart(ctx3, {
+        type: "doughnut",
+        data: {
+          labels: questions.typeBreakdown.map(t => t.type),
+          datasets: [{
+            data: questions.typeBreakdown.map(t => t.count),
+            backgroundColor: ["#4c7dff", "#37d67a", "#ffa726", "#ff6b6b", "#8a2be2", "#00bcd4"],
+            borderWidth: 0
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: { legend: { display: true, position: "right", labels: { color: '#a6abc6', usePointStyle: true } } }
+        }
+      });
+    }
+
+    // ===== TAB 4: COMPARISON =====
+    const compCurrent = $("compCurrentStats");
+    const compPrevious = $("compPreviousStats");
+    if (compCurrent && comparison.current) {
+      compCurrent.innerHTML = `
+        <div class="slaGrid" style="gap:8px;">
+          <div><b>${comparison.current.total}</b> <span class="muted tiny">ärenden</span></div>
+          <div><b>${comparison.current.solved}</b> <span class="muted tiny">lösta</span></div>
+          <div><b>${comparison.current.aiRate}%</b> <span class="muted tiny">AI</span></div>
+        </div>
+      `;
+    }
+    if (compPrevious && comparison.previous) {
+      compPrevious.innerHTML = `
+        <div class="slaGrid" style="gap:8px;">
+          <div><b>${comparison.previous.total}</b> <span class="muted tiny">ärenden</span></div>
+          <div><b>${comparison.previous.solved}</b> <span class="muted tiny">lösta</span></div>
+          <div><b>${comparison.previous.aiRate}%</b> <span class="muted tiny">AI</span></div>
+        </div>
+      `;
+    }
+
+    // Deltas
+    const formatDelta = (val) => {
+      const num = parseFloat(val) || 0;
+      const color = num > 0 ? 'var(--ok)' : num < 0 ? 'var(--error)' : 'inherit';
+      const prefix = num > 0 ? '+' : '';
+      return `<span style="color:${color}">${prefix}${num}%</span>`;
+    };
+    if (comparison.deltas) {
+      $("deltaTotal").innerHTML = formatDelta(comparison.deltas.total);
+      $("deltaSolved").innerHTML = formatDelta(comparison.deltas.solved);
+      $("deltaAiSolved").innerHTML = formatDelta(comparison.deltas.aiSolved);
+      $("deltaHighPriority").innerHTML = formatDelta(comparison.deltas.highPriority);
+    }
+
+    // ===== TAB 5: INSIGHTS & TIPS =====
+    const insightsBox = $("slaInsightsBox");
+    if (insightsBox && insights.insights) {
+      insightsBox.innerHTML = insights.insights.length ? insights.insights.map(ins => `
+        <div class="alert ${ins.type}" style="margin-bottom:8px; font-size:13px;">
+          <i class="fa-solid ${ins.icon}"></i> ${escapeHtml(ins.text)}
+        </div>
+      `).join("") : '<div class="muted small center">Ingen data för insikter.</div>';
+    }
+
+    const tipsBox = $("slaTipsBox");
+    if (tipsBox && insights.tips) {
+      tipsBox.innerHTML = insights.tips.length ? insights.tips.map(tip => `
+        <div class="listItem" style="cursor:default; padding:10px;">
+          <div class="listItemTitle">
+            <i class="fa-solid ${tip.icon}" style="color:var(--warning); margin-right:8px;"></i>
+            ${escapeHtml(tip.text)}
+            <span class="pill ${tip.priority === 'high' ? 'warn' : ''}" style="margin-left:auto;">${tip.priority}</span>
+          </div>
+        </div>
+      `).join("") : '<div class="muted small center">Inga tips just nu.</div>';
+    }
+
+    // ===== TAB 6: AGENT LEADERBOARD =====
+    const tableBody = $("slaAgentsTableBody");
+    if (tableBody && agents) {
+      tableBody.innerHTML = agents.length ? agents.map((a, i) => `
+        <tr style="${i === 0 ? 'background: rgba(255, 215, 0, 0.1);' : ''}">
+          <td>
+            ${i === 0 ? '<i class="fa-solid fa-crown" style="color:gold;"></i>' :
+          i === 1 ? '<i class="fa-solid fa-medal" style="color:silver;"></i>' :
+            i === 2 ? '<i class="fa-solid fa-medal" style="color:#cd7f32;"></i>' : (i + 1)}
+          </td>
+          <td><b>${escapeHtml(a.agentName)}</b></td>
+          <td>${a.handled}</td>
+          <td>${a.solved}</td>
+          <td>${a.highPriority}</td>
+          <td>${a.avgMessagesPerTicket}</td>
+          <td><div class="pill ${a.efficiency > 70 ? 'ok' : 'warn'}">${a.efficiency}%</div></td>
+          <td>${a.avgCsat}</td>
+          <td style="text-align:right; font-weight:bold; color:var(--primary);">${a.score}</td>
+        </tr>
+      `).join("") : '<tr><td colspan="9" class="muted center">Inga agenter aktiva under perioden.</td></tr>';
+
+      // Top Performer
+      if (agents.length > 0) {
+        const top = agents[0];
+        const initials = top.agentName.slice(0, 2).toUpperCase();
+        $("topPerformerAvatar").textContent = initials;
+        $("topPerformerName").textContent = top.agentName;
+        $("topPerformerStats").innerHTML = `
+          <b>${top.solved}</b> lösta | <b>${top.efficiency}%</b> effektivitet | <b>${top.score}</b> poäng
+        `;
+      }
+
+      // Agent Pie Chart
+      if (window.Chart && $("slaAgentPieChart") && agents.length) {
+        const ctx4 = $("slaAgentPieChart").getContext("2d");
+        if (window.__slaAgentPie) window.__slaAgentPie.destroy();
+        window.__slaAgentPie = new Chart(ctx4, {
+          type: "pie",
+          data: {
+            labels: agents.slice(0, 5).map(a => a.agentName),
+            datasets: [{
+              data: agents.slice(0, 5).map(a => a.handled),
+              backgroundColor: ["#4c7dff", "#37d67a", "#ffa726", "#ff6b6b", "#8a2be2"],
+              borderWidth: 0
+            }]
+          },
+          options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: { legend: { display: true, position: "right", labels: { color: '#a6abc6', usePointStyle: true } } }
+          }
+        });
+      }
+    }
+
+  } catch (e) {
+    console.error("SLA Dashboard Error:", e);
+    toast("Fel", "Kunde inte ladda dashboard-data: " + e.message, "error");
+  }
 }
 
 async function exportSlaCsv() {
