@@ -2090,12 +2090,20 @@ function renderCrmCustomersList() {
     const status = c.status || "active";
     const org = c.orgNr || c.orgNumber || "Ej angivet";
 
+    // Status Icon
+    const statusIcon = status === 'active'
+      ? `<i class="fa-solid fa-circle-check" style="color:var(--ok);" title="Aktiv"></i>`
+      : `<i class="fa-solid fa-circle-xmark" style="color:var(--danger);" title="Inaktiv"></i>`;
+
     return `
       <div class="crmCustomerCard" onclick="openCustomerModal('${c.companyId}')" style="display: grid; grid-template-columns: 50px 2fr 1.5fr 1fr 1fr auto; align-items: center; gap: 15px; padding: 15px; cursor: pointer; transition: background 0.2s;">
         <div class="avatar-small" style="background:var(--primary); color:white;">${initials}</div>
         
         <div class="info">
-          <div class="name" style="font-weight:bold; font-size:16px; color:var(--text);">${escapeHtml(c.displayName)}</div>
+          <div class="name" style="font-weight:bold; font-size:16px; color:var(--text); display:flex; align-items:center; gap:8px;">
+             ${escapeHtml(c.displayName)}
+             ${statusIcon}
+          </div>
           <div class="muted small" style="margin-top:2px;">
             <i class="fa-solid fa-building"></i> ${escapeHtml(org)}
           </div>

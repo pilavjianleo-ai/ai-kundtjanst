@@ -1165,8 +1165,13 @@ app.get("/company/settings", authenticate, async (req, res) => {
 app.patch("/company/settings", authenticate, requireAgent, async (req, res) => {
   try {
     const { companyId, settings } = req.body;
-    const c = await Company.findOne({ companyId });
-    if (!c) return res.status(404).json({ error: "Bolag ej hittat" });
+    if (!companyId) return res.status(400).json({ error: "companyId saknas" });
+
+    const c = await Company.findOne({ companyId: String(companyId).trim() });
+    if (!c) {
+      console.log(`[PATCH /company/settings] 404 Not Found: '${companyId}'`);
+      return res.status(404).json({ error: `Bolag '${companyId}' hittades ej` });
+    }
 
     // Settings sub-object
     if (settings.greeting) c.settings.greeting = settings.greeting;
