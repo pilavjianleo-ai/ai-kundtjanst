@@ -74,8 +74,10 @@ console.log("---------------------------------------");
 mongoose.set("strictQuery", true);
 mongoose
   .connect(mongoUri)
-  .then(() => console.log("✅ MongoDB ansluten"))
-  .catch((err) => console.error("❌ MongoDB-fel:", err.message));
+  .then(() => {
+    console.log("✅ MongoDB ansluten");
+  })
+  .catch((err) => console.error("❌ MongoDB-fel:", err));
 
 /* =====================
    Multer (Uploads)
@@ -172,6 +174,41 @@ const ticketSchema = new mongoose.Schema({
   csatRating: { type: Number, min: 1, max: 5, default: null },
 });
 const Ticket = mongoose.model("Ticket", ticketSchema);
+
+// Run database fixes and index cleanup after models are defined
+(async () => {
+  try {
+    // Wait for connection to be stable
+    setTimeout(async () => {
+      if (mongoose.connection.readyState !== 1) return;
+
+      console.log("🧹 DB CLEANUP: Rensar gamla index...");
+      const collection = mongoose.connection.collection('tickets');
+
+      // Drop any potentially conflicting old indexes
+      await collection.dropIndex("publicId_1").catch(() => { });
+      await collection.dropIndex("ticketPublicId_1").catch(() => { });
+      await collection.dropIndex("publicTicketId_1").catch(() => { }); // Re-create fresh if needed
+
+      // Find tickets needing ID
+      const tickets = await Ticket.find({
+        $or: [
+          { publicTicketId: { $exists: false } },
+          { publicTicketId: null }
+        ]
+      });
+
+      if (tickets.length > 0) {
+        console.log(`🛠 MIGRATION: Fixar ${tickets.length} tickets som saknar ID...`);
+        for (const t of tickets) {
+          t.publicTicketId = genPublicId("T");
+          await t.save().catch(err => console.error(`Failed to fix ticket ${t._id}:`, err.message));
+        }
+        console.log("✅ MIGRATION: Färdig.");
+      }
+    }, 5000);
+  } catch (e) { console.error("🔥 Critical Migration Error:", e); }
+})();
 
 /* =====================
    Auth Permissions
