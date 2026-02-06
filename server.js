@@ -386,13 +386,16 @@ async function generateAIResponse(companyId, messages, userMessage) {
     const keywords = userMessage.toLowerCase().split(/\s+/).filter(w => w.length > 3);
     let docs = [];
     if (keywords.length > 0) {
-      const regexArr = keywords.map(kw => new RegExp(escapeRegExp(kw), "i"));
+      console.log(`🔍 Söker KB med nyckelord: ${keywords.join(", ")}`);
+      // Use $or with multiple regexes for better Mongoose compatibility
+      const orConditions = keywords.flatMap(kw => [
+        { title: { $regex: escapeRegExp(kw), $options: 'i' } },
+        { content: { $regex: escapeRegExp(kw), $options: 'i' } }
+      ]);
+
       docs = await Document.find({
         companyId,
-        $or: [
-          { title: { $in: regexArr } },
-          { content: { $in: regexArr } }
-        ]
+        $or: orConditions
       }).limit(5);
     }
 
@@ -436,6 +439,7 @@ Aktuell tid: ${new Date().toLocaleString('sv-SE')}
       { role: "user", content: userMessage },
     ];
 
+    console.log(`🧠 Skickar till OpenAI (${apiMessages.length} meddelanden)...`);
     const completion = await openai.chat.completions.create({
       model: "gpt-4o-mini",
       messages: apiMessages,
@@ -443,7 +447,9 @@ Aktuell tid: ${new Date().toLocaleString('sv-SE')}
       max_tokens: 800
     });
 
-    return completion.choices[0]?.message?.content || "Jag kunde tyvärr inte generera ett svar just nu.";
+    const result = completion.choices[0]?.message?.content || "Jag kunde tyvärr inte generera ett svar just nu.";
+    console.log("✅ AI-svar genererat.");
+    return result;
   } catch (e) {
     console.error("AI FAILSAFE TRIGGERED:", e.message);
     // SMART FAILBACK: Local Response logic
@@ -520,6 +526,8 @@ app.post("/chat", authenticate, async (req, res) => {
     });
   } catch (e) {
     console.error("🚨 CRITICAL CHAT 500 ERROR:", e);
+    const fs = require("fs");
+    fs.appendFileSync("debug_crash.log", `[${new Date().toISOString()}] CHAT ERROR: ${e.stack}\n`);
     res.status(500).json({ error: "Internt fel i chat-tjänsten. Vänligen prova igen om en stund." });
   }
 });
