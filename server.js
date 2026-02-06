@@ -901,11 +901,23 @@ app.patch("/inbox/tickets/solve-all", authenticate, requireAgent, async (req, re
 app.delete("/inbox/tickets/solved", authenticate, requireAgent, async (req, res) => {
   try {
     const { companyId } = req.query;
+    console.log(`[DELETE /inbox/tickets/solved] Payload:`, req.query);
+
     const q = { status: "solved" };
-    if (companyId) q.companyId = companyId;
+    // Handle specific company ID logic, exclude "undefined"/"null" strings
+    if (companyId && companyId !== "undefined" && companyId !== "null") {
+      q.companyId = String(companyId).trim();
+    }
+
+    console.log(`[DELETE] Query:`, q);
     const result = await Ticket.deleteMany(q);
+    console.log(`[DELETE] Removed ${result.deletedCount} tickets.`);
+
     res.json({ message: `Rensade ${result.deletedCount} lösta ärenden` });
-  } catch (e) { res.status(500).json({ error: e.message }); }
+  } catch (e) {
+    console.error("[DELETE FAILED]", e);
+    res.status(500).json({ error: String(e.message) });
+  }
 });
 
 app.get("/admin/companies", authenticate, requireAdmin, async (req, res) => {
