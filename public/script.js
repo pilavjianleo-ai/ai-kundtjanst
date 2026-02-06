@@ -3248,28 +3248,43 @@ async function bulkDeleteKb() {
    CRM Admin (admin)
 ========================= */
 async function refreshCustomers() {
-  const list = $("customersList");
-  if (!list) return;
   try {
     const companies = await api("/admin/companies");
-    list.innerHTML = "";
-    (companies || []).forEach((c) => {
-      const div = document.createElement("div"); div.className = "listItem";
-      div.innerHTML = `<div class="listItemTitle">${escapeHtml(c.displayName)} (${escapeHtml(c.companyId)}) <span class="pill">${escapeHtml(c.status)}</span></div><div class="muted small">Plan: ${escapeHtml(String(c.plan || "bas")).toUpperCase()} • ${escapeHtml(c.contactEmail || "-")}</div>`;
-      list.appendChild(div);
-    });
-  } catch (e) { console.error("CRM Load Error:", e); }
+    crmData.customers = companies || [];
+    renderCrmCustomersList();
+  } catch (e) {
+    console.error("CRM Load Error:", e);
+    crmData.customers = [];
+    renderCrmCustomersList();
+  }
 }
 
 async function createCompany() {
   const displayName = $("newCompanyDisplayName")?.value?.trim() || "";
   const contactEmail = $("newCompanyContactEmail")?.value?.trim() || "";
   const plan = $("newCompanyPlan")?.value || "bas";
+  const orgNr = $("newCompanyOrgNr")?.value?.trim() || "";
+  const contactName = $("newCompanyContactName")?.value?.trim() || "";
+  const phone = $("newCompanyPhone")?.value?.trim() || "";
+  const status = $("newCompanyStatus")?.value || "active";
+  const notes = $("newCompanyNotes")?.value?.trim() || "";
+
   if (!displayName) return toast("Saknas", "Namn krävs", "error");
+
   try {
-    await api("/admin/companies", { method: "POST", body: { displayName, contactEmail, plan } });
+    await api("/admin/companies", {
+      method: "POST",
+      body: { displayName, contactEmail, plan, orgNr, contactName, phone, status, notes }
+    });
     toast("Skapat", "Ny kund skapad ✅", "info");
-    $("newCompanyDisplayName").value = ""; $("newCompanyContactEmail").value = "";
+
+    // Clear inputs
+    ["newCompanyDisplayName", "newCompanyContactEmail", "newCompanyOrgNr",
+      "newCompanyContactName", "newCompanyPhone", "newCompanyNotes"].forEach(id => {
+        const el = $(id);
+        if (el) el.value = "";
+      });
+
     await refreshCustomers();
   } catch (e) { toast("Fel", e.message, "error"); }
 }
