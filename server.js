@@ -217,28 +217,29 @@ const Ticket = mongoose.model("Ticket", ticketSchema);
 /* =====================
    Auth Permissions
 ===================== */
-const authenticate = (req, res, next) => {
+const authenticate = async (req, res, next) => {
   const token = req.header("Authorization")?.replace("Bearer ", "");
   if (!token) return res.status(401).json({ error: "Ingen token" });
   try {
-    req.user = jwt.verify(token, process.env.JWT_SECRET);
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    const user = await User.findById(decoded.id).select("-password");
+    if (!user) throw new Error();
+    req.user = user;
     next();
   } catch {
     res.status(401).json({ error: "Ogiltig token" });
   }
 };
 
-const requireAgent = async (req, res, next) => {
-  const user = await User.findById(req.user.id);
-  if (!user || (user.role !== "agent" && user.role !== "admin")) {
+const requireAgent = (req, res, next) => {
+  if (!req.user || (req.user.role !== "agent" && req.user.role !== "admin")) {
     return res.status(403).json({ error: "Agent/Admin krävs" });
   }
   next();
 };
 
-const requireAdmin = async (req, res, next) => {
-  const user = await User.findById(req.user.id);
-  if (!user || user.role !== "admin") return res.status(403).json({ error: "Admin krävs" });
+const requireAdmin = (req, res, next) => {
+  if (!req.user || req.user.role !== "admin") return res.status(403).json({ error: "Admin krävs" });
   next();
 };
 
