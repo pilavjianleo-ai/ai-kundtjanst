@@ -247,7 +247,57 @@ function addMsg(role, text, meta = "") {
   msg.appendChild(avatar);
   msg.appendChild(box);
   wrap.appendChild(msg);
+
+  // Smooth entrance
+  msg.style.opacity = "0";
+  msg.style.transform = "translateY(10px)";
+  setTimeout(() => {
+    msg.style.transition = "all 0.3s ease";
+    msg.style.opacity = "1";
+    msg.style.transform = "translateY(0)";
+  }, 10);
+
   wrap.scrollTop = wrap.scrollHeight;
+}
+
+function showTyping() {
+  const wrap = $("messages");
+  if (!wrap || $("typingIndicator")) return;
+
+  const div = document.createElement("div");
+  div.id = "typingIndicator";
+  div.className = "msg ai";
+  div.innerHTML = `
+        <div class="avatar"><i class="fa-solid fa-robot"></i></div>
+        <div class="bubble typing">
+            <div class="dot"></div>
+            <div class="dot"></div>
+            <div class="dot"></div>
+        </div>
+    `;
+  wrap.appendChild(div);
+  wrap.scrollTop = wrap.scrollHeight;
+}
+
+function hideTyping() {
+  const el = $("typingIndicator");
+  if (el) el.remove();
+}
+
+function renderSuggestions(list) {
+  const box = $("suggestions");
+  if (!box) return;
+  box.innerHTML = "";
+  list.forEach(text => {
+    const chip = document.createElement("div");
+    chip.className = "chip";
+    chip.textContent = text;
+    chip.onclick = () => {
+      $("messageInput").value = text;
+      sendChat();
+    };
+    box.appendChild(chip);
+  });
 }
 
 function renderChatHeader() {
@@ -391,6 +441,7 @@ async function loadCompanies() {
 async function bootstrapAfterLogin() {
   showView("chatView", "openChatView");
   resetConversation();
+  renderSuggestions(["Hur fungerar det?", "Vilka priser har ni?", "Skapa konto"]);
 }
 
 /* =========================
@@ -405,6 +456,10 @@ async function sendChat() {
   addMsg("user", text);
   state.conversation.push({ role: "user", content: text });
 
+  // UI: Show typing
+  showTyping();
+  $("suggestions").style.display = "none";
+
   try {
     const data = await api("/chat", {
       method: "POST",
@@ -415,22 +470,42 @@ async function sendChat() {
       },
     });
 
-    const reply = data.reply || "Inget svar.";
-    addMsg("assistant", reply);
-    state.conversation.push({ role: "assistant", content: reply });
+    // Simulate thinking delay for a more natural feel
+    setTimeout(async () => {
+      hideTyping();
+      const reply = data.reply || "Inget svar.";
+      addMsg("assistant", reply);
+      state.conversation.push({ role: "assistant", content: reply });
 
-    state.activeTicketId = data.ticketId || state.activeTicketId;
-    state.activeTicketPublicId = data.publicTicketId || state.activeTicketPublicId;
+      state.activeTicketId = data.ticketId || state.activeTicketId;
+      state.activeTicketPublicId = data.publicTicketId || state.activeTicketPublicId;
 
-    if (data.priority === "high") {
-      toast("Viktigt", "Detta ärende har markerats som hög prioritet!", "warning");
-    }
+      if (data.priority === "high") {
+        toast("Viktigt", "Detta ärende har markerats som hög prioritet!", "warning");
+      }
 
-    renderDebug();
-    await refreshMyTickets();
+      renderDebug();
+      await refreshMyTickets();
+
+      // Show context-aware suggestions after reply
+      if (reply.toLowerCase().includes("hjälpa")) {
+        renderSuggestions(["Visa priser", "Teknisk support", "Boka demo"]);
+      } else {
+        renderSuggestions(["Tack!", "En fråga till", "Prata med agent"]);
+      }
+      $("suggestions").style.display = "flex";
+    }, 800);
+
   } catch (e) {
+    hideTyping();
     addMsg("assistant", "❌ Fel: " + e.message);
   }
+}
+
+async function requestHumanHandoff() {
+  addMsg("user", "Jag vill prata med en person.");
+  sendChat();
+  toast("Handoff", "En agent har notifierats om din förfrågan.", "info");
 }
 
 /* =========================
@@ -580,6 +655,27 @@ async function selectInboxTicket(ticketId) {
 
   const priSel = $("ticketPrioritySelect");
   if (priSel) priSel.value = t.priority || "normal";
+
+  // Show notes if any
+  if (t.internalNotes && t.internalNotes.length > 0) {
+    const notesHtml = t.internalNotes.map(n => `
+        <div class="alert info tiny" style="margin-top:5px; border-style:dashed;">
+            <i class="fa-solid fa-note-sticky"></i> ${escapeHtml(n.content)}
+        </div>
+      `).join("");
+    box.innerHTML += `
+        <div style="margin-top:15px;">
+            <b>Interna noter:</b>
+            ${notesHtml}
+        </div>
+      `;
+  }
+
+  // Populate agent select (if we have users)
+  const userSel = $("assignUserSelect");
+  if (userSel) {
+    userSel.value = t.assignedToUserId || "";
+  }
 }
 
 async function summarizeTicket(id) {
@@ -644,6 +740,54 @@ async function sendAgentReplyInbox() {
   $("agentReplyTextInbox").value = "";
   toast("Skickat", "Svar skickat ✅", "info");
   await selectInboxTicket(state.inboxSelectedTicket._id);
+  await loadInboxTickets();
+}
+
+async function saveInternalNote() {
+  if (!state.inboxSelectedTicket) return toast("Saknas", "Välj en ticket först", "error");
+  const content = $("internalNoteText")?.value?.trim();
+  if (!content) return toast("Saknas", "Skriv en note", "error");
+
+  await api(`/inbox/tickets/${state.inboxSelectedTicket._id}/note`, {
+    method: "POST",
+    body: { content },
+  });
+
+  $("internalNoteText").value = "";
+  toast("Klar", "Intern note sparad 📝", "info");
+  await selectInboxTicket(state.inboxSelectedTicket._id);
+}
+
+async function clearInternalNotes() {
+  if (!state.inboxSelectedTicket) return toast("Saknas", "Välj en ticket först", "error");
+  if (!confirm("Vill du radera alla interna noter på denna ticket?")) return;
+
+  await api(`/inbox/tickets/${state.inboxSelectedTicket._id}/notes`, { method: "DELETE" });
+  toast("Raderat", "Notes raderade 🗑️", "info");
+  await selectInboxTicket(state.inboxSelectedTicket._id);
+}
+
+async function assignTicket() {
+  if (!state.inboxSelectedTicket) return toast("Saknas", "Välj en ticket först", "error");
+  const userId = $("assignUserSelect")?.value;
+
+  await api(`/inbox/tickets/${state.inboxSelectedTicket._id}/assign`, {
+    method: "PATCH",
+    body: { userId },
+  });
+
+  toast("Klar", "Ärende tilldelat ✅", "info");
+  await loadInboxTickets();
+}
+
+async function deleteTicket() {
+  if (!state.inboxSelectedTicket) return toast("Saknas", "Välj en ticket först", "error");
+  if (!confirm("ÄR DU SÄKER? Detta raderar ticketen permanent!")) return;
+
+  await api(`/inbox/tickets/${state.inboxSelectedTicket._id}`, { method: "DELETE" });
+  toast("Raderat", "Ticket borta för alltid", "warning");
+  state.inboxSelectedTicket = null;
+  $("ticketDetails").innerHTML = "Välj en ticket.";
   await loadInboxTickets();
 }
 
@@ -1066,6 +1210,10 @@ function bindEvents() {
   on("setStatusSolved", "click", () => setInboxStatus("solved"));
   on("setPriorityBtn", "click", setInboxPriority);
   on("sendAgentReplyInboxBtn", "click", sendAgentReplyInbox);
+  on("saveInternalNoteBtn", "click", saveInternalNote);
+  on("clearInternalNotesBtn", "click", clearInternalNotes);
+  on("assignTicketBtn", "click", assignTicket);
+  on("deleteTicketBtn", "click", deleteTicket);
 
   // ✅ SLA
   on("openSlaView", "click", async () => {
@@ -1120,6 +1268,7 @@ function bindEvents() {
   on("messageInput", "keydown", (e) => {
     if (e.key === "Enter") sendChat();
   });
+  on("talkToHumanBtn", "click", requestHumanHandoff);
 }
 
 /* =========================

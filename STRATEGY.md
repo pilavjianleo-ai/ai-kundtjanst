@@ -21,7 +21,8 @@
 * 🔍 **Analyserar:** Webbplatser, PDF-filer och interna dokument för att bygga en unik kunskapsbas.
 * 🧠 **Poängsätter:** Identifierar automatiskt brådskande ärenden och säljmöjligheter.
 * 🗂 **Strukturerar:** Organiserar ärenden i en tydlig inbox för mänskliga agenter.
-* 📄 **Genererar:** Skapar sammanfattningar av långa konversationer för att spara tid.
+* 🔬 **Prediktiv Eskalering:** Känner av frustration och behov av mänsklig kontakt och flaggar direkt till agent.
+* ✨ **Real-tidsupplevelse:** Animerad AI-skrivning och smarta snabbval för kunden (Suggestions).
 * 🧪 **Validerar:** Säkerställer att AI-svar håller sig till sanningen via RAG (Retrieval-Augmented Generation).
 * 🧾 **Skapar paket:** Erbjuder olika prenumerationsnivåer för olika företags behov.
 

@@ -188,22 +188,26 @@
           </div>
 
           <div class="topbarActions">
+            <button id="talkToHumanBtn" class="btn ghost small" title="Prata med en människa">
+              <i class="fa-solid fa-headset"></i> Hjälp av människa
+            </button>
             <button id="newTicketBtn" class="btn ghost" type="button">
               <i class="fa-solid fa-circle-plus"></i> Nytt ärende
             </button>
             <button id="clearChatBtn" class="btn ghost" type="button">
               <i class="fa-solid fa-trash"></i> Rensa
             </button>
-            <button id="exportChatBtn" class="btn ghost" type="button">
-              <i class="fa-solid fa-download"></i> Export
-            </button>
           </div>
         </div>
 
         <div id="messages" class="messages"></div>
 
+        <div id="suggestions" class="suggestions">
+          <!-- Suggestion chips added by JS -->
+        </div>
+
         <div class="composer">
-          <input id="messageInput" class="input" placeholder="Skriv ditt meddelande..." />
+          <input id="messageInput" class="input" placeholder="Skriv ditt meddelande..." autocomplete="off" />
           <button id="sendBtn" class="btn primary round" type="button">
             <i class="fa-solid fa-paper-plane"></i>
           </button>

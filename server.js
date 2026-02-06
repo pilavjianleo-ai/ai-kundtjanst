@@ -445,15 +445,15 @@ async function generateAIResponse(companyId, messages, userMessage) {
     const tone = company?.settings?.tone || "professional";
 
     const systemPrompt = `
-Du är en expert-AI-kundtjänstagent för ${company?.displayName || "vår tjänst"}.
+Du är en expert-AI-kundtjänstagent för företaget "${company?.displayName || "vår tjänst"}".
 DIN ROLL: Hjälp kunden snabbt, vänligt och professionellt. Du är systemets ansikte utåt.
-TONALITET: ${tone}.
+TONALITET: ${tone === 'friendly' ? 'Varm, glad och informell' : (tone === 'strict' ? 'Korrekt, formell och faktacentrerad' : 'Hjälpsam, lugn och professionell')}.
 SPRÅK: Alltid svenska.
 
 INSTRUKTIONER:
 1. Använd endast tillhandahållen FAKTA nedan. Var källkritisk.
 2. Om svaret inte finns i fakta, säg: "Jag hittar tyvärr ingen specifik information om det, men jag skapar en prioriterad ticket så att en expert kan återkomma till dig."
-3. Identifiera säljmöjligheter: Om kunden frågar om priser eller vill köpa, var extra välkomnande.
+3. Om kunden verkar missnöjd eller ber om en "människa", svara: "Jag förstår, jag kopplar dig vidare till en av våra mänskliga agenter direkt så hjälper de dig vidare."
 4. Var koncis men varm. Använd emojis sparsamt och proffsigt.
 
 FAKTA/KONTEXT:
@@ -551,6 +551,7 @@ app.post("/chat", authenticate, async (req, res) => {
     let reply = "";
     try {
       log("START AI GENERATION");
+      if (io) io.emit("aiTyping", { ticketId: ticket._id, companyId });
       reply = await generateAIResponse(companyId, ticket.messages, lastUserMsg);
       log("FINISH AI GENERATION");
     } catch (aiErr) {
@@ -558,8 +559,16 @@ app.post("/chat", authenticate, async (req, res) => {
       reply = "Tekniskt fel vid AI-generering. En agent har notifierats.";
     }
 
-    // AI Intent
+    // AI Intent & Handoff
     const msgLow = lastUserMsg.toLowerCase();
+    const needsHuman = ["människa", "person", "agent", "riktig", "arg", "besviken"].some(w => msgLow.includes(w)) || (reply && reply.includes("koppla dig vidare"));
+
+    if (needsHuman) {
+      ticket.priority = "high";
+      ticket.status = "open";
+      if (io) io.emit("newImportantTicket", { id: ticket._id, title: "HUMAN REQUIRED: " + ticket.title });
+    }
+
     const isUrgent = ["akut", "bråttom", "panik", "fungerar inte", "fel"].some(w => msgLow.includes(w));
     if (isUrgent) {
       ticket.priority = "high";
@@ -581,7 +590,8 @@ app.post("/chat", authenticate, async (req, res) => {
       reply,
       ticketId: ticket._id,
       publicTicketId: ticket.publicTicketId,
-      priority: ticket.priority
+      priority: ticket.priority,
+      needsHuman
     });
   } catch (e) {
     console.error("🚨 CRITICAL CHAT 500 ERROR:", e);
@@ -678,6 +688,44 @@ app.post("/inbox/tickets/:id/reply", authenticate, requireAgent, async (req, res
     t.lastActivityAt = new Date();
     await t.save();
     res.json({ message: "Svarat" });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+app.post("/inbox/tickets/:id/note", authenticate, requireAgent, async (req, res) => {
+  try {
+    const t = await Ticket.findById(req.params.id);
+    if (!t) return res.status(404).json({ error: "Ticket hittades ej" });
+    t.internalNotes.push({ createdBy: req.user.id, content: req.body.content, createdAt: new Date() });
+    await t.save();
+    res.json({ message: "Note sparad" });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+app.delete("/inbox/tickets/:id/notes", authenticate, requireAgent, async (req, res) => {
+  try {
+    const t = await Ticket.findById(req.params.id);
+    if (!t) return res.status(404).json({ error: "Ticket hittades ej" });
+    t.internalNotes = [];
+    await t.save();
+    res.json({ message: "Notes raderade" });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+app.patch("/inbox/tickets/:id/assign", authenticate, requireAgent, async (req, res) => {
+  try {
+    const { userId } = req.body;
+    const t = await Ticket.findById(req.params.id);
+    if (!t) return res.status(404).json({ error: "Ticket hittades ej" });
+    t.assignedToUserId = userId || null;
+    await t.save();
+    res.json({ message: "Ticket tilldelad" });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+app.delete("/inbox/tickets/:id", authenticate, requireAdmin, async (req, res) => {
+  try {
+    await Ticket.findByIdAndDelete(req.params.id);
+    res.json({ message: "Ticket raderad" });
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
