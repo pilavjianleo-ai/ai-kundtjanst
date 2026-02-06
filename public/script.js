@@ -1393,25 +1393,20 @@ async function uploadKbText() {
 async function uploadKbUrl() {
   const companyId = $("kbCategorySelect")?.value || "demo";
   const url = $("kbUrlInput")?.value.trim();
-
   if (!url) return toast("Saknas", "Fyll i URL", "error");
-
   try {
     toast("Laddar...", "Hämtar URL innehåll...", "info");
     await api("/admin/kb/url", { method: "POST", body: { companyId, url } });
     toast("Klar", "URL sparad", "info");
     $("kbUrlInput").value = "";
     await loadKb();
-  } catch (e) {
-    toast("Fel", e.message, "error");
-  }
+  } catch (e) { toast("Fel", e.message, "error"); }
 }
 
 async function uploadKbPdf() {
   const companyId = $("kbCategorySelect")?.value || "demo";
   const fileInput = $("kbPdfFile");
   const file = fileInput?.files?.[0];
-
   if (!file) return toast("Saknas", "Välj en fil", "error");
 
   const formData = new FormData();
@@ -1420,21 +1415,98 @@ async function uploadKbPdf() {
 
   try {
     toast("Laddar...", "Laddar upp PDF...", "info");
-    // Special params for FormData
     const res = await fetch(state.apiBase + "/admin/kb/pdf", {
       method: "POST",
-      headers: { "Authorization": "Bearer " + state.token }, // No Content-Type, browser sets boundary
+      headers: { "Authorization": "Bearer " + state.token },
       body: formData
     });
-
     if (!res.ok) throw new Error("Upload failed");
-
     toast("Klar", "PDF sparad", "info");
     fileInput.value = "";
     await loadKb();
-  } catch (e) {
-    toast("Fel", e.message, "error");
+  } catch (e) { toast("Fel", e.message, "error"); }
+}
+
+/* =========================
+   Profile / Settings
+ ========================= */
+async function loadProfile() {
+  if (!state.me) return;
+
+  const avatar = $("profileAvatar");
+  const nameDisp = $("profileNameDisplay");
+  const badge = $("profileRoleBadge");
+  const emailInput = $("profileEmail");
+  const usernameInput = $("newUsernameInput");
+  const statsBox = $("roleBasedStats");
+
+  if (nameDisp) nameDisp.textContent = state.me.username;
+  if (emailInput) emailInput.value = state.me.email || "Ingen e-post angiven";
+  if (usernameInput) usernameInput.value = state.me.username;
+  if (avatar) avatar.textContent = state.me.username.substring(0, 2).toUpperCase();
+
+  if (badge) {
+    badge.className = `badge-${state.me.role}`;
+    badge.textContent = state.me.role.toUpperCase();
   }
+
+  try {
+    const stats = await api("/me/stats");
+    if (statsBox) {
+      let html = "";
+      if (state.me.role === "user") {
+        html = `
+            <div class="slaGrid">
+                <div class="slaCard" style="padding:10px;">
+                    <div class="slaLabel">Skapade</div>
+                    <div class="slaValue" style="font-size:20px;">${stats.ticketsCreated}</div>
+                </div>
+                <div class="slaCard" style="padding:10px;">
+                    <div class="slaLabel">Lösta</div>
+                    <div class="slaValue" style="font-size:20px;">${stats.ticketsResolved}</div>
+                </div>
+            </div>
+        `;
+      } else if (state.me.role === "agent" || state.me.role === "admin") {
+        html = `
+            <div class="slaGrid">
+                <div class="slaCard" style="padding:10px;">
+                    <div class="slaLabel">Hanterade</div>
+                    <div class="slaValue" style="font-size:20px;">${stats.ticketsHandled}</div>
+                </div>
+                <div class="slaCard" style="padding:10px;">
+                    <div class="slaLabel">Dina Solves</div>
+                    <div class="slaValue" style="font-size:20px;">${stats.ticketsSolved}</div>
+                </div>
+            </div>
+        `;
+        if (state.me.role === "admin") {
+          html += `
+              <div class="panel soft" style="margin-top:10px; border:none; background:rgba(255,184,0,0.05);">
+                  <div class="muted small"><i class="fa-solid fa-crown" style="color:#ffb800"></i> Admin Översikt</div>
+                  <div class="row gap small" style="margin-top:5px;">
+                      <span>Users: <b>${stats.totalUsers}</b></span>
+                      <span>Tickets: <b>${stats.totalSystemTickets}</b></span>
+                  </div>
+              </div>
+          `;
+        }
+      }
+      statsBox.innerHTML = html;
+    }
+  } catch (e) { console.error("Stats Error:", e); }
+}
+
+async function changeUsername() {
+  const newName = $("newUsernameInput")?.value.trim();
+  if (!newName) return toast("Fel", "Ange ett nytt namn", "error");
+  try {
+    await api("/me/username", { method: "PATCH", body: { username: newName } });
+    state.me.username = newName;
+    toast("Klart", "Namn uppdaterat", "info");
+    await loadProfile();
+    updateRoleUI();
+  } catch (e) { toast("Fel", e.message, "error"); }
 }
 
 /* =========================
@@ -1541,7 +1613,16 @@ function bindEvents() {
   });
   on("upgradeToProBtn", "click", upgradeToPro);
 
-  // ✅ Customer settings
+  on("openSettingsView", "click", () => {
+    showView("settingsView", "openSettingsView");
+    loadProfile();
+  });
+
+  on("changeUsernameBtn", "click", changeUsername);
+  on("changePasswordBtn", "click", changePassword);
+  on("themeToggleProfile", "click", toggleTheme);
+
+  // ✅ Customer settings (Admin only / Company settings)
   on("openCustomerSettingsView", "click", async () => {
     showView("customerSettingsView", "openCustomerSettingsView");
     await loadCustomerSettings();

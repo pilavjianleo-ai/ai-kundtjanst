@@ -665,40 +665,124 @@
 
       </section>
 
-      <!-- SETTINGS VIEW -->
+      <!-- SETTINGS VIEW / PROFILE -->
       <section id="settingsView" class="view" style="display:none;">
         <div class="topbar">
           <div>
-            <div class="title">Inställningar</div>
-            <div class="subtitle muted">Uppdatera konto.</div>
+            <div class="title">Mitt Konto & Profil</div>
+            <div class="subtitle muted">Hantera personlig information, säkerhet och inställningar.</div>
+          </div>
+          <div class="topbarActions">
+            <button id="logoutBtn" class="btn danger small">
+              <i class="fa-solid fa-power-off"></i> Logga ut
+            </button>
           </div>
         </div>
 
-        <div class="panel">
-          <div class="panelHead"><b>Mitt konto</b></div>
+        <div class="tabs">
+          <button class="tabBtn active" data-tab="tabProfile" type="button"><i class="fa-solid fa-user"></i> Min
+            Profil</button>
+          <button class="tabBtn" data-tab="tabSecurity" type="button"><i class="fa-solid fa-shield-halved"></i>
+            Säkerhet</button>
+          <button class="tabBtn" data-tab="tabPreferences" type="button"><i class="fa-solid fa-sliders"></i>
+            Inställningar</button>
+        </div>
 
+        <!-- PROFILE TAB -->
+        <div id="tabProfile" class="tabPanel">
           <div class="grid2">
-            <div>
-              <label>Byt användarnamn</label>
-              <input id="newUsernameInput" class="input" placeholder="Nytt användarnamn" />
-              <button id="changeUsernameBtn" class="btn secondary full" style="margin-top:10px;" type="button">
-                <i class="fa-solid fa-user-pen"></i> Byt användarnamn
-              </button>
+            <div class="panel">
+              <div class="panelHead"><b>Basfakta</b></div>
+              <div class="center" style="padding: 20px 0;">
+                <div class="avatar-large" id="profileAvatar">??</div>
+                <h2 id="profileNameDisplay" style="margin-top:15px; margin-bottom: 5px;">-</h2>
+                <div id="profileRoleBadge">-</div>
+              </div>
+
+              <label>E-postadress</label>
+              <input id="profileEmail" class="input" readonly style="opacity:0.7;" />
+
+              <label>Användarnamn</label>
+              <div class="row gap">
+                <input id="newUsernameInput" class="input" placeholder="Nytt användarnamn" />
+                <button id="changeUsernameBtn" class="btn secondary">Uppdatera</button>
+              </div>
             </div>
 
-            <div>
-              <label>Byt lösenord</label>
-              <input id="currentPassInput" type="password" class="input" placeholder="Nuvarande lösenord" />
-              <input id="newPassInput" type="password" class="input" placeholder="Nytt lösenord"
-                style="margin-top:10px;" />
-              <button id="changePasswordBtn" class="btn secondary full" style="margin-top:10px;" type="button">
-                <i class="fa-solid fa-lock"></i> Byt lösenord
-              </button>
+            <div class="panel">
+              <div class="panelHead"><b>Aktivitet & Status</b></div>
+              <div id="roleBasedStats" style="margin-top:15px;">
+                <!-- Populated by JS based on role -->
+                <div class="muted small center">Laddar statistik...</div>
+              </div>
+
+              <div class="divider"></div>
+              <b>Senaste inloggning</b>
+              <p class="muted small" id="lastLoginDisplay">Idag, 16:42 (Stockholm)</p>
             </div>
           </div>
-
-          <div id="settingsMsg" class="alert" style="display:none;"></div>
         </div>
+
+        <!-- SECURITY TAB -->
+        <div id="tabSecurity" class="tabPanel" style="display:none;">
+          <div class="panel" style="max-width: 500px; margin: 0 auto;">
+            <div class="panelHead"><b>Ändra Lösenord</b></div>
+            <p class="muted small">Välj ett starkt lösenord för att skydda ditt konto.</p>
+
+            <label>Nuvarande Lösenord</label>
+            <input id="currentPassInput" type="password" class="input" placeholder="••••••••" />
+
+            <label>Nytt Lösenord</label>
+            <input id="newPassInput" type="password" class="input" placeholder="Minst 8 tecken" />
+
+            <button id="changePasswordBtn" class="btn primary full" style="margin-top:20px;">
+              <i class="fa-solid fa-key"></i> Uppdatera Lösenord
+            </button>
+
+            <div class="divider"></div>
+            <div class="alert warn" style="font-size:12px;">
+              <i class="fa-solid fa-circle-info"></i> Vi rekommenderar att du byter lösenord var 6:e månad.
+            </div>
+          </div>
+        </div>
+
+        <!-- PREFERENCES TAB -->
+        <div id="tabPreferences" class="tabPanel" style="display:none;">
+          <div class="panel">
+            <div class="panelHead"><b>Applikationsinställningar</b></div>
+
+            <div class="list">
+              <div class="listItem" style="justify-content: space-between; display: flex; align-items: center;">
+                <div>
+                  <b>Mörkt läge</b>
+                  <p class="muted tiny">Växla mellan ljust och mörkt tema.</p>
+                </div>
+                <button id="themeToggleProfile" class="btn ghost small"><i class="fa-solid fa-moon"></i></button>
+              </div>
+
+              <div class="listItem" style="justify-content: space-between; display: flex; align-items: center;">
+                <div>
+                  <b>Ljudaviseringar</b>
+                  <p class="muted tiny">Spela upp ljud vid nya inkommande ärenden.</p>
+                </div>
+                <input type="checkbox" id="prefSoundNotif" checked />
+              </div>
+
+              <div class="listItem" style="justify-content: space-between; display: flex; align-items: center;">
+                <div>
+                  <b>Språk</b>
+                  <p class="muted tiny">Välj ditt önskade språk för gränssnittet.</p>
+                </div>
+                <select class="input smallInput" style="width: auto;">
+                  <option value="sv">Svenska</option>
+                  <option value="en">English</option>
+                </select>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div id="settingsMsg" class="alert" style="display:none;"></div>
       </section>
 
       <!-- === NYA VYER LÄGG TILL HÄR – längst ner i main === -->

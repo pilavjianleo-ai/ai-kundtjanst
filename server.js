@@ -245,6 +245,29 @@ const requireAdmin = async (req, res, next) => {
 app.get("/health", (req, res) => res.json({ ok: true }));
 
 // AUTH
+app.get("/me/stats", authenticate, async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const role = req.user.role;
+
+    let stats = { role };
+
+    if (role === "user") {
+      stats.ticketsCreated = await Ticket.countDocuments({ createdByUserId: userId });
+      stats.ticketsResolved = await Ticket.countDocuments({ createdByUserId: userId, status: "solved" });
+    } else if (role === "agent" || role === "admin") {
+      stats.ticketsHandled = await Ticket.countDocuments({ assignedToUserId: userId });
+      stats.ticketsSolved = await Ticket.countDocuments({ assignedToUserId: userId, status: "solved" });
+      if (role === "admin") {
+        stats.totalSystemTickets = await Ticket.countDocuments();
+        stats.totalUsers = await User.countDocuments();
+      }
+    }
+
+    res.json(stats);
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
 app.post("/auth/register", async (req, res) => {
   try {
     const { username, password, email } = req.body;
