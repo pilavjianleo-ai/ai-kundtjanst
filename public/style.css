@@ -1206,3 +1206,18 @@ body[data-theme="light"] .input {
   background: var(--warn);
   box-shadow: 0 0 6px var(--warn);
 }
+
+/* Billing Table & Cards */
+#billingHistoryList td {
+  vertical-align: middle;
+}
+
+#billingView .listItem {
+  background: var(--panel);
+  transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+#billingView .listItem:hover {
+  transform: scale(1.02);
+  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.15);
+}

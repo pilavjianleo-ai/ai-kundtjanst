@@ -1002,26 +1002,36 @@ async function clearSla(scope) {
    Billing
 ========================= */
 async function loadBilling() {
-  const data = await api("/billing/history?companyId=" + encodeURIComponent(state.companyId));
-  const list = $("billingHistoryList");
-  if (!list) return;
+  try {
+    const [details, history] = await Promise.all([
+      api("/billing/details"),
+      api("/billing/history")
+    ]);
 
-  list.innerHTML = "";
-  const invoices = data?.invoices || [];
+    // Update Stats
+    if ($("currentPlanName")) $("currentPlanName").textContent = details.plan.toUpperCase();
+    if ($("currentPlanStatus")) $("currentPlanStatus").textContent = details.status;
+    if ($("billingUsageVal")) $("billingUsageVal").textContent = details.usage.percent + "%";
+    if ($("billingUsageLabel")) $("billingUsageLabel").textContent = `${details.usage.current} / ${details.usage.limit} ärenden`;
+    if ($("nextBillingDate")) $("nextBillingDate").textContent = details.nextInvoice;
 
-  if (invoices.length === 0) {
-    list.innerHTML = "<div class='muted small'>Inga fakturor ännu.</div>";
-  } else {
-    invoices.forEach((inv) => {
-      const div = document.createElement("div");
-      div.className = "listItem";
-      div.innerHTML = `
-        <div class="listItemTitle">
-          ${escapeHtml(inv.status || "ok")} – ${escapeHtml(String(inv.amount_due || 0))}
-        </div>
-      `;
-      list.appendChild(div);
-    });
+    // Update History Table
+    const list = $("billingHistoryList");
+    if (list) {
+      list.innerHTML = history.invoices.length ? history.invoices.map(inv => `
+            <tr>
+                <td>${inv.date}</td>
+                <td><b>${inv.amount}</b></td>
+                <td><span class="pill ok">${inv.status}</span></td>
+                <td style="text-align:right">
+                    <a href="${inv.url}" class="btn ghost small"><i class="fa-solid fa-download"></i></a>
+                </td>
+            </tr>
+        `).join("") : '<tr><td colspan="4" class="muted center">Inga fakturor än.</td></tr>';
+    }
+  } catch (e) {
+    console.error("Billing Load Error:", e);
+    toast("Fel", "Kunde inte ladda betalningsinformation", "error");
   }
 }
 

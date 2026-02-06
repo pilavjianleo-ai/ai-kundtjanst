@@ -785,10 +785,38 @@ app.post("/admin/companies", authenticate, requireAdmin, async (req, res) => {
 });
 
 /* Billing */
+app.get("/billing/details", authenticate, async (req, res) => {
+  try {
+    const company = await Company.findOne({ companyId: req.user.companyId || "demo" });
+    const ticketCount = await Ticket.countDocuments({ companyId: company?.companyId });
+
+    // Simulerad förbrukning baserat på data
+    const limit = company?.plan === "pro" ? 5000 : 500;
+    const usagePercent = Math.min(100, Math.round((ticketCount / limit) * 100));
+
+    res.json({
+      plan: company?.plan || "bas",
+      status: "Aktiv",
+      usage: {
+        percent: usagePercent,
+        current: ticketCount,
+        limit: limit
+      },
+      nextInvoice: "2026-03-24"
+    });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+/* Billing History */
 app.get("/billing/history", authenticate, async (req, res) => {
   try {
-    // Return empty list if no stripe, or actual list if configured
-    res.json({ invoices: [] });
+    // Return mock invoices for demo feel
+    const invoices = [
+      { id: "inv_1", date: "2026-02-01", amount: "499 kr", status: "Betald", url: "#" },
+      { id: "inv_2", date: "2026-01-01", amount: "499 kr", status: "Betald", url: "#" },
+      { id: "inv_3", date: "2025-12-01", amount: "499 kr", status: "Betald", url: "#" }
+    ];
+    res.json({ invoices });
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 

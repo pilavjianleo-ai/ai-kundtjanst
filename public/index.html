@@ -733,20 +733,88 @@
       <!-- NY: BILLING / ABONNEMANG -->
       <section id="billingView" class="view" style="display:none;">
         <div class="topbar">
-          <div class="title">Abonnemang & Fakturor</div>
+          <div>
+            <div class="title">Billing & Abonnemang</div>
+            <div class="subtitle muted">Hantera din prisplan, fakturor och förbrukning.</div>
+          </div>
+          <div class="topbarActions">
+            <button id="manageBillingBtn" class="btn ghost">
+              <i class="fa-solid fa-credit-card"></i> Betalningsmetod
+            </button>
+          </div>
         </div>
 
-        <div class="panel">
-          <h3>Din nuvarande plan: <span id="currentPlan">Laddar...</span></h3>
-          <p>Status: <span id="subscriptionStatus">-</span></p>
+        <div class="divider"></div>
 
-          <button id="upgradeToProBtn" class="btn primary">Uppgradera till PRO</button>
-          <button id="manageBillingBtn" class="btn secondary">Hantera betalning (Stripe Portal)</button>
+        <!-- Billing Stats / Status -->
+        <div class="slaGrid">
+          <div class="slaCard">
+            <div class="slaLabel"><i class="fa-solid fa-gem"></i> Nuvarade Plan</div>
+            <div class="slaValue" id="currentPlanName">Laddar...</div>
+            <div class="slaDelta up" id="currentPlanStatus">Aktivt</div>
+          </div>
+          <div class="slaCard">
+            <div class="slaLabel"><i class="fa-solid fa-bolt"></i> AI Förbrukning</div>
+            <div class="slaValue" id="billingUsageVal">64%</div>
+            <div class="slaDelta small" id="billingUsageLabel">320 / 500 meddelanden</div>
+          </div>
+          <div class="slaCard">
+            <div class="slaLabel"><i class="fa-solid fa-calendar-check"></i> Nästa faktura</div>
+            <div class="slaValue" id="nextBillingDate">24 Mars</div>
+            <div class="slaDelta small">Auto-förnyelse aktiv</div>
+          </div>
+        </div>
 
-          <div class="divider"></div>
+        <div class="divider"></div>
 
-          <h4>Fakturahistorik</h4>
-          <div id="billingHistoryList" class="list"></div>
+        <div class="grid2">
+          <!-- Pricing Cards -->
+          <div class="panel">
+            <div class="panelHead"><b>Uppgradera din upplevelse</b></div>
+            <div class="list" style="gap:16px; margin-top:10px;">
+              <div class="listItem" style="border-left: 4px solid var(--primary); padding: 16px;">
+                <div class="row gap">
+                  <div class="title" style="font-size: 20px;">PRO</div>
+                  <div class="pill ok">Rekommenderas</div>
+                </div>
+                <p class="muted small">Obegränsade tickets, prioriterad support och avancerad analys.</p>
+                <div class="row gap" style="margin-top: 10px;">
+                  <span style="font-size: 24px; font-weight: 900;">499 kr</span>
+                  <span class="muted small">/ mån per bolag</span>
+                </div>
+                <button id="upgradeToProBtn" class="btn primary full" style="margin-top: 15px;">Välj PRO Plan</button>
+              </div>
+
+              <div class="listItem" style="padding: 16px;">
+                <div class="title" style="font-size: 20px;">Enterprise</div>
+                <p class="muted small">Anpassade modeller, API-åtkomst och dedikerad Account Manager.</p>
+                <div class="row gap" style="margin-top: 10px;">
+                  <span style="font-size: 24px; font-weight: 800;">Offert</span>
+                </div>
+                <button class="btn ghost full" style="margin-top: 15px;" disabled>Kontakta oss</button>
+              </div>
+            </div>
+          </div>
+
+          <!-- Invoice History -->
+          <div class="panel">
+            <div class="panelHead"><b>Fakturahistorik</b></div>
+            <div class="tableWrap" style="margin-top:10px;">
+              <table class="table">
+                <thead>
+                  <tr>
+                    <th>Datum</th>
+                    <th>Belopp</th>
+                    <th>Status</th>
+                    <th></th>
+                  </tr>
+                </thead>
+                <tbody id="billingHistoryList">
+                  <!-- Invoices populated by JS -->
+                </tbody>
+              </table>
+            </div>
+          </div>
         </div>
       </section>
 
