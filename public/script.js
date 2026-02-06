@@ -4052,3 +4052,56 @@ rebindSafeActions();
 if (document.readyState === "loading") {
     document.addEventListener("DOMContentLoaded", rebindSafeActions);
 }
+
+/* === UPDATED INBOX ACTION (SMART SCOPE) === */
+window.inboxAction = async function (action) {
+    const filterEl = document.getElementById("inboxCategoryFilter");
+    const companyId = filterEl?.value || "";
+
+    console.log(`Executing Inbox Action: ${action} for Company: '${companyId}'`);
+
+    // 1. Check Scope & Confirm
+    if (!companyId) {
+        // Global scope warning
+        if (action === 'solve') {
+            if (!confirm("Du har inte valt något företag. Detta kommer markera ALLA ärenden i HELA systemet som lösta. Är du säker?")) return;
+        } else if (action === 'remove') {
+            if (!confirm("Du har inte valt något företag. Detta kommer RADERA ALLA lösta ärenden i HELA systemet. Är du säker?")) return;
+        }
+    } else {
+        // Company scope confirm
+        const companyName = filterEl.options[filterEl.selectedIndex]?.text || "valt företag";
+        if (action === 'solve') {
+            if (!confirm(`Markera alla ärenden för ${companyName} som lösta?`)) return;
+        } else if (action === 'remove') {
+            if (!confirm(`Ta bort alla lösta ärenden för ${companyName}?`)) return;
+        }
+    }
+
+    // 2. Execute
+    try {
+        if (action === 'solve') {
+            const res = await api("/inbox/tickets/solve-all", { method: "PATCH", body: { companyId } });
+            toast("Klart", res.message || "Buntåtgärd utförd", "success");
+        }
+        else if (action === 'remove') {
+            // Pass explicitly via query param
+            const url = `/inbox/tickets/solved?companyId=${encodeURIComponent(companyId)}`;
+            console.log("Calling DELETE:", url);
+            const res = await api(url, { method: "DELETE" });
+            toast("Klart", res.message || "Rensning utförd", "success");
+        }
+
+        if (window.loadInboxTickets) window.loadInboxTickets();
+
+    } catch (e) {
+        console.error("Inbox Action Failed:", e);
+        toast("Fel", e.message, "error");
+    }
+};
+
+// Rebind
+const solveBtn = document.getElementById("solveAllBtn");
+const removeBtn = document.getElementById("removeSolvedBtn");
+if (solveBtn) solveBtn.onclick = () => window.inboxAction('solve');
+if (removeBtn) removeBtn.onclick = () => window.inboxAction('remove');
