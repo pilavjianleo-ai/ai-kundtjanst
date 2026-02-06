@@ -818,11 +818,26 @@ app.get("/sla/overview", authenticate, requireAgent, async (req, res) => {
 
     const tickets = await Ticket.find({ createdAt: { $gte: since } });
 
-    // Calculate metrics
-    const solved = tickets.filter(t => t.status === "solved");
+    // Basic Metrics
     const total = tickets.length;
+    const solved = tickets.filter(t => t.status === "solved");
+    const handoffs = tickets.filter(t => t.assignedToUserId).length;
 
-    // Calculate CSAT
+    // AI Solve Rate Calculation
+    // If a ticket is solved and no agent was ever assigned, we consider it AI solved
+    const aiSolved = solved.filter(t => !t.assignedToUserId).length;
+    const aiRate = total > 0 ? ((aiSolved / total) * 100).toFixed(1) : 0;
+
+    // SLA Calculations (Hours)
+    let totalResolveSum = 0;
+    solved.forEach(t => {
+      if (t.solvedAt && t.createdAt) {
+        totalResolveSum += (t.solvedAt - t.createdAt) / (1000 * 60 * 60);
+      }
+    });
+    const avgSolveHours = solved.length > 0 ? (totalResolveSum / solved.length).toFixed(1) : "0.0";
+
+    // CSAT
     const ratings = solved.filter(t => t.csatRating).map(t => t.csatRating);
     const avgCsat = ratings.length ? (ratings.reduce((a, b) => a + b, 0) / ratings.length).toFixed(1) : "Ej beräknat";
 
@@ -832,10 +847,12 @@ app.get("/sla/overview", authenticate, requireAgent, async (req, res) => {
         total,
         solved: solved.length,
         open: tickets.filter(t => t.status === "open").length,
-        pending: tickets.filter(t => t.status === "pending").length
+        pending: tickets.filter(t => t.status === "pending").length,
+        handoffs
       },
-      avgFirstReplyHours: 1.5, // Future: Calc from firstAgentReplyAt
-      avgSolveHours: 12.0,
+      aiRate,
+      avgFirstReplyHours: 0.8, // Simulation or real calc later
+      avgSolveHours,
       avgCsat
     });
   } catch (e) { res.status(500).json({ error: e.message }); }
@@ -874,13 +891,54 @@ app.get("/admin/diagnostics", authenticate, requireAdmin, async (req, res) => {
 });
 
 app.get("/sla/agents", authenticate, requireAgent, async (req, res) => {
-  const users = await User.find({ role: { $in: ["agent", "admin"] } });
-  const results = users.map(u => ({
-    agentName: u.username,
-    handled: Math.floor(Math.random() * 50),
-    solved: Math.floor(Math.random() * 40)
-  }));
-  res.json(results || []);
+  try {
+    const { days = 30 } = req.query;
+    const since = new Date();
+    since.setDate(since.getDate() - parseInt(days));
+
+    // Aggregate tickets by assigned agent
+    const stats = await Ticket.aggregate([
+      { $match: { assignedToUserId: { $ne: null }, createdAt: { $gte: since } } },
+      {
+        $group: {
+          _id: "$assignedToUserId",
+          handled: { $sum: 1 },
+          solved: { $sum: { $cond: [{ $eq: ["$status", "solved"] }, 1, 0] } }
+        }
+      }
+    ]);
+
+    const agents = await User.find({ _id: { $in: stats.map(s => s._id) } });
+
+    const results = stats.map(s => {
+      const user = agents.find(u => u._id.toString() === s._id.toString());
+      return {
+        agentName: user ? user.username : "Okänd",
+        handled: s.handled,
+        solved: s.solved,
+        efficiency: s.handled > 0 ? Math.round((s.solved / s.handled) * 100) : 0
+      };
+    });
+
+    res.json(results || []);
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+app.get("/sla/top-topics", authenticate, requireAgent, async (req, res) => {
+  // Very simple keyword extraction from titles
+  try {
+    const activeTickets = await Ticket.find({}).select("title").limit(100);
+    const words = {};
+    activeTickets.forEach(t => {
+      const clean = t.title.toLowerCase().split(/\s+/).filter(w => w.length > 4);
+      clean.forEach(w => words[w] = (words[w] || 0) + 1);
+    });
+    const top = Object.entries(words)
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 5)
+      .map(([word, count]) => ({ topic: word, count }));
+    res.json(top);
+  } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
 app.delete("/sla/clear/all", authenticate, requireAdmin, async (req, res) => {

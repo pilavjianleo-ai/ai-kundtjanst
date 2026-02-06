@@ -305,21 +305,43 @@
         </div>
 
         <div class="divider"></div>
-
         <div id="slaOverviewBox"></div>
 
         <div class="divider"></div>
-
-        <h3 style="margin:0 0 8px 0;">Trend vecka för vecka</h3>
-        <div class="panel">
-          <canvas id="slaTrendChart" height="110" style="width:100%;"></canvas>
-          <div class="muted small" id="slaTrendHint" style="margin-top:8px;"></div>
+        <div class="grid2">
+          <div class="panel">
+            <div class="panelHead">
+              <b><i class="fa-solid fa-chart-line"></i> Trend vecka för vecka</b>
+            </div>
+            <canvas id="slaTrendChart" height="220" style="width:100%;"></canvas>
+          </div>
+          <div class="panel">
+            <div class="panelHead">
+              <b><i class="fa-solid fa-tags"></i> Top Topics (Trending)</b>
+            </div>
+            <div id="slaTopTopicsBox" class="list" style="margin-top:10px;"></div>
+          </div>
         </div>
 
         <div class="divider"></div>
-
-        <h3 style="margin:0 0 8px 0;">Agents</h3>
-        <div id="slaAgentsBox"></div>
+        <div class="panel">
+          <div class="panelHead">
+            <b><i class="fa-solid fa-users"></i> Agent Performance Leaderboard</b>
+          </div>
+          <div class="tableWrap" style="margin-top:10px;">
+            <table class="table">
+              <thead>
+                <tr>
+                  <th>Agent</th>
+                  <th>Handled</th>
+                  <th>Solved</th>
+                  <th>Efficiency %</th>
+                </tr>
+              </thead>
+              <tbody id="slaAgentsTableBody"></tbody>
+            </table>
+          </div>
+        </div>
 
         <div class="divider"></div>
 

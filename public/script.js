@@ -850,59 +850,152 @@ async function deleteTicket() {
 async function loadSlaDashboard() {
   const days = $("slaDaysSelect")?.value || "30";
 
-  const overview = await api(`/sla/overview?days=${encodeURIComponent(days)}`);
-  const trend = await api(`/sla/trend?days=${encodeURIComponent(days)}`);
-  const agents = await api(`/sla/agents?days=${encodeURIComponent(days)}`);
+  try {
+    const overview = await api(`/sla/overview?days=${encodeURIComponent(days)}`);
+    const trend = await api(`/sla/trend?days=${encodeURIComponent(days)}`);
+    const agents = await api(`/sla/agents?days=${encodeURIComponent(days)}`);
+    const topTopics = await api(`/sla/top-topics`);
 
-  const box = $("slaOverviewBox");
-  if (box) {
-    box.innerHTML = `
-      <div class="panel">
-        <div class="panelHead"><b>Översikt (${overview.days} dagar)</b></div>
-        <div class="muted small">
-          Totalt: ${overview.counts.total} • Open: ${overview.counts.open} • Pending: ${overview.counts.pending} • Solved: ${overview.counts.solved}<br>
-          Avg first reply (h): ${overview.avgFirstReplyHours ?? "-"}<br>
-          Avg solve (h): ${overview.avgSolveHours ?? "-"}<br>
-          CSAT: ${overview.avgCsat ?? "-"}
-        </div>
-      </div>
-    `;
+    const overviewBox = $("slaOverviewBox");
+    if (overviewBox) {
+      overviewBox.innerHTML = `
+            <div class="slaGrid">
+                <div class="slaCard">
+                    <div class="slaLabel"><i class="fa-solid fa-ticket"></i> Total Tickets</div>
+                    <div class="slaValue">${overview.counts.total}</div>
+                    <div class="slaDelta up">Last ${days} days</div>
+                </div>
+                <div class="slaCard">
+                    <div class="slaLabel"><i class="fa-solid fa-robot"></i> AI Solve Rate</div>
+                    <div class="slaValue">${overview.aiRate}%</div>
+                    <div class="slaDelta up">Automatic handling</div>
+                </div>
+                <div class="slaCard">
+                    <div class="slaLabel"><i class="fa-solid fa-stopwatch"></i> Avg. Solve Time</div>
+                    <div class="slaValue">${overview.avgSolveHours}h</div>
+                    <div class="slaDelta">Resolution SLA</div>
+                </div>
+                <div class="slaCard">
+                    <div class="slaLabel"><i class="fa-solid fa-star"></i> Customer CSAT</div>
+                    <div class="slaValue">${overview.avgCsat}</div>
+                    <div class="slaDelta up">Avg Rating</div>
+                </div>
+            </div>
+        `;
+    }
+
+    // Top Topics
+    const topicsBox = $("slaTopTopicsBox");
+    if (topicsBox) {
+      topicsBox.innerHTML = topTopics.length ? topTopics.map(t => `
+            <div class="listItem" style="cursor:default">
+                <div class="listItemTitle">
+                    <span class="muted" style="width:24px">#</span> ${escapeHtml(t.topic)}
+                    <span class="pill" style="margin-left:auto">${t.count} träffar</span>
+                </div>
+            </div>
+        `).join("") : '<div class="muted small p-10">Ingen trend-data tillgänglig än.</div>';
+    }
+
+    // Agents Table
+    const tableBody = $("slaAgentsTableBody");
+    if (tableBody) {
+      tableBody.innerHTML = agents.length ? agents.map(a => `
+            <tr>
+                <td><b>${escapeHtml(a.agentName)}</b></td>
+                <td>${a.handled}</td>
+                <td>${a.solved}</td>
+                <td>
+                    <div class="pill ${a.efficiency > 70 ? 'ok' : 'warn'}">${a.efficiency}%</div>
+                </td>
+            </tr>
+        `).join("") : '<tr><td colspan="4" class="muted center">Inga agenter aktiva under perioden.</td></tr>';
+    }
+
+    // Advanced Chart.js
+    if (window.Chart && $("slaTrendChart")) {
+      const ctx = $("slaTrendChart").getContext("2d");
+      if (window.__slaChart) window.__slaChart.destroy();
+
+      window.__slaChart = new Chart(ctx, {
+        type: "line",
+        data: {
+          labels: trend.map(r => r.week),
+          datasets: [
+            {
+              label: "Inkommande",
+              data: trend.map(r => r.total),
+              borderColor: "#4c7dff",
+              backgroundColor: "rgba(76, 125, 255, 0.1)",
+              fill: true,
+              tension: 0.4
+            },
+            {
+              label: "Lösta",
+              data: trend.map(r => r.solved),
+              borderColor: "#37d67a",
+              backgroundColor: "rgba(55, 214, 122, 0.1)",
+              fill: true,
+              tension: 0.4
+            }
+          ]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: {
+            legend: { display: true, labels: { color: '#a6abc6', usePointStyle: true } }
+          },
+          scales: {
+            x: { grid: { display: false }, ticks: { color: '#a6abc6' } },
+            y: { grid: { color: 'rgba(255,255,255,0.05)' }, ticks: { color: '#a6abc6' } }
+          }
+        }
+      });
+    }
+  } catch (e) {
+    console.error("SLA Load Error:", e);
+    toast("Fel", "Kunde inte ladda dashboard-data", "error");
   }
+}
 
-  const agentsBox = $("slaAgentsBox");
-  if (agentsBox) {
-    agentsBox.innerHTML = "";
-    (agents || []).forEach((a) => {
-      const div = document.createElement("div");
-      div.className = "listItem";
-      div.innerHTML = `
-        <div class="listItemTitle">${escapeHtml(a.agentName)}</div>
-        <div class="muted small">Handled: ${a.handled} • Solved: ${a.solved}</div>
-      `;
-      agentsBox.appendChild(div);
+async function exportSlaCsv() {
+  toast("Export", "Förbereder CSV...", "info");
+  const days = $("slaDaysSelect")?.value || "30";
+  try {
+    const overview = await api(`/sla/overview?days=${days}`);
+    const agents = await api(`/sla/agents?days=${days}`);
+
+    let csv = "Metric,Value\n";
+    csv += `Total Tickets,${overview.counts.total}\n`;
+    csv += `Solved Tickets,${overview.counts.solved}\n`;
+    csv += `AI Solve Rate,${overview.aiRate}%\n`;
+    csv += `Avg Solve Time,${overview.avgSolveHours}h\n`;
+    csv += `Avg CSAT,${overview.avgCsat}\n`;
+    csv += "\nAgent,Handled,Solved,Efficiency\n";
+    agents.forEach(a => {
+      csv += `${a.agentName},${a.handled},${a.solved},${a.efficiency}%\n`;
     });
-  }
 
-  // Trend text (enkel)
-  const hint = $("slaTrendHint");
-  if (hint) hint.textContent = `Trendpunkter: ${trend.length}`;
+    const blob = new Blob([csv], { type: 'text/csv' });
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.setAttribute('href', url);
+    a.setAttribute('download', `SLA_Report_${new Date().toISOString().split('T')[0]}.csv`);
+    a.click();
+  } catch (e) { toast("Fel", "Export misslyckades", "error"); }
+}
 
-  // Om chart.js finns, rendera enkel chart
-  if (window.Chart && $("slaTrendChart")) {
-    const ctx = $("slaTrendChart").getContext("2d");
-    if (window.__slaChart) window.__slaChart.destroy();
+async function clearSla(scope) {
+  const msg = scope === 'all' ? "Vill du radera ALL statistik (hela databasen)?" : "Vill du radera DIN statistik?";
+  if (!confirm(msg)) return;
 
-    window.__slaChart = new Chart(ctx, {
-      type: "line",
-      data: {
-        labels: trend.map((r) => r.week),
-        datasets: [
-          { label: "Total", data: trend.map((r) => r.total) },
-          { label: "Solved", data: trend.map((r) => r.solved) },
-        ],
-      },
-    });
-  }
+  try {
+    const url = scope === 'all' ? "/sla/clear/all" : "/sla/clear/my";
+    await api(url, { method: "DELETE" });
+    toast("Raderat", "Statistik har rensats ✅", "info");
+    await loadSlaDashboard();
+  } catch (e) { toast("Fel", e.message, "error"); }
 }
 
 /* =========================
@@ -1276,6 +1369,9 @@ function bindEvents() {
 
   on("slaRefreshBtn", "click", loadSlaDashboard);
   on("slaDaysSelect", "change", loadSlaDashboard);
+  on("slaExportCsvBtn", "click", exportSlaCsv);
+  on("slaClearMyStatsBtn", "click", () => clearSla('my'));
+  on("slaClearAllStatsBtn", "click", () => clearSla('all'));
 
   // ✅ ADMIN
   on("openAdminView", "click", async () => {
