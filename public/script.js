@@ -318,11 +318,30 @@ function resetConversation() {
   state.conversation = [];
   state.activeTicketId = null;
   state.activeTicketPublicId = null;
-  clearMessages();
-  const greeting = state.currentCompany?.settings?.greeting || "Hej! 👋 Hur kan jag hjälpa dig idag?";
+  const name = state.me?.username || "vän";
+  const companyName = state.currentCompany?.displayName || "vår tjänst";
+
+  if ($("messages")) {
+    $("messages").innerHTML = `
+      <div class="introCard" id="chatIntro">
+        <div class="introIcon"><i class="fa-solid fa-robot"></i></div>
+        <h3>Välkommen till ${companyName}</h3>
+        <p>Jag är din intelligenta assistent, redo att hjälpa dig dygnet runt. Hur kan jag underlätta för dig idag?</p>
+      </div>
+    `;
+  }
+
+  const greeting = state.currentCompany?.settings?.greeting || `Hej ${name}! Roligt att se dig. Vad kan jag hjälpa till med idag?`;
+
   state.conversation.push({ role: "assistant", content: greeting });
-  addMsg("assistant", greeting);
-  renderSuggestions(["Hur fungerar det?", "Vilka priser har ni?", "Skapa konto"]);
+
+  setTimeout(() => {
+    addMsg("assistant", greeting);
+    renderSuggestions(["Mina abonnemang", "Supportfrågor", "Prata med person"]);
+  }, 400);
+
+  const inp = $("messageInput");
+  if (inp) inp.focus();
   renderDebug();
 }
 
@@ -499,7 +518,7 @@ async function sendChat() {
     // Simulate thinking delay for a more natural feel
     setTimeout(async () => {
       hideTyping();
-      const reply = data.reply || "Inget svar.";
+      const reply = data.reply || "Jag ber om ursäkt, men jag kunde inte generera ett svar just nu.";
       addMsg("assistant", reply);
       state.conversation.push({ role: "assistant", content: reply });
 
@@ -507,7 +526,7 @@ async function sendChat() {
       state.activeTicketPublicId = data.publicTicketId || state.activeTicketPublicId;
 
       if (data.priority === "high") {
-        toast("Viktigt", "Detta ärende har markerats som hög prioritet!", "warning");
+        toast("Systemmeddelande", "Detta ärende har markerats som hög prioritet för snabb hantering.", "warning");
       }
 
       renderDebug();
@@ -520,7 +539,10 @@ async function sendChat() {
         renderSuggestions(["Tack!", "En fråga till", "Prata med agent"]);
       }
       $("suggestions").style.display = "flex";
-    }, 800);
+
+      const inp = $("messageInput");
+      if (inp) inp.focus();
+    }, 1000);
 
   } catch (e) {
     hideTyping();
