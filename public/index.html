@@ -1046,27 +1046,261 @@
       <section id="customerAdminView" class="view" style="display:none;">
         <div class="topbar">
           <div>
-            <div class="title">Kundadministration (CRM)</div>
-            <div class="subtitle muted">Hantera era kunder, abonnemang, status etc.</div>
+            <div class="title"><i class="fa-solid fa-building" style="color:var(--primary);"></i> CRM - Kundhantering
+            </div>
+            <div class="subtitle muted">Komplett kundhantering med statistik, aktiviteter och analyser</div>
           </div>
-          <button id="refreshCustomersBtn" class="btn ghost">Uppdatera</button>
+          <div class="topbarActions">
+            <button id="crmExportBtn" class="btn ghost" type="button">
+              <i class="fa-solid fa-download"></i> Exportera
+            </button>
+            <button id="refreshCustomersBtn" class="btn ghost" type="button">
+              <i class="fa-solid fa-rotate"></i> Uppdatera
+            </button>
+          </div>
         </div>
 
-        <div class="panel">
-          <div class="panelHead"><b>Skapa ny kund</b></div>
+        <!-- CRM Tabs -->
+        <div class="tabs">
+          <button class="tabBtn active" data-tab="crmTabOverview" type="button">
+            <i class="fa-solid fa-chart-pie"></i> Översikt
+          </button>
+          <button class="tabBtn" data-tab="crmTabCustomers" type="button">
+            <i class="fa-solid fa-users"></i> Kunder
+          </button>
+          <button class="tabBtn" data-tab="crmTabActivities" type="button">
+            <i class="fa-solid fa-clock-rotate-left"></i> Aktiviteter
+          </button>
+          <button class="tabBtn" data-tab="crmTabAnalytics" type="button">
+            <i class="fa-solid fa-chart-line"></i> Analyser
+          </button>
+        </div>
+
+        <!-- TAB: Overview -->
+        <div id="crmTabOverview" class="tabPanel">
+          <!-- KPI Cards -->
+          <div class="slaGrid" style="margin-bottom: 20px;">
+            <div class="slaCard">
+              <div class="slaLabel"><i class="fa-solid fa-building"></i> Totalt Kunder</div>
+              <div class="slaValue" id="crmTotalCustomers">0</div>
+              <div class="slaDelta up" id="crmCustomersDelta">+0 denna månad</div>
+            </div>
+            <div class="slaCard">
+              <div class="slaLabel"><i class="fa-solid fa-circle-check"></i> Aktiva</div>
+              <div class="slaValue" id="crmActiveCustomers">0</div>
+              <div class="slaDelta ok">Aktiva abonnemang</div>
+            </div>
+            <div class="slaCard">
+              <div class="slaLabel"><i class="fa-solid fa-crown"></i> PRO Kunder</div>
+              <div class="slaValue" id="crmProCustomers">0</div>
+              <div class="slaDelta" id="crmProPercentage">0% av alla</div>
+            </div>
+            <div class="slaCard">
+              <div class="slaLabel"><i class="fa-solid fa-messages"></i> Ärenden</div>
+              <div class="slaValue" id="crmTotalTickets">0</div>
+              <div class="slaDelta" id="crmOpenTickets">0 öppna</div>
+            </div>
+            <div class="slaCard">
+              <div class="slaLabel"><i class="fa-solid fa-clock"></i> Snitt Responstid</div>
+              <div class="slaValue" id="crmAvgResponseTime">--</div>
+              <div class="slaDelta small">Första svaret</div>
+            </div>
+            <div class="slaCard">
+              <div class="slaLabel"><i class="fa-solid fa-star"></i> CSAT Score</div>
+              <div class="slaValue" id="crmCsatScore">--</div>
+              <div class="slaDelta" id="crmCsatTrend">Kundnöjdhet</div>
+            </div>
+          </div>
+
           <div class="grid2">
-            <input id="newCompanyDisplayName" class="input" placeholder="Företagsnamn" />
-            <input id="newCompanyOrgNr" class="input" placeholder="Org.nr" />
-            <input id="newCompanyContactEmail" class="input" placeholder="Kontakt email" />
-            <select id="newCompanyPlan" class="input">
-              <option value="bas">BAS</option>
-              <option value="pro">PRO</option>
-            </select>
+            <!-- Recent Customers -->
+            <div class="panel">
+              <div class="panelHead">
+                <b><i class="fa-solid fa-user-plus"></i> Senaste Kunderna</b>
+              </div>
+              <div id="crmRecentCustomersList" class="list" style="max-height: 300px; overflow-y: auto;">
+                <div class="muted small center">Laddar...</div>
+              </div>
+            </div>
+
+            <!-- Recent Activity -->
+            <div class="panel">
+              <div class="panelHead">
+                <b><i class="fa-solid fa-bolt"></i> Senaste Aktivitet</b>
+              </div>
+              <div id="crmRecentActivityList" class="list" style="max-height: 300px; overflow-y: auto;">
+                <div class="muted small center">Laddar...</div>
+              </div>
+            </div>
           </div>
-          <button id="createCompanyBtn" class="btn primary full">Skapa kund</button>
         </div>
 
-        <div id="customersList" class="list"></div>
+        <!-- TAB: Customers -->
+        <div id="crmTabCustomers" class="tabPanel" style="display:none;">
+          <!-- Create New Customer -->
+          <div class="panel" style="margin-bottom: 20px;">
+            <div class="panelHead"><b><i class="fa-solid fa-plus-circle"></i> Skapa ny kund</b></div>
+            <div class="grid2" style="gap: 15px; margin-top: 10px;">
+              <div>
+                <label>Företagsnamn *</label>
+                <input id="newCompanyDisplayName" class="input" placeholder="Företag AB" />
+              </div>
+              <div>
+                <label>Företags-ID (unik nyckel) *</label>
+                <input id="newCompanyId" class="input" placeholder="foretag-ab" />
+              </div>
+              <div>
+                <label>Organisationsnummer</label>
+                <input id="newCompanyOrgNr" class="input" placeholder="556xxx-xxxx" />
+              </div>
+              <div>
+                <label>Kontakt E-post</label>
+                <input id="newCompanyContactEmail" class="input" placeholder="kontakt@foretag.se" />
+              </div>
+              <div>
+                <label>Kontaktperson</label>
+                <input id="newCompanyContactName" class="input" placeholder="Anna Andersson" />
+              </div>
+              <div>
+                <label>Telefon</label>
+                <input id="newCompanyPhone" class="input" placeholder="08-123 456 78" />
+              </div>
+              <div>
+                <label>Prisplan</label>
+                <select id="newCompanyPlan" class="input">
+                  <option value="trial">Trial (14 dagar)</option>
+                  <option value="bas" selected>BAS (Gratis)</option>
+                  <option value="pro">PRO (499 kr/mån)</option>
+                  <option value="enterprise">Enterprise (Offert)</option>
+                </select>
+              </div>
+              <div>
+                <label>Status</label>
+                <select id="newCompanyStatus" class="input">
+                  <option value="active" selected>Aktiv</option>
+                  <option value="pending">Väntar</option>
+                  <option value="inactive">Inaktiv</option>
+                </select>
+              </div>
+            </div>
+            <div style="margin-top: 15px;">
+              <label>Interna anteckningar</label>
+              <textarea id="newCompanyNotes" class="input textarea" placeholder="Anteckningar om kunden..."></textarea>
+            </div>
+            <button id="createCompanyBtn" class="btn primary full" style="margin-top: 15px;" type="button">
+              <i class="fa-solid fa-plus"></i> Skapa kund
+            </button>
+          </div>
+
+          <!-- Filter & Search -->
+          <div class="panel" style="margin-bottom: 20px; padding: 15px;">
+            <div class="row gap" style="flex-wrap: wrap;">
+              <input id="crmSearchInput" class="input" placeholder="🔍 Sök företag, org.nr, kontakt..."
+                style="flex: 1; min-width: 200px;" />
+              <select id="crmPlanFilter" class="input smallInput">
+                <option value="">Alla planer</option>
+                <option value="trial">Trial</option>
+                <option value="bas">BAS</option>
+                <option value="pro">PRO</option>
+                <option value="enterprise">Enterprise</option>
+              </select>
+              <select id="crmStatusFilter" class="input smallInput">
+                <option value="">Alla status</option>
+                <option value="active">Aktiva</option>
+                <option value="pending">Väntar</option>
+                <option value="inactive">Inaktiva</option>
+              </select>
+              <select id="crmSortBy" class="input smallInput">
+                <option value="createdAt">Senaste först</option>
+                <option value="displayName">Namn A-Ö</option>
+                <option value="ticketCount">Flest ärenden</option>
+                <option value="lastActivity">Senaste aktivitet</option>
+              </select>
+            </div>
+          </div>
+
+          <!-- Customer List -->
+          <div class="panel">
+            <div class="panelHead">
+              <b><i class="fa-solid fa-users"></i> Kundlista</b>
+              <span id="crmCustomerCount" class="muted small" style="margin-left: 10px;">(0 kunder)</span>
+            </div>
+            <div id="customersList" class="list" style="max-height: 500px; overflow-y: auto;">
+              <div class="muted small center">Laddar kunder...</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- TAB: Activities -->
+        <div id="crmTabActivities" class="tabPanel" style="display:none;">
+          <div class="panel">
+            <div class="panelHead">
+              <b><i class="fa-solid fa-clock-rotate-left"></i> Aktivitetslogg</b>
+              <select id="crmActivityFilter" class="input smallInput" style="margin-left: auto;">
+                <option value="">Alla aktiviteter</option>
+                <option value="ticket">Ärenden</option>
+                <option value="customer">Kundhantering</option>
+                <option value="plan">Planändringar</option>
+              </select>
+            </div>
+            <div id="crmActivityLog" class="list" style="max-height: 600px; overflow-y: auto;">
+              <div class="muted small center">Laddar aktiviteter...</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- TAB: Analytics -->
+        <div id="crmTabAnalytics" class="tabPanel" style="display:none;">
+          <div class="grid2">
+            <div class="panel">
+              <div class="panelHead"><b><i class="fa-solid fa-chart-pie"></i> Kundfördelning per Plan</b></div>
+              <div style="height: 250px;">
+                <canvas id="crmPlanDistributionChart"></canvas>
+              </div>
+            </div>
+            <div class="panel">
+              <div class="panelHead"><b><i class="fa-solid fa-chart-line"></i> Kundtillväxt</b></div>
+              <div style="height: 250px;">
+                <canvas id="crmGrowthChart"></canvas>
+              </div>
+            </div>
+          </div>
+
+          <div class="panel" style="margin-top: 20px;">
+            <div class="panelHead"><b><i class="fa-solid fa-table"></i> Sammanfattningstabell</b></div>
+            <table class="crmTable" style="width: 100%; border-collapse: collapse; margin-top: 10px;">
+              <thead>
+                <tr style="background: var(--panel2);">
+                  <th style="padding: 12px; text-align: left;">Plan</th>
+                  <th style="padding: 12px; text-align: right;">Antal Kunder</th>
+                  <th style="padding: 12px; text-align: right;">% Andel</th>
+                  <th style="padding: 12px; text-align: right;">MRR</th>
+                  <th style="padding: 12px; text-align: right;">Snitt Ärenden</th>
+                </tr>
+              </thead>
+              <tbody id="crmAnalyticsTable">
+                <tr>
+                  <td colspan="5" class="muted small center" style="padding: 20px;">Laddar...</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- Customer Detail Modal (hidden by default) -->
+        <div id="crmCustomerModal" class="modal" style="display: none;">
+          <div class="modalContent" style="max-width: 800px; max-height: 90vh; overflow-y: auto;">
+            <div class="modalHeader">
+              <h3><i class="fa-solid fa-building"></i> <span id="crmModalCustomerName">Kunddetaljer</span></h3>
+              <button id="crmCloseModalBtn" class="btn ghost small" type="button">
+                <i class="fa-solid fa-times"></i>
+              </button>
+            </div>
+            <div class="modalBody" id="crmModalBody">
+              <!-- Populated by JS -->
+            </div>
+          </div>
+        </div>
       </section>
 
       <!-- NY: BILLING / ABONNEMANG -->

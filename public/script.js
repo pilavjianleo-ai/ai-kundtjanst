@@ -820,53 +820,170 @@ function filterInboxBySearch() {
 }
 
 async function selectInboxTicket(ticketId) {
-  state.inboxSelectedTicket = state.inboxTickets.find((t) => t._id === ticketId) || null;
   const box = $("ticketDetails");
-  if (!box || !state.inboxSelectedTicket) return;
+  if (!box) return;
 
-  const t = await api("/tickets/" + ticketId);
-  const msgs = (t.messages || [])
-    .map((m) => `<div class="muted small"><b>${escapeHtml(m.role)}:</b> ${escapeHtml(m.content)}</div>`)
-    .join("<br>");
+  try {
+    box.innerHTML = `<div class="muted small center" style="padding:20px;">Laddar ärende...</div>`;
 
-  box.innerHTML = `
-    <div class="row" style="justify-content:space-between; align-items:flex-start;">
-        <div>
-            <b>${escapeHtml(t.title || "Ticket")}</b><br>
-            <span class="muted small">${escapeHtml(t.publicTicketId)} • ${escapeHtml(t.status)}</span>
-        </div>
-        <button class="btn ghost small" onclick="summarizeTicket('${t._id}')">
-            <i class="fa-solid fa-wand-magic-sparkles"></i> AI Sammanfatta
-        </button>
+    // Fetch directly from API to ensure we get it even if not in local list
+    const t = await api("/tickets/" + ticketId);
+
+    if (!t) throw new Error("Kunde inte hämta ärendet.");
+
+    // Update state
+    state.inboxSelectedTicket = t;
+
+    const msgs = (t.messages || [])
+      .map((m) => `<div class="muted small"><b>${escapeHtml(m.role)}:</b> ${escapeHtml(m.content)}</div>`)
+      .join("<br>");
+
+    // Render details
+    box.innerHTML = `
+      <div class="row" style="justify-content:space-between; align-items:flex-start;">
+          <div>
+              <b>${escapeHtml(t.title || "Ticket")}</b><br>
+              <div class="row gap small" style="margin-top:5px;">
+                <span class="pill muted">${escapeHtml(t.publicTicketId)}</span>
+                <span class="pill ${t.status === 'solved' ? 'ok' : t.status === 'high' ? 'danger' : 'info'}">${escapeHtml(t.status)}</span>
+                <span class="muted small">Företag: ${escapeHtml(t.companyId || 'demo')}</span>
+              </div>
+          </div>
+          <button class="btn ghost small" onclick="summarizeTicket('${t._id}')">
+              <i class="fa-solid fa-wand-magic-sparkles"></i> AI Sammanfatta
+          </button>
+      </div>
+      <div id="ticketSummaryContent" class="alert info small" style="display:none; margin-top:10px;"></div>
+      <div class="divider"></div>
+      <div class="messageList" style="max-height:400px; overflow-y:auto;">
+        ${msgs || "<div class='muted small'>Inga meddelanden ännu.</div>"}
+      </div>
+    `;
+
+    const priSel = $("ticketPrioritySelect");
+    if (priSel) priSel.value = t.priority || "normal";
+
+    // Update internal notes if they exist
+    const noteArea = $("internalNoteText");
+    if (noteArea) noteArea.value = t.internalNote || "";
+
+    // Show internal notes (orphaned fix)
+    if (t.internalNotes && t.internalNotes.length > 0) {
+      const notesHtml = t.internalNotes.map(n => `
+            <div class="alert info tiny" style="margin-top:5px; border-style:dashed;">
+                <i class="fa-solid fa-note-sticky"></i> ${escapeHtml(n.content)}
+            </div>
+          `).join("");
+      box.innerHTML += `
+            <div style="margin-top:15px;">
+                <b>Interna noter:</b>
+                ${notesHtml}
+            </div>
+          `;
+    }
+
+    // Populate agent select (if we have users)
+    const userSel = $("assignUserSelect");
+    if (userSel) {
+      userSel.value = t.assignedToUserId || "";
+    }
+
+  } catch (e) {
+    console.error("Select ticket error:", e);
+    box.innerHTML = `<div class="alert error">Kunde inte öppna ärendet: ${e.message}</div>`;
+  }
+}
+
+async function editCustomer(companyId) {
+  const customer = crmData.customers.find(c => c.companyId === companyId);
+  if (!customer) return toast("Fel", "Kunden hittades ej", "error");
+
+  const modal = $("crmCustomerModal");
+  const nameEl = $("crmModalCustomerName");
+  const bodyEl = $("crmModalBody");
+
+  nameEl.textContent = "Redigera " + customer.displayName;
+
+  bodyEl.innerHTML = `
+    <div class="grid2" style="gap: 20px;">
+      <div>
+        <label>Företagsnamn</label>
+        <input id="editCrmName" class="input" value="${escapeHtml(customer.displayName || '')}" />
+        
+        <label>Kontaktperson</label>
+        <input id="editCrmContact" class="input" value="${escapeHtml(customer.contactName || '')}" />
+        
+        <label>E-post</label>
+        <input id="editCrmEmail" class="input" value="${escapeHtml(customer.contactEmail || '')}" />
+        
+        <label>Telefon</label>
+        <input id="editCrmPhone" class="input" value="${escapeHtml(customer.phone || '')}" />
+      </div>
+      <div>
+        <label>Plan</label>
+        <select id="editCrmPlan" class="input">
+          <option value="trial" ${customer.plan === 'trial' ? 'selected' : ''}>Trial</option>
+          <option value="bas" ${(!customer.plan || customer.plan === 'bas') ? 'selected' : ''}>BAS</option>
+          <option value="pro" ${customer.plan === 'pro' ? 'selected' : ''}>PRO</option>
+          <option value="enterprise" ${customer.plan === 'enterprise' ? 'selected' : ''}>Enterprise</option>
+        </select>
+        
+        <label>Status</label>
+        <select id="editCrmStatus" class="input">
+          <option value="active" ${(!customer.status || customer.status === 'active') ? 'selected' : ''}>Aktiv</option>
+          <option value="pending" ${customer.status === 'pending' ? 'selected' : ''}>Väntar</option>
+          <option value="inactive" ${customer.status === 'inactive' ? 'selected' : ''}>Inaktiv</option>
+        </select>
+        
+        <label>Org.nr</label>
+        <input id="editCrmOrg" class="input" value="${escapeHtml(customer.orgNr || '')}" />
+        
+        <label>AI Tonalitet</label>
+        <select id="editCrmTone" class="input">
+          <option value="professional" ${customer.settings?.tone === 'professional' ? 'selected' : ''}>Professionell</option>
+          <option value="friendly" ${customer.settings?.tone === 'friendly' ? 'selected' : ''}>Vänlig</option>
+          <option value="strict" ${customer.settings?.tone === 'strict' ? 'selected' : ''}>Formell</option>
+        </select>
+      </div>
     </div>
-    <div id="ticketSummaryContent" class="alert info small" style="display:none; margin-top:10px;"></div>
-    <div class="divider"></div>
-    ${msgs || "<div class='muted small'>Inga meddelanden ännu.</div>"}
+    
+    <label>Interna anteckningar</label>
+    <textarea id="editCrmNotes" class="input textarea" rows="4">${escapeHtml(customer.notes || '')}</textarea>
+    
+    <button id="saveCrmCustomerBtn" class="btn primary full" style="margin-top: 20px;">
+      <i class="fa-solid fa-floppy-disk"></i> Spara ändringar
+    </button>
   `;
 
-  const priSel = $("ticketPrioritySelect");
-  if (priSel) priSel.value = t.priority || "normal";
+  const saveBtn = document.getElementById("saveCrmCustomerBtn");
+  saveBtn.onclick = async () => {
+    try {
+      await api("/company/settings", {
+        method: "PATCH",
+        body: {
+          companyId,
+          settings: {
+            displayName: $("editCrmName").value,
+            contactName: $("editCrmContact").value,
+            contactEmail: $("editCrmEmail").value,
+            phone: $("editCrmPhone").value,
+            plan: $("editCrmPlan").value,
+            status: $("editCrmStatus").value,
+            orgNr: $("editCrmOrg").value,
+            tone: $("editCrmTone").value,
+            notes: $("editCrmNotes").value
+          }
+        }
+      });
+      toast("Sparat", "Kundinformation uppdaterad", "info");
+      closeCrmModal();
+      await refreshCustomers();
+    } catch (e) {
+      toast("Fel", e.message, "error");
+    }
+  };
 
-  // Show notes if any
-  if (t.internalNotes && t.internalNotes.length > 0) {
-    const notesHtml = t.internalNotes.map(n => `
-        <div class="alert info tiny" style="margin-top:5px; border-style:dashed;">
-            <i class="fa-solid fa-note-sticky"></i> ${escapeHtml(n.content)}
-        </div>
-      `).join("");
-    box.innerHTML += `
-        <div style="margin-top:15px;">
-            <b>Interna noter:</b>
-            ${notesHtml}
-        </div>
-      `;
-  }
-
-  // Populate agent select (if we have users)
-  const userSel = $("assignUserSelect");
-  if (userSel) {
-    userSel.value = t.assignedToUserId || "";
-  }
+  modal.style.display = "flex";
 }
 
 async function summarizeTicket(id) {
@@ -878,6 +995,102 @@ async function summarizeTicket(id) {
       const res = await api(`/tickets/${id}/summary`);
       contentBox.textContent = "AI Sammanfattning: " + res.summary;
     } catch (e) { contentBox.textContent = "Kunde inte sammanfatta: " + e.message; }
+  }
+}
+
+async function assignTicket() {
+  if (!state.inboxSelectedTicket) return toast("Fel", "Välj ett ärende först", "error");
+  const userId = $("assignUserSelect")?.value;
+
+  try {
+    await api(`/tickets/${state.inboxSelectedTicket._id}/assign`, {
+      method: "PATCH",
+      body: { assignedToUserId: userId }
+    });
+    toast("Tilldelad", "Ärendet har tilldelats", "info");
+    await loadInboxTickets();
+  } catch (e) {
+    toast("Fel", e.message, "error");
+  }
+}
+
+async function saveInternalNote() {
+  if (!state.inboxSelectedTicket) return toast("Fel", "Välj ett ärende först", "error");
+  const note = $("internalNoteText")?.value.trim();
+  if (!note) return toast("Saknas", "Skriv en notering först", "error");
+
+  try {
+    await api(`/inbox/tickets/${state.inboxSelectedTicket._id}/note`, {
+      method: "POST",
+      body: { content: note }
+    });
+    $("internalNoteText").value = "";
+    toast("Sparat", "Notering sparad", "info");
+    await selectInboxTicket(state.inboxSelectedTicket._id);
+  } catch (e) {
+    toast("Fel", e.message, "error");
+  }
+}
+
+async function deleteTicket() {
+  if (!state.inboxSelectedTicket) return toast("Fel", "Välj ett ärende först", "error");
+  if (!confirm("Är du säker på att du vill radera detta ärende permanent?")) return;
+
+  try {
+    await api(`/tickets/${state.inboxSelectedTicket._id}`, { method: "DELETE" });
+    toast("Raderat", "Ärendet raderades", "info");
+    $("ticketDetails").innerHTML = '<div class="muted small center" style="padding: 40px;">Välj ett ärende för att se detaljer</div>';
+    state.inboxSelectedTicket = null;
+    await loadInboxTickets();
+  } catch (e) {
+    toast("Fel", e.message, "error");
+  }
+}
+
+async function setInboxStatus(status) {
+  if (!state.inboxSelectedTicket) return toast("Fel", "Välj ett ärende först", "error");
+
+  try {
+    await api(`/inbox/tickets/${state.inboxSelectedTicket._id}/status`, {
+      method: "PATCH",
+      body: { status }
+    });
+    await selectInboxTicket(state.inboxSelectedTicket._id);
+    await loadInboxTickets();
+  } catch (e) { toast("Fel", e.message, "error"); }
+}
+
+async function setInboxPriority() {
+  const pri = $("ticketPrioritySelect")?.value;
+  if (!state.inboxSelectedTicket) return toast("Fel", "Välj ett ärende först", "error");
+
+  try {
+    await api(`/inbox/tickets/${state.inboxSelectedTicket._id}/priority`, {
+      method: "PATCH",
+      body: { priority: pri }
+    });
+    toast("Uppdaterad", `Prioritet satt till ${pri}`, "info");
+    await loadInboxTickets();
+  } catch (e) { toast("Fel", e.message, "error"); }
+}
+
+async function sendAgentReplyInbox() {
+  const text = $("agentReplyTextInbox")?.value.trim();
+  if (!text) return toast("Saknas", "Skriv ett meddelande", "error");
+  if (!state.inboxSelectedTicket) return toast("Saknas", "Välj ett ärende först", "error");
+
+  try {
+    await api(`/inbox/tickets/${state.inboxSelectedTicket._id}/reply`, {
+      method: "POST",
+      body: { message: text }
+    });
+
+    $("agentReplyTextInbox").value = "";
+    toast("Skickat", "Ditt svar skickades", "info");
+    await selectInboxTicket(state.inboxSelectedTicket._id);
+    await loadInboxTickets();
+  } catch (e) {
+    toast("Fel", e.message, "error");
   }
 }
 
@@ -1680,6 +1893,503 @@ async function deleteCompany(companyId, displayName) {
   } catch (e) {
     toast("Fel", e.message, "error");
   }
+}
+
+/* =========================
+   CRM - Full Customer Management
+ ========================= */
+let crmData = {
+  customers: [],
+  activities: [],
+  stats: {}
+};
+
+async function refreshCustomers() {
+  try {
+    // Load companies as customers
+    const companies = await api("/companies");
+    crmData.customers = companies || [];
+
+    // Load tickets for statistics
+    let tickets = [];
+    if (state.me?.role === "admin" || state.me?.role === "agent") {
+      tickets = await api("/inbox/tickets");
+    }
+
+    // Calculate statistics
+    const now = new Date();
+    const thisMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+
+    crmData.stats = {
+      total: crmData.customers.length,
+      active: crmData.customers.filter(c => c.status !== "inactive").length,
+      pro: crmData.customers.filter(c => c.plan === "pro").length,
+      enterprise: crmData.customers.filter(c => c.plan === "enterprise").length,
+      trial: crmData.customers.filter(c => c.plan === "trial").length,
+      newThisMonth: crmData.customers.filter(c => new Date(c.createdAt) >= thisMonth).length,
+      totalTickets: tickets.length,
+      openTickets: tickets.filter(t => t.status !== "solved").length,
+      avgCsat: calculateAvgCsat(tickets)
+    };
+
+    // Generate activity log from recent tickets and changes
+    crmData.activities = generateCrmActivities(tickets, crmData.customers);
+
+    // Render all CRM sections
+    renderCrmOverview();
+    renderCrmCustomersList();
+    renderCrmActivity();
+    renderCrmAnalytics();
+
+  } catch (e) {
+    console.error("CRM Error:", e);
+    toast("CRM Fel", e.message, "error");
+  }
+}
+
+function calculateAvgCsat(tickets) {
+  const rated = tickets.filter(t => t.csatRating);
+  if (rated.length === 0) return null;
+  const sum = rated.reduce((s, t) => s + t.csatRating, 0);
+  return (sum / rated.length).toFixed(1);
+}
+
+function generateCrmActivities(tickets, customers) {
+  const activities = [];
+
+  // Recent tickets as activities
+  tickets.slice(0, 20).forEach(t => {
+    activities.push({
+      type: "ticket",
+      title: t.title || "Nytt ärende",
+      description: `${t.companyId} - ${t.status}`,
+      time: new Date(t.lastActivityAt || t.createdAt),
+      icon: "fa-ticket"
+    });
+  });
+
+  // Recent customers
+  customers.slice(0, 10).forEach(c => {
+    activities.push({
+      type: "customer",
+      title: `Kund: ${c.displayName}`,
+      description: `Plan: ${c.plan || 'bas'}`,
+      time: new Date(c.createdAt),
+      icon: "fa-building"
+    });
+  });
+
+  // Sort by time
+  activities.sort((a, b) => b.time - a.time);
+  return activities.slice(0, 30);
+}
+
+function renderCrmOverview() {
+  // KPI Cards
+  const s = crmData.stats;
+  $("crmTotalCustomers").textContent = s.total;
+  $("crmCustomersDelta").textContent = `+${s.newThisMonth} denna månad`;
+  $("crmActiveCustomers").textContent = s.active;
+  $("crmProCustomers").textContent = s.pro + s.enterprise;
+  $("crmProPercentage").textContent = s.total ? `${Math.round((s.pro + s.enterprise) / s.total * 100)}% av alla` : "0%";
+  $("crmTotalTickets").textContent = s.totalTickets;
+  $("crmOpenTickets").textContent = `${s.openTickets} öppna`;
+  $("crmCsatScore").textContent = s.avgCsat ? `${s.avgCsat}/5` : "--";
+
+  // Recent Customers
+  const recentList = $("crmRecentCustomersList");
+  if (recentList) {
+    const recent = crmData.customers.slice(0, 5);
+    recentList.innerHTML = recent.length ? recent.map(c => `
+      <div class="listItem" style="cursor: pointer;" onclick="openCustomerModal('${c.companyId}')">
+        <div class="listItemTitle">
+          <b>${escapeHtml(c.displayName)}</b>
+          <span class="planBadge ${c.plan || 'bas'}">${(c.plan || 'bas').toUpperCase()}</span>
+        </div>
+        <div class="muted small">${escapeHtml(c.companyId)} • ${new Date(c.createdAt).toLocaleDateString('sv-SE')}</div>
+      </div>
+    `).join("") : '<div class="muted small center">Inga kunder ännu.</div>';
+  }
+
+  // Recent Activity
+  const activityList = $("crmRecentActivityList");
+  if (activityList) {
+    const recent = crmData.activities.slice(0, 5);
+    activityList.innerHTML = recent.length ? recent.map(a => `
+      <div class="crmActivityItem">
+        <div class="icon ${a.type}"><i class="fa-solid ${a.icon}"></i></div>
+        <div class="content">
+          <div><b>${escapeHtml(a.title)}</b></div>
+          <div class="muted small">${escapeHtml(a.description)}</div>
+        </div>
+        <div class="time">${timeAgo(a.time)}</div>
+      </div>
+    `).join("") : '<div class="muted small center">Ingen aktivitet ännu.</div>';
+  }
+}
+
+function timeAgo(date) {
+  const now = new Date();
+  const diff = now - date;
+  const minutes = Math.floor(diff / 60000);
+  const hours = Math.floor(diff / 3600000);
+  const days = Math.floor(diff / 86400000);
+
+  if (minutes < 1) return "Just nu";
+  if (minutes < 60) return `${minutes}m sedan`;
+  if (hours < 24) return `${hours}h sedan`;
+  if (days < 7) return `${days}d sedan`;
+  return date.toLocaleDateString('sv-SE');
+}
+
+function renderCrmCustomersList() {
+  const list = $("customersList");
+  if (!list) return;
+
+  // Get filter values
+  const search = ($("crmSearchInput")?.value || "").toLowerCase().trim();
+  const planFilter = $("crmPlanFilter")?.value || "";
+  const statusFilter = $("crmStatusFilter")?.value || "";
+  const sortBy = $("crmSortBy")?.value || "createdAt";
+
+  // Filter customers
+  let filtered = crmData.customers.filter(c => {
+    const matchSearch = !search ||
+      (c.displayName || "").toLowerCase().includes(search) ||
+      (c.companyId || "").toLowerCase().includes(search) ||
+      (c.orgNr || "").toLowerCase().includes(search) ||
+      (c.contactEmail || "").toLowerCase().includes(search) ||
+      (c.contactName || "").toLowerCase().includes(search);
+
+    const matchPlan = !planFilter || (c.plan || "bas") === planFilter;
+    const matchStatus = !statusFilter || (c.status || "active") === statusFilter;
+
+    return matchSearch && matchPlan && matchStatus;
+  });
+
+  // Sort
+  filtered.sort((a, b) => {
+    if (sortBy === "displayName") return (a.displayName || "").localeCompare(b.displayName || "");
+    if (sortBy === "ticketCount") return (b.ticketCount || 0) - (a.ticketCount || 0);
+    return new Date(b.createdAt) - new Date(a.createdAt);
+  });
+
+  // Update count
+  const countEl = $("crmCustomerCount");
+  if (countEl) countEl.textContent = `(${filtered.length} kunder)`;
+
+  // Render list
+  list.innerHTML = filtered.length ? filtered.map(c => {
+    const initials = (c.displayName || "??").substring(0, 2).toUpperCase();
+    const plan = c.plan || "bas";
+    const status = c.status || "active";
+
+    return `
+      <div class="crmCustomerCard" onclick="openCustomerModal('${c.companyId}')">
+        <div class="avatar-small">${initials}</div>
+        <div class="info">
+          <div class="name">${escapeHtml(c.displayName)}</div>
+          <div class="muted small">${escapeHtml(c.companyId)} • ${c.contactEmail || 'Ingen e-post'}</div>
+        </div>
+        <span class="planBadge ${plan}">${plan.toUpperCase()}</span>
+        <span class="statusBadge ${status}">${status === 'active' ? 'Aktiv' : status === 'pending' ? 'Väntar' : 'Inaktiv'}</span>
+        <div class="actions">
+          <button class="btn ghost small" onclick="event.stopPropagation(); editCustomer('${c.companyId}')" title="Redigera">
+            <i class="fa-solid fa-pen"></i>
+          </button>
+          <button class="btn ghost small danger" onclick="event.stopPropagation(); deleteCompanyFromCrm('${c.companyId}', '${escapeHtml(c.displayName)}')" title="Ta bort">
+            <i class="fa-solid fa-trash"></i>
+          </button>
+        </div>
+      </div>
+    `;
+  }).join("") : `<div class="muted small center" style="padding: 40px;">Inga kunder matchar sökningen.</div>`;
+}
+
+async function openCustomerModal(companyId) {
+  const customer = crmData.customers.find(c => c.companyId === companyId);
+  if (!customer) return toast("Fel", "Kunden hittades ej", "error");
+
+  const modal = $("crmCustomerModal");
+  const nameEl = $("crmModalCustomerName");
+  const bodyEl = $("crmModalBody");
+
+  nameEl.textContent = customer.displayName;
+
+  // Get ticket count for this customer
+  let tickets = [];
+  try {
+    tickets = await api(`/inbox/tickets?companyId=${companyId}`);
+  } catch (e) { }
+
+  const openTickets = tickets.filter(t => t.status !== "solved").length;
+  const solvedTickets = tickets.filter(t => t.status === "solved").length;
+
+  bodyEl.innerHTML = `
+    <div class="grid2" style="gap: 20px;">
+      <div>
+        <h4 style="margin-top: 0;"><i class="fa-solid fa-info-circle"></i> Grundläggande Info</h4>
+        <div class="panel soft" style="padding: 15px;">
+          <p><b>Företag:</b> ${escapeHtml(customer.displayName)}</p>
+          <p><b>ID:</b> ${escapeHtml(customer.companyId)}</p>
+          <p><b>Org.nr:</b> ${escapeHtml(customer.orgNr || '-')}</p>
+          <p><b>Kontakt:</b> ${escapeHtml(customer.contactName || '-')}</p>
+          <p><b>E-post:</b> ${escapeHtml(customer.contactEmail || '-')}</p>
+          <p><b>Telefon:</b> ${escapeHtml(customer.phone || '-')}</p>
+        </div>
+      </div>
+      <div>
+        <h4 style="margin-top: 0;"><i class="fa-solid fa-chart-bar"></i> Statistik</h4>
+        <div class="slaGrid" style="grid-template-columns: repeat(2, 1fr);">
+          <div class="slaCard small">
+            <div class="slaLabel">Plan</div>
+            <div class="slaValue" style="font-size: 18px;"><span class="planBadge ${customer.plan || 'bas'}">${(customer.plan || 'bas').toUpperCase()}</span></div>
+          </div>
+          <div class="slaCard small">
+            <div class="slaLabel">Status</div>
+            <div class="slaValue" style="font-size: 18px;"><span class="statusBadge ${customer.status || 'active'}">${customer.status === 'active' ? 'Aktiv' : customer.status === 'pending' ? 'Väntar' : 'Inaktiv'}</span></div>
+          </div>
+          <div class="slaCard small">
+            <div class="slaLabel">Öppna ärenden</div>
+            <div class="slaValue" style="font-size: 18px;">${openTickets}</div>
+          </div>
+          <div class="slaCard small">
+            <div class="slaLabel">Lösta ärenden</div>
+            <div class="slaValue" style="font-size: 18px;">${solvedTickets}</div>
+          </div>
+        </div>
+      </div>
+    </div>
+    
+    <div style="margin-top: 20px;">
+      <h4><i class="fa-solid fa-cog"></i> AI-inställningar</h4>
+      <div class="panel soft" style="padding: 15px;">
+        <p><b>Tonalitet:</b> ${customer.settings?.tone || 'professional'}</p>
+        <p><b>Hälsningsfras:</b> ${escapeHtml(customer.settings?.greeting || 'Standard')}</p>
+        <p><b>Widgetfärg:</b> <span style="background: ${customer.settings?.widgetColor || '#0066cc'}; padding: 2px 10px; border-radius: 4px; color: white;">${customer.settings?.widgetColor || '#0066cc'}</span></p>
+      </div>
+    </div>
+    
+    <div style="margin-top: 20px;">
+      <h4><i class="fa-solid fa-clock-rotate-left"></i> Senaste ärenden</h4>
+      <div class="list" style="max-height: 200px; overflow-y: auto;">
+        ${tickets.slice(0, 5).map(t => `
+          <div class="listItem" style="padding: 10px;">
+            <div class="listItemTitle">
+              ${escapeHtml(t.title || 'Ärende')}
+              <span class="pill ${t.status === 'solved' ? 'ok' : t.status === 'pending' ? 'warn' : 'info'}">${t.status}</span>
+            </div>
+            <div class="muted small">${new Date(t.createdAt).toLocaleString('sv-SE')}</div>
+          </div>
+        `).join("") || '<div class="muted small center">Inga ärenden.</div>'}
+      </div>
+    </div>
+    
+    <div class="row gap" style="margin-top: 20px;">
+      <button class="btn secondary" onclick="editCustomer('${companyId}')">
+        <i class="fa-solid fa-pen"></i> Redigera kund
+      </button>
+      <button class="btn ghost" onclick="switchCompany('${companyId}'); closeCrmModal();">
+        <i class="fa-solid fa-comments"></i> Öppna i chat
+      </button>
+    </div>
+  `;
+
+  modal.style.display = "flex";
+}
+
+function closeCrmModal() {
+  $("crmCustomerModal").style.display = "none";
+}
+
+async function editCustomer(companyId) {
+  toast("Info", "Redigering via Kategorier-tabben i Admin-panelen", "info");
+  closeCrmModal();
+}
+
+async function deleteCompanyFromCrm(companyId, displayName) {
+  await deleteCompany(companyId, displayName);
+  await refreshCustomers();
+}
+
+function renderCrmActivity() {
+  const list = $("crmActivityLog");
+  if (!list) return;
+
+  const filter = $("crmActivityFilter")?.value || "";
+  const filtered = filter
+    ? crmData.activities.filter(a => a.type === filter)
+    : crmData.activities;
+
+  list.innerHTML = filtered.length ? filtered.map(a => `
+    <div class="crmActivityItem">
+      <div class="icon ${a.type}"><i class="fa-solid ${a.icon}"></i></div>
+      <div class="content">
+        <div><b>${escapeHtml(a.title)}</b></div>
+        <div class="muted small">${escapeHtml(a.description)}</div>
+      </div>
+      <div class="time">${timeAgo(a.time)}</div>
+    </div>
+  `).join("") : `<div class="muted small center" style="padding: 40px;">Ingen aktivitet.</div>`;
+}
+
+function renderCrmAnalytics() {
+  const s = crmData.stats;
+
+  // Plan Distribution Chart
+  if (window.Chart && $("crmPlanDistributionChart")) {
+    const ctx = $("crmPlanDistributionChart").getContext("2d");
+    if (window.__crmPlanChart) window.__crmPlanChart.destroy();
+
+    const planCounts = {
+      trial: crmData.customers.filter(c => c.plan === "trial").length,
+      bas: crmData.customers.filter(c => !c.plan || c.plan === "bas").length,
+      pro: crmData.customers.filter(c => c.plan === "pro").length,
+      enterprise: crmData.customers.filter(c => c.plan === "enterprise").length
+    };
+
+    window.__crmPlanChart = new Chart(ctx, {
+      type: "doughnut",
+      data: {
+        labels: ["Trial", "BAS", "PRO", "Enterprise"],
+        datasets: [{
+          data: [planCounts.trial, planCounts.bas, planCounts.pro, planCounts.enterprise],
+          backgroundColor: ["#ffb020", "#6b7280", "#4c7dff", "#8a2be2"],
+          borderWidth: 0
+        }]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          legend: { position: "right", labels: { color: "#a6abc6", usePointStyle: true } }
+        }
+      }
+    });
+  }
+
+  // Analytics Table
+  const tableBody = $("crmAnalyticsTable");
+  if (tableBody) {
+    const plans = ["trial", "bas", "pro", "enterprise"];
+    const prices = { trial: 0, bas: 0, pro: 499, enterprise: 2999 };
+
+    tableBody.innerHTML = plans.map(plan => {
+      const count = crmData.customers.filter(c => (c.plan || "bas") === plan).length;
+      const pct = s.total ? Math.round(count / s.total * 100) : 0;
+      const mrr = count * prices[plan];
+
+      return `
+        <tr>
+          <td style="padding: 12px;"><span class="planBadge ${plan}">${plan.toUpperCase()}</span></td>
+          <td style="padding: 12px; text-align: right;">${count}</td>
+          <td style="padding: 12px; text-align: right;">${pct}%</td>
+          <td style="padding: 12px; text-align: right;">${mrr.toLocaleString('sv-SE')} kr</td>
+          <td style="padding: 12px; text-align: right;">--</td>
+        </tr>
+      `;
+    }).join("") + `
+      <tr style="font-weight: bold; background: var(--panel2);">
+        <td style="padding: 12px;">TOTALT</td>
+        <td style="padding: 12px; text-align: right;">${s.total}</td>
+        <td style="padding: 12px; text-align: right;">100%</td>
+        <td style="padding: 12px; text-align: right;">${crmData.customers.reduce((sum, c) => sum + (prices[c.plan || "bas"] || 0), 0).toLocaleString('sv-SE')
+      } kr</td>
+        <td style="padding: 12px; text-align: right;">--</td>
+      </tr>
+    `;
+  }
+}
+
+async function createCrmCustomer() {
+  const displayName = $("newCompanyDisplayName")?.value.trim();
+  const companyId = $("newCompanyId")?.value.trim().toLowerCase().replace(/\s+/g, "-");
+  const orgNr = $("newCompanyOrgNr")?.value.trim();
+  const contactEmail = $("newCompanyContactEmail")?.value.trim();
+  const contactName = $("newCompanyContactName")?.value.trim();
+  const phone = $("newCompanyPhone")?.value.trim();
+  const plan = $("newCompanyPlan")?.value || "bas";
+  const status = $("newCompanyStatus")?.value || "active";
+  const notes = $("newCompanyNotes")?.value.trim();
+
+  if (!displayName || !companyId) {
+    return toast("Saknas", "Företagsnamn och ID krävs", "error");
+  }
+
+  // Check if exists
+  if (crmData.customers.find(c => c.companyId === companyId)) {
+    return toast("Fel", "Företags-ID finns redan", "error");
+  }
+
+  try {
+    // Create via API
+    await api("/company/settings", {
+      method: "PATCH",
+      body: {
+        companyId,
+        settings: {
+          displayName,
+          orgNr,
+          contactEmail,
+          contactName,
+          phone,
+          plan,
+          status,
+          notes,
+          tone: "professional",
+          greeting: `Välkommen till ${displayName}!`
+        }
+      }
+    });
+
+    toast("Skapat", `Kund "${displayName}" skapades`, "info");
+
+    // Clear form
+    $("newCompanyDisplayName").value = "";
+    $("newCompanyId").value = "";
+    $("newCompanyOrgNr").value = "";
+    $("newCompanyContactEmail").value = "";
+    $("newCompanyContactName").value = "";
+    $("newCompanyPhone").value = "";
+    $("newCompanyNotes").value = "";
+
+    // Reload
+    await loadCompanies();
+    await refreshCustomers();
+  } catch (e) {
+    toast("Fel", e.message, "error");
+  }
+}
+
+function exportCrmData() {
+  const rows = [
+    ["Företag", "ID", "Org.nr", "Kontakt", "E-post", "Telefon", "Plan", "Status", "Skapad"]
+  ];
+
+  crmData.customers.forEach(c => {
+    rows.push([
+      c.displayName || "",
+      c.companyId || "",
+      c.orgNr || c.settings?.orgNr || "",
+      c.contactName || c.settings?.contactName || "",
+      c.contactEmail || c.settings?.contactEmail || "",
+      c.phone || c.settings?.phone || "",
+      c.plan || c.settings?.plan || "bas",
+      c.status || c.settings?.status || "active",
+      new Date(c.createdAt).toLocaleDateString('sv-SE')
+    ]);
+  });
+
+  const csv = rows.map(r => r.map(v => `"${v}"`).join(";")).join("\n");
+  const blob = new Blob(["\uFEFF" + csv], { type: "text/csv;charset=utf-8" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = `crm_export_${new Date().toISOString().split("T")[0]}.csv`;
+  a.click();
+  URL.revokeObjectURL(url);
+
+  toast("Exporterat", `${crmData.customers.length} kunder exporterade till CSV`, "info");
 }
 
 /* =========================
@@ -2679,7 +3389,23 @@ function bindEvents() {
     await refreshCustomers();
   });
   on("refreshCustomersBtn", "click", refreshCustomers);
-  on("createCompanyBtn", "click", createCompany);
+  on("createCompanyBtn", "click", createCrmCustomer);
+  on("crmExportBtn", "click", exportCrmData);
+  on("crmCloseModalBtn", "click", closeCrmModal);
+
+  // CRM Filters
+  on("crmSearchInput", "input", () => {
+    setTimeout(renderCrmCustomersList, 200);
+  });
+  on("crmPlanFilter", "change", renderCrmCustomersList);
+  on("crmStatusFilter", "change", renderCrmCustomersList);
+  on("crmSortBy", "change", renderCrmCustomersList);
+  on("crmActivityFilter", "change", renderCrmActivity);
+
+  // Close modal on backdrop click
+  on("crmCustomerModal", "click", (e) => {
+    if (e.target.id === "crmCustomerModal") closeCrmModal();
+  });
 
   // ✅ Billing
   on("openBillingView", "click", async () => {

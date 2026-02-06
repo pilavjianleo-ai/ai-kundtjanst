@@ -1559,3 +1559,225 @@ body[data-theme="light"] .input {
     grid-template-columns: 1fr;
   }
 }
+
+/* =====================
+   CRM Styles
+===================== */
+.modal {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.7);
+  backdrop-filter: blur(5px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 9999;
+  animation: fadeIn 0.2s ease-out;
+}
+
+.modalContent {
+  background: var(--panel);
+  border-radius: 16px;
+  border: 1px solid var(--border);
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.4);
+  width: 90%;
+  animation: slideUp 0.3s ease-out;
+}
+
+.modalHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 20px;
+  border-bottom: 1px solid var(--border);
+}
+
+.modalHeader h3 {
+  margin: 0;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.modalBody {
+  padding: 20px;
+}
+
+@keyframes slideUp {
+  from {
+    transform: translateY(20px);
+    opacity: 0;
+  }
+
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+.crmCustomerCard {
+  display: flex;
+  align-items: center;
+  padding: 15px;
+  gap: 15px;
+  border-bottom: 1px solid var(--border);
+  transition: background 0.2s ease;
+  cursor: pointer;
+}
+
+.crmCustomerCard:hover {
+  background: var(--panel2);
+}
+
+.crmCustomerCard .avatar-small {
+  width: 45px;
+  height: 45px;
+  background: linear-gradient(135deg, var(--primary), #8a2be2);
+  color: white;
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 600;
+  font-size: 14px;
+  flex-shrink: 0;
+}
+
+.crmCustomerCard .info {
+  flex: 1;
+  min-width: 0;
+}
+
+.crmCustomerCard .info .name {
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.crmCustomerCard .actions {
+  display: flex;
+  gap: 5px;
+  flex-shrink: 0;
+}
+
+.crmTable th,
+.crmTable td {
+  border-bottom: 1px solid var(--border);
+}
+
+.crmTable tbody tr:hover {
+  background: var(--panel2);
+}
+
+.crmActivityItem {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 12px;
+  border-bottom: 1px solid var(--border);
+}
+
+.crmActivityItem .icon {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.crmActivityItem .icon.ticket {
+  background: rgba(76, 125, 255, 0.15);
+  color: var(--primary);
+}
+
+.crmActivityItem .icon.customer {
+  background: rgba(55, 214, 122, 0.15);
+  color: var(--ok);
+}
+
+.crmActivityItem .icon.plan {
+  background: rgba(255, 176, 32, 0.15);
+  color: var(--warn);
+}
+
+.crmActivityItem .content {
+  flex: 1;
+}
+
+.crmActivityItem .time {
+  color: var(--muted);
+  font-size: 11px;
+}
+
+/* Plan badges */
+.planBadge {
+  padding: 4px 10px;
+  border-radius: 6px;
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+}
+
+.planBadge.trial {
+  background: rgba(255, 176, 32, 0.15);
+  color: var(--warn);
+}
+
+.planBadge.bas {
+  background: rgba(166, 171, 198, 0.15);
+  color: var(--muted);
+}
+
+.planBadge.pro {
+  background: rgba(76, 125, 255, 0.15);
+  color: var(--primary);
+}
+
+.planBadge.enterprise {
+  background: rgba(138, 43, 226, 0.15);
+  color: #8a2be2;
+}
+
+/* Status badges */
+.statusBadge {
+  padding: 4px 10px;
+  border-radius: 6px;
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.statusBadge.active {
+  background: rgba(55, 214, 122, 0.15);
+  color: var(--ok);
+}
+
+.statusBadge.pending {
+  background: rgba(255, 176, 32, 0.15);
+  color: var(--warn);
+}
+
+.statusBadge.inactive {
+  background: rgba(255, 77, 77, 0.15);
+  color: var(--danger);
+}
+
+/* Responsive CRM */
+@media (max-width: 900px) {
+  #customerAdminView .slaGrid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  #customerAdminView .grid2 {
+    grid-template-columns: 1fr;
+  }
+
+  .crmCustomerCard {
+    flex-wrap: wrap;
+  }
+}

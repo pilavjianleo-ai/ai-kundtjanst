@@ -818,6 +818,23 @@ app.post("/inbox/tickets/:id/note", authenticate, requireAgent, async (req, res)
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
+app.patch("/tickets/:id/assign", authenticate, requireAgent, async (req, res) => {
+  try {
+    const t = await Ticket.findById(req.params.id);
+    if (!t) return res.status(404).json({ error: "Ej hittad" });
+    t.assignedToUserId = req.body.assignedToUserId;
+    await t.save();
+    res.json(t);
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+app.delete("/tickets/:id", authenticate, requireAgent, async (req, res) => {
+  try {
+    await Ticket.findByIdAndDelete(req.params.id);
+    res.json({ message: "Raderad" });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
 app.delete("/inbox/tickets/:id/notes", authenticate, requireAgent, async (req, res) => {
   try {
     const t = await Ticket.findById(req.params.id);
