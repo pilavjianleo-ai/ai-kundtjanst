@@ -533,8 +533,7 @@ async function switchCompany(newCompanyId) {
     inboxSel.value = newCompanyId;
   }
 
-  // Clear the current conversation and start fresh with new company context
-  clearMessages();
+  // Clear the current conversation
   state.conversation = [];
   state.activeTicketId = null;
   state.activeTicketPublicId = null;
@@ -542,19 +541,38 @@ async function switchCompany(newCompanyId) {
   // Update the chat header to reflect the new company
   renderChatHeader();
 
+  // Show the intro card with the new company name
+  const companyName = state.currentCompany?.displayName || newCompanyId;
+  const messagesEl = $("messages");
+  if (messagesEl) {
+    messagesEl.innerHTML = `
+      <div class="introCard" id="chatIntro">
+        <div class="introIcon"><i class="fa-solid fa-robot"></i></div>
+        <h3>Välkommen till ${escapeHtml(companyName)}</h3>
+        <p>Jag är din intelligenta assistent för ${escapeHtml(companyName)}, redo att hjälpa dig dygnet runt. Hur kan jag underlätta för dig idag?</p>
+      </div>
+    `;
+  }
+
+  // Generate and show the company-specific greeting
+  const greeting = state.currentCompany?.settings?.greeting ||
+    `Hej! Välkommen till ${companyName}. Hur kan jag hjälpa dig idag?`;
+
+  state.conversation.push({ role: "assistant", content: greeting });
+
+  setTimeout(() => {
+    addMsg("assistant", greeting);
+    renderSuggestions(["Hur fungerar det?", "Vilka priser har ni?", "Prata med person"]);
+    $("suggestions").style.display = "flex";
+  }, 400);
+
   // Reload inbox if we're currently viewing it
   if (state.currentView === "inboxView") {
     await loadInboxTickets();
   }
 
   // Show notification
-  const companyName = state.currentCompany?.displayName || newCompanyId;
   toast("Företag bytt", `Nu aktiv: ${companyName}`, "info");
-
-  // Render initial suggestions for the new company
-  renderSuggestions(["Hur fungerar det?", "Vilka priser har ni?", "Hjälp"]);
-  const suggestionsBox = $("suggestions");
-  if (suggestionsBox) suggestionsBox.style.display = "flex";
 
   renderDebug();
 }
@@ -1548,6 +1566,123 @@ async function uploadKbPdf() {
 }
 
 /* =========================
+   Categories / Companies (CRM)
+ ========================= */
+async function loadCategories() {
+  if (!state.companies || state.companies.length === 0) {
+    await loadCompanies();
+  }
+  renderCatsList();
+}
+
+function renderCatsList() {
+  const list = $("catsList");
+  if (!list) return;
+  list.innerHTML = "";
+
+  if (state.companies.length === 0) {
+    list.innerHTML = '<div class="muted small">Inga företag/kategorier hittades.</div>';
+    return;
+  }
+
+  state.companies.forEach((c) => {
+    const div = document.createElement("div");
+    div.className = "listItem";
+
+    const isDemo = c.companyId === "demo";
+
+    div.innerHTML = `
+      <div class="listItemTitle">
+        <b>${escapeHtml(c.displayName)}</b>
+        <span class="pill muted" style="font-size:10px;">${escapeHtml(c.companyId)}</span>
+        ${isDemo ? '<span class="pill warn" style="font-size:10px;">Standard</span>' : ''}
+      </div>
+      <div class="muted small">
+        Ton: ${c.settings?.tone || 'professional'} • 
+        Widget: ${c.settings?.widgetColor || '#0066cc'}
+      </div>
+    `;
+
+    if (!isDemo) {
+      const delBtn = document.createElement("button");
+      delBtn.className = "btn ghost small danger";
+      delBtn.innerHTML = '<i class="fa-solid fa-trash"></i>';
+      delBtn.title = "Ta bort företag";
+      delBtn.onclick = async (e) => {
+        e.stopPropagation();
+        await deleteCompany(c.companyId, c.displayName);
+      };
+      div.appendChild(delBtn);
+    }
+
+    list.appendChild(div);
+  });
+}
+
+async function createCategory() {
+  const companyId = $("newCatKey")?.value.trim();
+  const displayName = $("newCatName")?.value.trim();
+  const tone = $("newCatTone")?.value || "professional";
+  const emojis = $("newCatEmojis")?.value === "true";
+
+  if (!companyId || !displayName) {
+    return toast("Saknas", "Ange både nyckel och namn", "error");
+  }
+
+  // Create company by saving settings for it (this will create it if not exists)
+  try {
+    // First check if company exists
+    const existing = state.companies.find(c => c.companyId === companyId);
+    if (existing) {
+      return toast("Fel", "Företaget finns redan", "error");
+    }
+
+    // Create new company via API
+    await api("/company/settings", {
+      method: "PATCH",
+      body: {
+        companyId,
+        settings: { tone, greeting: `Välkommen till ${displayName}!` }
+      }
+    });
+
+    toast("Skapat", `Företag "${displayName}" skapades`, "info");
+
+    // Clear form
+    $("newCatKey").value = "";
+    $("newCatName").value = "";
+
+    // Reload companies
+    await loadCompanies();
+    renderCatsList();
+  } catch (e) {
+    toast("Fel", e.message, "error");
+  }
+}
+
+async function deleteCompany(companyId, displayName) {
+  if (!confirm(`Ta bort "${displayName}" och alla dess kunskapsdokument?\n\nDetta går inte att ångra.`)) {
+    return;
+  }
+
+  try {
+    const res = await api(`/companies/${companyId}`, { method: "DELETE" });
+    toast("Borttaget", `Företag "${displayName}" togs bort (${res.deletedDocuments} dokument)`, "info");
+
+    // Reload companies
+    await loadCompanies();
+    renderCatsList();
+
+    // If this was the selected company, switch to first available
+    if (state.companyId === companyId && state.companies.length > 0) {
+      await switchCompany(state.companies[0].companyId);
+    }
+  } catch (e) {
+    toast("Fel", e.message, "error");
+  }
+}
+
+/* =========================
    Profile / Settings
  ========================= */
 async function loadProfile() {
@@ -1630,11 +1765,11 @@ async function changeUsername() {
 }
 
 async function changePassword() {
-  const current = $("currentPassInput")?.value;
-  const next = $("newPassInput")?.value;
-  if (!current || !next) return toast("Fel", "Fyll i båda fält", "error");
+  const currentPassword = $("currentPassInput")?.value;
+  const newPassword = $("newPassInput")?.value;
+  if (!currentPassword || !newPassword) return toast("Fel", "Fyll i båda fält", "error");
   try {
-    await api("/me/password", { method: "PATCH", body: { current, next } });
+    await api("/me/password", { method: "PATCH", body: { currentPassword, newPassword } });
     toast("Klart", "Lösenord bytt ✅", "info");
     $("currentPassInput").value = "";
     $("newPassInput").value = "";
@@ -2524,6 +2659,7 @@ function bindEvents() {
     showView("adminView", "openAdminView");
     await loadAdminDiagnostics();
     await loadAdminUsers();
+    await loadCategories();
   });
 
   on("adminUsersRefreshBtn", "click", loadAdminUsers);
@@ -2568,6 +2704,10 @@ function bindEvents() {
     await simulateSettings();
   });
   on("saveCustomerSettingsBtn", "click", saveCustomerSettings);
+
+  // ✅ Category / Company management
+  on("catsRefreshBtn", "click", loadCategories);
+  on("createCatBtn", "click", createCategory);
 
   // ✅ Product Simulator
   on("openSimulatorView", "click", async () => {

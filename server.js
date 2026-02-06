@@ -307,6 +307,59 @@ app.get("/me", authenticate, async (req, res) => {
   res.json(user || null);
 });
 
+// Update username
+app.patch("/me/username", authenticate, async (req, res) => {
+  try {
+    const { username } = req.body;
+    if (!username || username.trim().length < 3) {
+      return res.status(400).json({ error: "Användarnamn måste vara minst 3 tecken" });
+    }
+
+    // Check if username is already taken
+    const existing = await User.findOne({ username: username.trim(), _id: { $ne: req.user.id } });
+    if (existing) {
+      return res.status(400).json({ error: "Användarnamnet är redan taget" });
+    }
+
+    const user = await User.findById(req.user.id);
+    user.username = username.trim();
+    user.updatedAt = new Date();
+    await user.save();
+
+    res.json({ message: "Användarnamn uppdaterat", username: user.username });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// Update password
+app.patch("/me/password", authenticate, async (req, res) => {
+  try {
+    const { currentPassword, newPassword } = req.body;
+
+    if (!newPassword || newPassword.length < 6) {
+      return res.status(400).json({ error: "Nytt lösenord måste vara minst 6 tecken" });
+    }
+
+    const user = await User.findById(req.user.id);
+
+    // Verify current password
+    const valid = await bcrypt.compare(currentPassword, user.password);
+    if (!valid) {
+      return res.status(400).json({ error: "Nuvarande lösenord är felaktigt" });
+    }
+
+    // Hash and save new password
+    user.password = await bcrypt.hash(newPassword, 10);
+    user.updatedAt = new Date();
+    await user.save();
+
+    res.json({ message: "Lösenord uppdaterat" });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
 // COMPANIES
 app.get("/companies", authenticate, async (req, res) => {
   let count = await Company.countDocuments({});
@@ -331,6 +384,34 @@ app.patch("/company/settings", authenticate, async (req, res) => {
   company.settings = { ...company.settings, ...settings };
   await company.save();
   res.json({ message: "Sparat", settings: company.settings });
+});
+
+// Delete a company (admin only)
+app.delete("/companies/:companyId", authenticate, requireAdmin, async (req, res) => {
+  try {
+    const { companyId } = req.params;
+
+    if (companyId === "demo") {
+      return res.status(400).json({ error: "Kan inte ta bort demo-företaget" });
+    }
+
+    // Delete the company
+    const deleted = await Company.findOneAndDelete({ companyId });
+    if (!deleted) {
+      return res.status(404).json({ error: "Företaget hittades ej" });
+    }
+
+    // Also delete associated knowledge base documents
+    const deletedDocs = await Document.deleteMany({ companyId });
+
+    res.json({
+      message: "Företag borttaget",
+      deletedCompany: deleted.displayName,
+      deletedDocuments: deletedDocs.deletedCount
+    });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
 });
 
 /* =====================
@@ -645,9 +726,22 @@ app.get("/tickets/my", authenticate, async (req, res) => {
 });
 
 app.get("/tickets/:id", authenticate, async (req, res) => {
-  const ticket = await Ticket.findById(req.params.id);
-  if (ticket.userId.toString() !== req.user.id) return res.status(403).json({ error: "Ej behörig" });
-  res.json(ticket);
+  try {
+    const ticket = await Ticket.findById(req.params.id);
+    if (!ticket) return res.status(404).json({ error: "Ticket hittades ej" });
+
+    // Agents and admins can view any ticket, users can only view their own
+    const isOwner = ticket.userId.toString() === req.user.id;
+    const isAgentOrAdmin = req.user.role === "agent" || req.user.role === "admin";
+
+    if (!isOwner && !isAgentOrAdmin) {
+      return res.status(403).json({ error: "Ej behörig" });
+    }
+
+    res.json(ticket);
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
 });
 
 app.post("/tickets/:id/reply", authenticate, async (req, res) => {
@@ -1485,15 +1579,42 @@ app.post("/simulator/generate", authenticate, async (req, res) => {
 
     console.log("🎨 Simulator prompt:", prompt);
 
+    // Check if OpenAI is configured
+    if (!process.env.OPENAI_API_KEY || process.env.OPENAI_API_KEY.includes("INSERT")) {
+      return res.status(400).json({ error: "OpenAI API-nyckel ej konfigurerad. Kontakta administratör." });
+    }
+
     // Generate image with DALL-E 3
-    const imageResponse = await openai.images.generate({
-      model: "dall-e-3",
-      prompt: prompt,
-      n: 1,
-      size: "1024x1024",
-      quality: "hd",
-      style: "natural"
-    });
+    let imageResponse;
+    try {
+      imageResponse = await openai.images.generate({
+        model: "dall-e-3",
+        prompt: prompt,
+        n: 1,
+        size: "1024x1024",
+        quality: "hd",
+        style: "natural"
+      });
+    } catch (openaiError) {
+      console.error("OpenAI DALL-E Error:", openaiError);
+
+      // Handle specific OpenAI errors
+      if (openaiError.message?.includes("content_policy")) {
+        return res.status(400).json({ error: "Prompten bryter mot OpenAI:s innehållspolicy. Försök med en annan produktbeskrivning." });
+      }
+      if (openaiError.message?.includes("billing") || openaiError.message?.includes("quota")) {
+        return res.status(400).json({ error: "OpenAI-kvoten är slut. Kontakta administratör." });
+      }
+      if (openaiError.message?.includes("rate_limit")) {
+        return res.status(400).json({ error: "För många förfrågningar. Vänta en minut och försök igen." });
+      }
+
+      return res.status(400).json({ error: "Kunde inte generera bild: " + (openaiError.message || "Okänt fel") });
+    }
+
+    if (!imageResponse?.data?.[0]?.url) {
+      return res.status(400).json({ error: "Ingen bild returnerades från AI. Försök igen." });
+    }
 
     const generatedImageUrl = imageResponse.data[0].url;
     const revisedPrompt = imageResponse.data[0].revised_prompt;
