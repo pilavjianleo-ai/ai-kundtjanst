@@ -734,12 +734,12 @@ app.get("/tickets/:id", authenticate, async (req, res) => {
     const ticket = await Ticket.findById(req.params.id);
     if (!ticket) return res.status(404).json({ error: "Ticket hittades ej" });
 
-    // Agents and admins can view any ticket, users can only view their own
     const isOwner = ticket.userId.toString() === req.user.id;
-    const isAgentOrAdmin = req.user.role === "agent" || req.user.role === "admin";
+    const isAgentOrAdmin = ["agent", "admin"].includes(req.user.role);
 
     if (!isOwner && !isAgentOrAdmin) {
-      return res.status(403).json({ error: "Ej behörig" });
+      console.log(`[ACCESS DENIED] User: ${req.user.username} (${req.user.role}), TicketOwner: ${ticket.userId}`);
+      return res.status(403).json({ error: `Ej behörig (Roll: ${req.user.role})` });
     }
 
     res.json(ticket);
@@ -1116,11 +1116,12 @@ app.get("/admin/companies", authenticate, requireAgent, async (req, res) => {
 
 app.post("/admin/companies", authenticate, requireAdmin, async (req, res) => {
   try {
-    const { displayName, contactEmail, plan, status, orgNr, contactName, phone, notes } = req.body;
+    const { displayName, companyId: reqCompId, contactEmail, plan, status, orgNr, contactName, phone, notes } = req.body;
     if (!displayName) return res.status(400).json({ error: "Namn krävs" });
 
-    // Generate ID from name
-    const companyId = displayName.toLowerCase().replace(/[^a-z0-9]/g, '-').slice(0, 30);
+    // Generate ID (use provided or generate)
+    let companyId = reqCompId ? String(reqCompId).trim().toLowerCase() : "";
+    if (!companyId) companyId = displayName.toLowerCase().replace(/[^a-z0-9]/g, '-').slice(0, 30);
 
     const existing = await Company.findOne({ companyId });
     if (existing) return res.status(400).json({ error: "Bolag med liknande ID finns redan" });

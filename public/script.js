@@ -2429,22 +2429,22 @@ async function createCrmCustomer() {
 
   try {
     // Create via API
-    await api("/company/settings", {
-      method: "PATCH",
+    // Create via API (POST /admin/companies)
+    await api("/admin/companies", {
+      method: "POST",
       body: {
         companyId,
-        settings: {
-          displayName,
-          orgNr,
-          contactEmail,
-          contactName,
-          phone,
-          plan,
-          status,
-          notes,
-          tone: "professional",
-          greeting: `Välkommen till ${displayName}!`
-        }
+        displayName,
+        orgNr,
+        contactEmail,
+        contactName,
+        phone,
+        plan,
+        status,
+        notes,
+        // AI settings default
+        tone: "professional",
+        greeting: `Välkommen till ${displayName}!`
       }
     });
 
