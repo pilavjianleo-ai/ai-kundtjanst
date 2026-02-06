@@ -26,6 +26,7 @@ const state = {
   inboxSelectedTicket: null,
 
   csatPendingTicketId: null,
+  currentView: "chatView",
 };
 
 /* =========================
@@ -132,10 +133,17 @@ function setActiveMenu(btnId) {
 }
 
 function showView(viewId, menuBtnId) {
+  state.currentView = viewId;
   hideAllViews();
   const v = $(viewId);
   if (v) v.style.display = "";
   if (menuBtnId) setActiveMenu(menuBtnId);
+
+  if (viewId === "inboxView") {
+    const dot = $("inboxNotifDot");
+    if (dot) dot.style.display = "none";
+    loadInboxTickets();
+  }
 }
 
 function updateRoleUI() {
@@ -311,8 +319,26 @@ function resetConversation() {
   state.activeTicketId = null;
   state.activeTicketPublicId = null;
   clearMessages();
-  addMsg("assistant", state.currentCompany?.settings?.greeting || "Hej! 👋 Vad kan jag hjälpa dig med?");
+  const greeting = state.currentCompany?.settings?.greeting || "Hej! 👋 Hur kan jag hjälpa dig idag?";
+  state.conversation.push({ role: "assistant", content: greeting });
+  addMsg("assistant", greeting);
+  renderSuggestions(["Hur fungerar det?", "Vilka priser har ni?", "Skapa konto"]);
   renderDebug();
+}
+
+function clearChat() {
+  if (confirm("Vill du rensa chatten?")) {
+    clearMessages();
+    state.conversation = [];
+    toast("Rensat", "Chatthistoriken har rensats lokalt.", "info");
+  }
+}
+
+async function sendFeedback(type) {
+  if (!state.activeTicketId) return toast("Info", "Starta en konversation först", "info");
+  const fbMsg = $("fbMsg");
+  if (fbMsg) fbMsg.textContent = "Tack för din feedback! ❤️";
+  toast("Tack", "Vi har tagit emot din feedback.", "info");
 }
 
 /* =========================
@@ -503,9 +529,11 @@ async function sendChat() {
 }
 
 async function requestHumanHandoff() {
-  addMsg("user", "Jag vill prata med en person.");
-  sendChat();
-  toast("Handoff", "En agent har notifierats om din förfrågan.", "info");
+  const inp = $("messageInput");
+  if (inp) {
+    inp.value = "Jag vill prata med en person.";
+    await sendChat();
+  }
 }
 
 /* =========================
@@ -604,10 +632,13 @@ function renderInboxList() {
 
   (state.inboxTickets || []).forEach((t) => {
     const div = document.createElement("div");
-    div.className = "listItem";
-    const priClass = t.priority === "high" ? "danger" : t.priority === "low" ? "muted" : "info";
+    const isHigh = t.priority === "high";
+    const priClass = isHigh ? "danger" : t.priority === "low" ? "muted" : "info";
+
+    div.className = "listItem " + (isHigh ? "important-highlight" : "");
     div.innerHTML = `
       <div class="listItemTitle">
+        ${isHigh ? '<i class="fa-solid fa-triangle-exclamation" style="color:var(--danger)"></i> ' : ""}
         ${escapeHtml(t.title || "Ticket")}
         <span class="pill ${priClass}">${escapeHtml(t.priority || "normal")}</span>
         <span class="pill">${escapeHtml(t.status)}</span>
@@ -1269,6 +1300,43 @@ function bindEvents() {
     if (e.key === "Enter") sendChat();
   });
   on("talkToHumanBtn", "click", requestHumanHandoff);
+  on("newTicketBtn", "click", resetConversation);
+  on("clearChatBtn", "click", clearChat);
+  on("fbUp", "click", () => sendFeedback("up"));
+  on("fbDown", "click", () => sendFeedback("down"));
+}
+
+function initSocket() {
+  if (typeof io === 'undefined') return;
+  const socket = io();
+
+  socket.on("ticketUpdate", (data) => {
+    if (state.currentView === "inboxView") {
+      loadInboxTickets();
+    }
+  });
+
+  socket.on("newImportantTicket", (data) => {
+    toast("Viktigt!", "Nytt brådskande ärende: " + data.title, "warning");
+
+    // Highlight sidebar
+    const dot = $("inboxNotifDot");
+    if (dot) dot.style.display = "inline-block";
+
+    const btn = $("openInboxView");
+    if (btn) {
+      btn.classList.add("shake-notif");
+      setTimeout(() => btn.classList.remove("shake-notif"), 2000);
+    }
+
+    if (state.currentView === "inboxView") loadInboxTickets();
+  });
+
+  socket.on("aiTyping", (data) => {
+    if (state.inboxSelectedTicket?._id === data.ticketId) {
+      // Logic to show typing for agent (optional)
+    }
+  });
 }
 
 /* =========================
@@ -1276,6 +1344,7 @@ function bindEvents() {
 ========================= */
 async function init() {
   loadTheme();
+  initSocket();
   bindEvents();
   renderDebug();
 
