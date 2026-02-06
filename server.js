@@ -889,9 +889,22 @@ app.patch("/admin/users/:id/role", authenticate, requireAdmin, async (req, res) 
 
 app.patch("/inbox/tickets/solve-all", authenticate, requireAgent, async (req, res) => {
   try {
-    await Ticket.updateMany({ status: { $ne: "solved" } }, { status: "solved", solvedAt: new Date() });
+    const { companyId } = req.body;
+    const q = { status: { $ne: "solved" } };
+    if (companyId) q.companyId = companyId;
+    await Ticket.updateMany(q, { status: "solved", solvedAt: new Date() });
     io.emit("ticketUpdate", { message: "Bulk solve completed" });
-    res.json({ message: "Alla ärenden markerade som lösta" });
+    res.json({ message: "Alla markerade ärenden lösta" });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+app.delete("/inbox/tickets/solved", authenticate, requireAgent, async (req, res) => {
+  try {
+    const { companyId } = req.query;
+    const q = { status: "solved" };
+    if (companyId) q.companyId = companyId;
+    const result = await Ticket.deleteMany(q);
+    res.json({ message: `Rensade ${result.deletedCount} lösta ärenden` });
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
@@ -904,19 +917,27 @@ app.get("/admin/companies", authenticate, requireAdmin, async (req, res) => {
 
 app.post("/admin/companies", authenticate, requireAdmin, async (req, res) => {
   try {
-    const { displayName, companyId, contactEmail, plan, orgNumber } = req.body;
+    const { displayName, companyId: reqCompId, contactEmail, plan, status, orgNr, contactName, phone, notes } = req.body;
     if (!displayName) return res.status(400).json({ error: "Namn krävs" });
 
-    // Generate simple ID if missing
-    const cid = companyId || displayName.toLowerCase().replace(/[^a-z0-0]/g, "") + Math.floor(Math.random() * 1000);
+    // Generate ID (use provided or generate)
+    let companyId = reqCompId ? String(reqCompId).trim().toLowerCase() : "";
+    if (!companyId) companyId = displayName.toLowerCase().replace(/[^a-z0-9]/g, '-').slice(0, 30);
+
+    const existing = await Company.findOne({ companyId });
+    if (existing) return res.status(400).json({ error: "Bolag med liknande ID finns redan (" + companyId + ")" });
 
     const company = new Company({
-      companyId: cid,
+      companyId,
       displayName,
       contactEmail: contactEmail || "",
-      orgNumber: orgNumber || "",
+      orgNr: orgNr || "",
+      contactName: contactName || "",
+      phone: phone || "",
+      notes: notes || "",
       plan: plan || "bas",
-      status: "trial"
+      status: status || "active",
+      createdAt: new Date()
     });
     await company.save();
     res.json({ message: "Skapat", company });

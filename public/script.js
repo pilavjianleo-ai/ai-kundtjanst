@@ -3968,3 +3968,45 @@ async function init() {
 init().catch((e) => {
   toast("Init-fel", e?.message || "Okänt fel", "error");
 });
+
+/* === INBOX ACTIONS === */
+async function inboxAction(action) {
+    const companyId = document.getElementById("inboxCategoryFilter")?.value || "";
+
+    if (action === 'solve') {
+        if (!confirm("Markera ALLA synliga ärenden som lösta?")) return;
+        try {
+            await api("/inbox/tickets/solve-all", { method: "PATCH", body: { companyId } });
+            toast("Klart", "Alla ärenden lösta", "success");
+            if (window.loadInboxTickets) window.loadInboxTickets();
+        } catch (e) { toast("Fel", e.message, "error"); }
+    }
+
+    if (action === 'remove') {
+        if (!confirm("Ta bort ALLA lösta ärenden permanent?")) return;
+        try {
+            await api(`/inbox/tickets/solved?companyId=${encodeURIComponent(companyId)}`, { method: "DELETE" });
+            toast("Klart", "Rensat lösta ärenden", "success");
+            if (window.loadInboxTickets) window.loadInboxTickets();
+        } catch (e) { toast("Fel", e.message, "error"); }
+    }
+}
+
+function bindInboxActions() {
+    const solveBtn = document.getElementById("solveAllBtn");
+    const removeBtn = document.getElementById("removeSolvedBtn");
+
+    if (solveBtn) solveBtn.onclick = () => inboxAction('solve');
+    if (removeBtn) removeBtn.onclick = () => inboxAction('remove');
+
+    console.log("Inbox actions bound", { solveBtn, removeBtn });
+}
+
+// Bind when DOM is ready
+if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", bindInboxActions);
+} else {
+    bindInboxActions();
+}
+// Expose for re-binding
+window.bindInboxActions = bindInboxActions;

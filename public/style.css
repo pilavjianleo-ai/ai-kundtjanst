@@ -17,19 +17,19 @@
 }
 
 body[data-theme="light"] {
-  --bg: #f5f6fb;
+  --bg: #f3f4f6;
   --panel: #ffffff;
-  --panel2: #f2f3fa;
-  --text: #141625;
-  --muted: #60657c;
-  --border: rgba(0, 0, 0, 0.08);
-  --shadow: 0 12px 40px rgba(10, 12, 18, 0.12);
+  --panel2: #e5e7eb;
+  --text: #374151;
+  --muted: #6b7280;
+  --border: rgba(0, 0, 0, 0.06);
+  --shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
 
-  --primary: #2b6cff;
-  --primary2: #1f56d5;
-  --danger: #e43b3b;
-  --warn: #e0a100;
-  --ok: #1bbd64;
+  --primary: #4f46e5;
+  --primary2: #4338ca;
+  --danger: #ef4444;
+  --warn: #f59e0b;
+  --ok: #10b981;
 }
 
 * {
