@@ -420,7 +420,7 @@ async function sendChat() {
     state.conversation.push({ role: "assistant", content: reply });
 
     state.activeTicketId = data.ticketId || state.activeTicketId;
-    state.activeTicketPublicId = data.ticketPublicId || state.activeTicketPublicId;
+    state.activeTicketPublicId = data.publicTicketId || state.activeTicketPublicId;
 
     if (data.priority === "high") {
       toast("Viktigt", "Detta ärende har markerats som hög prioritet!", "warning");
@@ -454,7 +454,7 @@ function renderMyTicketsList() {
         ${escapeHtml(t.title || "Ärende")}
         <span class="pill">${escapeHtml(t.status)}</span>
       </div>
-      <div class="muted small">${escapeHtml(t.ticketPublicId || "")}</div>
+      <div class="muted small">${escapeHtml(t.publicTicketId || "")}</div>
     `;
     div.addEventListener("click", () => renderMyTicketDetails(t._id));
     list.appendChild(div);
@@ -476,7 +476,7 @@ async function renderMyTicketDetails(ticketId) {
   try {
     const t = await api("/tickets/" + ticketId);
     state.activeTicketId = t._id;
-    state.activeTicketPublicId = t.ticketPublicId;
+    state.activeTicketPublicId = t.publicTicketId;
     renderDebug();
 
     const msgs = (t.messages || [])
@@ -485,7 +485,7 @@ async function renderMyTicketDetails(ticketId) {
 
     box.innerHTML = `
       <div><b>${escapeHtml(t.title || "Ärende")}</b></div>
-      <div class="muted small">${escapeHtml(t.ticketPublicId)} • ${escapeHtml(t.status)} • ${escapeHtml(t.priority)}</div>
+      <div class="muted small">${escapeHtml(t.publicTicketId)} • ${escapeHtml(t.status)} • ${escapeHtml(t.priority)}</div>
       <div class="divider"></div>
       ${msgs || "<div class='muted small'>Inga meddelanden ännu.</div>"}
     `;
@@ -537,7 +537,7 @@ function renderInboxList() {
         <span class="pill ${priClass}">${escapeHtml(t.priority || "normal")}</span>
         <span class="pill">${escapeHtml(t.status)}</span>
       </div>
-      <div class="muted small">${escapeHtml(t.ticketPublicId)} • ${escapeHtml(t.companyId)} • ${new Date(t.lastActivityAt).toLocaleString('sv-SE')}</div>
+      <div class="muted small">${escapeHtml(t.publicTicketId)} • ${escapeHtml(t.companyId)} • ${new Date(t.lastActivityAt).toLocaleString('sv-SE')}</div>
     `;
     div.addEventListener("click", () => selectInboxTicket(t._id));
     list.appendChild(div);
@@ -567,7 +567,7 @@ async function selectInboxTicket(ticketId) {
     <div class="row" style="justify-content:space-between; align-items:flex-start;">
         <div>
             <b>${escapeHtml(t.title || "Ticket")}</b><br>
-            <span class="muted small">${escapeHtml(t.ticketPublicId)} • ${escapeHtml(t.status)}</span>
+            <span class="muted small">${escapeHtml(t.publicTicketId)} • ${escapeHtml(t.status)}</span>
         </div>
         <button class="btn ghost small" onclick="summarizeTicket('${t._id}')">
             <i class="fa-solid fa-wand-magic-sparkles"></i> AI Sammanfatta

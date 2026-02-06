@@ -155,7 +155,7 @@ const messageSchema = new mongoose.Schema({
 });
 
 const ticketSchema = new mongoose.Schema({
-  ticketPublicId: { type: String, unique: true, index: true, default: () => genPublicId("T") },
+  publicTicketId: { type: String, unique: true, index: true, default: () => genPublicId("T") },
   userId: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true },
   companyId: { type: String, required: true, index: true },
   status: { type: String, enum: ["open", "pending", "solved"], default: "open" },
@@ -451,9 +451,15 @@ Aktuell tid: ${new Date().toLocaleString('sv-SE')}
     console.log("✅ AI-svar genererat.");
     return result;
   } catch (e) {
-    console.error("AI FAILSAFE TRIGGERED:", e.message);
+    console.log("AI FAILSAFE TRIGGERED:", e.message);
     // SMART FAILBACK: Local Response logic
     const input = userMessage.toLowerCase();
+
+    // Check if it's a quota issue to give a better tip
+    if (e.message.includes("quota") || e.message.includes("429")) {
+      return "Tack för ditt meddelande! Systemet är för tillfället i begränsat läge (OpenAI Quota slut). En mänsklig agent har notifierats och kommer hjälpa dig så snart som möjligt. 😊";
+    }
+
     if (input.includes("hej") || input.includes("tja")) return "Hej! 👋 Hur kan jag stå till tjänst idag? (AI i begränsat läge)";
     if (input.includes("pris") || input.includes("kosta")) return "Vi har olika prisplaner. Kontakta gärna vår säljavdelning för en offert! (AI i begränsat läge)";
     return "Tack för ditt meddelande. En av våra agenter kommer att titta på detta så snart som möjligt. (AI i begränsat läge)";
@@ -465,14 +471,20 @@ Aktuell tid: ${new Date().toLocaleString('sv-SE')}
 ===================== */
 
 app.post("/chat", authenticate, async (req, res) => {
+  const fs = require("fs");
+  const log = (msg) => fs.appendFileSync("chat_debug.log", `[${new Date().toISOString()}] ${msg}\n`);
+
   try {
     const { companyId = "demo", conversation = [], ticketId } = req.body;
-    console.log(`💬 Chat-request: companyID=${companyId}, ticketId=${ticketId}`);
+    log(`START: companyId=${companyId}, ticketId=${ticketId}, user=${req.user?.id}`);
 
     const lastMsgObj = conversation.length > 0 ? conversation[conversation.length - 1] : null;
     const lastUserMsg = lastMsgObj ? lastMsgObj.content : "";
 
-    if (!lastUserMsg) return res.json({ reply: "Hur kan jag hjälpa dig idag? 😊" });
+    if (!lastUserMsg) {
+      log("EMPTY MESSAGE");
+      return res.json({ reply: "Hur kan jag hjälpa dig idag? 😊" });
+    }
 
     let ticket = null;
     if (ticketId && mongoose.Types.ObjectId.isValid(ticketId)) {
@@ -480,6 +492,7 @@ app.post("/chat", authenticate, async (req, res) => {
     }
 
     if (!ticket) {
+      log("CREATING NEW TICKET");
       ticket = new Ticket({
         userId: req.user.id,
         companyId: companyId || "demo",
@@ -487,7 +500,10 @@ app.post("/chat", authenticate, async (req, res) => {
         messages: [],
         priority: "normal"
       });
-      console.log(`🆕 Ny ticket skapad: ${ticket.ticketPublicId}`);
+      await ticket.save(); // Save to generate publicTicketId
+      console.log(`🆕 Ny ticket skapad: ${ticket.publicTicketId}`);
+    } else {
+      log("USING EXISTING TICKET");
     }
 
     // Safety check messages
@@ -497,10 +513,11 @@ app.post("/chat", authenticate, async (req, res) => {
     // AI Generation
     let reply = "";
     try {
-      console.log("🧠 Genererar AI-svar...");
+      log("START AI GENERATION");
       reply = await generateAIResponse(companyId, ticket.messages, lastUserMsg);
+      log("FINISH AI GENERATION");
     } catch (aiErr) {
-      console.error("💥 AI CRASHED:", aiErr.message);
+      log(`AI CRASH: ${aiErr.message}`);
       reply = "Tekniskt fel vid AI-generering. En agent har notifierats.";
     }
 
@@ -514,14 +531,19 @@ app.post("/chat", authenticate, async (req, res) => {
 
     ticket.messages.push({ role: "assistant", content: reply });
     ticket.lastActivityAt = new Date();
+
+    log("SAVING TICKET...");
     await ticket.save();
+    log("TICKET SAVED");
 
     if (io) io.emit("ticketUpdate", { ticketId: ticket._id, companyId });
+
+    log("SENDING JSON RESPONSE");
 
     res.json({
       reply,
       ticketId: ticket._id,
-      ticketPublicId: ticket.ticketPublicId,
+      publicTicketId: ticket.publicTicketId,
       priority: ticket.priority
     });
   } catch (e) {
