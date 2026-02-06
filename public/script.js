@@ -1015,6 +1015,33 @@ async function loadBilling() {
     if ($("billingUsageLabel")) $("billingUsageLabel").textContent = `${details.usage.current} / ${details.usage.limit} ärenden`;
     if ($("nextBillingDate")) $("nextBillingDate").textContent = details.nextInvoice;
 
+    // Active Plan Card Highlight
+    const activeLabel = $("activePlanLabel");
+    if (activeLabel) activeLabel.textContent = details.planInfo.name;
+
+    const activeFeatures = $("activePlanFeatures");
+    if (activeFeatures) {
+      activeFeatures.innerHTML = details.planInfo.features.map(f => `
+            <li style="font-size:13px;"><i class="fa-solid fa-circle-check" style="color:var(--ok)"></i> ${f}</li>
+        `).join("");
+    }
+
+    // Highlight the card in the upgrade list
+    const proCard = $("planCardPro");
+    const basCard = $("planCardBas");
+    if (details.plan === "pro") {
+      if (proCard) proCard.style.boxShadow = "0 0 20px rgba(76, 125, 255, 0.3)";
+      if (proCard) proCard.style.borderColor = "var(--primary)";
+      const upBtn = $("upgradeToProBtn");
+      if (upBtn) {
+        upBtn.textContent = "Din nuvarande plan";
+        upBtn.disabled = true;
+        upBtn.className = "btn ghost full";
+      }
+    } else {
+      if (basCard) basCard.style.boxShadow = "0 0 20px rgba(55, 214, 122, 0.15)";
+    }
+
     // Update History Table
     const list = $("billingHistoryList");
     if (list) {
@@ -1024,7 +1051,7 @@ async function loadBilling() {
                 <td><b>${inv.amount}</b></td>
                 <td><span class="pill ok">${inv.status}</span></td>
                 <td style="text-align:right">
-                    <a href="${inv.url}" class="btn ghost small"><i class="fa-solid fa-download"></i></a>
+                    <a href="${inv.url}" class="btn ghost small"><i class="fa-solid fa-file-pdf"></i></a>
                 </td>
             </tr>
         `).join("") : '<tr><td colspan="4" class="muted center">Inga fakturor än.</td></tr>';

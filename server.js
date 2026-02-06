@@ -790,19 +790,35 @@ app.get("/billing/details", authenticate, async (req, res) => {
     const company = await Company.findOne({ companyId: req.user.companyId || "demo" });
     const ticketCount = await Ticket.countDocuments({ companyId: company?.companyId });
 
-    // Simulerad förbrukning baserat på data
-    const limit = company?.plan === "pro" ? 5000 : 500;
+    const plan = company?.plan || "bas";
+    const limit = plan === "pro" ? 5000 : 500;
     const usagePercent = Math.min(100, Math.round((ticketCount / limit) * 100));
 
+    // Plan metadata for the UI
+    const planMeta = {
+      bas: {
+        name: "Bas-paketet",
+        price: "Gratis / Demo",
+        features: ["500 AI-meddelanden/mån", "1 Agent-konto", "Standard AI-modell", "E-postsupport"]
+      },
+      pro: {
+        name: "PRO Professional",
+        price: "499 kr/mån",
+        features: ["5000 AI-meddelanden/mån", "Obegränsat med agenter", "GPT-4 Turbo Access", "Prioriterad support", "Anpassad branding", "SLA-garanti"]
+      }
+    };
+
     res.json({
-      plan: company?.plan || "bas",
+      plan: plan,
+      planInfo: planMeta[plan] || planMeta.bas,
       status: "Aktiv",
       usage: {
         percent: usagePercent,
         current: ticketCount,
         limit: limit
       },
-      nextInvoice: "2026-03-24"
+      nextInvoice: "2026-03-24",
+      allPlans: planMeta
     });
   } catch (e) { res.status(500).json({ error: e.message }); }
 });

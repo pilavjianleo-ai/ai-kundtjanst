@@ -768,37 +768,61 @@
         <div class="divider"></div>
 
         <div class="grid2">
-          <!-- Pricing Cards -->
+          <!-- Pricing & Features -->
           <div class="panel">
-            <div class="panelHead"><b>Uppgradera din upplevelse</b></div>
-            <div class="list" style="gap:16px; margin-top:10px;">
-              <div class="listItem" style="border-left: 4px solid var(--primary); padding: 16px;">
+            <div class="panelHead"><b><i class="fa-solid fa-layer-group"></i> Dina Förmåner & Upgrade</b></div>
+
+            <div class="activePlanBox" id="activePlanBox"
+              style="margin-top:15px; background: rgba(76, 125, 255, 0.05); border: 1px dashed var(--primary); padding: 16px; border-radius: 12px; margin-bottom: 20px;">
+              <div class="row gap">
+                <div class="title" style="font-size: 18px;">Din nuvarande plan: <span id="activePlanLabel">-</span>
+                </div>
+                <div class="pill ok">AKTIV</div>
+              </div>
+              <ul class="featureList" id="activePlanFeatures"
+                style="margin-top:10px; list-style:none; padding:0; display:grid; grid-template-columns: 1fr 1fr; gap:8px;">
+                <!-- Populated by JS -->
+              </ul>
+            </div>
+
+            <div class="list" style="gap:16px;">
+              <div class="listItem pricingCard" id="planCardBas" style="padding: 16px; position:relative;">
+                <div class="title" style="font-size: 18px;">BAS</div>
+                <p class="muted small">Perfekt för småföretag som vill testa AI-support.</p>
+                <div style="font-size: 22px; font-weight: 900; margin: 10px 0;">0 kr <span class="muted small"
+                    style="font-weight:400">/ mån</span></div>
+                <ul class="featureList">
+                  <li><i class="fa-solid fa-check"></i> 500 meddelanden</li>
+                  <li><i class="fa-solid fa-check"></i> 1 Agent-konto</li>
+                  <li><i class="fa-solid fa-check"></i> Widget access</li>
+                </ul>
+                <button class="btn ghost full" style="margin-top: 15px;" disabled>Nuvarande plan</button>
+              </div>
+
+              <div class="listItem pricingCard" id="planCardPro"
+                style="padding: 16px; border-top: 2px solid var(--primary); position:relative;">
                 <div class="row gap">
                   <div class="title" style="font-size: 20px;">PRO</div>
                   <div class="pill ok">Rekommenderas</div>
                 </div>
-                <p class="muted small">Obegränsade tickets, prioriterad support och avancerad analys.</p>
-                <div class="row gap" style="margin-top: 10px;">
-                  <span style="font-size: 24px; font-weight: 900;">499 kr</span>
-                  <span class="muted small">/ mån per bolag</span>
-                </div>
-                <button id="upgradeToProBtn" class="btn primary full" style="margin-top: 15px;">Välj PRO Plan</button>
-              </div>
-
-              <div class="listItem" style="padding: 16px;">
-                <div class="title" style="font-size: 20px;">Enterprise</div>
-                <p class="muted small">Anpassade modeller, API-åtkomst och dedikerad Account Manager.</p>
-                <div class="row gap" style="margin-top: 10px;">
-                  <span style="font-size: 24px; font-weight: 800;">Offert</span>
-                </div>
-                <button class="btn ghost full" style="margin-top: 15px;" disabled>Kontakta oss</button>
+                <p class="muted small">Vårt mest populära paket för växande team.</p>
+                <div style="font-size: 24px; font-weight: 900; margin: 10px 0;">499 kr <span class="muted small"
+                    style="font-weight:400">/ mån</span></div>
+                <ul class="featureList">
+                  <li><i class="fa-solid fa-check"></i> 5000 meddelanden</li>
+                  <li><i class="fa-solid fa-check"></i> GPT-4 Turbo Access</li>
+                  <li><i class="fa-solid fa-check"></i> Obegränsat med agenter</li>
+                  <li><i class="fa-solid fa-check"></i> Premium Analytics</li>
+                </ul>
+                <button id="upgradeToProBtn" class="btn primary full" style="margin-top: 15px;">Uppgradera till
+                  Professional</button>
               </div>
             </div>
           </div>
 
-          <!-- Invoice History -->
+          <!-- Invoice History & Billing Actions -->
           <div class="panel">
-            <div class="panelHead"><b>Fakturahistorik</b></div>
+            <div class="panelHead"><b><i class="fa-solid fa-file-invoice-dollar"></i> Fakturahistorik</b></div>
             <div class="tableWrap" style="margin-top:10px;">
               <table class="table">
                 <thead>
@@ -806,13 +830,22 @@
                     <th>Datum</th>
                     <th>Belopp</th>
                     <th>Status</th>
-                    <th></th>
+                    <th style="text-align:right">Kvitto</th>
                   </tr>
                 </thead>
                 <tbody id="billingHistoryList">
                   <!-- Invoices populated by JS -->
                 </tbody>
               </table>
+            </div>
+
+            <div class="divider"></div>
+            <div class="panel soft" style="background: rgba(255,255,255,0.02)">
+              <b>Inställningar</b>
+              <p class="muted small">Hantera sparade kort och företagsinformation.</p>
+              <button id="manageBillingBtn" class="btn secondary full" style="margin-top:10px;">
+                <i class="fa-solid fa-external-link"></i> Öppna Stripe Portal
+              </button>
             </div>
           </div>
         </div>
