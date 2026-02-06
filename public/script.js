@@ -317,8 +317,20 @@ function renderSuggestions(list) {
 
 function renderChatHeader() {
   const c = state.currentCompany;
-  const el = $("chatTitle");
-  if (el) el.textContent = c ? `AI Kundtjänst – ${c.displayName}` : "AI Kundtjänst";
+  const titleEl = $("chatTitle");
+  const subtitleEl = $("chatSubtitle");
+
+  if (titleEl) {
+    titleEl.textContent = c ? `AI Kundtjänst – ${c.displayName}` : "AI Kundtjänst";
+  }
+
+  if (subtitleEl) {
+    if (c) {
+      subtitleEl.innerHTML = `<i class="fa-solid fa-building" style="margin-right:5px;"></i> Kunskapsbas: <b>${c.displayName}</b> (${c.companyId})`;
+    } else {
+      subtitleEl.textContent = "Ställ en fråga så hjälper jag dig direkt.";
+    }
+  }
 }
 
 function resetConversation() {
@@ -484,10 +496,67 @@ async function loadCompanies() {
     });
   }
 
+  // Also populate Inbox category filter
+  const inboxSel = $("inboxCategoryFilter");
+  if (inboxSel) {
+    inboxSel.innerHTML = '<option value="">Alla företag</option>';
+    state.companies.forEach((c) => {
+      const opt = document.createElement("option");
+      opt.value = c.companyId;
+      opt.textContent = `${c.companyId} - ${c.displayName}`;
+      inboxSel.appendChild(opt);
+    });
+  }
+
   state.currentCompany =
     state.companies.find((c) => c.companyId === state.companyId) || state.companies[0] || null;
 
   renderChatHeader();
+}
+
+/* Switch between companies */
+async function switchCompany(newCompanyId) {
+  if (!newCompanyId || newCompanyId === state.companyId) return;
+
+  state.companyId = newCompanyId;
+  state.currentCompany = state.companies.find((c) => c.companyId === newCompanyId) || null;
+
+  // Update the selector if it doesn't match
+  const sel = $("categorySelect");
+  if (sel && sel.value !== newCompanyId) {
+    sel.value = newCompanyId;
+  }
+
+  // Sync inbox filter with the selected company
+  const inboxSel = $("inboxCategoryFilter");
+  if (inboxSel) {
+    inboxSel.value = newCompanyId;
+  }
+
+  // Clear the current conversation and start fresh with new company context
+  clearMessages();
+  state.conversation = [];
+  state.activeTicketId = null;
+  state.activeTicketPublicId = null;
+
+  // Update the chat header to reflect the new company
+  renderChatHeader();
+
+  // Reload inbox if we're currently viewing it
+  if (state.currentView === "inboxView") {
+    await loadInboxTickets();
+  }
+
+  // Show notification
+  const companyName = state.currentCompany?.displayName || newCompanyId;
+  toast("Företag bytt", `Nu aktiv: ${companyName}`, "info");
+
+  // Render initial suggestions for the new company
+  renderSuggestions(["Hur fungerar det?", "Vilka priser har ni?", "Hjälp"]);
+  const suggestionsBox = $("suggestions");
+  if (suggestionsBox) suggestionsBox.style.display = "flex";
+
+  renderDebug();
 }
 
 async function bootstrapAfterLogin() {
@@ -686,6 +755,50 @@ async function loadInboxTickets() {
   const tickets = await api(`/inbox/tickets?status=${encodeURIComponent(status)}&companyId=${encodeURIComponent(companyId)}`);
   state.inboxTickets = tickets || [];
   renderInboxList();
+}
+
+function filterInboxBySearch() {
+  const query = $("inboxSearchInput")?.value?.toLowerCase()?.trim() || "";
+
+  if (!query) {
+    renderInboxList();
+    return;
+  }
+
+  const list = $("inboxTicketsList");
+  if (!list) return;
+  list.innerHTML = "";
+
+  const filtered = state.inboxTickets.filter(t => {
+    const title = (t.title || "").toLowerCase();
+    const publicId = (t.publicTicketId || "").toLowerCase();
+    const company = (t.companyId || "").toLowerCase();
+    return title.includes(query) || publicId.includes(query) || company.includes(query);
+  });
+
+  if (filtered.length === 0) {
+    list.innerHTML = `<div class="muted small">Inga tickets matchar "${escapeHtml(query)}".</div>`;
+    return;
+  }
+
+  filtered.forEach((t) => {
+    const div = document.createElement("div");
+    const isHigh = t.priority === "high";
+    const priClass = isHigh ? "danger" : t.priority === "low" ? "muted" : "info";
+
+    div.className = "listItem " + (isHigh ? "important-highlight" : "");
+    div.innerHTML = `
+      <div class="listItemTitle">
+        ${isHigh ? '<i class="fa-solid fa-triangle-exclamation" style="color:var(--danger)"></i> ' : ""}
+        ${escapeHtml(t.title || "Ticket")}
+        <span class="pill ${priClass}">${escapeHtml(t.priority || "normal")}</span>
+        <span class="pill">${escapeHtml(t.status)}</span>
+      </div>
+      <div class="muted small">${escapeHtml(t.publicTicketId)} • ${escapeHtml(t.companyId)} • ${new Date(t.lastActivityAt).toLocaleString('sv-SE')}</div>
+    `;
+    div.addEventListener("click", () => selectInboxTicket(t._id));
+    list.appendChild(div);
+  });
 }
 
 async function selectInboxTicket(ticketId) {
@@ -2467,6 +2580,33 @@ function bindEvents() {
   on("simShareBtn", "click", shareSimResult);
   on("simProductFile", "change", () => handleSimImageUpload("simProductFile", "simProductPreview", true));
   on("simRoomFile", "change", () => handleSimImageUpload("simRoomFile", "simRoomPreview", false));
+
+  // ✅ Company switching - syncs chat context and inbox
+  on("categorySelect", "change", (e) => {
+    const newCompanyId = e.target.value;
+    if (newCompanyId) {
+      switchCompany(newCompanyId);
+    }
+  });
+
+  // Inbox category filter - reload inbox when changed
+  on("inboxCategoryFilter", "change", () => {
+    loadInboxTickets();
+  });
+
+  // Inbox status filter - reload inbox when changed
+  on("inboxStatusFilter", "change", () => {
+    loadInboxTickets();
+  });
+
+  // Inbox search - debounced search
+  let inboxSearchTimeout = null;
+  on("inboxSearchInput", "input", () => {
+    clearTimeout(inboxSearchTimeout);
+    inboxSearchTimeout = setTimeout(() => {
+      filterInboxBySearch();
+    }, 300);
+  });
 
   // Chat send
   on("sendBtn", "click", sendChat);
