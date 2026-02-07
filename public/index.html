@@ -1892,6 +1892,49 @@
     </main>
   </div>
 
+  <!-- CUSTOMER FEEDBACK MODAL -->
+  <div id="feedbackModal" class="modal" style="display: none;">
+    <div class="modalContent" style="max-width: 400px; text-align: center;">
+      <div class="modalHeader">
+        <h3><i class="fa-solid fa-star" style="color: var(--warn);"></i> Hur var din upplevelse?</h3>
+        <button class="modalClose" onclick="closeFeedbackModal()">&times;</button>
+      </div>
+      <div class="modalBody" style="padding: 25px;">
+        <p class="muted" style="margin-bottom: 20px;">Din feedback hjälper oss att förbättra vår service!</p>
+
+        <!-- Star Rating -->
+        <div id="starRatingContainer" style="display: flex; justify-content: center; gap: 8px; margin-bottom: 20px;">
+          <button type="button" class="starBtn" data-rating="1" onclick="setFeedbackRating(1)"
+            style="background: none; border: none; cursor: pointer; font-size: 36px; color: var(--muted); transition: all 0.2s;">☆</button>
+          <button type="button" class="starBtn" data-rating="2" onclick="setFeedbackRating(2)"
+            style="background: none; border: none; cursor: pointer; font-size: 36px; color: var(--muted); transition: all 0.2s;">☆</button>
+          <button type="button" class="starBtn" data-rating="3" onclick="setFeedbackRating(3)"
+            style="background: none; border: none; cursor: pointer; font-size: 36px; color: var(--muted); transition: all 0.2s;">☆</button>
+          <button type="button" class="starBtn" data-rating="4" onclick="setFeedbackRating(4)"
+            style="background: none; border: none; cursor: pointer; font-size: 36px; color: var(--muted); transition: all 0.2s;">☆</button>
+          <button type="button" class="starBtn" data-rating="5" onclick="setFeedbackRating(5)"
+            style="background: none; border: none; cursor: pointer; font-size: 36px; color: var(--muted); transition: all 0.2s;">☆</button>
+        </div>
+
+        <input type="hidden" id="feedbackRatingValue" value="0" />
+        <input type="hidden" id="feedbackTargetType" value="ai" />
+        <input type="hidden" id="feedbackTargetAgentId" value="" />
+
+        <!-- Optional Comment -->
+        <textarea id="feedbackComment" class="input" rows="3" placeholder="Berätta mer (valfritt)..."
+          style="width: 100%; margin-bottom: 20px; resize: none;"></textarea>
+
+        <div style="display: flex; gap: 10px; justify-content: center;">
+          <button id="skipFeedbackBtn" class="btn ghost" onclick="closeFeedbackModal()" type="button">Hoppa
+            över</button>
+          <button id="submitFeedbackBtn" class="btn primary" onclick="submitCustomerFeedback()" type="button">
+            <i class="fa-solid fa-paper-plane"></i> Skicka
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <script src="script.js"></script>
 </body>
 

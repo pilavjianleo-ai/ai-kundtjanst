@@ -3568,6 +3568,18 @@ function bindEvents() {
   on("simProductFile", "change", () => handleSimImageUpload("simProductFile", "simProductPreview", true));
   on("simRoomFile", "change", () => handleSimImageUpload("simRoomFile", "simRoomPreview", false));
 
+  // ✅ FEEDBACK
+  on("openFeedbackView", "click", async () => {
+    showView("feedbackView", "openFeedbackView");
+    if (typeof loadFeedback === "function") await loadFeedback();
+  });
+  on("refreshFeedbackBtn", "click", () => { if (typeof loadFeedback === "function") loadFeedback(); });
+  on("clearFeedbackBtn", "click", () => { if (typeof clearFeedback === "function") clearFeedback(); });
+  on("getAiAnalysisBtn", "click", () => { if (typeof getAiAnalysis === "function") getAiAnalysis(); });
+  on("fbPeriodFilter", "change", () => { if (typeof loadFeedback === "function") loadFeedback(); });
+  on("fbTypeFilter", "change", () => { if (typeof loadFeedback === "function") loadFeedback(); });
+  on("fbAgentFilter", "change", () => { if (typeof loadFeedback === "function") loadFeedback(); });
+
   // ✅ Company switching - syncs chat context and inbox
   on("categorySelect", "change", (e) => {
     const newCompanyId = e.target.value;
@@ -3971,133 +3983,133 @@ init().catch((e) => {
 
 /* === INBOX ACTIONS === */
 async function inboxAction(action) {
-    const companyId = document.getElementById("inboxCategoryFilter")?.value || "";
+  const companyId = document.getElementById("inboxCategoryFilter")?.value || "";
 
-    if (action === 'solve') {
-        if (!confirm("Markera ALLA synliga ärenden som lösta?")) return;
-        try {
-            await api("/inbox/tickets/solve-all", { method: "PATCH", body: { companyId } });
-            toast("Klart", "Alla ärenden lösta", "success");
-            if (window.loadInboxTickets) window.loadInboxTickets();
-        } catch (e) { toast("Fel", e.message, "error"); }
-    }
+  if (action === 'solve') {
+    if (!confirm("Markera ALLA synliga ärenden som lösta?")) return;
+    try {
+      await api("/inbox/tickets/solve-all", { method: "PATCH", body: { companyId } });
+      toast("Klart", "Alla ärenden lösta", "success");
+      if (window.loadInboxTickets) window.loadInboxTickets();
+    } catch (e) { toast("Fel", e.message, "error"); }
+  }
 
-    if (action === 'remove') {
-        if (!confirm("Ta bort ALLA lösta ärenden permanent?")) return;
-        try {
-            await api(`/inbox/tickets/solved?companyId=${encodeURIComponent(companyId)}`, { method: "DELETE" });
-            toast("Klart", "Rensat lösta ärenden", "success");
-            if (window.loadInboxTickets) window.loadInboxTickets();
-        } catch (e) { toast("Fel", e.message, "error"); }
-    }
+  if (action === 'remove') {
+    if (!confirm("Ta bort ALLA lösta ärenden permanent?")) return;
+    try {
+      await api(`/inbox/tickets/solved?companyId=${encodeURIComponent(companyId)}`, { method: "DELETE" });
+      toast("Klart", "Rensat lösta ärenden", "success");
+      if (window.loadInboxTickets) window.loadInboxTickets();
+    } catch (e) { toast("Fel", e.message, "error"); }
+  }
 }
 
 function bindInboxActions() {
-    const solveBtn = document.getElementById("solveAllBtn");
-    const removeBtn = document.getElementById("removeSolvedBtn");
+  const solveBtn = document.getElementById("solveAllBtn");
+  const removeBtn = document.getElementById("removeSolvedBtn");
 
-    if (solveBtn) solveBtn.onclick = () => inboxAction('solve');
-    if (removeBtn) removeBtn.onclick = () => inboxAction('remove');
+  if (solveBtn) solveBtn.onclick = () => inboxAction('solve');
+  if (removeBtn) removeBtn.onclick = () => inboxAction('remove');
 
-    console.log("Inbox actions bound", { solveBtn, removeBtn });
+  console.log("Inbox actions bound", { solveBtn, removeBtn });
 }
 
 // Bind when DOM is ready
 if (document.readyState === "loading") {
-    document.addEventListener("DOMContentLoaded", bindInboxActions);
+  document.addEventListener("DOMContentLoaded", bindInboxActions);
 } else {
-    bindInboxActions();
+  bindInboxActions();
 }
 // Expose for re-binding
 window.bindInboxActions = bindInboxActions;
 
 /* === SAFETY OVERRIDE === */
 window.inboxAction = async function (action) {
-    const companyId = document.getElementById("inboxCategoryFilter")?.value || "";
+  const companyId = document.getElementById("inboxCategoryFilter")?.value || "";
 
-    if (!companyId) {
-        alert("Vänligen välj ett företag i filtret först för att undvika att påverka alla.");
-        return;
-    }
+  if (!companyId) {
+    alert("Vänligen välj ett företag i filtret först för att undvika att påverka alla.");
+    return;
+  }
 
-    if (action === 'solve') {
-        if (!confirm("Markera ALLA ärenden för detta företag som lösta?")) return;
-        try {
-            await api("/inbox/tickets/solve-all", { method: "PATCH", body: { companyId } });
-            toast("Klart", "Alla ärenden lösta", "success");
-            if (window.loadInboxTickets) window.loadInboxTickets();
-        } catch (e) { toast("Fel", e.message, "error"); }
-    }
+  if (action === 'solve') {
+    if (!confirm("Markera ALLA ärenden för detta företag som lösta?")) return;
+    try {
+      await api("/inbox/tickets/solve-all", { method: "PATCH", body: { companyId } });
+      toast("Klart", "Alla ärenden lösta", "success");
+      if (window.loadInboxTickets) window.loadInboxTickets();
+    } catch (e) { toast("Fel", e.message, "error"); }
+  }
 
-    if (action === 'remove') {
-        if (!confirm("Ta bort ALLA lösta ärenden permanent för detta företag?")) return;
-        try {
-            await api(`/inbox/tickets/solved?companyId=${encodeURIComponent(companyId)}`, { method: "DELETE" });
-            toast("Klart", "Rensat lösta ärenden", "success");
-            if (window.loadInboxTickets) window.loadInboxTickets();
-        } catch (e) { toast("Fel", e.message, "error"); }
-    }
+  if (action === 'remove') {
+    if (!confirm("Ta bort ALLA lösta ärenden permanent för detta företag?")) return;
+    try {
+      await api(`/inbox/tickets/solved?companyId=${encodeURIComponent(companyId)}`, { method: "DELETE" });
+      toast("Klart", "Rensat lösta ärenden", "success");
+      if (window.loadInboxTickets) window.loadInboxTickets();
+    } catch (e) { toast("Fel", e.message, "error"); }
+  }
 };
 
 // Re-bind buttons to use the safe global function
 function rebindSafeActions() {
-    const solveBtn = document.getElementById("solveAllBtn");
-    const removeBtn = document.getElementById("removeSolvedBtn");
-    if (solveBtn) solveBtn.onclick = () => window.inboxAction('solve');
-    if (removeBtn) removeBtn.onclick = () => window.inboxAction('remove');
-    console.log("Safe Inbox Actions Bound");
+  const solveBtn = document.getElementById("solveAllBtn");
+  const removeBtn = document.getElementById("removeSolvedBtn");
+  if (solveBtn) solveBtn.onclick = () => window.inboxAction('solve');
+  if (removeBtn) removeBtn.onclick = () => window.inboxAction('remove');
+  console.log("Safe Inbox Actions Bound");
 }
 // Run immediately and on DOMContentLoaded just in case
 rebindSafeActions();
 if (document.readyState === "loading") {
-    document.addEventListener("DOMContentLoaded", rebindSafeActions);
+  document.addEventListener("DOMContentLoaded", rebindSafeActions);
 }
 
 /* === UPDATED INBOX ACTION (SMART SCOPE) === */
 window.inboxAction = async function (action) {
-    const filterEl = document.getElementById("inboxCategoryFilter");
-    const companyId = filterEl?.value || "";
+  const filterEl = document.getElementById("inboxCategoryFilter");
+  const companyId = filterEl?.value || "";
 
-    console.log(`Executing Inbox Action: ${action} for Company: '${companyId}'`);
+  console.log(`Executing Inbox Action: ${action} for Company: '${companyId}'`);
 
-    // 1. Check Scope & Confirm
-    if (!companyId) {
-        // Global scope warning
-        if (action === 'solve') {
-            if (!confirm("Du har inte valt något företag. Detta kommer markera ALLA ärenden i HELA systemet som lösta. Är du säker?")) return;
-        } else if (action === 'remove') {
-            if (!confirm("Du har inte valt något företag. Detta kommer RADERA ALLA lösta ärenden i HELA systemet. Är du säker?")) return;
-        }
-    } else {
-        // Company scope confirm
-        const companyName = filterEl.options[filterEl.selectedIndex]?.text || "valt företag";
-        if (action === 'solve') {
-            if (!confirm(`Markera alla ärenden för ${companyName} som lösta?`)) return;
-        } else if (action === 'remove') {
-            if (!confirm(`Ta bort alla lösta ärenden för ${companyName}?`)) return;
-        }
+  // 1. Check Scope & Confirm
+  if (!companyId) {
+    // Global scope warning
+    if (action === 'solve') {
+      if (!confirm("Du har inte valt något företag. Detta kommer markera ALLA ärenden i HELA systemet som lösta. Är du säker?")) return;
+    } else if (action === 'remove') {
+      if (!confirm("Du har inte valt något företag. Detta kommer RADERA ALLA lösta ärenden i HELA systemet. Är du säker?")) return;
+    }
+  } else {
+    // Company scope confirm
+    const companyName = filterEl.options[filterEl.selectedIndex]?.text || "valt företag";
+    if (action === 'solve') {
+      if (!confirm(`Markera alla ärenden för ${companyName} som lösta?`)) return;
+    } else if (action === 'remove') {
+      if (!confirm(`Ta bort alla lösta ärenden för ${companyName}?`)) return;
+    }
+  }
+
+  // 2. Execute
+  try {
+    if (action === 'solve') {
+      const res = await api("/inbox/tickets/solve-all", { method: "PATCH", body: { companyId } });
+      toast("Klart", res.message || "Buntåtgärd utförd", "success");
+    }
+    else if (action === 'remove') {
+      // Pass explicitly via query param
+      const url = `/inbox/tickets/solved?companyId=${encodeURIComponent(companyId)}`;
+      console.log("Calling DELETE:", url);
+      const res = await api(url, { method: "DELETE" });
+      toast("Klart", res.message || "Rensning utförd", "success");
     }
 
-    // 2. Execute
-    try {
-        if (action === 'solve') {
-            const res = await api("/inbox/tickets/solve-all", { method: "PATCH", body: { companyId } });
-            toast("Klart", res.message || "Buntåtgärd utförd", "success");
-        }
-        else if (action === 'remove') {
-            // Pass explicitly via query param
-            const url = `/inbox/tickets/solved?companyId=${encodeURIComponent(companyId)}`;
-            console.log("Calling DELETE:", url);
-            const res = await api(url, { method: "DELETE" });
-            toast("Klart", res.message || "Rensning utförd", "success");
-        }
+    if (window.loadInboxTickets) window.loadInboxTickets();
 
-        if (window.loadInboxTickets) window.loadInboxTickets();
-
-    } catch (e) {
-        console.error("Inbox Action Failed:", e);
-        toast("Fel", e.message, "error");
-    }
+  } catch (e) {
+    console.error("Inbox Action Failed:", e);
+    toast("Fel", e.message, "error");
+  }
 };
 
 // Rebind
@@ -4112,131 +4124,131 @@ if (removeBtn) removeBtn.onclick = () => window.inboxAction('remove');
 
 // Show Feedback view for agents/admins
 function initFeedbackView() {
-    const fbBtn = document.getElementById("openFeedbackView");
-    if (fbBtn && window.currentUser && ["agent", "admin"].includes(window.currentUser.role)) {
-        fbBtn.style.display = "";
-        fbBtn.onclick = () => showView("feedbackView");
-    }
+  const fbBtn = document.getElementById("openFeedbackView");
+  if (fbBtn && window.currentUser && ["agent", "admin"].includes(window.currentUser.role)) {
+    fbBtn.style.display = "";
+    fbBtn.onclick = () => showView("feedbackView");
+  }
 
-    // Show admin-only elements
-    if (window.currentUser?.role === "admin") {
-        const clearBtn = document.getElementById("clearFeedbackBtn");
-        if (clearBtn) clearBtn.style.display = "";
-
-        const agentPanel = document.getElementById("agentLeaderboardPanel");
-        if (agentPanel) agentPanel.style.display = "";
-
-        const agentFilterWrap = document.getElementById("fbAgentFilterWrap");
-        if (agentFilterWrap) agentFilterWrap.style.display = "";
-    }
-
-    // Bind events
-    const refreshBtn = document.getElementById("refreshFeedbackBtn");
-    if (refreshBtn) refreshBtn.onclick = loadFeedback;
-
+  // Show admin-only elements
+  if (window.currentUser?.role === "admin") {
     const clearBtn = document.getElementById("clearFeedbackBtn");
-    if (clearBtn) clearBtn.onclick = clearFeedback;
+    if (clearBtn) clearBtn.style.display = "";
 
-    const aiBtn = document.getElementById("getAiAnalysisBtn");
-    if (aiBtn) aiBtn.onclick = getAiAnalysis;
+    const agentPanel = document.getElementById("agentLeaderboardPanel");
+    if (agentPanel) agentPanel.style.display = "";
 
-    // Filter changes
-    const periodFilter = document.getElementById("fbPeriodFilter");
-    const typeFilter = document.getElementById("fbTypeFilter");
-    const agentFilter = document.getElementById("fbAgentFilter");
+    const agentFilterWrap = document.getElementById("fbAgentFilterWrap");
+    if (agentFilterWrap) agentFilterWrap.style.display = "";
+  }
 
-    if (periodFilter) periodFilter.onchange = loadFeedback;
-    if (typeFilter) typeFilter.onchange = loadFeedback;
-    if (agentFilter) agentFilter.onchange = loadFeedback;
+  // Bind events
+  const refreshBtn = document.getElementById("refreshFeedbackBtn");
+  if (refreshBtn) refreshBtn.onclick = loadFeedback;
+
+  const clearBtn = document.getElementById("clearFeedbackBtn");
+  if (clearBtn) clearBtn.onclick = clearFeedback;
+
+  const aiBtn = document.getElementById("getAiAnalysisBtn");
+  if (aiBtn) aiBtn.onclick = getAiAnalysis;
+
+  // Filter changes
+  const periodFilter = document.getElementById("fbPeriodFilter");
+  const typeFilter = document.getElementById("fbTypeFilter");
+  const agentFilter = document.getElementById("fbAgentFilter");
+
+  if (periodFilter) periodFilter.onchange = loadFeedback;
+  if (typeFilter) typeFilter.onchange = loadFeedback;
+  if (agentFilter) agentFilter.onchange = loadFeedback;
 }
 
 // Load Feedback
 async function loadFeedback() {
-    try {
-        const periodEl = document.getElementById("fbPeriodFilter");
-        const typeEl = document.getElementById("fbTypeFilter");
-        const agentEl = document.getElementById("fbAgentFilter");
+  try {
+    const periodEl = document.getElementById("fbPeriodFilter");
+    const typeEl = document.getElementById("fbTypeFilter");
+    const agentEl = document.getElementById("fbAgentFilter");
 
-        const days = periodEl?.value || "30";
-        const targetType = typeEl?.value || "";
-        const agentId = agentEl?.value || "";
+    const days = periodEl?.value || "30";
+    const targetType = typeEl?.value || "";
+    const agentId = agentEl?.value || "";
 
-        // Build query
-        let query = `?limit=100`;
-        if (days !== "all") {
-            const startDate = new Date();
-            startDate.setDate(startDate.getDate() - parseInt(days));
-            query += `&startDate=${startDate.toISOString()}`;
-        }
-        if (targetType) query += `&targetType=${targetType}`;
-        if (agentId) query += `&agentId=${agentId}`;
-
-        const data = await api(`/feedback${query}`);
-
-        // Update stats
-        const statAvg = document.getElementById("fbStatAvg");
-        const statTotal = document.getElementById("fbStatTotal");
-        const statAgents = document.getElementById("fbStatAgents");
-        const statAi = document.getElementById("fbStatAi");
-
-        if (statAvg) statAvg.textContent = data.stats?.avgRating?.toFixed(1) || "-";
-        if (statTotal) statTotal.textContent = data.stats?.totalCount || 0;
-        if (statAgents) statAgents.textContent = data.stats?.agentCount || 0;
-        if (statAi) statAi.textContent = data.stats?.aiCount || 0;
-
-        // Update rating distribution bars
-        const dist = data.stats?.ratingDistribution || {};
-        const maxCount = Math.max(...Object.values(dist), 1);
-
-        for (let i = 1; i <= 5; i++) {
-            const bar = document.getElementById(`rating${i}Bar`);
-            const count = document.getElementById(`rating${i}Count`);
-            const val = dist[i] || 0;
-            if (bar) bar.style.width = `${(val / maxCount) * 100}%`;
-            if (count) count.textContent = val;
-        }
-
-        // Render feedback list
-        renderFeedbackList(data.feedback || []);
-
-        // Update list count
-        const listCount = document.getElementById("fbListCount");
-        if (listCount) listCount.textContent = (data.feedback?.length || 0);
-
-        // Load agent leaderboard (admin only)
-        if (window.currentUser?.role === "admin") {
-            loadAgentLeaderboard(days);
-        }
-
-    } catch (e) {
-        console.error("Load Feedback Error:", e);
-        toast("Fel", "Kunde inte ladda feedback", "error");
+    // Build query
+    let query = `?limit=100`;
+    if (days !== "all") {
+      const startDate = new Date();
+      startDate.setDate(startDate.getDate() - parseInt(days));
+      query += `&startDate=${startDate.toISOString()}`;
     }
+    if (targetType) query += `&targetType=${targetType}`;
+    if (agentId) query += `&agentId=${agentId}`;
+
+    const data = await api(`/feedback${query}`);
+
+    // Update stats
+    const statAvg = document.getElementById("fbStatAvg");
+    const statTotal = document.getElementById("fbStatTotal");
+    const statAgents = document.getElementById("fbStatAgents");
+    const statAi = document.getElementById("fbStatAi");
+
+    if (statAvg) statAvg.textContent = data.stats?.avgRating?.toFixed(1) || "-";
+    if (statTotal) statTotal.textContent = data.stats?.totalCount || 0;
+    if (statAgents) statAgents.textContent = data.stats?.agentCount || 0;
+    if (statAi) statAi.textContent = data.stats?.aiCount || 0;
+
+    // Update rating distribution bars
+    const dist = data.stats?.ratingDistribution || {};
+    const maxCount = Math.max(...Object.values(dist), 1);
+
+    for (let i = 1; i <= 5; i++) {
+      const bar = document.getElementById(`rating${i}Bar`);
+      const count = document.getElementById(`rating${i}Count`);
+      const val = dist[i] || 0;
+      if (bar) bar.style.width = `${(val / maxCount) * 100}%`;
+      if (count) count.textContent = val;
+    }
+
+    // Render feedback list
+    renderFeedbackList(data.feedback || []);
+
+    // Update list count
+    const listCount = document.getElementById("fbListCount");
+    if (listCount) listCount.textContent = (data.feedback?.length || 0);
+
+    // Load agent leaderboard (admin only)
+    if (window.currentUser?.role === "admin") {
+      loadAgentLeaderboard(days);
+    }
+
+  } catch (e) {
+    console.error("Load Feedback Error:", e);
+    toast("Fel", "Kunde inte ladda feedback", "error");
+  }
 }
 
 // Render Feedback List
 function renderFeedbackList(feedbackList) {
-    const container = document.getElementById("feedbackListContainer");
-    if (!container) return;
+  const container = document.getElementById("feedbackListContainer");
+  if (!container) return;
 
-    if (!feedbackList.length) {
-        container.innerHTML = `
+  if (!feedbackList.length) {
+    container.innerHTML = `
       <div class="muted center" style="padding: 40px;">
         <i class="fa-solid fa-inbox" style="font-size: 48px; margin-bottom: 15px; display: block; opacity: 0.5;"></i>
         Ingen feedback ännu
       </div>`;
-        return;
-    }
+    return;
+  }
 
-    container.innerHTML = feedbackList.map(fb => {
-        const stars = "★".repeat(fb.rating) + "☆".repeat(5 - fb.rating);
-        const starColor = fb.rating >= 4 ? "var(--ok)" : fb.rating >= 3 ? "var(--warn)" : "var(--danger)";
-        const typeIcon = fb.targetType === "ai" ? "fa-robot" : "fa-user-tie";
-        const typeBadge = fb.targetType === "ai" ? "AI" : (fb.targetAgentId?.username || "Agent");
-        const date = new Date(fb.createdAt).toLocaleDateString("sv-SE", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" });
-        const username = fb.userId?.username || "Anonym";
+  container.innerHTML = feedbackList.map(fb => {
+    const stars = "★".repeat(fb.rating) + "☆".repeat(5 - fb.rating);
+    const starColor = fb.rating >= 4 ? "var(--ok)" : fb.rating >= 3 ? "var(--warn)" : "var(--danger)";
+    const typeIcon = fb.targetType === "ai" ? "fa-robot" : "fa-user-tie";
+    const typeBadge = fb.targetType === "ai" ? "AI" : (fb.targetAgentId?.username || "Agent");
+    const date = new Date(fb.createdAt).toLocaleDateString("sv-SE", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" });
+    const username = fb.userId?.username || "Anonym";
 
-        return `
+    return `
       <div class="listItem feedbackItem" style="padding: 16px; border-left: 3px solid ${starColor};">
         <div class="row" style="justify-content: space-between; align-items: flex-start;">
           <div>
@@ -4259,74 +4271,74 @@ function renderFeedbackList(feedbackList) {
         </div>
       </div>
     `;
-    }).join("");
+  }).join("");
 }
 
 // Delete single feedback
 async function deleteFeedback(id) {
-    if (!confirm("Radera denna feedback?")) return;
-    try {
-        await api(`/feedback/${id}`, { method: "DELETE" });
-        toast("Klart", "Feedback raderad", "success");
-        loadFeedback();
-    } catch (e) {
-        toast("Fel", e.message, "error");
-    }
+  if (!confirm("Radera denna feedback?")) return;
+  try {
+    await api(`/feedback/${id}`, { method: "DELETE" });
+    toast("Klart", "Feedback raderad", "success");
+    loadFeedback();
+  } catch (e) {
+    toast("Fel", e.message, "error");
+  }
 }
 
 // Clear all feedback (Admin)
 async function clearFeedback() {
-    if (!confirm("VARNING: Detta raderar ALL feedback inom vald period. Är du säker?")) return;
+  if (!confirm("VARNING: Detta raderar ALL feedback inom vald period. Är du säker?")) return;
 
-    try {
-        const periodEl = document.getElementById("fbPeriodFilter");
-        const typeEl = document.getElementById("fbTypeFilter");
+  try {
+    const periodEl = document.getElementById("fbPeriodFilter");
+    const typeEl = document.getElementById("fbTypeFilter");
 
-        const days = periodEl?.value || "30";
-        const targetType = typeEl?.value || "";
+    const days = periodEl?.value || "30";
+    const targetType = typeEl?.value || "";
 
-        let query = "?";
-        if (days !== "all") {
-            const startDate = new Date();
-            startDate.setDate(startDate.getDate() - parseInt(days));
-            query += `startDate=${startDate.toISOString()}&`;
-        }
-        if (targetType) query += `targetType=${targetType}`;
-
-        const res = await api(`/feedback/clear${query}`, { method: "DELETE" });
-        toast("Klart", res.message, "success");
-        loadFeedback();
-    } catch (e) {
-        toast("Fel", e.message, "error");
+    let query = "?";
+    if (days !== "all") {
+      const startDate = new Date();
+      startDate.setDate(startDate.getDate() - parseInt(days));
+      query += `startDate=${startDate.toISOString()}&`;
     }
+    if (targetType) query += `targetType=${targetType}`;
+
+    const res = await api(`/feedback/clear${query}`, { method: "DELETE" });
+    toast("Klart", res.message, "success");
+    loadFeedback();
+  } catch (e) {
+    toast("Fel", e.message, "error");
+  }
 }
 
 // AI Analysis
 async function getAiAnalysis() {
-    const container = document.getElementById("aiAnalysisContent");
-    if (!container) return;
+  const container = document.getElementById("aiAnalysisContent");
+  if (!container) return;
 
-    container.innerHTML = `
+  container.innerHTML = `
     <div style="text-align: center; padding: 30px;">
       <i class="fa-solid fa-spinner fa-spin" style="font-size: 32px; color: var(--primary);"></i>
       <p class="muted" style="margin-top: 10px;">Analyserar feedback med AI...</p>
     </div>`;
 
-    try {
-        const periodEl = document.getElementById("fbPeriodFilter");
-        const days = periodEl?.value || "30";
+  try {
+    const periodEl = document.getElementById("fbPeriodFilter");
+    const days = periodEl?.value || "30";
 
-        const data = await api(`/feedback/ai-analysis?days=${days}`);
+    const data = await api(`/feedback/ai-analysis?days=${days}`);
 
-        const sentimentIcon = data.sentiment === "positive" ? "fa-face-smile text-ok"
-            : data.sentiment === "negative" ? "fa-face-frown text-danger"
-                : "fa-face-meh text-warn";
+    const sentimentIcon = data.sentiment === "positive" ? "fa-face-smile text-ok"
+      : data.sentiment === "negative" ? "fa-face-frown text-danger"
+        : "fa-face-meh text-warn";
 
-        const sentimentText = data.sentiment === "positive" ? "Positivt"
-            : data.sentiment === "negative" ? "Negativt"
-                : "Neutralt";
+    const sentimentText = data.sentiment === "positive" ? "Positivt"
+      : data.sentiment === "negative" ? "Negativt"
+        : "Neutralt";
 
-        container.innerHTML = `
+    container.innerHTML = `
       <div class="aiAnalysisResult">
         <div class="row gap" style="margin-bottom: 15px; align-items: center;">
           <i class="fa-solid ${sentimentIcon}" style="font-size: 28px;"></i>
@@ -4358,32 +4370,32 @@ async function getAiAnalysis() {
       </div>
     `;
 
-    } catch (e) {
-        container.innerHTML = `
+  } catch (e) {
+    container.innerHTML = `
       <div class="alert error">
         <i class="fa-solid fa-exclamation-circle"></i> Kunde inte generera analys: ${e.message}
       </div>`;
-    }
+  }
 }
 
 // Agent Leaderboard (Admin)
 async function loadAgentLeaderboard(days = 30) {
-    const container = document.getElementById("agentLeaderboardList");
-    if (!container) return;
+  const container = document.getElementById("agentLeaderboardList");
+  if (!container) return;
 
-    try {
-        const data = await api(`/feedback/agents?days=${days}`);
+  try {
+    const data = await api(`/feedback/agents?days=${days}`);
 
-        if (!data.agents?.length) {
-            container.innerHTML = `<div class="muted center" style="padding: 20px;">Ingen agent-feedback ännu</div>`;
-            return;
-        }
+    if (!data.agents?.length) {
+      container.innerHTML = `<div class="muted center" style="padding: 20px;">Ingen agent-feedback ännu</div>`;
+      return;
+    }
 
-        container.innerHTML = data.agents.map((agent, idx) => {
-            const medal = idx === 0 ? "🥇" : idx === 1 ? "🥈" : idx === 2 ? "🥉" : `#${idx + 1}`;
-            const ratingColor = agent.avgRating >= 4.5 ? "var(--ok)" : agent.avgRating >= 3.5 ? "var(--warn)" : "var(--danger)";
+    container.innerHTML = data.agents.map((agent, idx) => {
+      const medal = idx === 0 ? "🥇" : idx === 1 ? "🥈" : idx === 2 ? "🥉" : `#${idx + 1}`;
+      const ratingColor = agent.avgRating >= 4.5 ? "var(--ok)" : agent.avgRating >= 3.5 ? "var(--warn)" : "var(--danger)";
 
-            return `
+      return `
         <div class="listItem" style="padding: 12px; display: flex; align-items: center; gap: 12px;">
           <span style="font-size: 24px; width: 40px; text-align: center;">${medal}</span>
           <div style="flex: 1;">
@@ -4396,52 +4408,177 @@ async function loadAgentLeaderboard(days = 30) {
           </div>
         </div>
       `;
-        }).join("");
+    }).join("");
 
-        // Populate agent filter dropdown
-        const agentFilter = document.getElementById("fbAgentFilter");
-        if (agentFilter && data.agents.length) {
-            const currentVal = agentFilter.value;
-            agentFilter.innerHTML = `<option value="">Alla agenter</option>` +
-                data.agents.map(a => `<option value="${a.agentId}">${a.agentName}</option>`).join("");
-            agentFilter.value = currentVal;
-        }
-
-    } catch (e) {
-        console.error("Leaderboard Error:", e);
+    // Populate agent filter dropdown
+    const agentFilter = document.getElementById("fbAgentFilter");
+    if (agentFilter && data.agents.length) {
+      const currentVal = agentFilter.value;
+      agentFilter.innerHTML = `<option value="">Alla agenter</option>` +
+        data.agents.map(a => `<option value="${a.agentId}">${a.agentName}</option>`).join("");
+      agentFilter.value = currentVal;
     }
+
+  } catch (e) {
+    console.error("Leaderboard Error:", e);
+  }
 }
 
 // Stars helper for rendering
 function renderStars(rating) {
-    return "★".repeat(rating) + "☆".repeat(5 - rating);
+  return "★".repeat(rating) + "☆".repeat(5 - rating);
 }
 
 // Initialize on view change
 const originalShowView = window.showView || function () { };
 window.showView = function (viewId) {
-    originalShowView(viewId);
-    if (viewId === "feedbackView") {
-        loadFeedback();
-    }
+  originalShowView(viewId);
+  if (viewId === "feedbackView") {
+    loadFeedback();
+  }
 };
 
 // Init when DOM ready
 if (document.readyState === "loading") {
-    document.addEventListener("DOMContentLoaded", () => setTimeout(initFeedbackView, 500));
+  document.addEventListener("DOMContentLoaded", () => setTimeout(initFeedbackView, 500));
 } else {
-    setTimeout(initFeedbackView, 500);
+  setTimeout(initFeedbackView, 500);
 }
 
 // Listen for new feedback in real-time
 if (window.socket) {
-    window.socket.on("newFeedback", () => {
-        const fbNotif = document.getElementById("feedbackNotifDot");
-        if (fbNotif) fbNotif.style.display = "";
-        // Reload if on feedback view
-        const fbView = document.getElementById("feedbackView");
-        if (fbView && fbView.style.display !== "none") {
-            loadFeedback();
+  window.socket.on("newFeedback", () => {
+    const fbNotif = document.getElementById("feedbackNotifDot");
+    if (fbNotif) fbNotif.style.display = "";
+    // Reload if on feedback view
+    const fbView = document.getElementById("feedbackView");
+    if (fbView && fbView.style.display !== "none") {
+      loadFeedback();
+    }
+  });
+}
+
+/* =====================
+   CUSTOMER FEEDBACK MODAL 
+===================== */
+
+let currentFeedbackRating = 0;
+
+function openFeedbackModal(targetType = "ai", targetAgentId = null) {
+    const modal = $("feedbackModal");
+    if (!modal) return;
+
+    // Reset
+    currentFeedbackRating = 0;
+    $("feedbackRatingValue").value = "0";
+    $("feedbackComment").value = "";
+    $("feedbackTargetType").value = targetType;
+    $("feedbackTargetAgentId").value = targetAgentId || "";
+
+    // Reset stars
+    document.querySelectorAll("#starRatingContainer .starBtn").forEach(btn => {
+        btn.textContent = "☆";
+        btn.style.color = "var(--muted)";
+    });
+
+    modal.style.display = "flex";
+}
+
+function closeFeedbackModal() {
+    const modal = $("feedbackModal");
+    if (modal) modal.style.display = "none";
+}
+
+function setFeedbackRating(rating) {
+    currentFeedbackRating = rating;
+    $("feedbackRatingValue").value = rating;
+
+    // Update star display
+    document.querySelectorAll("#starRatingContainer .starBtn").forEach(btn => {
+        const btnRating = parseInt(btn.getAttribute("data-rating"));
+        if (btnRating <= rating) {
+            btn.textContent = "★";
+            btn.style.color = "var(--warn)";
+        } else {
+            btn.textContent = "☆";
+            btn.style.color = "var(--muted)";
         }
     });
 }
+
+async function submitCustomerFeedback() {
+    const rating = parseInt($("feedbackRatingValue").value) || 0;
+    const comment = $("feedbackComment")?.value?.trim() || "";
+    const targetType = $("feedbackTargetType")?.value || "ai";
+    const targetAgentId = $("feedbackTargetAgentId")?.value || null;
+
+    if (rating < 1 || rating > 5) {
+        toast("Välj betyg", "Klicka på 1-5 stjärnor", "error");
+        return;
+    }
+
+    try {
+        await api("/feedback", {
+            method: "POST",
+            body: {
+                rating,
+                comment,
+                targetType,
+                targetAgentId: targetAgentId || null,
+                companyId: state.companyId,
+                ticketId: state.activeTicketId || null
+            }
+        });
+
+        toast("Tack! 🌟", "Din feedback har skickats", "success");
+        closeFeedbackModal();
+    } catch (e) {
+        toast("Fel", e.message, "error");
+    }
+}
+
+// Trigger feedback modal after ticket is solved or chat ends
+function promptForFeedback(targetType = "ai", targetAgentId = null) {
+    // Only show if not shown recently
+    const lastPrompt = localStorage.getItem("lastFeedbackPrompt");
+    const now = Date.now();
+
+    // Don't show more than once per hour
+    if (lastPrompt && (now - parseInt(lastPrompt)) < 3600000) {
+        return;
+    }
+
+    localStorage.setItem("lastFeedbackPrompt", now.toString());
+
+    setTimeout(() => {
+        openFeedbackModal(targetType, targetAgentId);
+    }, 1000);
+}
+
+// Make functions globally available
+window.openFeedbackModal = openFeedbackModal;
+window.closeFeedbackModal = closeFeedbackModal;
+window.setFeedbackRating = setFeedbackRating;
+window.submitCustomerFeedback = submitCustomerFeedback;
+window.promptForFeedback = promptForFeedback;
+
+// Add a "Rate this chat" button to chat view
+function addFeedbackButton() {
+    const chatActions = document.querySelector(".chatActions") || document.querySelector("#chatView .topbarActions");
+    if (!chatActions) return;
+
+    // Check if already added
+    if (document.getElementById("rateChatBtn")) return;
+
+    const btn = document.createElement("button");
+    btn.id = "rateChatBtn";
+    btn.className = "btn ghost";
+    btn.type = "button";
+    btn.innerHTML = '<i class="fa-solid fa-star"></i> Betygsätt';
+    btn.onclick = () => openFeedbackModal("ai");
+
+    chatActions.appendChild(btn);
+}
+
+// Add button on load
+setTimeout(addFeedbackButton, 1000);
