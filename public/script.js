@@ -110,6 +110,7 @@ function hideAllViews() {
     "billingView",
     "customerSettingsView",
     "simulatorView",
+    "feedbackView",
   ];
   views.forEach((v) => {
     const el = $(v);
