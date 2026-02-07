@@ -112,6 +112,7 @@ function hideAllViews() {
     "simulatorView",
     "feedbackView",
     "scenarioView",
+    "salesView",
   ];
   views.forEach((v) => {
     const el = $(v);
@@ -5006,255 +5007,255 @@ window.initScenarioPlanner = initScenarioPlanner;
 
 // Initialize Sales Analytics
 async function initSalesAnalytics() {
-    bindSalesTabs();
-    bindSalesEvents();
-    await loadSalesData();
+  bindSalesTabs();
+  bindSalesEvents();
+  await loadSalesData();
 }
 
 function bindSalesTabs() {
-    const tabs = document.querySelectorAll(".salesTabBtn");
-    tabs.forEach(tab => {
-        tab.onclick = () => {
-            tabs.forEach(t => t.classList.remove("active"));
-            document.querySelectorAll(".salesTabContent").forEach(c => c.style.display = "none");
-            tab.classList.add("active");
-            const targetId = tab.getAttribute("data-tab");
-            const target = $(targetId);
-            if (target) target.style.display = "";
-        };
-    });
+  const tabs = document.querySelectorAll(".salesTabBtn");
+  tabs.forEach(tab => {
+    tab.onclick = () => {
+      tabs.forEach(t => t.classList.remove("active"));
+      document.querySelectorAll(".salesTabContent").forEach(c => c.style.display = "none");
+      tab.classList.add("active");
+      const targetId = tab.getAttribute("data-tab");
+      const target = $(targetId);
+      if (target) target.style.display = "";
+    };
+  });
 }
 
 function bindSalesEvents() {
-    const periodFilter = $("salesPeriodFilter");
-    if (periodFilter) periodFilter.onchange = loadSalesData;
+  const periodFilter = $("salesPeriodFilter");
+  if (periodFilter) periodFilter.onchange = loadSalesData;
 
-    const refreshBtn = $("refreshSalesBtn");
-    if (refreshBtn) refreshBtn.onclick = loadSalesData;
+  const refreshBtn = $("refreshSalesBtn");
+  if (refreshBtn) refreshBtn.onclick = loadSalesData;
 
-    const exportBtn = $("exportSalesBtn");
-    if (exportBtn) exportBtn.onclick = exportSalesReport;
+  const exportBtn = $("exportSalesBtn");
+  if (exportBtn) exportBtn.onclick = exportSalesReport;
 }
 
 async function loadSalesData() {
-    const days = parseInt($("salesPeriodFilter")?.value || 30);
+  const days = parseInt($("salesPeriodFilter")?.value || 30);
 
-    // Since we don't have real sales data yet, generate demo/simulation data
-    const data = generateDemoSalesData(days);
+  // Since we don't have real sales data yet, generate demo/simulation data
+  const data = generateDemoSalesData(days);
 
-    // Update top KPIs
-    $("salesTotalRevenue").textContent = formatCurrency(data.totalRevenue);
-    $("salesTotalOrders").textContent = data.totalOrders.toLocaleString("sv-SE");
-    $("salesAov").textContent = formatCurrency(data.aov);
-    $("salesConversionRate").textContent = data.conversionRate + "%";
-    $("salesAiRevenue").textContent = formatCurrency(data.aiRevenue);
+  // Update top KPIs
+  $("salesTotalRevenue").textContent = formatCurrency(data.totalRevenue);
+  $("salesTotalOrders").textContent = data.totalOrders.toLocaleString("sv-SE");
+  $("salesAov").textContent = formatCurrency(data.aov);
+  $("salesConversionRate").textContent = data.conversionRate + "%";
+  $("salesAiRevenue").textContent = formatCurrency(data.aiRevenue);
 
-    // Update all metrics
-    updateSalesMetrics(data);
-    updateProductsList(data.topProducts);
-    updateIntentsList(data.salesByIntent);
-    updateHighProbLeads(data.highProbLeads);
-    updateChurnRiskList(data.highChurnRisk);
+  // Update all metrics
+  updateSalesMetrics(data);
+  updateProductsList(data.topProducts);
+  updateIntentsList(data.salesByIntent);
+  updateHighProbLeads(data.highProbLeads);
+  updateChurnRiskList(data.highChurnRisk);
 }
 
 function generateDemoSalesData(days) {
-    const multiplier = days / 30;
-    const baseOrders = Math.round(247 * multiplier);
-    const baseRevenue = Math.round(487500 * multiplier);
+  const multiplier = days / 30;
+  const baseOrders = Math.round(247 * multiplier);
+  const baseRevenue = Math.round(487500 * multiplier);
 
-    return {
-        // Core
-        totalRevenue: baseRevenue,
-        totalOrders: baseOrders,
-        aov: Math.round(baseRevenue / baseOrders),
-        revenuePerConv: Math.round(baseRevenue / (baseOrders * 3.2)),
-        revenuePerAi: Math.round(baseRevenue * 0.65 / (baseOrders * 0.65)),
-        conversionRate: 12.4,
-        aiRevenue: Math.round(baseRevenue * 0.65),
+  return {
+    // Core
+    totalRevenue: baseRevenue,
+    totalOrders: baseOrders,
+    aov: Math.round(baseRevenue / baseOrders),
+    revenuePerConv: Math.round(baseRevenue / (baseOrders * 3.2)),
+    revenuePerAi: Math.round(baseRevenue * 0.65 / (baseOrders * 0.65)),
+    conversionRate: 12.4,
+    aiRevenue: Math.round(baseRevenue * 0.65),
 
-        // Funnel
-        convStarted: Math.round(baseOrders * 8.1),
-        offersShown: Math.round(baseOrders * 4.2),
-        offersClicked: Math.round(baseOrders * 2.1),
-        purchasesMade: baseOrders,
-        funnelRate: 12.4,
-        dropoff1: 50,
-        dropoff2: 52.4,
-        aiToSale: 31.2,
+    // Funnel
+    convStarted: Math.round(baseOrders * 8.1),
+    offersShown: Math.round(baseOrders * 4.2),
+    offersClicked: Math.round(baseOrders * 2.1),
+    purchasesMade: baseOrders,
+    funnelRate: 12.4,
+    dropoff1: 50,
+    dropoff2: 52.4,
+    aiToSale: 31.2,
 
-        // Upsell
-        upsellRate: 23.5,
-        upsellRevenue: Math.round(baseRevenue * 0.18),
-        avgUpsellValue: 342,
-        crossSellFreq: 15.2,
-        rejectedOffers: 34.2,
-        timeToSale: "4.2 min",
-        timingEffect: "+18% kvällstid",
+    // Upsell
+    upsellRate: 23.5,
+    upsellRevenue: Math.round(baseRevenue * 0.18),
+    avgUpsellValue: 342,
+    crossSellFreq: 15.2,
+    rejectedOffers: 34.2,
+    timeToSale: "4.2 min",
+    timingEffect: "+18% kvällstid",
 
-        // Products
-        productsPerOrder: 1.8,
-        singleItemOrders: Math.round(baseOrders * 0.58),
-        bundleOrders: Math.round(baseOrders * 0.42),
-        topProducts: [
-            { name: "Premium Abonnemang", sales: 89, revenue: 178000 },
-            { name: "Tilläggstjänst Pro", sales: 67, revenue: 67000 },
-            { name: "Supportavtal Guld", sales: 45, revenue: 112500 },
-            { name: "API Access", sales: 34, revenue: 68000 },
-            { name: "Konsulttimmar", sales: 12, revenue: 62000 }
-        ],
-        salesByIntent: [
-            { intent: "Köpintresse", count: 124, pct: 50.2 },
-            { intent: "Prisförfrågan", count: 67, pct: 27.1 },
-            { intent: "Uppgradering", count: 34, pct: 13.8 },
-            { intent: "Support → köp", count: 22, pct: 8.9 }
-        ],
+    // Products
+    productsPerOrder: 1.8,
+    singleItemOrders: Math.round(baseOrders * 0.58),
+    bundleOrders: Math.round(baseOrders * 0.42),
+    topProducts: [
+      { name: "Premium Abonnemang", sales: 89, revenue: 178000 },
+      { name: "Tilläggstjänst Pro", sales: 67, revenue: 67000 },
+      { name: "Supportavtal Guld", sales: 45, revenue: 112500 },
+      { name: "API Access", sales: 34, revenue: 68000 },
+      { name: "Konsulttimmar", sales: 12, revenue: 62000 }
+    ],
+    salesByIntent: [
+      { intent: "Köpintresse", count: 124, pct: 50.2 },
+      { intent: "Prisförfrågan", count: 67, pct: 27.1 },
+      { intent: "Uppgradering", count: 34, pct: 13.8 },
+      { intent: "Support → köp", count: 22, pct: 8.9 }
+    ],
 
-        // Customers
-        newCustomers: Math.round(baseOrders * 0.42),
-        returningCustomers: Math.round(baseOrders * 0.58),
-        purchasesNew: 1.2,
-        purchasesReturning: 2.4,
-        purchasesByChannel: "Web 68%, Chat 32%",
-        peakTime: "14:00-16:00",
-        postSupportPurchase: Math.round(baseOrders * 0.15),
-        returnRate: 3.2,
-        repeatAiPurchases: Math.round(baseOrders * 0.28),
+    // Customers
+    newCustomers: Math.round(baseOrders * 0.42),
+    returningCustomers: Math.round(baseOrders * 0.58),
+    purchasesNew: 1.2,
+    purchasesReturning: 2.4,
+    purchasesByChannel: "Web 68%, Chat 32%",
+    peakTime: "14:00-16:00",
+    postSupportPurchase: Math.round(baseOrders * 0.15),
+    returnRate: 3.2,
+    repeatAiPurchases: Math.round(baseOrders * 0.28),
 
-        // AI Performance
-        convPerPrompt: "v2.1: 14.2%",
-        revenuePerPrompt: "v2.1: 2,340 kr",
-        revenuePerModel: "GPT-4o: +23%",
-        suggestionToSale: 31.2,
-        fallbackLost: "12,400 kr",
-        failedAiLost: "8,200 kr",
-        abComparison: "B +18%",
-        salesByStrategy: "Mjuk: 62%",
-        offerTiming: "Sent: +24%",
+    // AI Performance
+    convPerPrompt: "v2.1: 14.2%",
+    revenuePerPrompt: "v2.1: 2,340 kr",
+    revenuePerModel: "GPT-4o: +23%",
+    suggestionToSale: 31.2,
+    fallbackLost: "12,400 kr",
+    failedAiLost: "8,200 kr",
+    abComparison: "B +18%",
+    salesByStrategy: "Mjuk: 62%",
+    offerTiming: "Sent: +24%",
 
-        // Predictive
-        probConv: 34.2,
-        probCustomer: 45.8,
-        probProduct: 67.3,
-        probIntent: 72.1,
-        probSentiment: 58.4,
-        highProbLeads: [
-            { name: "Acme Corp", prob: 89, value: "45,000 kr" },
-            { name: "TechStart AB", prob: 82, value: "28,000 kr" },
-            { name: "Nordic Solutions", prob: 76, value: "35,000 kr" }
-        ],
+    // Predictive
+    probConv: 34.2,
+    probCustomer: 45.8,
+    probProduct: 67.3,
+    probIntent: 72.1,
+    probSentiment: 58.4,
+    highProbLeads: [
+      { name: "Acme Corp", prob: 89, value: "45,000 kr" },
+      { name: "TechStart AB", prob: 82, value: "28,000 kr" },
+      { name: "Nordic Solutions", prob: 76, value: "35,000 kr" }
+    ],
 
-        // Churn
-        churnCustomer: 8.4,
-        churnRejected: 12.3,
-        churnFailedAi: 18.7,
-        churnEscalated: 9.2,
-        churnSegment: "SMB: 11.2%",
-        highChurnRisk: [
-            { name: "ClientX", risk: 78, reason: "Avvisat 3 erbjudanden" },
-            { name: "CompanyY", risk: 65, reason: "2 misslyckade AI-dialoger" },
-            { name: "BizZ", risk: 54, reason: "Ingen aktivitet 45d" }
-        ],
+    // Churn
+    churnCustomer: 8.4,
+    churnRejected: 12.3,
+    churnFailedAi: 18.7,
+    churnEscalated: 9.2,
+    churnSegment: "SMB: 11.2%",
+    highChurnRisk: [
+      { name: "ClientX", risk: 78, reason: "Avvisat 3 erbjudanden" },
+      { name: "CompanyY", risk: 65, reason: "2 misslyckade AI-dialoger" },
+      { name: "BizZ", risk: 54, reason: "Ingen aktivitet 45d" }
+    ],
 
-        // CLV
-        clvTotal: 24500,
-        clvAiInfluenced: 32400,
-        clvAiCustomers: 38200,
-        clvNonAiCustomers: 18700,
-        clvPreAi: 21300,
-        clvPostAi: 34600,
-        clvPerPrompt: "v2.1: 36,200 kr",
-        clvPerModel: "GPT-4o: 38,400 kr",
-        clvPerStrategy: "Personlig: 41,200 kr"
-    };
+    // CLV
+    clvTotal: 24500,
+    clvAiInfluenced: 32400,
+    clvAiCustomers: 38200,
+    clvNonAiCustomers: 18700,
+    clvPreAi: 21300,
+    clvPostAi: 34600,
+    clvPerPrompt: "v2.1: 36,200 kr",
+    clvPerModel: "GPT-4o: 38,400 kr",
+    clvPerStrategy: "Personlig: 41,200 kr"
+  };
 }
 
 function updateSalesMetrics(data) {
-    const setValue = (id, val) => { const el = $(id); if (el) el.textContent = val; };
+  const setValue = (id, val) => { const el = $(id); if (el) el.textContent = val; };
 
-    // Core
-    setValue("sm_totalRevenue", formatCurrency(data.totalRevenue));
-    setValue("sm_totalOrders", data.totalOrders.toLocaleString("sv-SE"));
-    setValue("sm_aov", formatCurrency(data.aov));
-    setValue("sm_revenuePerConv", formatCurrency(data.revenuePerConv));
-    setValue("sm_revenuePerAi", formatCurrency(data.revenuePerAi));
+  // Core
+  setValue("sm_totalRevenue", formatCurrency(data.totalRevenue));
+  setValue("sm_totalOrders", data.totalOrders.toLocaleString("sv-SE"));
+  setValue("sm_aov", formatCurrency(data.aov));
+  setValue("sm_revenuePerConv", formatCurrency(data.revenuePerConv));
+  setValue("sm_revenuePerAi", formatCurrency(data.revenuePerAi));
 
-    // Funnel
-    setValue("sm_convStarted", data.convStarted.toLocaleString("sv-SE"));
-    setValue("sm_offersShown", data.offersShown.toLocaleString("sv-SE"));
-    setValue("sm_offersClicked", data.offersClicked.toLocaleString("sv-SE"));
-    setValue("sm_purchasesMade", data.purchasesMade.toLocaleString("sv-SE"));
-    setValue("sm_funnelRate", data.funnelRate + "%");
-    setValue("sm_dropoff1", data.dropoff1 + "%");
-    setValue("sm_dropoff2", data.dropoff2 + "%");
-    setValue("sm_aiToSale", data.aiToSale + "%");
+  // Funnel
+  setValue("sm_convStarted", data.convStarted.toLocaleString("sv-SE"));
+  setValue("sm_offersShown", data.offersShown.toLocaleString("sv-SE"));
+  setValue("sm_offersClicked", data.offersClicked.toLocaleString("sv-SE"));
+  setValue("sm_purchasesMade", data.purchasesMade.toLocaleString("sv-SE"));
+  setValue("sm_funnelRate", data.funnelRate + "%");
+  setValue("sm_dropoff1", data.dropoff1 + "%");
+  setValue("sm_dropoff2", data.dropoff2 + "%");
+  setValue("sm_aiToSale", data.aiToSale + "%");
 
-    // Upsell
-    setValue("sm_upsellRate", data.upsellRate + "%");
-    setValue("sm_upsellRevenue", formatCurrency(data.upsellRevenue));
-    setValue("sm_avgUpsellValue", formatCurrency(data.avgUpsellValue));
-    setValue("sm_crossSellFreq", data.crossSellFreq + "%");
-    setValue("sm_rejectedOffers", data.rejectedOffers + "%");
-    setValue("sm_timeToSale", data.timeToSale);
-    setValue("sm_timingEffect", data.timingEffect);
+  // Upsell
+  setValue("sm_upsellRate", data.upsellRate + "%");
+  setValue("sm_upsellRevenue", formatCurrency(data.upsellRevenue));
+  setValue("sm_avgUpsellValue", formatCurrency(data.avgUpsellValue));
+  setValue("sm_crossSellFreq", data.crossSellFreq + "%");
+  setValue("sm_rejectedOffers", data.rejectedOffers + "%");
+  setValue("sm_timeToSale", data.timeToSale);
+  setValue("sm_timingEffect", data.timingEffect);
 
-    // Products
-    setValue("sm_productsPerOrder", data.productsPerOrder);
-    setValue("sm_singleItemOrders", data.singleItemOrders.toLocaleString("sv-SE"));
-    setValue("sm_bundleOrders", data.bundleOrders.toLocaleString("sv-SE"));
+  // Products
+  setValue("sm_productsPerOrder", data.productsPerOrder);
+  setValue("sm_singleItemOrders", data.singleItemOrders.toLocaleString("sv-SE"));
+  setValue("sm_bundleOrders", data.bundleOrders.toLocaleString("sv-SE"));
 
-    // Customers
-    setValue("sm_newCustomers", data.newCustomers.toLocaleString("sv-SE"));
-    setValue("sm_returningCustomers", data.returningCustomers.toLocaleString("sv-SE"));
-    setValue("sm_purchasesNew", data.purchasesNew + " snitt");
-    setValue("sm_purchasesReturning", data.purchasesReturning + " snitt");
-    setValue("sm_purchasesByChannel", data.purchasesByChannel);
-    setValue("sm_peakTime", data.peakTime);
-    setValue("sm_postSupportPurchase", data.postSupportPurchase.toLocaleString("sv-SE"));
-    setValue("sm_returnRate", data.returnRate + "%");
-    setValue("sm_repeatAiPurchases", data.repeatAiPurchases.toLocaleString("sv-SE"));
+  // Customers
+  setValue("sm_newCustomers", data.newCustomers.toLocaleString("sv-SE"));
+  setValue("sm_returningCustomers", data.returningCustomers.toLocaleString("sv-SE"));
+  setValue("sm_purchasesNew", data.purchasesNew + " snitt");
+  setValue("sm_purchasesReturning", data.purchasesReturning + " snitt");
+  setValue("sm_purchasesByChannel", data.purchasesByChannel);
+  setValue("sm_peakTime", data.peakTime);
+  setValue("sm_postSupportPurchase", data.postSupportPurchase.toLocaleString("sv-SE"));
+  setValue("sm_returnRate", data.returnRate + "%");
+  setValue("sm_repeatAiPurchases", data.repeatAiPurchases.toLocaleString("sv-SE"));
 
-    // AI Performance
-    setValue("sm_convPerPrompt", data.convPerPrompt);
-    setValue("sm_revenuePerPrompt", data.revenuePerPrompt);
-    setValue("sm_revenuePerModel", data.revenuePerModel);
-    setValue("sm_suggestionToSale", data.suggestionToSale + "%");
-    setValue("sm_fallbackLost", data.fallbackLost);
-    setValue("sm_failedAiLost", data.failedAiLost);
-    setValue("sm_abComparison", data.abComparison);
-    setValue("sm_salesByStrategy", data.salesByStrategy);
-    setValue("sm_offerTiming", data.offerTiming);
+  // AI Performance
+  setValue("sm_convPerPrompt", data.convPerPrompt);
+  setValue("sm_revenuePerPrompt", data.revenuePerPrompt);
+  setValue("sm_revenuePerModel", data.revenuePerModel);
+  setValue("sm_suggestionToSale", data.suggestionToSale + "%");
+  setValue("sm_fallbackLost", data.fallbackLost);
+  setValue("sm_failedAiLost", data.failedAiLost);
+  setValue("sm_abComparison", data.abComparison);
+  setValue("sm_salesByStrategy", data.salesByStrategy);
+  setValue("sm_offerTiming", data.offerTiming);
 
-    // Predictive
-    setValue("sm_probConv", data.probConv + "%");
-    setValue("sm_probCustomer", data.probCustomer + "%");
-    setValue("sm_probProduct", data.probProduct + "%");
-    setValue("sm_probIntent", data.probIntent + "%");
-    setValue("sm_probSentiment", data.probSentiment + "%");
+  // Predictive
+  setValue("sm_probConv", data.probConv + "%");
+  setValue("sm_probCustomer", data.probCustomer + "%");
+  setValue("sm_probProduct", data.probProduct + "%");
+  setValue("sm_probIntent", data.probIntent + "%");
+  setValue("sm_probSentiment", data.probSentiment + "%");
 
-    // Churn
-    setValue("sm_churnCustomer", data.churnCustomer + "%");
-    setValue("sm_churnRejected", data.churnRejected + "%");
-    setValue("sm_churnFailedAi", data.churnFailedAi + "%");
-    setValue("sm_churnEscalated", data.churnEscalated + "%");
-    setValue("sm_churnSegment", data.churnSegment);
+  // Churn
+  setValue("sm_churnCustomer", data.churnCustomer + "%");
+  setValue("sm_churnRejected", data.churnRejected + "%");
+  setValue("sm_churnFailedAi", data.churnFailedAi + "%");
+  setValue("sm_churnEscalated", data.churnEscalated + "%");
+  setValue("sm_churnSegment", data.churnSegment);
 
-    // CLV
-    setValue("sm_clvTotal", formatCurrency(data.clvTotal));
-    setValue("sm_clvAiInfluenced", formatCurrency(data.clvAiInfluenced));
-    setValue("sm_clvAiCustomers", formatCurrency(data.clvAiCustomers));
-    setValue("sm_clvNonAiCustomers", formatCurrency(data.clvNonAiCustomers));
-    setValue("sm_clvPreAi", formatCurrency(data.clvPreAi));
-    setValue("sm_clvPostAi", formatCurrency(data.clvPostAi));
-    setValue("sm_clvPerPrompt", data.clvPerPrompt);
-    setValue("sm_clvPerModel", data.clvPerModel);
-    setValue("sm_clvPerStrategy", data.clvPerStrategy);
+  // CLV
+  setValue("sm_clvTotal", formatCurrency(data.clvTotal));
+  setValue("sm_clvAiInfluenced", formatCurrency(data.clvAiInfluenced));
+  setValue("sm_clvAiCustomers", formatCurrency(data.clvAiCustomers));
+  setValue("sm_clvNonAiCustomers", formatCurrency(data.clvNonAiCustomers));
+  setValue("sm_clvPreAi", formatCurrency(data.clvPreAi));
+  setValue("sm_clvPostAi", formatCurrency(data.clvPostAi));
+  setValue("sm_clvPerPrompt", data.clvPerPrompt);
+  setValue("sm_clvPerModel", data.clvPerModel);
+  setValue("sm_clvPerStrategy", data.clvPerStrategy);
 }
 
 function updateProductsList(products) {
-    const container = $("salesTopProducts");
-    if (!container) return;
+  const container = $("salesTopProducts");
+  if (!container) return;
 
-    container.innerHTML = products.map((p, i) => `
+  container.innerHTML = products.map((p, i) => `
     <div class="salesMetricRow" style="padding: 8px 0; border-bottom: 1px solid var(--border);">
       <span><span style="color: var(--muted);">#${i + 1}</span> ${p.name}</span>
       <span class="salesMetricValue">${formatCurrency(p.revenue)} <span class="small muted">(${p.sales} st)</span></span>
@@ -5263,10 +5264,10 @@ function updateProductsList(products) {
 }
 
 function updateIntentsList(intents) {
-    const container = $("salesByIntent");
-    if (!container) return;
+  const container = $("salesByIntent");
+  if (!container) return;
 
-    container.innerHTML = intents.map(i => `
+  container.innerHTML = intents.map(i => `
     <div class="salesMetricRow" style="padding: 8px 0; border-bottom: 1px solid var(--border);">
       <span>${i.intent}</span>
       <span class="salesMetricValue">${i.count} <span class="small muted">(${i.pct}%)</span></span>
@@ -5275,10 +5276,10 @@ function updateIntentsList(intents) {
 }
 
 function updateHighProbLeads(leads) {
-    const container = $("salesHighProbLeads");
-    if (!container) return;
+  const container = $("salesHighProbLeads");
+  if (!container) return;
 
-    container.innerHTML = leads.map(l => `
+  container.innerHTML = leads.map(l => `
     <div class="salesMetricRow" style="padding: 10px 0; border-bottom: 1px solid var(--border);">
       <span>
         <span style="display: inline-block; width: 40px; height: 40px; background: var(--primary); color: white; border-radius: 50%; text-align: center; line-height: 40px; margin-right: 10px; font-weight: 700;">${l.prob}%</span>
@@ -5290,10 +5291,10 @@ function updateHighProbLeads(leads) {
 }
 
 function updateChurnRiskList(risks) {
-    const container = $("salesHighChurnRisk");
-    if (!container) return;
+  const container = $("salesHighChurnRisk");
+  if (!container) return;
 
-    container.innerHTML = risks.map(r => `
+  container.innerHTML = risks.map(r => `
     <div class="salesMetricRow" style="padding: 10px 0; border-bottom: 1px solid var(--border);">
       <span>
         <span style="display: inline-block; width: 40px; height: 40px; background: ${r.risk > 70 ? 'var(--danger)' : 'var(--warn)'}; color: white; border-radius: 50%; text-align: center; line-height: 40px; margin-right: 10px; font-weight: 700;">${r.risk}%</span>
@@ -5307,14 +5308,14 @@ function updateChurnRiskList(risks) {
 }
 
 function formatCurrency(amount) {
-    return amount.toLocaleString("sv-SE") + " kr";
+  return amount.toLocaleString("sv-SE") + " kr";
 }
 
 function exportSalesReport() {
-    const days = $("salesPeriodFilter")?.value || 30;
-    const data = generateDemoSalesData(parseInt(days));
+  const days = $("salesPeriodFilter")?.value || 30;
+  const data = generateDemoSalesData(parseInt(days));
 
-    const report = `
+  const report = `
 SÄLJANALYSRAPPORT
 =================
 Genererad: ${new Date().toLocaleString("sv-SE")}
@@ -5350,15 +5351,15 @@ CLV efter AI-interaktion: ${formatCurrency(data.clvPostAi)}
 Rapporten skapad av AI Kundtjänst Säljanalys
   `.trim();
 
-    const blob = new Blob([report], { type: "text/plain;charset=utf-8" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `saljrapport_${new Date().toISOString().split("T")[0]}.txt`;
-    a.click();
-    URL.revokeObjectURL(url);
+  const blob = new Blob([report], { type: "text/plain;charset=utf-8" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = `saljrapport_${new Date().toISOString().split("T")[0]}.txt`;
+  a.click();
+  URL.revokeObjectURL(url);
 
-    toast("Exporterad", "Säljrapporten har laddats ner", "success");
+  toast("Exporterad", "Säljrapporten har laddats ner", "success");
 }
 
 // Make globally available
