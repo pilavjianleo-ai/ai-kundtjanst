@@ -79,6 +79,10 @@
           <i class="fa-solid fa-star"></i> Feedback
           <span id="feedbackNotifDot" class="notifDot" style="display:none;"></span>
         </button>
+
+        <button id="openScenarioView" class="menuBtn" style="display:none;" type="button">
+          <i class="fa-solid fa-crystal-ball"></i> Scenarioplanering
+        </button>
       </nav>
 
       <div class="sidebarFooter">
@@ -1883,6 +1887,227 @@
                 <i class="fa-solid fa-inbox"
                   style="font-size: 48px; margin-bottom: 15px; display: block; opacity: 0.5;"></i>
                 Ingen feedback ännu
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- SCENARIO PLANNER -->
+      <section id="scenarioView" class="view" style="display:none;">
+        <div class="topbar">
+          <div>
+            <div class="title"><i class="fa-solid fa-crystal-ball" style="color:var(--primary);"></i> Scenarioplanering
+            </div>
+            <div class="subtitle muted">Simulera framtida scenarier och planera för tillväxt</div>
+          </div>
+          <div class="topbarActions">
+            <button id="resetScenarioBtn" class="btn ghost" type="button">
+              <i class="fa-solid fa-rotate-left"></i> Återställ
+            </button>
+            <button id="exportScenarioBtn" class="btn primary" type="button">
+              <i class="fa-solid fa-file-export"></i> Exportera rapport
+            </button>
+          </div>
+        </div>
+
+        <!-- Current Stats Summary -->
+        <div class="panel"
+          style="margin: 20px 0; background: linear-gradient(135deg, var(--primary), #8b5cf6); color: white; border: none;">
+          <div
+            style="display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 20px; text-align: center;">
+            <div>
+              <div style="font-size: 28px; font-weight: 800;" id="scCurrentTickets">0</div>
+              <div style="opacity: 0.8; font-size: 13px;">Ärenden/månad</div>
+            </div>
+            <div>
+              <div style="font-size: 28px; font-weight: 800;" id="scCurrentAgents">0</div>
+              <div style="opacity: 0.8; font-size: 13px;">Aktiva agenter</div>
+            </div>
+            <div>
+              <div style="font-size: 28px; font-weight: 800;" id="scCurrentAiRate">0%</div>
+              <div style="opacity: 0.8; font-size: 13px;">AI-lösningsgrad</div>
+            </div>
+            <div>
+              <div style="font-size: 28px; font-weight: 800;" id="scCurrentSla">0%</div>
+              <div style="opacity: 0.8; font-size: 13px;">SLA-uppfyllnad</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="grid2">
+          <!-- Left: Simulation Controls -->
+          <div>
+            <!-- Volume Simulation -->
+            <div class="panel">
+              <div class="panelHead"><b><i class="fa-solid fa-chart-line"></i> Ärendevolym</b></div>
+              <div style="margin-top: 15px;">
+                <label class="small muted">Förväntad tillväxt (%)</label>
+                <input type="range" id="scVolumeGrowth" class="slider" min="-50" max="200" value="0"
+                  style="width: 100%;" />
+                <div class="row" style="justify-content: space-between; margin-top: 5px;">
+                  <span class="small muted">-50%</span>
+                  <span id="scVolumeGrowthValue" style="font-weight: 700; color: var(--primary);">0%</span>
+                  <span class="small muted">+200%</span>
+                </div>
+                <div class="alert info" style="margin-top: 15px; font-size: 12px;">
+                  <i class="fa-solid fa-info-circle"></i>
+                  <span id="scVolumeResult">Justera slidern för att se prognos</span>
+                </div>
+              </div>
+            </div>
+
+            <!-- Staffing Simulation -->
+            <div class="panel" style="margin-top: 16px;">
+              <div class="panelHead"><b><i class="fa-solid fa-users"></i> Bemanningsplanering</b></div>
+              <div style="margin-top: 15px;">
+                <label class="small muted">Ärenden per agent/dag</label>
+                <input type="number" id="scTicketsPerAgent" class="input" value="25" min="5" max="100"
+                  style="width: 100%;" />
+                <label class="small muted" style="margin-top: 10px; display: block;">Arbetstimmar/dag</label>
+                <input type="number" id="scHoursPerDay" class="input" value="8" min="4" max="12" style="width: 100%;" />
+                <div class="alert ok" style="margin-top: 15px; font-size: 12px;">
+                  <i class="fa-solid fa-user-check"></i>
+                  <span id="scStaffingResult">Beräknad bemanning visas här</span>
+                </div>
+              </div>
+            </div>
+
+            <!-- SLA Impact -->
+            <div class="panel" style="margin-top: 16px;">
+              <div class="panelHead"><b><i class="fa-solid fa-stopwatch"></i> SLA-påverkan</b></div>
+              <div style="margin-top: 15px;">
+                <label class="small muted">Målsatt SLA-nivå (%)</label>
+                <input type="range" id="scSlaTarget" class="slider" min="80" max="99" value="95" style="width: 100%;" />
+                <div class="row" style="justify-content: space-between; margin-top: 5px;">
+                  <span class="small muted">80%</span>
+                  <span id="scSlaTargetValue" style="font-weight: 700; color: var(--ok);">95%</span>
+                  <span class="small muted">99%</span>
+                </div>
+                <label class="small muted" style="margin-top: 10px; display: block;">Max svarstid (minuter)</label>
+                <input type="number" id="scMaxResponseTime" class="input" value="30" min="5" max="120"
+                  style="width: 100%;" />
+                <div class="alert warn" style="margin-top: 15px; font-size: 12px;">
+                  <i class="fa-solid fa-triangle-exclamation"></i>
+                  <span id="scSlaResult">SLA-prognos visas här</span>
+                </div>
+              </div>
+            </div>
+
+            <!-- Cost Savings -->
+            <div class="panel" style="margin-top: 16px;">
+              <div class="panelHead"><b><i class="fa-solid fa-piggy-bank"></i> Kostnadsbesparingar</b></div>
+              <div style="margin-top: 15px;">
+                <label class="small muted">Kostnad per agent/månad (SEK)</label>
+                <input type="number" id="scAgentCost" class="input" value="45000" min="20000" max="100000" step="1000"
+                  style="width: 100%;" />
+                <label class="small muted" style="margin-top: 10px; display: block;">AI-lösningsgrad (%)</label>
+                <input type="range" id="scAiRate" class="slider" min="0" max="80" value="40" style="width: 100%;" />
+                <div class="row" style="justify-content: space-between; margin-top: 5px;">
+                  <span class="small muted">0%</span>
+                  <span id="scAiRateValue" style="font-weight: 700; color: var(--primary);">40%</span>
+                  <span class="small muted">80%</span>
+                </div>
+                <div class="alert ok" style="margin-top: 15px; font-size: 12px;">
+                  <i class="fa-solid fa-coins"></i>
+                  <span id="scCostResult">Besparingsberäkning visas här</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Right: Results Dashboard -->
+          <div>
+            <!-- Projected Results -->
+            <div class="panel" style="border-left: 4px solid var(--primary);">
+              <div class="panelHead"><b><i class="fa-solid fa-chart-pie"></i> Projicerade resultat</b></div>
+              <div style="margin-top: 20px;">
+                <div class="scenarioResultGrid" style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;">
+                  <div class="scenarioCard"
+                    style="background: var(--panel2); padding: 20px; border-radius: 12px; text-align: center;">
+                    <div style="font-size: 14px; color: var(--muted); margin-bottom: 8px;">Prognostiserade ärenden</div>
+                    <div id="scProjectedTickets" style="font-size: 32px; font-weight: 800; color: var(--primary);">0
+                    </div>
+                    <div id="scProjectedTicketsDelta" class="small" style="margin-top: 5px;">-</div>
+                  </div>
+                  <div class="scenarioCard"
+                    style="background: var(--panel2); padding: 20px; border-radius: 12px; text-align: center;">
+                    <div style="font-size: 14px; color: var(--muted); margin-bottom: 8px;">Behövda agenter</div>
+                    <div id="scProjectedAgents" style="font-size: 32px; font-weight: 800; color: var(--ok);">0</div>
+                    <div id="scProjectedAgentsDelta" class="small" style="margin-top: 5px;">-</div>
+                  </div>
+                  <div class="scenarioCard"
+                    style="background: var(--panel2); padding: 20px; border-radius: 12px; text-align: center;">
+                    <div style="font-size: 14px; color: var(--muted); margin-bottom: 8px;">Förväntad SLA</div>
+                    <div id="scProjectedSla" style="font-size: 32px; font-weight: 800; color: var(--warn);">0%</div>
+                    <div id="scProjectedSlaDelta" class="small" style="margin-top: 5px;">-</div>
+                  </div>
+                  <div class="scenarioCard"
+                    style="background: var(--panel2); padding: 20px; border-radius: 12px; text-align: center;">
+                    <div style="font-size: 14px; color: var(--muted); margin-bottom: 8px;">Månadskostnad</div>
+                    <div id="scProjectedCost" style="font-size: 28px; font-weight: 800; color: var(--danger);">0 kr
+                    </div>
+                    <div id="scProjectedCostDelta" class="small" style="margin-top: 5px;">-</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- AI Savings Breakdown -->
+            <div class="panel" style="margin-top: 16px; border-left: 4px solid var(--ok);">
+              <div class="panelHead"><b><i class="fa-solid fa-robot"></i> AI-besparing</b></div>
+              <div style="margin-top: 20px;">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+                  <span>Ärenden hanterade av AI:</span>
+                  <span id="scAiHandledTickets" style="font-weight: 700;">0</span>
+                </div>
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+                  <span>Sparade agenttimmar/månad:</span>
+                  <span id="scSavedHours" style="font-weight: 700; color: var(--ok);">0h</span>
+                </div>
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+                  <span>Kostnadsbesparing/månad:</span>
+                  <span id="scMonthlySavings" style="font-weight: 700; color: var(--ok);">0 kr</span>
+                </div>
+                <div class="divider"></div>
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 15px;">
+                  <span style="font-weight: 700;">Årlig besparing:</span>
+                  <span id="scYearlySavings" style="font-size: 24px; font-weight: 800; color: var(--ok);">0 kr</span>
+                </div>
+              </div>
+            </div>
+
+            <!-- Recommendations -->
+            <div class="panel" style="margin-top: 16px; border-left: 4px solid var(--warn);">
+              <div class="panelHead"><b><i class="fa-solid fa-lightbulb"></i> Rekommendationer</b></div>
+              <div id="scRecommendations" style="margin-top: 15px;">
+                <div class="muted" style="padding: 20px; text-align: center;">
+                  <i class="fa-solid fa-wand-magic-sparkles"
+                    style="font-size: 32px; display: block; margin-bottom: 10px;"></i>
+                  Justera parametrarna för att få AI-drivna rekommendationer
+                </div>
+              </div>
+            </div>
+
+            <!-- Scenario Comparison -->
+            <div class="panel" style="margin-top: 16px;">
+              <div class="panelHead"><b><i class="fa-solid fa-scale-balanced"></i> Jämförelse: Nu vs Framtid</b></div>
+              <div style="margin-top: 15px; overflow-x: auto;">
+                <table style="width: 100%; border-collapse: collapse; font-size: 14px;">
+                  <thead>
+                    <tr style="border-bottom: 2px solid var(--border);">
+                      <th style="text-align: left; padding: 10px;">Metrik</th>
+                      <th style="text-align: right; padding: 10px;">Nuläge</th>
+                      <th style="text-align: right; padding: 10px;">Prognos</th>
+                      <th style="text-align: right; padding: 10px;">Förändring</th>
+                    </tr>
+                  </thead>
+                  <tbody id="scComparisonTable">
+                    <tr>
+                      <td colspan="4" class="muted center" style="padding: 15px;">Laddar...</td>
+                    </tr>
+                  </tbody>
+                </table>
               </div>
             </div>
           </div>
