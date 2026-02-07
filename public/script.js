@@ -189,6 +189,8 @@ function updateRoleUI() {
   if (role === "admin" || role === "agent") {
     if (inboxBtn) inboxBtn.style.display = "";
     if (slaBtn) slaBtn.style.display = "";
+    const feedbackBtn = $("openFeedbackView");
+    if (feedbackBtn) feedbackBtn.style.display = "";
   }
   if (role === "admin") {
     if (adminBtn) adminBtn.style.display = "";
@@ -4465,94 +4467,94 @@ if (window.socket) {
 let currentFeedbackRating = 0;
 
 function openFeedbackModal(targetType = "ai", targetAgentId = null) {
-    const modal = $("feedbackModal");
-    if (!modal) return;
+  const modal = $("feedbackModal");
+  if (!modal) return;
 
-    // Reset
-    currentFeedbackRating = 0;
-    $("feedbackRatingValue").value = "0";
-    $("feedbackComment").value = "";
-    $("feedbackTargetType").value = targetType;
-    $("feedbackTargetAgentId").value = targetAgentId || "";
+  // Reset
+  currentFeedbackRating = 0;
+  $("feedbackRatingValue").value = "0";
+  $("feedbackComment").value = "";
+  $("feedbackTargetType").value = targetType;
+  $("feedbackTargetAgentId").value = targetAgentId || "";
 
-    // Reset stars
-    document.querySelectorAll("#starRatingContainer .starBtn").forEach(btn => {
-        btn.textContent = "☆";
-        btn.style.color = "var(--muted)";
-    });
+  // Reset stars
+  document.querySelectorAll("#starRatingContainer .starBtn").forEach(btn => {
+    btn.textContent = "☆";
+    btn.style.color = "var(--muted)";
+  });
 
-    modal.style.display = "flex";
+  modal.style.display = "flex";
 }
 
 function closeFeedbackModal() {
-    const modal = $("feedbackModal");
-    if (modal) modal.style.display = "none";
+  const modal = $("feedbackModal");
+  if (modal) modal.style.display = "none";
 }
 
 function setFeedbackRating(rating) {
-    currentFeedbackRating = rating;
-    $("feedbackRatingValue").value = rating;
+  currentFeedbackRating = rating;
+  $("feedbackRatingValue").value = rating;
 
-    // Update star display
-    document.querySelectorAll("#starRatingContainer .starBtn").forEach(btn => {
-        const btnRating = parseInt(btn.getAttribute("data-rating"));
-        if (btnRating <= rating) {
-            btn.textContent = "★";
-            btn.style.color = "var(--warn)";
-        } else {
-            btn.textContent = "☆";
-            btn.style.color = "var(--muted)";
-        }
-    });
+  // Update star display
+  document.querySelectorAll("#starRatingContainer .starBtn").forEach(btn => {
+    const btnRating = parseInt(btn.getAttribute("data-rating"));
+    if (btnRating <= rating) {
+      btn.textContent = "★";
+      btn.style.color = "var(--warn)";
+    } else {
+      btn.textContent = "☆";
+      btn.style.color = "var(--muted)";
+    }
+  });
 }
 
 async function submitCustomerFeedback() {
-    const rating = parseInt($("feedbackRatingValue").value) || 0;
-    const comment = $("feedbackComment")?.value?.trim() || "";
-    const targetType = $("feedbackTargetType")?.value || "ai";
-    const targetAgentId = $("feedbackTargetAgentId")?.value || null;
+  const rating = parseInt($("feedbackRatingValue").value) || 0;
+  const comment = $("feedbackComment")?.value?.trim() || "";
+  const targetType = $("feedbackTargetType")?.value || "ai";
+  const targetAgentId = $("feedbackTargetAgentId")?.value || null;
 
-    if (rating < 1 || rating > 5) {
-        toast("Välj betyg", "Klicka på 1-5 stjärnor", "error");
-        return;
-    }
+  if (rating < 1 || rating > 5) {
+    toast("Välj betyg", "Klicka på 1-5 stjärnor", "error");
+    return;
+  }
 
-    try {
-        await api("/feedback", {
-            method: "POST",
-            body: {
-                rating,
-                comment,
-                targetType,
-                targetAgentId: targetAgentId || null,
-                companyId: state.companyId,
-                ticketId: state.activeTicketId || null
-            }
-        });
+  try {
+    await api("/feedback", {
+      method: "POST",
+      body: {
+        rating,
+        comment,
+        targetType,
+        targetAgentId: targetAgentId || null,
+        companyId: state.companyId,
+        ticketId: state.activeTicketId || null
+      }
+    });
 
-        toast("Tack! 🌟", "Din feedback har skickats", "success");
-        closeFeedbackModal();
-    } catch (e) {
-        toast("Fel", e.message, "error");
-    }
+    toast("Tack! 🌟", "Din feedback har skickats", "success");
+    closeFeedbackModal();
+  } catch (e) {
+    toast("Fel", e.message, "error");
+  }
 }
 
 // Trigger feedback modal after ticket is solved or chat ends
 function promptForFeedback(targetType = "ai", targetAgentId = null) {
-    // Only show if not shown recently
-    const lastPrompt = localStorage.getItem("lastFeedbackPrompt");
-    const now = Date.now();
+  // Only show if not shown recently
+  const lastPrompt = localStorage.getItem("lastFeedbackPrompt");
+  const now = Date.now();
 
-    // Don't show more than once per hour
-    if (lastPrompt && (now - parseInt(lastPrompt)) < 3600000) {
-        return;
-    }
+  // Don't show more than once per hour
+  if (lastPrompt && (now - parseInt(lastPrompt)) < 3600000) {
+    return;
+  }
 
-    localStorage.setItem("lastFeedbackPrompt", now.toString());
+  localStorage.setItem("lastFeedbackPrompt", now.toString());
 
-    setTimeout(() => {
-        openFeedbackModal(targetType, targetAgentId);
-    }, 1000);
+  setTimeout(() => {
+    openFeedbackModal(targetType, targetAgentId);
+  }, 1000);
 }
 
 // Make functions globally available
@@ -4564,20 +4566,20 @@ window.promptForFeedback = promptForFeedback;
 
 // Add a "Rate this chat" button to chat view
 function addFeedbackButton() {
-    const chatActions = document.querySelector(".chatActions") || document.querySelector("#chatView .topbarActions");
-    if (!chatActions) return;
+  const chatActions = document.querySelector(".chatActions") || document.querySelector("#chatView .topbarActions");
+  if (!chatActions) return;
 
-    // Check if already added
-    if (document.getElementById("rateChatBtn")) return;
+  // Check if already added
+  if (document.getElementById("rateChatBtn")) return;
 
-    const btn = document.createElement("button");
-    btn.id = "rateChatBtn";
-    btn.className = "btn ghost";
-    btn.type = "button";
-    btn.innerHTML = '<i class="fa-solid fa-star"></i> Betygsätt';
-    btn.onclick = () => openFeedbackModal("ai");
+  const btn = document.createElement("button");
+  btn.id = "rateChatBtn";
+  btn.className = "btn ghost";
+  btn.type = "button";
+  btn.innerHTML = '<i class="fa-solid fa-star"></i> Betygsätt';
+  btn.onclick = () => openFeedbackModal("ai");
 
-    chatActions.appendChild(btn);
+  chatActions.appendChild(btn);
 }
 
 // Add button on load
