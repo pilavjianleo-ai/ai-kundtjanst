@@ -1781,3 +1781,112 @@ body[data-theme="light"] .input {
     flex-wrap: wrap;
   }
 }
+
+/* =====================
+   SALES ANALYTICS STYLES
+===================== */
+.salesTabBtn {
+  padding: 10px 16px;
+  border: none;
+  background: var(--panel2);
+  color: var(--muted);
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 500;
+  transition: all 0.2s;
+}
+
+.salesTabBtn:hover {
+  background: var(--border);
+  color: var(--text);
+}
+
+.salesTabBtn.active {
+  background: var(--primary);
+  color: white;
+}
+
+.salesMetricRow {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 12px 0;
+  border-bottom: 1px solid var(--border);
+}
+
+.salesMetricRow:last-child {
+  border-bottom: none;
+}
+
+.salesMetricValue {
+  font-weight: 700;
+  font-size: 15px;
+  color: var(--text);
+}
+
+.salesMetricValue.text-ok {
+  color: var(--ok);
+}
+
+.salesMetricValue.text-warn {
+  color: var(--warn);
+}
+
+.salesMetricValue.text-danger {
+  color: var(--danger);
+}
+
+.statCard {
+  padding: 20px;
+  border-radius: 12px;
+  text-align: center;
+  transition: transform 0.2s;
+}
+
+.statCard:hover {
+  transform: translateY(-2px);
+}
+
+.statCard .statIcon {
+  font-size: 24px;
+  margin-bottom: 10px;
+  opacity: 0.8;
+}
+
+.statCard .statValue {
+  font-size: 28px;
+  font-weight: 800;
+  margin-bottom: 5px;
+}
+
+.statCard .statLabel {
+  font-size: 12px;
+  opacity: 0.85;
+}
+
+/* Slider styling */
+input[type="range"].slider {
+  -webkit-appearance: none;
+  width: 100%;
+  height: 8px;
+  border-radius: 4px;
+  background: var(--panel2);
+  outline: none;
+  margin: 10px 0;
+}
+
+input[type="range"].slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: var(--primary);
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+input[type="range"].slider::-webkit-slider-thumb:hover {
+  transform: scale(1.1);
+  box-shadow: 0 0 10px var(--primary);
+}
