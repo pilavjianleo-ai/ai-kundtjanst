@@ -133,6 +133,7 @@ function setActiveMenu(btnId) {
     "openSimulatorView",
     "openFeedbackView",
     "openScenarioView",
+    "openSalesView",
   ];
   ids.forEach((id) => $(id)?.classList.remove("active"));
   $(btnId)?.classList.add("active");
@@ -197,6 +198,8 @@ function updateRoleUI() {
     if (feedbackBtn) feedbackBtn.style.display = "";
     const scenarioBtn = $("openScenarioView");
     if (scenarioBtn) scenarioBtn.style.display = "";
+    const salesBtn = $("openSalesView");
+    if (salesBtn) salesBtn.style.display = "";
   }
   if (role === "admin") {
     if (adminBtn) adminBtn.style.display = "";
@@ -3594,6 +3597,12 @@ function bindEvents() {
     if (typeof initScenarioPlanner === "function") await initScenarioPlanner();
   });
 
+  // ✅ SALES ANALYTICS
+  on("openSalesView", "click", async () => {
+    showView("salesView", "openSalesView");
+    if (typeof initSalesAnalytics === "function") await initSalesAnalytics();
+  });
+
   // ✅ Company switching - syncs chat context and inbox
   on("categorySelect", "change", (e) => {
     const newCompanyId = e.target.value;
@@ -4603,231 +4612,231 @@ setTimeout(addFeedbackButton, 1000);
 
 // Scenario State
 const scenarioState = {
-    currentTickets: 500,
-    currentAgents: 5,
-    currentAiRate: 40,
-    currentSla: 92,
-    workDaysPerMonth: 22
+  currentTickets: 500,
+  currentAgents: 5,
+  currentAiRate: 40,
+  currentSla: 92,
+  workDaysPerMonth: 22
 };
 
 // Initialize Scenario Planner
 async function initScenarioPlanner() {
-    // Try to load real data from API
-    try {
-        const slaData = await api("/sla/dashboard?days=30").catch(() => null);
-        if (slaData) {
-            scenarioState.currentTickets = slaData.totalTickets || 500;
-            scenarioState.currentSla = slaData.slaCompliance || 92;
-        }
-
-        const users = await api("/admin/users").catch(() => []);
-        scenarioState.currentAgents = users.filter(u => u.role === "agent" || u.role === "admin").length || 5;
-    } catch (e) {
-        console.log("Using default scenario values");
+  // Try to load real data from API
+  try {
+    const slaData = await api("/sla/dashboard?days=30").catch(() => null);
+    if (slaData) {
+      scenarioState.currentTickets = slaData.totalTickets || 500;
+      scenarioState.currentSla = slaData.slaCompliance || 92;
     }
 
-    // Update current stats display
-    updateCurrentStats();
+    const users = await api("/admin/users").catch(() => []);
+    scenarioState.currentAgents = users.filter(u => u.role === "agent" || u.role === "admin").length || 5;
+  } catch (e) {
+    console.log("Using default scenario values");
+  }
 
-    // Bind all input events
-    bindScenarioEvents();
+  // Update current stats display
+  updateCurrentStats();
 
-    // Run initial calculation
-    calculateScenario();
+  // Bind all input events
+  bindScenarioEvents();
+
+  // Run initial calculation
+  calculateScenario();
 }
 
 function updateCurrentStats() {
-    const setVal = (id, val) => { const el = $(id); if (el) el.textContent = val; };
-    setVal("scCurrentTickets", scenarioState.currentTickets.toLocaleString("sv-SE"));
-    setVal("scCurrentAgents", scenarioState.currentAgents);
-    setVal("scCurrentAiRate", scenarioState.currentAiRate + "%");
-    setVal("scCurrentSla", scenarioState.currentSla + "%");
+  const setVal = (id, val) => { const el = $(id); if (el) el.textContent = val; };
+  setVal("scCurrentTickets", scenarioState.currentTickets.toLocaleString("sv-SE"));
+  setVal("scCurrentAgents", scenarioState.currentAgents);
+  setVal("scCurrentAiRate", scenarioState.currentAiRate + "%");
+  setVal("scCurrentSla", scenarioState.currentSla + "%");
 }
 
 function bindScenarioEvents() {
-    // Sliders
-    const volumeSlider = $("scVolumeGrowth");
-    const slaSlider = $("scSlaTarget");
-    const aiSlider = $("scAiRate");
+  // Sliders
+  const volumeSlider = $("scVolumeGrowth");
+  const slaSlider = $("scSlaTarget");
+  const aiSlider = $("scAiRate");
 
-    if (volumeSlider) {
-        volumeSlider.oninput = () => {
-            $("scVolumeGrowthValue").textContent = (volumeSlider.value > 0 ? "+" : "") + volumeSlider.value + "%";
-            calculateScenario();
-        };
-    }
+  if (volumeSlider) {
+    volumeSlider.oninput = () => {
+      $("scVolumeGrowthValue").textContent = (volumeSlider.value > 0 ? "+" : "") + volumeSlider.value + "%";
+      calculateScenario();
+    };
+  }
 
-    if (slaSlider) {
-        slaSlider.oninput = () => {
-            $("scSlaTargetValue").textContent = slaSlider.value + "%";
-            calculateScenario();
-        };
-    }
+  if (slaSlider) {
+    slaSlider.oninput = () => {
+      $("scSlaTargetValue").textContent = slaSlider.value + "%";
+      calculateScenario();
+    };
+  }
 
-    if (aiSlider) {
-        aiSlider.oninput = () => {
-            $("scAiRateValue").textContent = aiSlider.value + "%";
-            calculateScenario();
-        };
-    }
+  if (aiSlider) {
+    aiSlider.oninput = () => {
+      $("scAiRateValue").textContent = aiSlider.value + "%";
+      calculateScenario();
+    };
+  }
 
-    // Number inputs
-    ["scTicketsPerAgent", "scHoursPerDay", "scMaxResponseTime", "scAgentCost"].forEach(id => {
-        const el = $(id);
-        if (el) el.oninput = calculateScenario;
-    });
+  // Number inputs
+  ["scTicketsPerAgent", "scHoursPerDay", "scMaxResponseTime", "scAgentCost"].forEach(id => {
+    const el = $(id);
+    if (el) el.oninput = calculateScenario;
+  });
 
-    // Buttons
-    const resetBtn = $("resetScenarioBtn");
-    if (resetBtn) resetBtn.onclick = resetScenario;
+  // Buttons
+  const resetBtn = $("resetScenarioBtn");
+  if (resetBtn) resetBtn.onclick = resetScenario;
 
-    const exportBtn = $("exportScenarioBtn");
-    if (exportBtn) exportBtn.onclick = exportScenarioReport;
+  const exportBtn = $("exportScenarioBtn");
+  if (exportBtn) exportBtn.onclick = exportScenarioReport;
 }
 
 function calculateScenario() {
-    // Get all input values
-    const volumeGrowth = parseInt($("scVolumeGrowth")?.value || 0);
-    const ticketsPerAgentDay = parseInt($("scTicketsPerAgent")?.value || 25);
-    const hoursPerDay = parseInt($("scHoursPerDay")?.value || 8);
-    const slaTarget = parseInt($("scSlaTarget")?.value || 95);
-    const maxResponseTime = parseInt($("scMaxResponseTime")?.value || 30);
-    const agentCost = parseInt($("scAgentCost")?.value || 45000);
-    const aiRate = parseInt($("scAiRate")?.value || 40);
+  // Get all input values
+  const volumeGrowth = parseInt($("scVolumeGrowth")?.value || 0);
+  const ticketsPerAgentDay = parseInt($("scTicketsPerAgent")?.value || 25);
+  const hoursPerDay = parseInt($("scHoursPerDay")?.value || 8);
+  const slaTarget = parseInt($("scSlaTarget")?.value || 95);
+  const maxResponseTime = parseInt($("scMaxResponseTime")?.value || 30);
+  const agentCost = parseInt($("scAgentCost")?.value || 45000);
+  const aiRate = parseInt($("scAiRate")?.value || 40);
 
-    // Calculate projections
-    const projectedTickets = Math.round(scenarioState.currentTickets * (1 + volumeGrowth / 100));
-    const ticketsAfterAi = Math.round(projectedTickets * (1 - aiRate / 100));
-    const ticketsPerAgentMonth = ticketsPerAgentDay * scenarioState.workDaysPerMonth;
-    const requiredAgents = Math.ceil(ticketsAfterAi / ticketsPerAgentMonth);
+  // Calculate projections
+  const projectedTickets = Math.round(scenarioState.currentTickets * (1 + volumeGrowth / 100));
+  const ticketsAfterAi = Math.round(projectedTickets * (1 - aiRate / 100));
+  const ticketsPerAgentMonth = ticketsPerAgentDay * scenarioState.workDaysPerMonth;
+  const requiredAgents = Math.ceil(ticketsAfterAi / ticketsPerAgentMonth);
 
-    // SLA calculation (simplified model)
-    const agentCapacity = requiredAgents * ticketsPerAgentMonth;
-    const utilizationRate = ticketsAfterAi / agentCapacity;
-    let projectedSla;
-    if (utilizationRate > 1.2) {
-        projectedSla = Math.max(50, slaTarget - (utilizationRate - 1) * 40);
-    } else if (utilizationRate > 1) {
-        projectedSla = Math.max(70, slaTarget - (utilizationRate - 1) * 20);
-    } else {
-        projectedSla = Math.min(99, slaTarget + (1 - utilizationRate) * 5);
-    }
-    projectedSla = Math.round(projectedSla);
+  // SLA calculation (simplified model)
+  const agentCapacity = requiredAgents * ticketsPerAgentMonth;
+  const utilizationRate = ticketsAfterAi / agentCapacity;
+  let projectedSla;
+  if (utilizationRate > 1.2) {
+    projectedSla = Math.max(50, slaTarget - (utilizationRate - 1) * 40);
+  } else if (utilizationRate > 1) {
+    projectedSla = Math.max(70, slaTarget - (utilizationRate - 1) * 20);
+  } else {
+    projectedSla = Math.min(99, slaTarget + (1 - utilizationRate) * 5);
+  }
+  projectedSla = Math.round(projectedSla);
 
-    // Cost calculations
-    const projectedCost = requiredAgents * agentCost;
-    const currentCost = scenarioState.currentAgents * agentCost;
+  // Cost calculations
+  const projectedCost = requiredAgents * agentCost;
+  const currentCost = scenarioState.currentAgents * agentCost;
 
-    // AI Savings
-    const aiHandledTickets = Math.round(projectedTickets * (aiRate / 100));
-    const avgMinutesPerTicket = 15;
-    const savedMinutes = aiHandledTickets * avgMinutesPerTicket;
-    const savedHours = Math.round(savedMinutes / 60);
-    const savingsPerAgent = agentCost / (hoursPerDay * scenarioState.workDaysPerMonth);
-    const monthlySavings = Math.round(savedHours * savingsPerAgent);
-    const yearlySavings = monthlySavings * 12;
+  // AI Savings
+  const aiHandledTickets = Math.round(projectedTickets * (aiRate / 100));
+  const avgMinutesPerTicket = 15;
+  const savedMinutes = aiHandledTickets * avgMinutesPerTicket;
+  const savedHours = Math.round(savedMinutes / 60);
+  const savingsPerAgent = agentCost / (hoursPerDay * scenarioState.workDaysPerMonth);
+  const monthlySavings = Math.round(savedHours * savingsPerAgent);
+  const yearlySavings = monthlySavings * 12;
 
-    // Update UI
-    updateProjectedResults(projectedTickets, requiredAgents, projectedSla, projectedCost, volumeGrowth);
-    updateAiSavings(aiHandledTickets, savedHours, monthlySavings, yearlySavings);
-    updateInfoBoxes(projectedTickets, requiredAgents, projectedSla, volumeGrowth, aiRate);
-    updateComparisonTable(projectedTickets, requiredAgents, projectedSla, projectedCost);
-    generateRecommendations(projectedTickets, requiredAgents, projectedSla, aiRate, utilizationRate);
+  // Update UI
+  updateProjectedResults(projectedTickets, requiredAgents, projectedSla, projectedCost, volumeGrowth);
+  updateAiSavings(aiHandledTickets, savedHours, monthlySavings, yearlySavings);
+  updateInfoBoxes(projectedTickets, requiredAgents, projectedSla, volumeGrowth, aiRate);
+  updateComparisonTable(projectedTickets, requiredAgents, projectedSla, projectedCost);
+  generateRecommendations(projectedTickets, requiredAgents, projectedSla, aiRate, utilizationRate);
 }
 
 function updateProjectedResults(tickets, agents, sla, cost, growth) {
-    const setVal = (id, val) => { const el = $(id); if (el) el.textContent = val; };
-    const setDelta = (id, current, projected, suffix = "", invert = false) => {
-        const el = $(id);
-        if (!el) return;
-        const diff = projected - current;
-        const pct = current > 0 ? Math.round((diff / current) * 100) : 0;
-        const color = invert ? (diff <= 0 ? "var(--ok)" : "var(--danger)") : (diff >= 0 ? "var(--ok)" : "var(--danger)");
-        const sign = diff >= 0 ? "+" : "";
-        el.innerHTML = `<span style="color: ${color}">${sign}${diff.toLocaleString("sv-SE")}${suffix} (${sign}${pct}%)</span>`;
-    };
+  const setVal = (id, val) => { const el = $(id); if (el) el.textContent = val; };
+  const setDelta = (id, current, projected, suffix = "", invert = false) => {
+    const el = $(id);
+    if (!el) return;
+    const diff = projected - current;
+    const pct = current > 0 ? Math.round((diff / current) * 100) : 0;
+    const color = invert ? (diff <= 0 ? "var(--ok)" : "var(--danger)") : (diff >= 0 ? "var(--ok)" : "var(--danger)");
+    const sign = diff >= 0 ? "+" : "";
+    el.innerHTML = `<span style="color: ${color}">${sign}${diff.toLocaleString("sv-SE")}${suffix} (${sign}${pct}%)</span>`;
+  };
 
-    setVal("scProjectedTickets", tickets.toLocaleString("sv-SE"));
-    setVal("scProjectedAgents", agents);
-    setVal("scProjectedSla", sla + "%");
-    setVal("scProjectedCost", cost.toLocaleString("sv-SE") + " kr");
+  setVal("scProjectedTickets", tickets.toLocaleString("sv-SE"));
+  setVal("scProjectedAgents", agents);
+  setVal("scProjectedSla", sla + "%");
+  setVal("scProjectedCost", cost.toLocaleString("sv-SE") + " kr");
 
-    setDelta("scProjectedTicketsDelta", scenarioState.currentTickets, tickets);
-    setDelta("scProjectedAgentsDelta", scenarioState.currentAgents, agents, "", true);
-    setDelta("scProjectedSlaDelta", scenarioState.currentSla, sla, "%");
-    setDelta("scProjectedCostDelta", scenarioState.currentAgents * 45000, cost, " kr", true);
+  setDelta("scProjectedTicketsDelta", scenarioState.currentTickets, tickets);
+  setDelta("scProjectedAgentsDelta", scenarioState.currentAgents, agents, "", true);
+  setDelta("scProjectedSlaDelta", scenarioState.currentSla, sla, "%");
+  setDelta("scProjectedCostDelta", scenarioState.currentAgents * 45000, cost, " kr", true);
 }
 
 function updateAiSavings(handled, hours, monthly, yearly) {
-    const setVal = (id, val) => { const el = $(id); if (el) el.textContent = val; };
-    setVal("scAiHandledTickets", handled.toLocaleString("sv-SE"));
-    setVal("scSavedHours", hours.toLocaleString("sv-SE") + "h");
-    setVal("scMonthlySavings", monthly.toLocaleString("sv-SE") + " kr");
-    setVal("scYearlySavings", yearly.toLocaleString("sv-SE") + " kr");
+  const setVal = (id, val) => { const el = $(id); if (el) el.textContent = val; };
+  setVal("scAiHandledTickets", handled.toLocaleString("sv-SE"));
+  setVal("scSavedHours", hours.toLocaleString("sv-SE") + "h");
+  setVal("scMonthlySavings", monthly.toLocaleString("sv-SE") + " kr");
+  setVal("scYearlySavings", yearly.toLocaleString("sv-SE") + " kr");
 }
 
 function updateInfoBoxes(tickets, agents, sla, growth, aiRate) {
-    const volumeResult = $("scVolumeResult");
-    if (volumeResult) {
-        if (growth > 0) {
-            volumeResult.textContent = `Vid ${growth}% tillväxt förväntas ${tickets.toLocaleString("sv-SE")} ärenden/månad`;
-        } else if (growth < 0) {
-            volumeResult.textContent = `Vid ${growth}% minskning förväntas ${tickets.toLocaleString("sv-SE")} ärenden/månad`;
-        } else {
-            volumeResult.textContent = "Nuvarande volym: " + tickets.toLocaleString("sv-SE") + " ärenden/månad";
-        }
+  const volumeResult = $("scVolumeResult");
+  if (volumeResult) {
+    if (growth > 0) {
+      volumeResult.textContent = `Vid ${growth}% tillväxt förväntas ${tickets.toLocaleString("sv-SE")} ärenden/månad`;
+    } else if (growth < 0) {
+      volumeResult.textContent = `Vid ${growth}% minskning förväntas ${tickets.toLocaleString("sv-SE")} ärenden/månad`;
+    } else {
+      volumeResult.textContent = "Nuvarande volym: " + tickets.toLocaleString("sv-SE") + " ärenden/månad";
     }
+  }
 
-    const staffingResult = $("scStaffingResult");
-    if (staffingResult) {
-        const diff = agents - scenarioState.currentAgents;
-        if (diff > 0) {
-            staffingResult.textContent = `Du behöver anställa ${diff} fler agenter (totalt ${agents})`;
-        } else if (diff < 0) {
-            staffingResult.textContent = `Du kan minska med ${Math.abs(diff)} agenter (behöver ${agents})`;
-        } else {
-            staffingResult.textContent = `Nuvarande bemanning (${agents}) är tillräcklig`;
-        }
+  const staffingResult = $("scStaffingResult");
+  if (staffingResult) {
+    const diff = agents - scenarioState.currentAgents;
+    if (diff > 0) {
+      staffingResult.textContent = `Du behöver anställa ${diff} fler agenter (totalt ${agents})`;
+    } else if (diff < 0) {
+      staffingResult.textContent = `Du kan minska med ${Math.abs(diff)} agenter (behöver ${agents})`;
+    } else {
+      staffingResult.textContent = `Nuvarande bemanning (${agents}) är tillräcklig`;
     }
+  }
 
-    const slaResult = $("scSlaResult");
-    if (slaResult) {
-        if (sla >= 95) {
-            slaResult.textContent = `SLA-prognos: ${sla}% - Utmärkt nivå! ✅`;
-        } else if (sla >= 85) {
-            slaResult.textContent = `SLA-prognos: ${sla}% - Acceptabel men har förbättringspotential`;
-        } else {
-            slaResult.textContent = `SLA-prognos: ${sla}% - ⚠️ Risk för SLA-brott!`;
-        }
+  const slaResult = $("scSlaResult");
+  if (slaResult) {
+    if (sla >= 95) {
+      slaResult.textContent = `SLA-prognos: ${sla}% - Utmärkt nivå! ✅`;
+    } else if (sla >= 85) {
+      slaResult.textContent = `SLA-prognos: ${sla}% - Acceptabel men har förbättringspotential`;
+    } else {
+      slaResult.textContent = `SLA-prognos: ${sla}% - ⚠️ Risk för SLA-brott!`;
     }
+  }
 
-    const costResult = $("scCostResult");
-    if (costResult) {
-        const aiSavingsMonthly = Math.round(tickets * (aiRate / 100) * 15 / 60 * 300);
-        costResult.textContent = `AI sparar ca ${aiSavingsMonthly.toLocaleString("sv-SE")} kr/månad genom automatisering`;
-    }
+  const costResult = $("scCostResult");
+  if (costResult) {
+    const aiSavingsMonthly = Math.round(tickets * (aiRate / 100) * 15 / 60 * 300);
+    costResult.textContent = `AI sparar ca ${aiSavingsMonthly.toLocaleString("sv-SE")} kr/månad genom automatisering`;
+  }
 }
 
 function updateComparisonTable(tickets, agents, sla, cost) {
-    const tbody = $("scComparisonTable");
-    if (!tbody) return;
+  const tbody = $("scComparisonTable");
+  if (!tbody) return;
 
-    const currentCost = scenarioState.currentAgents * 45000;
+  const currentCost = scenarioState.currentAgents * 45000;
 
-    const rows = [
-        { metric: "Ärenden/månad", current: scenarioState.currentTickets, projected: tickets, suffix: "" },
-        { metric: "Agenter", current: scenarioState.currentAgents, projected: agents, suffix: "" },
-        { metric: "SLA-uppfyllnad", current: scenarioState.currentSla, projected: sla, suffix: "%" },
-        { metric: "Månadskostnad", current: currentCost, projected: cost, suffix: " kr", isCost: true }
-    ];
+  const rows = [
+    { metric: "Ärenden/månad", current: scenarioState.currentTickets, projected: tickets, suffix: "" },
+    { metric: "Agenter", current: scenarioState.currentAgents, projected: agents, suffix: "" },
+    { metric: "SLA-uppfyllnad", current: scenarioState.currentSla, projected: sla, suffix: "%" },
+    { metric: "Månadskostnad", current: currentCost, projected: cost, suffix: " kr", isCost: true }
+  ];
 
-    tbody.innerHTML = rows.map(row => {
-        const diff = row.projected - row.current;
-        const pct = row.current > 0 ? Math.round((diff / row.current) * 100) : 0;
-        const sign = diff >= 0 ? "+" : "";
-        const color = row.isCost ? (diff <= 0 ? "var(--ok)" : "var(--danger)") : (diff >= 0 ? "var(--ok)" : "var(--danger)");
+  tbody.innerHTML = rows.map(row => {
+    const diff = row.projected - row.current;
+    const pct = row.current > 0 ? Math.round((diff / row.current) * 100) : 0;
+    const sign = diff >= 0 ? "+" : "";
+    const color = row.isCost ? (diff <= 0 ? "var(--ok)" : "var(--danger)") : (diff >= 0 ? "var(--ok)" : "var(--danger)");
 
-        return `
+    return `
       <tr style="border-bottom: 1px solid var(--border);">
         <td style="padding: 12px 10px;">${row.metric}</td>
         <td style="padding: 12px 10px; text-align: right;">${row.current.toLocaleString("sv-SE")}${row.suffix}</td>
@@ -4835,90 +4844,90 @@ function updateComparisonTable(tickets, agents, sla, cost) {
         <td style="padding: 12px 10px; text-align: right; color: ${color};">${sign}${diff.toLocaleString("sv-SE")}${row.suffix} (${sign}${pct}%)</td>
       </tr>
     `;
-    }).join("");
+  }).join("");
 }
 
 function generateRecommendations(tickets, agents, sla, aiRate, utilization) {
-    const container = $("scRecommendations");
-    if (!container) return;
+  const container = $("scRecommendations");
+  if (!container) return;
 
-    const recommendations = [];
+  const recommendations = [];
 
-    // AI rate recommendations
-    if (aiRate < 30) {
-        recommendations.push({
-            icon: "fa-robot",
-            type: "info",
-            title: "Öka AI-automatisering",
-            text: "Med endast " + aiRate + "% AI-lösningsgrad finns stor potential att öka automatiseringen och spara kostnader."
-        });
-    }
+  // AI rate recommendations
+  if (aiRate < 30) {
+    recommendations.push({
+      icon: "fa-robot",
+      type: "info",
+      title: "Öka AI-automatisering",
+      text: "Med endast " + aiRate + "% AI-lösningsgrad finns stor potential att öka automatiseringen och spara kostnader."
+    });
+  }
 
-    // Staffing recommendations
-    if (agents > scenarioState.currentAgents + 2) {
-        recommendations.push({
-            icon: "fa-user-plus",
-            type: "warn",
-            title: "Rekryteringsbehov",
-            text: "Du behöver anställa " + (agents - scenarioState.currentAgents) + " nya agenter för att hantera den förväntade volymen."
-        });
-    } else if (agents < scenarioState.currentAgents - 1) {
-        recommendations.push({
-            icon: "fa-user-minus",
-            type: "ok",
-            title: "Möjlig kostnadsoptimering",
-            text: "Med ökad AI-automatisering kan du potentiellt minska bemanningen."
-        });
-    }
+  // Staffing recommendations
+  if (agents > scenarioState.currentAgents + 2) {
+    recommendations.push({
+      icon: "fa-user-plus",
+      type: "warn",
+      title: "Rekryteringsbehov",
+      text: "Du behöver anställa " + (agents - scenarioState.currentAgents) + " nya agenter för att hantera den förväntade volymen."
+    });
+  } else if (agents < scenarioState.currentAgents - 1) {
+    recommendations.push({
+      icon: "fa-user-minus",
+      type: "ok",
+      title: "Möjlig kostnadsoptimering",
+      text: "Med ökad AI-automatisering kan du potentiellt minska bemanningen."
+    });
+  }
 
-    // SLA recommendations
-    if (sla < 85) {
-        recommendations.push({
-            icon: "fa-triangle-exclamation",
-            type: "danger",
-            title: "SLA-varning",
-            text: "Prognosen visar risk för SLA-brott. Överväg att öka bemanning eller AI-automatisering."
-        });
-    } else if (sla >= 95) {
-        recommendations.push({
-            icon: "fa-check-circle",
-            type: "ok",
-            title: "Stabil SLA",
-            text: "Ni ligger väl inom SLA-målen. Bra jobbat!"
-        });
-    }
+  // SLA recommendations
+  if (sla < 85) {
+    recommendations.push({
+      icon: "fa-triangle-exclamation",
+      type: "danger",
+      title: "SLA-varning",
+      text: "Prognosen visar risk för SLA-brott. Överväg att öka bemanning eller AI-automatisering."
+    });
+  } else if (sla >= 95) {
+    recommendations.push({
+      icon: "fa-check-circle",
+      type: "ok",
+      title: "Stabil SLA",
+      text: "Ni ligger väl inom SLA-målen. Bra jobbat!"
+    });
+  }
 
-    // Utilization recommendations
-    if (utilization > 1.1) {
-        recommendations.push({
-            icon: "fa-fire",
-            type: "warn",
-            title: "Hög belastning",
-            text: "Agenterna beräknas vara överbelastade. Detta kan leda till utbrändhet och ökad personalomsättning."
-        });
-    }
+  // Utilization recommendations
+  if (utilization > 1.1) {
+    recommendations.push({
+      icon: "fa-fire",
+      type: "warn",
+      title: "Hög belastning",
+      text: "Agenterna beräknas vara överbelastade. Detta kan leda till utbrändhet och ökad personalomsättning."
+    });
+  }
 
-    // Cost savings opportunity
-    if (aiRate < 50 && tickets > 300) {
-        const potentialSavings = Math.round(tickets * 0.5 * 15 / 60 * 300);
-        recommendations.push({
-            icon: "fa-piggy-bank",
-            type: "ok",
-            title: "Besparingspotential",
-            text: `Genom att öka AI till 50% kan ni spara uppskattningsvis ${potentialSavings.toLocaleString("sv-SE")} kr/månad.`
-        });
-    }
+  // Cost savings opportunity
+  if (aiRate < 50 && tickets > 300) {
+    const potentialSavings = Math.round(tickets * 0.5 * 15 / 60 * 300);
+    recommendations.push({
+      icon: "fa-piggy-bank",
+      type: "ok",
+      title: "Besparingspotential",
+      text: `Genom att öka AI till 50% kan ni spara uppskattningsvis ${potentialSavings.toLocaleString("sv-SE")} kr/månad.`
+    });
+  }
 
-    if (recommendations.length === 0) {
-        recommendations.push({
-            icon: "fa-thumbs-up",
-            type: "ok",
-            title: "Balanserad situation",
-            text: "Era nuvarande inställningar verkar balanserade. Fortsätt övervaka utvecklingen."
-        });
-    }
+  if (recommendations.length === 0) {
+    recommendations.push({
+      icon: "fa-thumbs-up",
+      type: "ok",
+      title: "Balanserad situation",
+      text: "Era nuvarande inställningar verkar balanserade. Fortsätt övervaka utvecklingen."
+    });
+  }
 
-    container.innerHTML = recommendations.map(rec => `
+  container.innerHTML = recommendations.map(rec => `
     <div class="alert ${rec.type}" style="margin-bottom: 10px; display: flex; align-items: flex-start; gap: 12px;">
       <i class="fa-solid ${rec.icon}" style="margin-top: 2px;"></i>
       <div>
@@ -4930,30 +4939,30 @@ function generateRecommendations(tickets, agents, sla, aiRate, utilization) {
 }
 
 function resetScenario() {
-    $("scVolumeGrowth").value = 0;
-    $("scVolumeGrowthValue").textContent = "0%";
-    $("scTicketsPerAgent").value = 25;
-    $("scHoursPerDay").value = 8;
-    $("scSlaTarget").value = 95;
-    $("scSlaTargetValue").textContent = "95%";
-    $("scMaxResponseTime").value = 30;
-    $("scAgentCost").value = 45000;
-    $("scAiRate").value = 40;
-    $("scAiRateValue").textContent = "40%";
+  $("scVolumeGrowth").value = 0;
+  $("scVolumeGrowthValue").textContent = "0%";
+  $("scTicketsPerAgent").value = 25;
+  $("scHoursPerDay").value = 8;
+  $("scSlaTarget").value = 95;
+  $("scSlaTargetValue").textContent = "95%";
+  $("scMaxResponseTime").value = 30;
+  $("scAgentCost").value = 45000;
+  $("scAiRate").value = 40;
+  $("scAiRateValue").textContent = "40%";
 
-    calculateScenario();
-    toast("Återställt", "Alla värden har återställts till standard", "info");
+  calculateScenario();
+  toast("Återställt", "Alla värden har återställts till standard", "info");
 }
 
 function exportScenarioReport() {
-    const growth = $("scVolumeGrowth")?.value || 0;
-    const tickets = $("scProjectedTickets")?.textContent || "-";
-    const agents = $("scProjectedAgents")?.textContent || "-";
-    const sla = $("scProjectedSla")?.textContent || "-";
-    const cost = $("scProjectedCost")?.textContent || "-";
-    const yearlySavings = $("scYearlySavings")?.textContent || "-";
+  const growth = $("scVolumeGrowth")?.value || 0;
+  const tickets = $("scProjectedTickets")?.textContent || "-";
+  const agents = $("scProjectedAgents")?.textContent || "-";
+  const sla = $("scProjectedSla")?.textContent || "-";
+  const cost = $("scProjectedCost")?.textContent || "-";
+  const yearlySavings = $("scYearlySavings")?.textContent || "-";
 
-    const report = `
+  const report = `
 SCENARIOPLANERINGRAPPORT
 ========================
 Genererad: ${new Date().toLocaleString("sv-SE")}
@@ -4977,16 +4986,380 @@ BESPARINGAR:
 Rapporten skapad av AI Kundtjänst Scenarioplanerare
   `.trim();
 
-    const blob = new Blob([report], { type: "text/plain;charset=utf-8" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `scenariorapport_${new Date().toISOString().split("T")[0]}.txt`;
-    a.click();
-    URL.revokeObjectURL(url);
+  const blob = new Blob([report], { type: "text/plain;charset=utf-8" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = `scenariorapport_${new Date().toISOString().split("T")[0]}.txt`;
+  a.click();
+  URL.revokeObjectURL(url);
 
-    toast("Exporterad", "Rapporten har laddats ner", "success");
+  toast("Exporterad", "Rapporten har laddats ner", "success");
 }
 
 // Auto-init when view is shown
 window.initScenarioPlanner = initScenarioPlanner;
+
+/* =====================
+   SALES ANALYTICS - Frontend
+===================== */
+
+// Initialize Sales Analytics
+async function initSalesAnalytics() {
+    bindSalesTabs();
+    bindSalesEvents();
+    await loadSalesData();
+}
+
+function bindSalesTabs() {
+    const tabs = document.querySelectorAll(".salesTabBtn");
+    tabs.forEach(tab => {
+        tab.onclick = () => {
+            tabs.forEach(t => t.classList.remove("active"));
+            document.querySelectorAll(".salesTabContent").forEach(c => c.style.display = "none");
+            tab.classList.add("active");
+            const targetId = tab.getAttribute("data-tab");
+            const target = $(targetId);
+            if (target) target.style.display = "";
+        };
+    });
+}
+
+function bindSalesEvents() {
+    const periodFilter = $("salesPeriodFilter");
+    if (periodFilter) periodFilter.onchange = loadSalesData;
+
+    const refreshBtn = $("refreshSalesBtn");
+    if (refreshBtn) refreshBtn.onclick = loadSalesData;
+
+    const exportBtn = $("exportSalesBtn");
+    if (exportBtn) exportBtn.onclick = exportSalesReport;
+}
+
+async function loadSalesData() {
+    const days = parseInt($("salesPeriodFilter")?.value || 30);
+
+    // Since we don't have real sales data yet, generate demo/simulation data
+    const data = generateDemoSalesData(days);
+
+    // Update top KPIs
+    $("salesTotalRevenue").textContent = formatCurrency(data.totalRevenue);
+    $("salesTotalOrders").textContent = data.totalOrders.toLocaleString("sv-SE");
+    $("salesAov").textContent = formatCurrency(data.aov);
+    $("salesConversionRate").textContent = data.conversionRate + "%";
+    $("salesAiRevenue").textContent = formatCurrency(data.aiRevenue);
+
+    // Update all metrics
+    updateSalesMetrics(data);
+    updateProductsList(data.topProducts);
+    updateIntentsList(data.salesByIntent);
+    updateHighProbLeads(data.highProbLeads);
+    updateChurnRiskList(data.highChurnRisk);
+}
+
+function generateDemoSalesData(days) {
+    const multiplier = days / 30;
+    const baseOrders = Math.round(247 * multiplier);
+    const baseRevenue = Math.round(487500 * multiplier);
+
+    return {
+        // Core
+        totalRevenue: baseRevenue,
+        totalOrders: baseOrders,
+        aov: Math.round(baseRevenue / baseOrders),
+        revenuePerConv: Math.round(baseRevenue / (baseOrders * 3.2)),
+        revenuePerAi: Math.round(baseRevenue * 0.65 / (baseOrders * 0.65)),
+        conversionRate: 12.4,
+        aiRevenue: Math.round(baseRevenue * 0.65),
+
+        // Funnel
+        convStarted: Math.round(baseOrders * 8.1),
+        offersShown: Math.round(baseOrders * 4.2),
+        offersClicked: Math.round(baseOrders * 2.1),
+        purchasesMade: baseOrders,
+        funnelRate: 12.4,
+        dropoff1: 50,
+        dropoff2: 52.4,
+        aiToSale: 31.2,
+
+        // Upsell
+        upsellRate: 23.5,
+        upsellRevenue: Math.round(baseRevenue * 0.18),
+        avgUpsellValue: 342,
+        crossSellFreq: 15.2,
+        rejectedOffers: 34.2,
+        timeToSale: "4.2 min",
+        timingEffect: "+18% kvällstid",
+
+        // Products
+        productsPerOrder: 1.8,
+        singleItemOrders: Math.round(baseOrders * 0.58),
+        bundleOrders: Math.round(baseOrders * 0.42),
+        topProducts: [
+            { name: "Premium Abonnemang", sales: 89, revenue: 178000 },
+            { name: "Tilläggstjänst Pro", sales: 67, revenue: 67000 },
+            { name: "Supportavtal Guld", sales: 45, revenue: 112500 },
+            { name: "API Access", sales: 34, revenue: 68000 },
+            { name: "Konsulttimmar", sales: 12, revenue: 62000 }
+        ],
+        salesByIntent: [
+            { intent: "Köpintresse", count: 124, pct: 50.2 },
+            { intent: "Prisförfrågan", count: 67, pct: 27.1 },
+            { intent: "Uppgradering", count: 34, pct: 13.8 },
+            { intent: "Support → köp", count: 22, pct: 8.9 }
+        ],
+
+        // Customers
+        newCustomers: Math.round(baseOrders * 0.42),
+        returningCustomers: Math.round(baseOrders * 0.58),
+        purchasesNew: 1.2,
+        purchasesReturning: 2.4,
+        purchasesByChannel: "Web 68%, Chat 32%",
+        peakTime: "14:00-16:00",
+        postSupportPurchase: Math.round(baseOrders * 0.15),
+        returnRate: 3.2,
+        repeatAiPurchases: Math.round(baseOrders * 0.28),
+
+        // AI Performance
+        convPerPrompt: "v2.1: 14.2%",
+        revenuePerPrompt: "v2.1: 2,340 kr",
+        revenuePerModel: "GPT-4o: +23%",
+        suggestionToSale: 31.2,
+        fallbackLost: "12,400 kr",
+        failedAiLost: "8,200 kr",
+        abComparison: "B +18%",
+        salesByStrategy: "Mjuk: 62%",
+        offerTiming: "Sent: +24%",
+
+        // Predictive
+        probConv: 34.2,
+        probCustomer: 45.8,
+        probProduct: 67.3,
+        probIntent: 72.1,
+        probSentiment: 58.4,
+        highProbLeads: [
+            { name: "Acme Corp", prob: 89, value: "45,000 kr" },
+            { name: "TechStart AB", prob: 82, value: "28,000 kr" },
+            { name: "Nordic Solutions", prob: 76, value: "35,000 kr" }
+        ],
+
+        // Churn
+        churnCustomer: 8.4,
+        churnRejected: 12.3,
+        churnFailedAi: 18.7,
+        churnEscalated: 9.2,
+        churnSegment: "SMB: 11.2%",
+        highChurnRisk: [
+            { name: "ClientX", risk: 78, reason: "Avvisat 3 erbjudanden" },
+            { name: "CompanyY", risk: 65, reason: "2 misslyckade AI-dialoger" },
+            { name: "BizZ", risk: 54, reason: "Ingen aktivitet 45d" }
+        ],
+
+        // CLV
+        clvTotal: 24500,
+        clvAiInfluenced: 32400,
+        clvAiCustomers: 38200,
+        clvNonAiCustomers: 18700,
+        clvPreAi: 21300,
+        clvPostAi: 34600,
+        clvPerPrompt: "v2.1: 36,200 kr",
+        clvPerModel: "GPT-4o: 38,400 kr",
+        clvPerStrategy: "Personlig: 41,200 kr"
+    };
+}
+
+function updateSalesMetrics(data) {
+    const setValue = (id, val) => { const el = $(id); if (el) el.textContent = val; };
+
+    // Core
+    setValue("sm_totalRevenue", formatCurrency(data.totalRevenue));
+    setValue("sm_totalOrders", data.totalOrders.toLocaleString("sv-SE"));
+    setValue("sm_aov", formatCurrency(data.aov));
+    setValue("sm_revenuePerConv", formatCurrency(data.revenuePerConv));
+    setValue("sm_revenuePerAi", formatCurrency(data.revenuePerAi));
+
+    // Funnel
+    setValue("sm_convStarted", data.convStarted.toLocaleString("sv-SE"));
+    setValue("sm_offersShown", data.offersShown.toLocaleString("sv-SE"));
+    setValue("sm_offersClicked", data.offersClicked.toLocaleString("sv-SE"));
+    setValue("sm_purchasesMade", data.purchasesMade.toLocaleString("sv-SE"));
+    setValue("sm_funnelRate", data.funnelRate + "%");
+    setValue("sm_dropoff1", data.dropoff1 + "%");
+    setValue("sm_dropoff2", data.dropoff2 + "%");
+    setValue("sm_aiToSale", data.aiToSale + "%");
+
+    // Upsell
+    setValue("sm_upsellRate", data.upsellRate + "%");
+    setValue("sm_upsellRevenue", formatCurrency(data.upsellRevenue));
+    setValue("sm_avgUpsellValue", formatCurrency(data.avgUpsellValue));
+    setValue("sm_crossSellFreq", data.crossSellFreq + "%");
+    setValue("sm_rejectedOffers", data.rejectedOffers + "%");
+    setValue("sm_timeToSale", data.timeToSale);
+    setValue("sm_timingEffect", data.timingEffect);
+
+    // Products
+    setValue("sm_productsPerOrder", data.productsPerOrder);
+    setValue("sm_singleItemOrders", data.singleItemOrders.toLocaleString("sv-SE"));
+    setValue("sm_bundleOrders", data.bundleOrders.toLocaleString("sv-SE"));
+
+    // Customers
+    setValue("sm_newCustomers", data.newCustomers.toLocaleString("sv-SE"));
+    setValue("sm_returningCustomers", data.returningCustomers.toLocaleString("sv-SE"));
+    setValue("sm_purchasesNew", data.purchasesNew + " snitt");
+    setValue("sm_purchasesReturning", data.purchasesReturning + " snitt");
+    setValue("sm_purchasesByChannel", data.purchasesByChannel);
+    setValue("sm_peakTime", data.peakTime);
+    setValue("sm_postSupportPurchase", data.postSupportPurchase.toLocaleString("sv-SE"));
+    setValue("sm_returnRate", data.returnRate + "%");
+    setValue("sm_repeatAiPurchases", data.repeatAiPurchases.toLocaleString("sv-SE"));
+
+    // AI Performance
+    setValue("sm_convPerPrompt", data.convPerPrompt);
+    setValue("sm_revenuePerPrompt", data.revenuePerPrompt);
+    setValue("sm_revenuePerModel", data.revenuePerModel);
+    setValue("sm_suggestionToSale", data.suggestionToSale + "%");
+    setValue("sm_fallbackLost", data.fallbackLost);
+    setValue("sm_failedAiLost", data.failedAiLost);
+    setValue("sm_abComparison", data.abComparison);
+    setValue("sm_salesByStrategy", data.salesByStrategy);
+    setValue("sm_offerTiming", data.offerTiming);
+
+    // Predictive
+    setValue("sm_probConv", data.probConv + "%");
+    setValue("sm_probCustomer", data.probCustomer + "%");
+    setValue("sm_probProduct", data.probProduct + "%");
+    setValue("sm_probIntent", data.probIntent + "%");
+    setValue("sm_probSentiment", data.probSentiment + "%");
+
+    // Churn
+    setValue("sm_churnCustomer", data.churnCustomer + "%");
+    setValue("sm_churnRejected", data.churnRejected + "%");
+    setValue("sm_churnFailedAi", data.churnFailedAi + "%");
+    setValue("sm_churnEscalated", data.churnEscalated + "%");
+    setValue("sm_churnSegment", data.churnSegment);
+
+    // CLV
+    setValue("sm_clvTotal", formatCurrency(data.clvTotal));
+    setValue("sm_clvAiInfluenced", formatCurrency(data.clvAiInfluenced));
+    setValue("sm_clvAiCustomers", formatCurrency(data.clvAiCustomers));
+    setValue("sm_clvNonAiCustomers", formatCurrency(data.clvNonAiCustomers));
+    setValue("sm_clvPreAi", formatCurrency(data.clvPreAi));
+    setValue("sm_clvPostAi", formatCurrency(data.clvPostAi));
+    setValue("sm_clvPerPrompt", data.clvPerPrompt);
+    setValue("sm_clvPerModel", data.clvPerModel);
+    setValue("sm_clvPerStrategy", data.clvPerStrategy);
+}
+
+function updateProductsList(products) {
+    const container = $("salesTopProducts");
+    if (!container) return;
+
+    container.innerHTML = products.map((p, i) => `
+    <div class="salesMetricRow" style="padding: 8px 0; border-bottom: 1px solid var(--border);">
+      <span><span style="color: var(--muted);">#${i + 1}</span> ${p.name}</span>
+      <span class="salesMetricValue">${formatCurrency(p.revenue)} <span class="small muted">(${p.sales} st)</span></span>
+    </div>
+  `).join("");
+}
+
+function updateIntentsList(intents) {
+    const container = $("salesByIntent");
+    if (!container) return;
+
+    container.innerHTML = intents.map(i => `
+    <div class="salesMetricRow" style="padding: 8px 0; border-bottom: 1px solid var(--border);">
+      <span>${i.intent}</span>
+      <span class="salesMetricValue">${i.count} <span class="small muted">(${i.pct}%)</span></span>
+    </div>
+  `).join("");
+}
+
+function updateHighProbLeads(leads) {
+    const container = $("salesHighProbLeads");
+    if (!container) return;
+
+    container.innerHTML = leads.map(l => `
+    <div class="salesMetricRow" style="padding: 10px 0; border-bottom: 1px solid var(--border);">
+      <span>
+        <span style="display: inline-block; width: 40px; height: 40px; background: var(--primary); color: white; border-radius: 50%; text-align: center; line-height: 40px; margin-right: 10px; font-weight: 700;">${l.prob}%</span>
+        ${l.name}
+      </span>
+      <span class="salesMetricValue text-ok">${l.value}</span>
+    </div>
+  `).join("");
+}
+
+function updateChurnRiskList(risks) {
+    const container = $("salesHighChurnRisk");
+    if (!container) return;
+
+    container.innerHTML = risks.map(r => `
+    <div class="salesMetricRow" style="padding: 10px 0; border-bottom: 1px solid var(--border);">
+      <span>
+        <span style="display: inline-block; width: 40px; height: 40px; background: ${r.risk > 70 ? 'var(--danger)' : 'var(--warn)'}; color: white; border-radius: 50%; text-align: center; line-height: 40px; margin-right: 10px; font-weight: 700;">${r.risk}%</span>
+        <span>
+          <div>${r.name}</div>
+          <div class="small muted">${r.reason}</div>
+        </span>
+      </span>
+    </div>
+  `).join("");
+}
+
+function formatCurrency(amount) {
+    return amount.toLocaleString("sv-SE") + " kr";
+}
+
+function exportSalesReport() {
+    const days = $("salesPeriodFilter")?.value || 30;
+    const data = generateDemoSalesData(parseInt(days));
+
+    const report = `
+SÄLJANALYSRAPPORT
+=================
+Genererad: ${new Date().toLocaleString("sv-SE")}
+Period: Senaste ${days} dagar
+
+ÖVERSIKT
+--------
+Total försäljning: ${formatCurrency(data.totalRevenue)}
+Antal köp: ${data.totalOrders}
+Genomsnittligt ordervärde: ${formatCurrency(data.aov)}
+Conversion rate: ${data.conversionRate}%
+AI-driven intäkt: ${formatCurrency(data.aiRevenue)}
+
+MERSÄLJ
+-------
+Mersäljsgrad: ${data.upsellRate}%
+Mersäljsintäkt: ${formatCurrency(data.upsellRevenue)}
+Korsförsäljningsfrekvens: ${data.crossSellFreq}%
+
+KUNDER
+------
+Nya kunder: ${data.newCustomers}
+Återkommande kunder: ${data.returningCustomers}
+Retur-/ångerkvot: ${data.returnRate}%
+
+CLV
+---
+Customer Lifetime Value: ${formatCurrency(data.clvTotal)}
+AI-påverkad CLV: ${formatCurrency(data.clvAiInfluenced)}
+CLV efter AI-interaktion: ${formatCurrency(data.clvPostAi)}
+
+=================
+Rapporten skapad av AI Kundtjänst Säljanalys
+  `.trim();
+
+    const blob = new Blob([report], { type: "text/plain;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `saljrapport_${new Date().toISOString().split("T")[0]}.txt`;
+    a.click();
+    URL.revokeObjectURL(url);
+
+    toast("Exporterad", "Säljrapporten har laddats ner", "success");
+}
+
+// Make globally available
+window.initSalesAnalytics = initSalesAnalytics;

@@ -83,6 +83,10 @@
         <button id="openScenarioView" class="menuBtn" style="display:none;" type="button">
           <i class="fa-solid fa-crystal-ball"></i> Scenarioplanering
         </button>
+
+        <button id="openSalesView" class="menuBtn" style="display:none;" type="button">
+          <i class="fa-solid fa-chart-column"></i> Säljanalys
+        </button>
       </nav>
 
       <div class="sidebarFooter">
@@ -2108,6 +2112,373 @@
                     </tr>
                   </tbody>
                 </table>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- SALES ANALYTICS -->
+      <section id="salesView" class="view" style="display:none;">
+        <div class="topbar">
+          <div>
+            <div class="title"><i class="fa-solid fa-chart-column" style="color:var(--ok);"></i> Säljanalys</div>
+            <div class="subtitle muted">Komplett översikt över försäljning, konvertering och kundvärde</div>
+          </div>
+          <div class="topbarActions">
+            <select id="salesPeriodFilter" class="input" style="width: auto;">
+              <option value="7">Senaste 7 dagar</option>
+              <option value="30" selected>Senaste 30 dagar</option>
+              <option value="90">Senaste 90 dagar</option>
+              <option value="365">Senaste året</option>
+            </select>
+            <button id="refreshSalesBtn" class="btn ghost" type="button">
+              <i class="fa-solid fa-rotate"></i> Uppdatera
+            </button>
+            <button id="exportSalesBtn" class="btn primary" type="button">
+              <i class="fa-solid fa-download"></i> Exportera
+            </button>
+          </div>
+        </div>
+
+        <!-- TOP KPI CARDS -->
+        <div class="statsRow"
+          style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 16px; margin: 20px 0;">
+          <div class="statCard" style="background: linear-gradient(135deg, #10b981, #059669); color: white;">
+            <div class="statIcon"><i class="fa-solid fa-sack-dollar"></i></div>
+            <div class="statValue" id="salesTotalRevenue">0 kr</div>
+            <div class="statLabel">Total försäljning</div>
+          </div>
+          <div class="statCard" style="background: linear-gradient(135deg, #3b82f6, #1d4ed8); color: white;">
+            <div class="statIcon"><i class="fa-solid fa-shopping-cart"></i></div>
+            <div class="statValue" id="salesTotalOrders">0</div>
+            <div class="statLabel">Antal köp</div>
+          </div>
+          <div class="statCard" style="background: linear-gradient(135deg, #8b5cf6, #6d28d9); color: white;">
+            <div class="statIcon"><i class="fa-solid fa-receipt"></i></div>
+            <div class="statValue" id="salesAov">0 kr</div>
+            <div class="statLabel">Genomsnittligt ordervärde</div>
+          </div>
+          <div class="statCard" style="background: linear-gradient(135deg, #f59e0b, #d97706); color: white;">
+            <div class="statIcon"><i class="fa-solid fa-percent"></i></div>
+            <div class="statValue" id="salesConversionRate">0%</div>
+            <div class="statLabel">Conversion rate</div>
+          </div>
+          <div class="statCard" style="background: linear-gradient(135deg, #ec4899, #be185d); color: white;">
+            <div class="statIcon"><i class="fa-solid fa-robot"></i></div>
+            <div class="statValue" id="salesAiRevenue">0 kr</div>
+            <div class="statLabel">AI-driven intäkt</div>
+          </div>
+        </div>
+
+        <!-- CATEGORY TABS -->
+        <div class="salesTabs"
+          style="display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 20px; border-bottom: 2px solid var(--border); padding-bottom: 10px;">
+          <button class="salesTabBtn active" data-tab="salesCore" type="button">📊 Grundläggande</button>
+          <button class="salesTabBtn" data-tab="salesFunnel" type="button">🔄 Konvertering</button>
+          <button class="salesTabBtn" data-tab="salesUpsell" type="button">📈 Mersälj</button>
+          <button class="salesTabBtn" data-tab="salesProducts" type="button">📦 Produkter</button>
+          <button class="salesTabBtn" data-tab="salesCustomers" type="button">👥 Kunder</button>
+          <button class="salesTabBtn" data-tab="salesAi" type="button">🤖 AI Performance</button>
+          <button class="salesTabBtn" data-tab="salesPredictive" type="button">🔮 Prediktiv</button>
+          <button class="salesTabBtn" data-tab="salesChurn" type="button">⚠️ Churn</button>
+          <button class="salesTabBtn" data-tab="salesClv" type="button">💎 CLV</button>
+        </div>
+
+        <!-- TAB: CORE SALES -->
+        <div id="salesCore" class="salesTabContent">
+          <div class="grid2">
+            <div class="panel">
+              <div class="panelHead"><b><i class="fa-solid fa-coins"></i> Intäktsöversikt</b></div>
+              <div class="salesMetricGrid" style="display: grid; gap: 12px; margin-top: 15px;">
+                <div class="salesMetricRow"><span>Total försäljning (SEK)</span><span id="sm_totalRevenue"
+                    class="salesMetricValue">-</span></div>
+                <div class="salesMetricRow"><span>Antal köp</span><span id="sm_totalOrders"
+                    class="salesMetricValue">-</span></div>
+                <div class="salesMetricRow"><span>Genomsnittligt ordervärde (AOV)</span><span id="sm_aov"
+                    class="salesMetricValue">-</span></div>
+                <div class="salesMetricRow"><span>Intäkt per konversation</span><span id="sm_revenuePerConv"
+                    class="salesMetricValue">-</span></div>
+                <div class="salesMetricRow"><span>Intäkt per AI-rekommendation</span><span id="sm_revenuePerAi"
+                    class="salesMetricValue">-</span></div>
+              </div>
+            </div>
+            <div class="panel">
+              <div class="panelHead"><b><i class="fa-solid fa-chart-line"></i> Trendöversikt</b></div>
+              <div id="salesTrendChart"
+                style="height: 200px; display: flex; align-items: center; justify-content: center; background: var(--panel2); border-radius: 8px; margin-top: 15px;">
+                <span class="muted">📈 Försäljningstrend visas här</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- TAB: FUNNEL -->
+        <div id="salesFunnel" class="salesTabContent" style="display:none;">
+          <div class="grid2">
+            <div class="panel">
+              <div class="panelHead"><b><i class="fa-solid fa-filter"></i> Konverteringstratt</b></div>
+              <div class="salesMetricGrid" style="margin-top: 15px;">
+                <div class="salesMetricRow"><span>Konversationer startade</span><span id="sm_convStarted"
+                    class="salesMetricValue">-</span></div>
+                <div class="salesMetricRow"><span>Erbjudanden visade</span><span id="sm_offersShown"
+                    class="salesMetricValue">-</span></div>
+                <div class="salesMetricRow"><span>Klick på erbjudanden</span><span id="sm_offersClicked"
+                    class="salesMetricValue">-</span></div>
+                <div class="salesMetricRow"><span>Köp genomförda</span><span id="sm_purchasesMade"
+                    class="salesMetricValue">-</span></div>
+                <div class="salesMetricRow"><span>Funnel conversion rate</span><span id="sm_funnelRate"
+                    class="salesMetricValue">-</span></div>
+              </div>
+            </div>
+            <div class="panel">
+              <div class="panelHead"><b><i class="fa-solid fa-arrow-trend-down"></i> Drop-off Analys</b></div>
+              <div class="salesMetricGrid" style="margin-top: 15px;">
+                <div class="salesMetricRow"><span>Drop-off: Visa → Klick</span><span id="sm_dropoff1"
+                    class="salesMetricValue text-warn">-</span></div>
+                <div class="salesMetricRow"><span>Drop-off: Klick → Köp</span><span id="sm_dropoff2"
+                    class="salesMetricValue text-warn">-</span></div>
+                <div class="salesMetricRow"><span>Conversion rate (AI → köp)</span><span id="sm_aiToSale"
+                    class="salesMetricValue">-</span></div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- TAB: UPSELL -->
+        <div id="salesUpsell" class="salesTabContent" style="display:none;">
+          <div class="grid2">
+            <div class="panel">
+              <div class="panelHead"><b><i class="fa-solid fa-arrow-up-right-dots"></i> Mersälj</b></div>
+              <div class="salesMetricGrid" style="margin-top: 15px;">
+                <div class="salesMetricRow"><span>Mersäljsgrad (%)</span><span id="sm_upsellRate"
+                    class="salesMetricValue">-</span></div>
+                <div class="salesMetricRow"><span>Mersäljsintäkt (SEK)</span><span id="sm_upsellRevenue"
+                    class="salesMetricValue">-</span></div>
+                <div class="salesMetricRow"><span>Genomsnittligt mersäljsvärde</span><span id="sm_avgUpsellValue"
+                    class="salesMetricValue">-</span></div>
+                <div class="salesMetricRow"><span>Korsförsäljningsfrekvens</span><span id="sm_crossSellFreq"
+                    class="salesMetricValue">-</span></div>
+              </div>
+            </div>
+            <div class="panel">
+              <div class="panelHead"><b><i class="fa-solid fa-clock"></i> Timing & Avvisning</b></div>
+              <div class="salesMetricGrid" style="margin-top: 15px;">
+                <div class="salesMetricRow"><span>Avvisade säljförslag (%)</span><span id="sm_rejectedOffers"
+                    class="salesMetricValue text-warn">-</span></div>
+                <div class="salesMetricRow"><span>Tid från AI-förslag till köp</span><span id="sm_timeToSale"
+                    class="salesMetricValue">-</span></div>
+                <div class="salesMetricRow"><span>Timing-effekt på erbjudanden</span><span id="sm_timingEffect"
+                    class="salesMetricValue">-</span></div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- TAB: PRODUCTS -->
+        <div id="salesProducts" class="salesTabContent" style="display:none;">
+          <div class="grid2">
+            <div class="panel">
+              <div class="panelHead"><b><i class="fa-solid fa-box"></i> Produktstatistik</b></div>
+              <div class="salesMetricGrid" style="margin-top: 15px;">
+                <div class="salesMetricRow"><span>Antal produkter per order</span><span id="sm_productsPerOrder"
+                    class="salesMetricValue">-</span></div>
+                <div class="salesMetricRow"><span>Single-item orders</span><span id="sm_singleItemOrders"
+                    class="salesMetricValue">-</span></div>
+                <div class="salesMetricRow"><span>Bundle-orders</span><span id="sm_bundleOrders"
+                    class="salesMetricValue">-</span></div>
+              </div>
+            </div>
+            <div class="panel">
+              <div class="panelHead"><b><i class="fa-solid fa-ranking-star"></i> Topprodukter</b></div>
+              <div id="salesTopProducts" style="margin-top: 15px;">
+                <div class="muted center" style="padding: 20px;">Laddar produktdata...</div>
+              </div>
+            </div>
+            <div class="panel">
+              <div class="panelHead"><b><i class="fa-solid fa-tags"></i> Sälj per intentkategori</b></div>
+              <div id="salesByIntent" style="margin-top: 15px;">
+                <div class="muted center" style="padding: 20px;">Laddar intentdata...</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- TAB: CUSTOMERS -->
+        <div id="salesCustomers" class="salesTabContent" style="display:none;">
+          <div class="grid2">
+            <div class="panel">
+              <div class="panelHead"><b><i class="fa-solid fa-user-plus"></i> Kundtyper</b></div>
+              <div class="salesMetricGrid" style="margin-top: 15px;">
+                <div class="salesMetricRow"><span>Nya kunder</span><span id="sm_newCustomers"
+                    class="salesMetricValue">-</span></div>
+                <div class="salesMetricRow"><span>Återkommande kunder</span><span id="sm_returningCustomers"
+                    class="salesMetricValue">-</span></div>
+                <div class="salesMetricRow"><span>Köp per kundtyp (ny)</span><span id="sm_purchasesNew"
+                    class="salesMetricValue">-</span></div>
+                <div class="salesMetricRow"><span>Köp per kundtyp (återk.)</span><span id="sm_purchasesReturning"
+                    class="salesMetricValue">-</span></div>
+              </div>
+            </div>
+            <div class="panel">
+              <div class="panelHead"><b><i class="fa-solid fa-clock-rotate-left"></i> Beteendeanalys</b></div>
+              <div class="salesMetricGrid" style="margin-top: 15px;">
+                <div class="salesMetricRow"><span>Köp per kanal</span><span id="sm_purchasesByChannel"
+                    class="salesMetricValue">-</span></div>
+                <div class="salesMetricRow"><span>Köp per tidpunkt (peak)</span><span id="sm_peakTime"
+                    class="salesMetricValue">-</span></div>
+                <div class="salesMetricRow"><span>Köp efter löst supportärende</span><span id="sm_postSupportPurchase"
+                    class="salesMetricValue">-</span></div>
+                <div class="salesMetricRow"><span>Retur-/ångerkvot</span><span id="sm_returnRate"
+                    class="salesMetricValue text-warn">-</span></div>
+                <div class="salesMetricRow"><span>Repetitiva köp via AI</span><span id="sm_repeatAiPurchases"
+                    class="salesMetricValue">-</span></div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- TAB: AI PERFORMANCE -->
+        <div id="salesAi" class="salesTabContent" style="display:none;">
+          <div class="grid2">
+            <div class="panel">
+              <div class="panelHead"><b><i class="fa-solid fa-microchip"></i> Promptprestanda</b></div>
+              <div class="salesMetricGrid" style="margin-top: 15px;">
+                <div class="salesMetricRow"><span>Conversion rate per promptversion</span><span id="sm_convPerPrompt"
+                    class="salesMetricValue">-</span></div>
+                <div class="salesMetricRow"><span>Intäkt per promptversion</span><span id="sm_revenuePerPrompt"
+                    class="salesMetricValue">-</span></div>
+                <div class="salesMetricRow"><span>Intäkt per modell</span><span id="sm_revenuePerModel"
+                    class="salesMetricValue">-</span></div>
+                <div class="salesMetricRow"><span>Förslag → köp-ratio</span><span id="sm_suggestionToSale"
+                    class="salesMetricValue">-</span></div>
+              </div>
+            </div>
+            <div class="panel">
+              <div class="panelHead"><b><i class="fa-solid fa-triangle-exclamation"></i> Tappade affärer</b></div>
+              <div class="salesMetricGrid" style="margin-top: 15px;">
+                <div class="salesMetricRow"><span>Fallback till människa → tappad sälj</span><span id="sm_fallbackLost"
+                    class="salesMetricValue text-danger">-</span></div>
+                <div class="salesMetricRow"><span>Misslyckade AI-dialoger → tappad intäkt</span><span
+                    id="sm_failedAiLost" class="salesMetricValue text-danger">-</span></div>
+              </div>
+            </div>
+            <div class="panel">
+              <div class="panelHead"><b><i class="fa-solid fa-flask"></i> A/B-testning</b></div>
+              <div class="salesMetricGrid" style="margin-top: 15px;">
+                <div class="salesMetricRow"><span>Prompt A vs B – intäktsjämförelse</span><span id="sm_abComparison"
+                    class="salesMetricValue">-</span></div>
+                <div class="salesMetricRow"><span>Sälj per säljstrategi</span><span id="sm_salesByStrategy"
+                    class="salesMetricValue">-</span></div>
+                <div class="salesMetricRow"><span>Timing-effekt på erbjudanden</span><span id="sm_offerTiming"
+                    class="salesMetricValue">-</span></div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- TAB: PREDICTIVE -->
+        <div id="salesPredictive" class="salesTabContent" style="display:none;">
+          <div class="panel"
+            style="background: linear-gradient(135deg, var(--primary), #8b5cf6); color: white; margin-bottom: 16px;">
+            <div class="panelHead" style="color: white;"><b><i class="fa-solid fa-brain"></i> Prediktiv AI-analys</b>
+            </div>
+            <p style="opacity: 0.9; margin-top: 10px;">Maskininlärningsbaserade sannolikheter för framtida kundbeteenden
+            </p>
+          </div>
+          <div class="grid2">
+            <div class="panel">
+              <div class="panelHead"><b><i class="fa-solid fa-chart-pie"></i> Köpsannolikhet</b></div>
+              <div class="salesMetricGrid" style="margin-top: 15px;">
+                <div class="salesMetricRow"><span>Per konversation (%)</span><span id="sm_probConv"
+                    class="salesMetricValue">-</span></div>
+                <div class="salesMetricRow"><span>Per kund (%)</span><span id="sm_probCustomer"
+                    class="salesMetricValue">-</span></div>
+                <div class="salesMetricRow"><span>Per produkt (%)</span><span id="sm_probProduct"
+                    class="salesMetricValue">-</span></div>
+                <div class="salesMetricRow"><span>Per intent (%)</span><span id="sm_probIntent"
+                    class="salesMetricValue">-</span></div>
+                <div class="salesMetricRow"><span>Per sentiment (%)</span><span id="sm_probSentiment"
+                    class="salesMetricValue">-</span></div>
+              </div>
+            </div>
+            <div class="panel">
+              <div class="panelHead"><b><i class="fa-solid fa-bullseye"></i> Högsannolikhets-leads</b></div>
+              <div id="salesHighProbLeads" style="margin-top: 15px;">
+                <div class="muted center" style="padding: 20px;">Analyserar kunddata...</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- TAB: CHURN -->
+        <div id="salesChurn" class="salesTabContent" style="display:none;">
+          <div class="panel"
+            style="background: linear-gradient(135deg, #ef4444, #b91c1c); color: white; margin-bottom: 16px;">
+            <div class="panelHead" style="color: white;"><b><i class="fa-solid fa-user-slash"></i> Churn-riskanalys</b>
+            </div>
+            <p style="opacity: 0.9; margin-top: 10px;">Identifiera kunder med hög risk för avhopp</p>
+          </div>
+          <div class="grid2">
+            <div class="panel">
+              <div class="panelHead"><b><i class="fa-solid fa-gauge-high"></i> Churn-risknivåer</b></div>
+              <div class="salesMetricGrid" style="margin-top: 15px;">
+                <div class="salesMetricRow"><span>Churn-risk per kund (%)</span><span id="sm_churnCustomer"
+                    class="salesMetricValue text-warn">-</span></div>
+                <div class="salesMetricRow"><span>Churn efter avvisat erbjudande</span><span id="sm_churnRejected"
+                    class="salesMetricValue text-warn">-</span></div>
+                <div class="salesMetricRow"><span>Churn efter misslyckad AI-dialog</span><span id="sm_churnFailedAi"
+                    class="salesMetricValue text-danger">-</span></div>
+                <div class="salesMetricRow"><span>Churn efter eskalering till människa</span><span
+                    id="sm_churnEscalated" class="salesMetricValue text-warn">-</span></div>
+                <div class="salesMetricRow"><span>Churn per kundsegment</span><span id="sm_churnSegment"
+                    class="salesMetricValue">-</span></div>
+              </div>
+            </div>
+            <div class="panel">
+              <div class="panelHead"><b><i class="fa-solid fa-users-slash"></i> Högrisk-kunder</b></div>
+              <div id="salesHighChurnRisk" style="margin-top: 15px;">
+                <div class="muted center" style="padding: 20px;">Analyserar churn-risk...</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- TAB: CLV -->
+        <div id="salesClv" class="salesTabContent" style="display:none;">
+          <div class="panel"
+            style="background: linear-gradient(135deg, #10b981, #059669); color: white; margin-bottom: 16px;">
+            <div class="panelHead" style="color: white;"><b><i class="fa-solid fa-gem"></i> Customer Lifetime Value</b>
+            </div>
+            <p style="opacity: 0.9; margin-top: 10px;">Långsiktigt kundvärde och AI-påverkan</p>
+          </div>
+          <div class="grid2">
+            <div class="panel">
+              <div class="panelHead"><b><i class="fa-solid fa-crown"></i> CLV Översikt</b></div>
+              <div class="salesMetricGrid" style="margin-top: 15px;">
+                <div class="salesMetricRow"><span>Customer Lifetime Value (CLV)</span><span id="sm_clvTotal"
+                    class="salesMetricValue text-ok">-</span></div>
+                <div class="salesMetricRow"><span>AI-påverkad CLV</span><span id="sm_clvAiInfluenced"
+                    class="salesMetricValue text-ok">-</span></div>
+                <div class="salesMetricRow"><span>CLV för AI-interagerade kunder</span><span id="sm_clvAiCustomers"
+                    class="salesMetricValue">-</span></div>
+                <div class="salesMetricRow"><span>CLV för icke AI-interagerade</span><span id="sm_clvNonAiCustomers"
+                    class="salesMetricValue">-</span></div>
+              </div>
+            </div>
+            <div class="panel">
+              <div class="panelHead"><b><i class="fa-solid fa-arrow-trend-up"></i> CLV Tillväxt</b></div>
+              <div class="salesMetricGrid" style="margin-top: 15px;">
+                <div class="salesMetricRow"><span>CLV före AI-interaktion</span><span id="sm_clvPreAi"
+                    class="salesMetricValue">-</span></div>
+                <div class="salesMetricRow"><span>CLV efter AI-interaktion</span><span id="sm_clvPostAi"
+                    class="salesMetricValue text-ok">-</span></div>
+                <div class="salesMetricRow"><span>CLV per promptversion</span><span id="sm_clvPerPrompt"
+                    class="salesMetricValue">-</span></div>
+                <div class="salesMetricRow"><span>CLV per modell</span><span id="sm_clvPerModel"
+                    class="salesMetricValue">-</span></div>
+                <div class="salesMetricRow"><span>CLV per säljstrategi</span><span id="sm_clvPerStrategy"
+                    class="salesMetricValue">-</span></div>
               </div>
             </div>
           </div>
