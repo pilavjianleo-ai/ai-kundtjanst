@@ -179,6 +179,21 @@ const ticketSchema = new mongoose.Schema({
 });
 const Ticket = mongoose.model("Ticket", ticketSchema);
 
+// Feedback Model
+const feedbackSchema = new mongoose.Schema({
+  publicFeedbackId: { type: String, unique: true, index: true, default: () => genPublicId("FB") },
+  ticketId: { type: mongoose.Schema.Types.ObjectId, ref: "Ticket", default: null },
+  companyId: { type: String, required: true, index: true },
+  userId: { type: mongoose.Schema.Types.ObjectId, ref: "User", default: null },
+  targetType: { type: String, enum: ["agent", "ai"], required: true },
+  targetAgentId: { type: mongoose.Schema.Types.ObjectId, ref: "User", default: null },
+  rating: { type: Number, min: 1, max: 5, required: true },
+  comment: { type: String, default: "" },
+  category: { type: String, enum: ["support", "response_time", "helpfulness", "overall"], default: "overall" },
+  createdAt: { type: Date, default: Date.now },
+});
+const Feedback = mongoose.model("Feedback", feedbackSchema);
+
 // Run database fixes and index cleanup after models are defined
 (async () => {
   try {
@@ -968,6 +983,221 @@ app.post("/admin/companies", authenticate, requireAdmin, async (req, res) => {
     await company.save();
     res.json({ message: "Skapat", company });
   } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+/* =====================
+   Feedback System
+===================== */
+
+// POST /feedback - Submit feedback
+app.post("/feedback", authenticate, async (req, res) => {
+  try {
+    const { ticketId, companyId, rating, comment, targetType, targetAgentId, category } = req.body;
+
+    if (!rating || rating < 1 || rating > 5) {
+      return res.status(400).json({ error: "Betyg måste vara mellan 1-5" });
+    }
+
+    const feedback = new Feedback({
+      ticketId: ticketId || null,
+      companyId: companyId || "demo",
+      userId: req.user.id,
+      targetType: targetType || "ai",
+      targetAgentId: targetAgentId || null,
+      rating,
+      comment: cleanText(comment) || "",
+      category: category || "overall"
+    });
+
+    await feedback.save();
+    io.emit("newFeedback", { id: feedback._id, rating, targetType });
+    res.json({ message: "Tack för din feedback!", feedback });
+  } catch (e) {
+    console.error("[Feedback POST Error]", e);
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// GET /feedback - Get feedback (Admin: all, Agent: own)
+app.get("/feedback", authenticate, requireAgent, async (req, res) => {
+  try {
+    const { startDate, endDate, targetType, agentId, companyId, limit = 100 } = req.query;
+    const q = {};
+
+    if (startDate || endDate) {
+      q.createdAt = {};
+      if (startDate) q.createdAt.$gte = new Date(startDate);
+      if (endDate) q.createdAt.$lte = new Date(endDate);
+    }
+    if (targetType) q.targetType = targetType;
+    if (companyId) q.companyId = companyId;
+
+    // Access control: Agent sees own, Admin sees all
+    if (req.user.role === "agent") {
+      q.targetAgentId = req.user._id;
+    } else if (req.user.role === "admin" && agentId) {
+      q.targetAgentId = agentId;
+    }
+
+    const feedback = await Feedback.find(q)
+      .populate("userId", "username email")
+      .populate("targetAgentId", "username")
+      .populate("ticketId", "publicTicketId title")
+      .sort({ createdAt: -1 })
+      .limit(parseInt(limit));
+
+    const allForStats = await Feedback.find(q);
+    const totalCount = allForStats.length;
+    const avgRating = totalCount > 0
+      ? (allForStats.reduce((sum, f) => sum + f.rating, 0) / totalCount).toFixed(1)
+      : 0;
+
+    const ratingDistribution = { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 };
+    allForStats.forEach(f => { ratingDistribution[f.rating]++; });
+
+    res.json({
+      feedback,
+      stats: {
+        totalCount,
+        avgRating: parseFloat(avgRating),
+        ratingDistribution,
+        agentCount: new Set(allForStats.filter(f => f.targetAgentId).map(f => f.targetAgentId.toString())).size,
+        aiCount: allForStats.filter(f => f.targetType === "ai").length,
+      }
+    });
+  } catch (e) {
+    console.error("[Feedback GET Error]", e);
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// DELETE /feedback/clear - Clear feedback bulk (must be before :id route)
+app.delete("/feedback/clear", authenticate, requireAdmin, async (req, res) => {
+  try {
+    const { startDate, endDate, targetType } = req.query;
+    const q = {};
+    if (startDate || endDate) {
+      q.createdAt = {};
+      if (startDate) q.createdAt.$gte = new Date(startDate);
+      if (endDate) q.createdAt.$lte = new Date(endDate);
+    }
+    if (targetType) q.targetType = targetType;
+    const result = await Feedback.deleteMany(q);
+    res.json({ message: `Raderade ${result.deletedCount} feedback-poster` });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// DELETE /feedback/:id - Delete single feedback
+app.delete("/feedback/:id", authenticate, requireAdmin, async (req, res) => {
+  try {
+    await Feedback.findByIdAndDelete(req.params.id);
+    res.json({ message: "Feedback raderad" });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// GET /feedback/ai-analysis - AI tips based on feedback
+app.get("/feedback/ai-analysis", authenticate, requireAgent, async (req, res) => {
+  try {
+    const { days = 30, agentId } = req.query;
+    const startDate = new Date();
+    startDate.setDate(startDate.getDate() - parseInt(days));
+
+    const q = { createdAt: { $gte: startDate } };
+    if (req.user.role === "agent") {
+      q.targetAgentId = req.user._id;
+    } else if (agentId) {
+      q.targetAgentId = agentId;
+    }
+
+    const recentFeedback = await Feedback.find(q).sort({ createdAt: -1 }).limit(50);
+
+    if (recentFeedback.length === 0) {
+      return res.json({
+        analysis: "Ingen feedback hittades för den valda perioden. Fortsätt samla in feedback för att få AI-analys! 🌟",
+        sentiment: "neutral",
+        tips: []
+      });
+    }
+
+    const avgRating = recentFeedback.reduce((sum, f) => sum + f.rating, 0) / recentFeedback.length;
+    const comments = recentFeedback.filter(f => f.comment).map(f => `${f.rating}★: "${f.comment}"`).slice(0, 20);
+
+    const prompt = `Analysera följande kundfeedback för en supporttjänst. Ge konkreta tips och beröm på svenska.
+
+Genomsnittligt betyg: ${avgRating.toFixed(1)}/5
+Antal svar: ${recentFeedback.length}
+
+Senaste kommentarer:
+${comments.join("\\n") || "Inga skriftliga kommentarer."}
+
+Ge ett kort, uppmuntrande svar med:
+1. En sammanfattning av kundens upplevelse
+2. 2-3 konkreta förbättringstips (om betyget är under 4)
+3. Beröm för det som fungerar bra
+
+Håll svaret kort och professionellt (max 150 ord).`;
+
+    let analysis = "";
+    let sentiment = avgRating >= 4 ? "positive" : avgRating >= 3 ? "neutral" : "negative";
+    let tips = [];
+
+    try {
+      const completion = await openai.chat.completions.create({
+        model: "gpt-4o-mini",
+        messages: [{ role: "user", content: prompt }],
+        max_tokens: 300,
+        temperature: 0.7
+      });
+      analysis = completion.choices[0].message.content;
+      const tipMatches = analysis.match(/\\d\\.\\s*([^\\n]+)/g);
+      if (tipMatches) tips = tipMatches.map(t => t.replace(/^\\d\\.\\s*/, '').trim());
+    } catch (aiErr) {
+      console.error("AI Analysis Error:", aiErr.message);
+      if (avgRating >= 4.5) {
+        analysis = `Fantastiskt! Genomsnittligt betyg på ${avgRating.toFixed(1)}/5 baserat på ${recentFeedback.length} svar. 🌟`;
+        tips = ["Fortsätt med det goda arbetet!", "Dela framgångarna med teamet"];
+      } else if (avgRating >= 3) {
+        analysis = `Genomsnittligt betyg: ${avgRating.toFixed(1)}/5. Det finns utrymme för förbättring.`;
+        tips = ["Fokusera på snabbare svarstider", "Följ upp med missnöjda kunder"];
+      } else {
+        analysis = `Betyget ${avgRating.toFixed(1)}/5 indikerar att det finns förbättringsområden.`;
+        tips = ["Granska negativ feedback noggrant", "Identifiera återkommande problem"];
+      }
+    }
+
+    res.json({ analysis, sentiment, tips, stats: { avgRating: parseFloat(avgRating.toFixed(1)), totalCount: recentFeedback.length, period: parseInt(days) } });
+  } catch (e) {
+    console.error("[AI Analysis Error]", e);
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// GET /feedback/agents - Agent leaderboard (Admin only)
+app.get("/feedback/agents", authenticate, requireAdmin, async (req, res) => {
+  try {
+    const { days = 30 } = req.query;
+    const startDate = new Date();
+    startDate.setDate(startDate.getDate() - parseInt(days));
+
+    const agentStats = await Feedback.aggregate([
+      { $match: { targetType: "agent", targetAgentId: { $ne: null }, createdAt: { $gte: startDate } } },
+      { $group: { _id: "$targetAgentId", avgRating: { $avg: "$rating" }, count: { $sum: 1 }, fiveStars: { $sum: { $cond: [{ $eq: ["$rating", 5] }, 1, 0] } } } },
+      { $sort: { avgRating: -1 } }
+    ]);
+
+    const populatedStats = await Promise.all(agentStats.map(async (stat) => {
+      const agent = await User.findById(stat._id).select("username");
+      return { agentId: stat._id, agentName: agent?.username || "Okänd", avgRating: parseFloat(stat.avgRating.toFixed(1)), feedbackCount: stat.count, fiveStarCount: stat.fiveStars };
+    }));
+
+    res.json({ agents: populatedStats });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
 });
 
 /* Billing */

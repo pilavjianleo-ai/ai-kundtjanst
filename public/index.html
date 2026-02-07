@@ -74,6 +74,11 @@
         <button id="openSimulatorView" class="menuBtn" style="display:none;" type="button">
           <i class="fa-solid fa-wand-magic-sparkles"></i> Produktsimulator
         </button>
+
+        <button id="openFeedbackView" class="menuBtn" style="display:none;" type="button">
+          <i class="fa-solid fa-star"></i> Feedback
+          <span id="feedbackNotifDot" class="notifDot" style="display:none;"></span>
+        </button>
       </nav>
 
       <div class="sidebarFooter">
@@ -1702,6 +1707,183 @@
             <div class="alert info" style="font-size: 12px;">
               <i class="fa-solid fa-lightbulb"></i> <b>Tips:</b> För bästa resultat, beskriv produkten detaljerat och
               använd högkvalitativa bilder. AI:n fungerar bäst med tydliga beskrivningar av färg, material och storlek.
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- FEEDBACK SYSTEM -->
+      <section id="feedbackView" class="view" style="display:none;">
+        <div class="topbar">
+          <div>
+            <div class="title"><i class="fa-solid fa-star" style="color:var(--warn);"></i> Feedback Center</div>
+            <div class="subtitle muted">Analysera kundfeedback och förbättra er service</div>
+          </div>
+          <div class="topbarActions">
+            <button id="refreshFeedbackBtn" class="btn ghost" type="button">
+              <i class="fa-solid fa-rotate"></i> Uppdatera
+            </button>
+            <button id="clearFeedbackBtn" class="btn danger" style="display:none;" type="button">
+              <i class="fa-solid fa-trash"></i> Rensa
+            </button>
+          </div>
+        </div>
+
+        <!-- Stats Cards -->
+        <div class="statsRow"
+          style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 16px; margin: 20px 0;">
+          <div class="statCard panel" style="text-align: center; padding: 20px;">
+            <div class="statIcon" style="font-size: 32px; color: var(--warn); margin-bottom: 10px;">
+              <i class="fa-solid fa-star"></i>
+            </div>
+            <div id="fbStatAvg" class="statValue" style="font-size: 36px; font-weight: 800;">-</div>
+            <div class="statLabel muted">Snittbetyg</div>
+          </div>
+          <div class="statCard panel" style="text-align: center; padding: 20px;">
+            <div class="statIcon" style="font-size: 32px; color: var(--primary); margin-bottom: 10px;">
+              <i class="fa-solid fa-comments"></i>
+            </div>
+            <div id="fbStatTotal" class="statValue" style="font-size: 36px; font-weight: 800;">0</div>
+            <div class="statLabel muted">Totalt feedback</div>
+          </div>
+          <div class="statCard panel" style="text-align: center; padding: 20px;">
+            <div class="statIcon" style="font-size: 32px; color: var(--ok); margin-bottom: 10px;">
+              <i class="fa-solid fa-user-tie"></i>
+            </div>
+            <div id="fbStatAgents" class="statValue" style="font-size: 36px; font-weight: 800;">0</div>
+            <div class="statLabel muted">Agent-feedback</div>
+          </div>
+          <div class="statCard panel" style="text-align: center; padding: 20px;">
+            <div class="statIcon" style="font-size: 32px; color: var(--primary); margin-bottom: 10px;">
+              <i class="fa-solid fa-robot"></i>
+            </div>
+            <div id="fbStatAi" class="statValue" style="font-size: 36px; font-weight: 800;">0</div>
+            <div class="statLabel muted">AI-feedback</div>
+          </div>
+        </div>
+
+        <div class="grid2" style="margin-top: 15px;">
+          <!-- Left Panel: Filters & AI Analysis -->
+          <div>
+            <!-- Filters -->
+            <div class="panel">
+              <div class="panelHead"><b><i class="fa-solid fa-filter"></i> Filter</b></div>
+              <div style="display: flex; flex-wrap: wrap; gap: 12px; margin-top: 15px;">
+                <div style="flex: 1; min-width: 150px;">
+                  <label class="small muted">Period</label>
+                  <select id="fbPeriodFilter" class="input">
+                    <option value="7">Senaste 7 dagar</option>
+                    <option value="30" selected>Senaste 30 dagar</option>
+                    <option value="90">Senaste 90 dagar</option>
+                    <option value="365">Senaste året</option>
+                    <option value="all">Alla tider</option>
+                  </select>
+                </div>
+                <div style="flex: 1; min-width: 150px;">
+                  <label class="small muted">Typ</label>
+                  <select id="fbTypeFilter" class="input">
+                    <option value="">Alla typer</option>
+                    <option value="agent">Agent-feedback</option>
+                    <option value="ai">AI-feedback</option>
+                  </select>
+                </div>
+                <div id="fbAgentFilterWrap" style="flex: 1; min-width: 150px; display: none;">
+                  <label class="small muted">Agent</label>
+                  <select id="fbAgentFilter" class="input">
+                    <option value="">Alla agenter</option>
+                  </select>
+                </div>
+              </div>
+            </div>
+
+            <!-- AI Analysis Panel -->
+            <div class="panel" style="margin-top: 16px; border-left: 3px solid var(--primary);">
+              <div class="panelHead">
+                <b><i class="fa-solid fa-wand-sparkles"></i> AI-Analys & Tips</b>
+                <button id="getAiAnalysisBtn" class="btn ghost small" style="margin-left: auto;" type="button">
+                  <i class="fa-solid fa-sparkles"></i> Generera
+                </button>
+              </div>
+              <div id="aiAnalysisContent" style="margin-top: 15px;">
+                <div class="muted" style="text-align: center; padding: 30px;">
+                  <i class="fa-solid fa-lightbulb"
+                    style="font-size: 40px; color: var(--warn); margin-bottom: 15px; display: block;"></i>
+                  Klicka på "Generera" för att få AI-drivna insikter och förbättringstips baserat på er feedback.
+                </div>
+              </div>
+            </div>
+
+            <!-- Rating Distribution -->
+            <div class="panel" style="margin-top: 16px;">
+              <div class="panelHead"><b><i class="fa-solid fa-chart-bar"></i> Betygsfördelning</b></div>
+              <div id="ratingDistribution" style="margin-top: 15px;">
+                <div class="ratingBar" style="display: flex; align-items: center; gap: 10px; margin-bottom: 8px;">
+                  <span style="width: 60px;">5 <i class="fa-solid fa-star" style="color: var(--warn);"></i></span>
+                  <div style="flex: 1; background: var(--panel2); border-radius: 4px; height: 20px; overflow: hidden;">
+                    <div id="rating5Bar"
+                      style="height: 100%; background: linear-gradient(90deg, var(--ok), #34d399); width: 0%; transition: width 0.5s;">
+                    </div>
+                  </div>
+                  <span id="rating5Count" style="width: 40px; text-align: right;">0</span>
+                </div>
+                <div class="ratingBar" style="display: flex; align-items: center; gap: 10px; margin-bottom: 8px;">
+                  <span style="width: 60px;">4 <i class="fa-solid fa-star" style="color: var(--warn);"></i></span>
+                  <div style="flex: 1; background: var(--panel2); border-radius: 4px; height: 20px; overflow: hidden;">
+                    <div id="rating4Bar"
+                      style="height: 100%; background: linear-gradient(90deg, #84cc16, #a3e635); width: 0%; transition: width 0.5s;">
+                    </div>
+                  </div>
+                  <span id="rating4Count" style="width: 40px; text-align: right;">0</span>
+                </div>
+                <div class="ratingBar" style="display: flex; align-items: center; gap: 10px; margin-bottom: 8px;">
+                  <span style="width: 60px;">3 <i class="fa-solid fa-star" style="color: var(--warn);"></i></span>
+                  <div style="flex: 1; background: var(--panel2); border-radius: 4px; height: 20px; overflow: hidden;">
+                    <div id="rating3Bar"
+                      style="height: 100%; background: linear-gradient(90deg, var(--warn), #fcd34d); width: 0%; transition: width 0.5s;">
+                    </div>
+                  </div>
+                  <span id="rating3Count" style="width: 40px; text-align: right;">0</span>
+                </div>
+                <div class="ratingBar" style="display: flex; align-items: center; gap: 10px; margin-bottom: 8px;">
+                  <span style="width: 60px;">2 <i class="fa-solid fa-star" style="color: var(--warn);"></i></span>
+                  <div style="flex: 1; background: var(--panel2); border-radius: 4px; height: 20px; overflow: hidden;">
+                    <div id="rating2Bar"
+                      style="height: 100%; background: linear-gradient(90deg, #f97316, #fb923c); width: 0%; transition: width 0.5s;">
+                    </div>
+                  </div>
+                  <span id="rating2Count" style="width: 40px; text-align: right;">0</span>
+                </div>
+                <div class="ratingBar" style="display: flex; align-items: center; gap: 10px;">
+                  <span style="width: 60px;">1 <i class="fa-solid fa-star" style="color: var(--warn);"></i></span>
+                  <div style="flex: 1; background: var(--panel2); border-radius: 4px; height: 20px; overflow: hidden;">
+                    <div id="rating1Bar"
+                      style="height: 100%; background: linear-gradient(90deg, var(--danger), #f87171); width: 0%; transition: width 0.5s;">
+                    </div>
+                  </div>
+                  <span id="rating1Count" style="width: 40px; text-align: right;">0</span>
+                </div>
+              </div>
+            </div>
+
+            <!-- Agent Leaderboard (Admin only) -->
+            <div id="agentLeaderboardPanel" class="panel" style="margin-top: 16px; display: none;">
+              <div class="panelHead"><b><i class="fa-solid fa-trophy"></i> Agent Topplista</b></div>
+              <div id="agentLeaderboardList" class="list" style="margin-top: 15px;"></div>
+            </div>
+          </div>
+
+          <!-- Right Panel: Feedback List -->
+          <div class="panel">
+            <div class="panelHead">
+              <b><i class="fa-solid fa-list"></i> Feedback</b>
+              <span id="fbListCount" class="pill muted" style="margin-left: 10px;">0</span>
+            </div>
+            <div id="feedbackListContainer" class="list" style="max-height: 600px; overflow-y: auto; margin-top: 15px;">
+              <div class="muted center" style="padding: 40px;">
+                <i class="fa-solid fa-inbox"
+                  style="font-size: 48px; margin-bottom: 15px; display: block; opacity: 0.5;"></i>
+                Ingen feedback ännu
+              </div>
             </div>
           </div>
         </div>

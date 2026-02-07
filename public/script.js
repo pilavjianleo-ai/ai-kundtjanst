@@ -4105,3 +4105,343 @@ const solveBtn = document.getElementById("solveAllBtn");
 const removeBtn = document.getElementById("removeSolvedBtn");
 if (solveBtn) solveBtn.onclick = () => window.inboxAction('solve');
 if (removeBtn) removeBtn.onclick = () => window.inboxAction('remove');
+
+/* =====================
+   FEEDBACK SYSTEM - Frontend
+===================== */
+
+// Show Feedback view for agents/admins
+function initFeedbackView() {
+    const fbBtn = document.getElementById("openFeedbackView");
+    if (fbBtn && window.currentUser && ["agent", "admin"].includes(window.currentUser.role)) {
+        fbBtn.style.display = "";
+        fbBtn.onclick = () => showView("feedbackView");
+    }
+
+    // Show admin-only elements
+    if (window.currentUser?.role === "admin") {
+        const clearBtn = document.getElementById("clearFeedbackBtn");
+        if (clearBtn) clearBtn.style.display = "";
+
+        const agentPanel = document.getElementById("agentLeaderboardPanel");
+        if (agentPanel) agentPanel.style.display = "";
+
+        const agentFilterWrap = document.getElementById("fbAgentFilterWrap");
+        if (agentFilterWrap) agentFilterWrap.style.display = "";
+    }
+
+    // Bind events
+    const refreshBtn = document.getElementById("refreshFeedbackBtn");
+    if (refreshBtn) refreshBtn.onclick = loadFeedback;
+
+    const clearBtn = document.getElementById("clearFeedbackBtn");
+    if (clearBtn) clearBtn.onclick = clearFeedback;
+
+    const aiBtn = document.getElementById("getAiAnalysisBtn");
+    if (aiBtn) aiBtn.onclick = getAiAnalysis;
+
+    // Filter changes
+    const periodFilter = document.getElementById("fbPeriodFilter");
+    const typeFilter = document.getElementById("fbTypeFilter");
+    const agentFilter = document.getElementById("fbAgentFilter");
+
+    if (periodFilter) periodFilter.onchange = loadFeedback;
+    if (typeFilter) typeFilter.onchange = loadFeedback;
+    if (agentFilter) agentFilter.onchange = loadFeedback;
+}
+
+// Load Feedback
+async function loadFeedback() {
+    try {
+        const periodEl = document.getElementById("fbPeriodFilter");
+        const typeEl = document.getElementById("fbTypeFilter");
+        const agentEl = document.getElementById("fbAgentFilter");
+
+        const days = periodEl?.value || "30";
+        const targetType = typeEl?.value || "";
+        const agentId = agentEl?.value || "";
+
+        // Build query
+        let query = `?limit=100`;
+        if (days !== "all") {
+            const startDate = new Date();
+            startDate.setDate(startDate.getDate() - parseInt(days));
+            query += `&startDate=${startDate.toISOString()}`;
+        }
+        if (targetType) query += `&targetType=${targetType}`;
+        if (agentId) query += `&agentId=${agentId}`;
+
+        const data = await api(`/feedback${query}`);
+
+        // Update stats
+        const statAvg = document.getElementById("fbStatAvg");
+        const statTotal = document.getElementById("fbStatTotal");
+        const statAgents = document.getElementById("fbStatAgents");
+        const statAi = document.getElementById("fbStatAi");
+
+        if (statAvg) statAvg.textContent = data.stats?.avgRating?.toFixed(1) || "-";
+        if (statTotal) statTotal.textContent = data.stats?.totalCount || 0;
+        if (statAgents) statAgents.textContent = data.stats?.agentCount || 0;
+        if (statAi) statAi.textContent = data.stats?.aiCount || 0;
+
+        // Update rating distribution bars
+        const dist = data.stats?.ratingDistribution || {};
+        const maxCount = Math.max(...Object.values(dist), 1);
+
+        for (let i = 1; i <= 5; i++) {
+            const bar = document.getElementById(`rating${i}Bar`);
+            const count = document.getElementById(`rating${i}Count`);
+            const val = dist[i] || 0;
+            if (bar) bar.style.width = `${(val / maxCount) * 100}%`;
+            if (count) count.textContent = val;
+        }
+
+        // Render feedback list
+        renderFeedbackList(data.feedback || []);
+
+        // Update list count
+        const listCount = document.getElementById("fbListCount");
+        if (listCount) listCount.textContent = (data.feedback?.length || 0);
+
+        // Load agent leaderboard (admin only)
+        if (window.currentUser?.role === "admin") {
+            loadAgentLeaderboard(days);
+        }
+
+    } catch (e) {
+        console.error("Load Feedback Error:", e);
+        toast("Fel", "Kunde inte ladda feedback", "error");
+    }
+}
+
+// Render Feedback List
+function renderFeedbackList(feedbackList) {
+    const container = document.getElementById("feedbackListContainer");
+    if (!container) return;
+
+    if (!feedbackList.length) {
+        container.innerHTML = `
+      <div class="muted center" style="padding: 40px;">
+        <i class="fa-solid fa-inbox" style="font-size: 48px; margin-bottom: 15px; display: block; opacity: 0.5;"></i>
+        Ingen feedback ännu
+      </div>`;
+        return;
+    }
+
+    container.innerHTML = feedbackList.map(fb => {
+        const stars = "★".repeat(fb.rating) + "☆".repeat(5 - fb.rating);
+        const starColor = fb.rating >= 4 ? "var(--ok)" : fb.rating >= 3 ? "var(--warn)" : "var(--danger)";
+        const typeIcon = fb.targetType === "ai" ? "fa-robot" : "fa-user-tie";
+        const typeBadge = fb.targetType === "ai" ? "AI" : (fb.targetAgentId?.username || "Agent");
+        const date = new Date(fb.createdAt).toLocaleDateString("sv-SE", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" });
+        const username = fb.userId?.username || "Anonym";
+
+        return `
+      <div class="listItem feedbackItem" style="padding: 16px; border-left: 3px solid ${starColor};">
+        <div class="row" style="justify-content: space-between; align-items: flex-start;">
+          <div>
+            <div style="font-size: 20px; color: ${starColor}; margin-bottom: 5px;">${stars}</div>
+            <div class="row gap" style="margin-bottom: 8px;">
+              <span class="pill ${fb.targetType === 'ai' ? 'info' : 'ok'}" style="font-size: 11px;">
+                <i class="fa-solid ${typeIcon}"></i> ${typeBadge}
+              </span>
+              <span class="muted small">${username}</span>
+              <span class="muted small">${date}</span>
+            </div>
+            ${fb.comment ? `<p style="margin: 8px 0 0 0; line-height: 1.5;">"${fb.comment}"</p>` : ""}
+            ${fb.ticketId ? `<div class="muted small" style="margin-top: 8px;"><i class="fa-solid fa-ticket"></i> ${fb.ticketId.publicTicketId || fb.ticketId.title || "Ticket"}</div>` : ""}
+          </div>
+          ${window.currentUser?.role === "admin" ? `
+            <button class="btn ghost small" onclick="deleteFeedback('${fb._id}')" title="Radera">
+              <i class="fa-solid fa-trash"></i>
+            </button>
+          ` : ""}
+        </div>
+      </div>
+    `;
+    }).join("");
+}
+
+// Delete single feedback
+async function deleteFeedback(id) {
+    if (!confirm("Radera denna feedback?")) return;
+    try {
+        await api(`/feedback/${id}`, { method: "DELETE" });
+        toast("Klart", "Feedback raderad", "success");
+        loadFeedback();
+    } catch (e) {
+        toast("Fel", e.message, "error");
+    }
+}
+
+// Clear all feedback (Admin)
+async function clearFeedback() {
+    if (!confirm("VARNING: Detta raderar ALL feedback inom vald period. Är du säker?")) return;
+
+    try {
+        const periodEl = document.getElementById("fbPeriodFilter");
+        const typeEl = document.getElementById("fbTypeFilter");
+
+        const days = periodEl?.value || "30";
+        const targetType = typeEl?.value || "";
+
+        let query = "?";
+        if (days !== "all") {
+            const startDate = new Date();
+            startDate.setDate(startDate.getDate() - parseInt(days));
+            query += `startDate=${startDate.toISOString()}&`;
+        }
+        if (targetType) query += `targetType=${targetType}`;
+
+        const res = await api(`/feedback/clear${query}`, { method: "DELETE" });
+        toast("Klart", res.message, "success");
+        loadFeedback();
+    } catch (e) {
+        toast("Fel", e.message, "error");
+    }
+}
+
+// AI Analysis
+async function getAiAnalysis() {
+    const container = document.getElementById("aiAnalysisContent");
+    if (!container) return;
+
+    container.innerHTML = `
+    <div style="text-align: center; padding: 30px;">
+      <i class="fa-solid fa-spinner fa-spin" style="font-size: 32px; color: var(--primary);"></i>
+      <p class="muted" style="margin-top: 10px;">Analyserar feedback med AI...</p>
+    </div>`;
+
+    try {
+        const periodEl = document.getElementById("fbPeriodFilter");
+        const days = periodEl?.value || "30";
+
+        const data = await api(`/feedback/ai-analysis?days=${days}`);
+
+        const sentimentIcon = data.sentiment === "positive" ? "fa-face-smile text-ok"
+            : data.sentiment === "negative" ? "fa-face-frown text-danger"
+                : "fa-face-meh text-warn";
+
+        const sentimentText = data.sentiment === "positive" ? "Positivt"
+            : data.sentiment === "negative" ? "Negativt"
+                : "Neutralt";
+
+        container.innerHTML = `
+      <div class="aiAnalysisResult">
+        <div class="row gap" style="margin-bottom: 15px; align-items: center;">
+          <i class="fa-solid ${sentimentIcon}" style="font-size: 28px;"></i>
+          <div>
+            <div class="small muted">Övergripande känsla</div>
+            <div style="font-weight: 600;">${sentimentText}</div>
+          </div>
+          <div style="margin-left: auto; text-align: right;">
+            <div class="small muted">Snittbetyg</div>
+            <div style="font-weight: 600; font-size: 20px; color: var(--warn);">${data.stats?.avgRating || "-"} ★</div>
+          </div>
+        </div>
+        
+        <div class="divider"></div>
+        
+        <div style="margin: 15px 0; line-height: 1.6;">
+          ${data.analysis}
+        </div>
+        
+        ${data.tips?.length ? `
+          <div class="divider"></div>
+          <div style="margin-top: 15px;">
+            <div class="small muted" style="margin-bottom: 10px;"><i class="fa-solid fa-lightbulb"></i> Tips för förbättring</div>
+            <ul style="margin: 0; padding-left: 20px;">
+              ${data.tips.map(t => `<li style="margin-bottom: 5px;">${t}</li>`).join("")}
+            </ul>
+          </div>
+        ` : ""}
+      </div>
+    `;
+
+    } catch (e) {
+        container.innerHTML = `
+      <div class="alert error">
+        <i class="fa-solid fa-exclamation-circle"></i> Kunde inte generera analys: ${e.message}
+      </div>`;
+    }
+}
+
+// Agent Leaderboard (Admin)
+async function loadAgentLeaderboard(days = 30) {
+    const container = document.getElementById("agentLeaderboardList");
+    if (!container) return;
+
+    try {
+        const data = await api(`/feedback/agents?days=${days}`);
+
+        if (!data.agents?.length) {
+            container.innerHTML = `<div class="muted center" style="padding: 20px;">Ingen agent-feedback ännu</div>`;
+            return;
+        }
+
+        container.innerHTML = data.agents.map((agent, idx) => {
+            const medal = idx === 0 ? "🥇" : idx === 1 ? "🥈" : idx === 2 ? "🥉" : `#${idx + 1}`;
+            const ratingColor = agent.avgRating >= 4.5 ? "var(--ok)" : agent.avgRating >= 3.5 ? "var(--warn)" : "var(--danger)";
+
+            return `
+        <div class="listItem" style="padding: 12px; display: flex; align-items: center; gap: 12px;">
+          <span style="font-size: 24px; width: 40px; text-align: center;">${medal}</span>
+          <div style="flex: 1;">
+            <div style="font-weight: 600;">${agent.agentName}</div>
+            <div class="small muted">${agent.feedbackCount} svar • ${agent.fiveStarCount} femstjärniga</div>
+          </div>
+          <div style="text-align: right;">
+            <div style="font-size: 20px; font-weight: 700; color: ${ratingColor};">${agent.avgRating}</div>
+            <div class="small muted">snitt</div>
+          </div>
+        </div>
+      `;
+        }).join("");
+
+        // Populate agent filter dropdown
+        const agentFilter = document.getElementById("fbAgentFilter");
+        if (agentFilter && data.agents.length) {
+            const currentVal = agentFilter.value;
+            agentFilter.innerHTML = `<option value="">Alla agenter</option>` +
+                data.agents.map(a => `<option value="${a.agentId}">${a.agentName}</option>`).join("");
+            agentFilter.value = currentVal;
+        }
+
+    } catch (e) {
+        console.error("Leaderboard Error:", e);
+    }
+}
+
+// Stars helper for rendering
+function renderStars(rating) {
+    return "★".repeat(rating) + "☆".repeat(5 - rating);
+}
+
+// Initialize on view change
+const originalShowView = window.showView || function () { };
+window.showView = function (viewId) {
+    originalShowView(viewId);
+    if (viewId === "feedbackView") {
+        loadFeedback();
+    }
+};
+
+// Init when DOM ready
+if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", () => setTimeout(initFeedbackView, 500));
+} else {
+    setTimeout(initFeedbackView, 500);
+}
+
+// Listen for new feedback in real-time
+if (window.socket) {
+    window.socket.on("newFeedback", () => {
+        const fbNotif = document.getElementById("feedbackNotifDot");
+        if (fbNotif) fbNotif.style.display = "";
+        // Reload if on feedback view
+        const fbView = document.getElementById("feedbackView");
+        if (fbView && fbView.style.display !== "none") {
+            loadFeedback();
+        }
+    });
+}
