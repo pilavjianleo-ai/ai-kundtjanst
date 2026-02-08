@@ -910,14 +910,17 @@ async function selectInboxTicket(ticketId) {
       <div id="ticketSummaryContent" class="alert info small" style="display:none; margin-top:10px;"></div>
       
       ${t.contactInfo && (t.contactInfo.name || t.contactInfo.email) ? `
-        <div class="alert info tiny" style="margin-top:10px; border-left:4px solid var(--primary); background:var(--bg);">
-            <div style="font-weight:bold; margin-bottom:8px; display:flex; align-items:center; gap:6px; color:var(--primary);"><i class="fa-solid fa-address-card"></i> Kontaktuppgifter</div>
-            <div style="display:grid; grid-template-columns:1fr 1fr; gap:8px; font-size:13px;">
-                ${t.contactInfo.name ? `<div><span class="muted">Namn:</span> <br><b>${escapeHtml(t.contactInfo.name)} ${escapeHtml(t.contactInfo.surname || '')}</b></div>` : ''}
-                ${t.contactInfo.email ? `<div><span class="muted">E-post:</span> <br><a href="mailto:${escapeHtml(t.contactInfo.email)}">${escapeHtml(t.contactInfo.email)}</a></div>` : ''}
-                ${t.contactInfo.phone ? `<div><span class="muted">Tel:</span> <br>${escapeHtml(t.contactInfo.phone)}</div>` : ''}
-                ${t.contactInfo.isCompany ? `<div><span class="muted">Företag:</span> <br>${escapeHtml(t.contactInfo.orgName || '-')} <span class="muted tiny">(${escapeHtml(t.contactInfo.orgNr || '-')})</span></div>` : ''}
-                ${t.contactInfo.ticketIdInput ? `<div><span class="muted">Ref-ID:</span> <br>${escapeHtml(t.contactInfo.ticketIdInput)}</div>` : ''}
+        <div class="panel soft" style="margin-top:15px; padding:15px; border-left:3px solid var(--primary); background:var(--panel2);">
+            <div style="font-weight:700; font-size:13px; margin-bottom:12px; color:var(--text); display:flex; align-items:center; gap:8px;">
+                <i class="fa-solid fa-address-card" style="color:var(--primary); font-size:16px;"></i> Kontaktuppgifter
+            </div>
+            <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(140px, 1fr)); gap:12px; font-size:13px;">
+                ${t.contactInfo.name ? `<div><div class="muted tiny" style="margin-bottom:2px;">Namn</div><div style="font-weight:600;">${escapeHtml(t.contactInfo.name)} ${escapeHtml(t.contactInfo.surname || '')}</div></div>` : ''}
+                ${t.contactInfo.email ? `<div><div class="muted tiny" style="margin-bottom:2px;">E-post</div><a href="mailto:${escapeHtml(t.contactInfo.email)}" style="color:var(--primary); text-decoration:none;">${escapeHtml(t.contactInfo.email)}</a></div>` : ''}
+                ${t.contactInfo.phone ? `<div><div class="muted tiny" style="margin-bottom:2px;">Telefon</div><div>${escapeHtml(t.contactInfo.phone)}</div></div>` : ''}
+                ${t.contactInfo.isCompany ? `<div><div class="muted tiny" style="margin-bottom:2px;">Företag</div><div style="font-weight:600;">${escapeHtml(t.contactInfo.orgName || '-')}</div></div>` : ''}
+                ${t.contactInfo.orgNr ? `<div><div class="muted tiny" style="margin-bottom:2px;">Org.nr</div><div>${escapeHtml(t.contactInfo.orgNr)}</div></div>` : ''}
+                ${t.contactInfo.ticketIdInput ? `<div><div class="muted tiny" style="margin-bottom:2px;">Referens</div><div>${escapeHtml(t.contactInfo.ticketIdInput)}</div></div>` : ''}
             </div>
         </div>
       ` : ''}

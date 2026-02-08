@@ -170,11 +170,13 @@ const ticketSchema = new mongoose.Schema({
   ticketIdInput: { type: String, default: "" }, // user provided reference
   contactInfo: {
     name: { type: String, default: "" },
+    surname: { type: String, default: "" },
     email: { type: String, default: "" },
     phone: { type: String, default: "" },
     isCompany: { type: Boolean, default: false },
     orgName: { type: String, default: "" },
-    orgNr: { type: String, default: "" }
+    orgNr: { type: String, default: "" },
+    ticketIdInput: { type: String, default: "" }
   },
   title: { type: String, default: "" },
   assignedToUserId: { type: mongoose.Schema.Types.ObjectId, ref: "User", default: null },
@@ -699,8 +701,21 @@ app.post("/chat", authenticate, async (req, res) => {
     } else {
       log("USING EXISTING TICKET");
       // Update contact info if provided later
+      // Update contact info if provided later
       if (contactInfo && Object.keys(contactInfo).length > 0) {
-        ticket.contactInfo = { ...ticket.contactInfo, ...contactInfo };
+        if (!ticket.contactInfo) ticket.contactInfo = {};
+
+        // Explicitly update fields
+        if (contactInfo.name) ticket.contactInfo.name = contactInfo.name;
+        if (contactInfo.surname) ticket.contactInfo.surname = contactInfo.surname;
+        if (contactInfo.email) ticket.contactInfo.email = contactInfo.email;
+        if (contactInfo.phone) ticket.contactInfo.phone = contactInfo.phone;
+        if (contactInfo.isCompany !== undefined) ticket.contactInfo.isCompany = contactInfo.isCompany;
+        if (contactInfo.orgName) ticket.contactInfo.orgName = contactInfo.orgName;
+        if (contactInfo.orgNr) ticket.contactInfo.orgNr = contactInfo.orgNr;
+        if (contactInfo.ticketIdInput) ticket.contactInfo.ticketIdInput = contactInfo.ticketIdInput;
+
+        ticket.markModified('contactInfo');
       }
     }
 
