@@ -582,10 +582,21 @@ async function switchCompany(newCompanyId) {
   const messagesEl = $("messages");
   if (messagesEl) {
     messagesEl.innerHTML = `
-      <div class="introCard" id="chatIntro">
-        <div class="introIcon"><i class="fa-solid fa-robot"></i></div>
-        <h3>Välkommen till ${escapeHtml(companyName)}</h3>
-        <p>Jag är din intelligenta assistent för ${escapeHtml(companyName)}, redo att hjälpa dig dygnet runt. Hur kan jag underlätta för dig idag?</p>
+      <div class="introCard" id="chatIntro" style="display:flex; flex-direction:column; align-items:center; justify-content:center; text-align:center; padding:40px 20px;">
+        <div style="width:72px; height:72px; background:linear-gradient(135deg, var(--primary), var(--primary2)); border-radius:24px; display:flex; align-items:center; justify-content:center; margin-bottom:24px; box-shadow:0 12px 30px var(--primary-fade); animation: float 6s ease-in-out infinite;">
+          <i class="fa-solid fa-robot" style="font-size:36px; color:white;"></i>
+        </div>
+        <h2 style="margin:0 0 12px 0; font-size:24px; font-weight:800; color:var(--text);">Välkommen till ${escapeHtml(companyName)}</h2>
+        <p style="max-width:420px; line-height:1.6; color:var(--muted); font-size:15px; margin-bottom:30px;">
+          Jag är din intelligenta assistent för ${escapeHtml(companyName)}, redo att hjälpa dig dygnet runt. Hur kan jag underlätta för dig idag?
+        </p>
+        
+        <div class="suggestionChips" style="display:flex; gap:10px; flex-wrap:wrap; justify-content:center; margin-bottom:20px;">
+            <button type="button" class="btn ghost small" style="background:var(--panel); border:1px solid var(--border); border-radius:100px; padding:10px 18px; font-size:13px;" onclick="setChatInput('Hur fungerar det?')">Hur fungerar det?</button>
+            <button type="button" class="btn ghost small" style="background:var(--panel); border:1px solid var(--border); border-radius:100px; padding:10px 18px; font-size:13px;" onclick="setChatInput('Vilka priser har ni?')">Vilka priser har ni?</button>
+            <button type="button" class="btn ghost small" style="background:var(--panel); border:1px solid var(--border); border-radius:100px; padding:10px 18px; font-size:13px;" onclick="setChatInput('Prata med person')">Prata med person</button>
+        </div>
+        <style>@keyframes float { 0% { transform: translateY(0px); } 50% { transform: translateY(-6px); } 100% { transform: translateY(0px); } }</style>
       </div>
     `;
   }
