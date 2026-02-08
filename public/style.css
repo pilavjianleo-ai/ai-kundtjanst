@@ -1889,745 +1889,748 @@ input[type="range"].slider::-webkit-slider-thumb {
 input[type="range"].slider::-webkit-slider-thumb:hover {
   transform: scale(1.1);
   box-shadow: 0 0 10px var(--primary);
-}/* =====================
+}
+
+/* =====================
    SALES ANALYTICS V2 STYLES
 ===================== */
 
 /* Onboarding Modal */
 .salesOnboardingModal {
-    position: fixed;
-    top: 0;
-    left: 0;
-    right: 0;
-    bottom: 0;
-    background: rgba(0, 0, 0, 0.7);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    z-index: 1000;
-    backdrop-filter: blur(4px);
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.7);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  backdrop-filter: blur(4px);
 }
 
 .salesOnboardingContent {
-    background: var(--panel);
-    border-radius: 16px;
-    padding: 30px;
-    max-width: 500px;
-    position: relative;
-    box-shadow: var(--shadow);
+  background: var(--panel);
+  border-radius: 16px;
+  padding: 30px;
+  max-width: 500px;
+  position: relative;
+  box-shadow: var(--shadow);
 }
 
 .onboardingSteps {
-    display: flex;
-    flex-direction: column;
-    gap: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
 }
 
 .onboardingStep {
-    display: flex;
-    gap: 16px;
-    align-items: flex-start;
+  display: flex;
+  gap: 16px;
+  align-items: flex-start;
 }
 
 .stepNumber {
-    width: 32px;
-    height: 32px;
-    background: var(--primary);
-    color: white;
-    border-radius: 50%;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-weight: 700;
-    flex-shrink: 0;
+  width: 32px;
+  height: 32px;
+  background: var(--primary);
+  color: white;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  flex-shrink: 0;
 }
 
 .stepContent h4 {
-    margin: 0 0 4px 0;
+  margin: 0 0 4px 0;
 }
 
 .stepContent p {
-    margin: 0;
-    color: var(--muted);
-    font-size: 14px;
+  margin: 0;
+  color: var(--muted);
+  font-size: 14px;
 }
 
 /* Mode Selector */
 .salesModeSelector {
-    display: flex;
-    gap: 12px;
-    margin: 20px 0;
-    flex-wrap: wrap;
+  display: flex;
+  gap: 12px;
+  margin: 20px 0;
+  flex-wrap: wrap;
 }
 
 .salesModeBtn {
-    flex: 1;
-    min-width: 120px;
-    padding: 16px;
-    border: 2px solid var(--border);
-    background: var(--panel);
-    border-radius: 12px;
-    cursor: pointer;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 6px;
-    transition: all 0.2s;
+  flex: 1;
+  min-width: 120px;
+  padding: 16px;
+  border: 2px solid var(--border);
+  background: var(--panel);
+  border-radius: 12px;
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  transition: all 0.2s;
 }
 
 .salesModeBtn i {
-    font-size: 24px;
-    color: var(--muted);
+  font-size: 24px;
+  color: var(--muted);
 }
 
 .salesModeBtn span {
-    font-weight: 600;
-    color: var(--text);
+  font-weight: 600;
+  color: var(--text);
 }
 
 .salesModeBtn small {
-    font-size: 11px;
-    color: var(--muted);
+  font-size: 11px;
+  color: var(--muted);
 }
 
 .salesModeBtn:hover {
-    border-color: var(--primary);
-    background: var(--panel2);
+  border-color: var(--primary);
+  background: var(--panel2);
 }
 
 .salesModeBtn.active {
-    border-color: var(--primary);
-    background: rgba(76, 125, 255, 0.1);
+  border-color: var(--primary);
+  background: rgba(76, 125, 255, 0.1);
 }
 
 .salesModeBtn.active i {
-    color: var(--primary);
+  color: var(--primary);
 }
 
 /* Top Insight Card */
 .topInsightCard {
-    display: flex;
-    align-items: center;
-    gap: 16px;
-    padding: 20px;
-    background: linear-gradient(135deg, var(--panel), var(--panel2));
-    border-radius: 12px;
-    border-left: 4px solid var(--primary);
-    margin-bottom: 20px;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 20px;
+  background: linear-gradient(135deg, var(--panel), var(--panel2));
+  border-radius: 12px;
+  border-left: 4px solid var(--primary);
+  margin-bottom: 20px;
 }
 
 .insightIcon {
-    font-size: 32px;
-    color: var(--primary);
+  font-size: 32px;
+  color: var(--primary);
 }
 
 .insightTitle {
-    font-weight: 700;
-    font-size: 16px;
-    margin-bottom: 4px;
+  font-weight: 700;
+  font-size: 16px;
+  margin-bottom: 4px;
 }
 
 .insightText {
-    color: var(--muted);
-    font-size: 14px;
+  color: var(--muted);
+  font-size: 14px;
 }
 
 /* Primary KPIs */
 .salesPrimaryKpis {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
-    gap: 16px;
-    margin-bottom: 20px;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 16px;
+  margin-bottom: 20px;
 }
 
 .primaryKpiCard {
-    background: var(--panel);
-    border-radius: 12px;
-    padding: 20px;
-    position: relative;
-    border: 1px solid var(--border);
-    transition: all 0.2s;
+  background: var(--panel);
+  border-radius: 12px;
+  padding: 20px;
+  position: relative;
+  border: 1px solid var(--border);
+  transition: all 0.2s;
 }
 
 .primaryKpiCard:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
 }
 
 .primaryKpiCard .favoriteBtn {
-    position: absolute;
-    top: 10px;
-    right: 10px;
-    background: none;
-    border: none;
-    cursor: pointer;
-    color: var(--muted);
-    opacity: 0.5;
-    transition: opacity 0.2s;
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: var(--muted);
+  opacity: 0.5;
+  transition: opacity 0.2s;
 }
 
 .primaryKpiCard:hover .favoriteBtn,
 .primaryKpiCard .favoriteBtn:hover {
-    opacity: 1;
+  opacity: 1;
 }
 
 .kpiValue {
-    font-size: 28px;
-    font-weight: 800;
-    margin-bottom: 4px;
+  font-size: 28px;
+  font-weight: 800;
+  margin-bottom: 4px;
 }
 
 .kpiLabel {
-    font-size: 13px;
-    color: var(--muted);
+  font-size: 13px;
+  color: var(--muted);
 }
 
 .kpiTooltip {
-    cursor: help;
-    opacity: 0.5;
+  cursor: help;
+  opacity: 0.5;
 }
 
 .kpiTrend {
-    margin-top: 8px;
+  margin-top: 8px;
 }
 
 /* Secondary KPIs */
 .salesSection {
-    margin-bottom: 16px;
-    border-radius: 12px;
-    overflow: hidden;
-    border: 1px solid var(--border);
+  margin-bottom: 16px;
+  border-radius: 12px;
+  overflow: hidden;
+  border: 1px solid var(--border);
 }
 
 .salesSectionHeader {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    padding: 16px 20px;
-    background: var(--panel);
-    cursor: pointer;
-    transition: background 0.2s;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 16px 20px;
+  background: var(--panel);
+  cursor: pointer;
+  transition: background 0.2s;
 }
 
 .salesSectionHeader:hover {
-    background: var(--panel2);
+  background: var(--panel2);
 }
 
 .sectionTitle {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    font-weight: 600;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-weight: 600;
 }
 
 .sectionTitle i {
-    color: var(--primary);
+  color: var(--primary);
 }
 
 .sectionInsight {
-    font-size: 12px;
-    padding: 4px 10px;
-    border-radius: 20px;
-    background: var(--panel2);
-    color: var(--muted);
+  font-size: 12px;
+  padding: 4px 10px;
+  border-radius: 20px;
+  background: var(--panel2);
+  color: var(--muted);
 }
 
 .sectionInsight.status-ok {
-    background: rgba(55, 214, 122, 0.15);
-    color: var(--ok);
+  background: rgba(55, 214, 122, 0.15);
+  color: var(--ok);
 }
 
 .sectionInsight.status-warn {
-    background: rgba(255, 176, 32, 0.15);
-    color: var(--warn);
+  background: rgba(255, 176, 32, 0.15);
+  color: var(--warn);
 }
 
 .sectionInsight.status-danger {
-    background: rgba(255, 77, 77, 0.15);
-    color: var(--danger);
+  background: rgba(255, 77, 77, 0.15);
+  color: var(--danger);
 }
 
 .sectionChevron {
-    color: var(--muted);
-    transition: transform 0.2s;
+  color: var(--muted);
+  transition: transform 0.2s;
 }
 
 .salesSectionContent {
-    padding: 16px 20px;
-    background: var(--panel2);
+  padding: 16px 20px;
+  background: var(--panel2);
 }
 
 .secondaryKpiGrid {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-    gap: 12px;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 12px;
 }
 
 .secondaryKpiCard {
-    background: var(--panel);
-    border-radius: 8px;
-    padding: 16px;
-    position: relative;
-    border-left: 3px solid transparent;
+  background: var(--panel);
+  border-radius: 8px;
+  padding: 16px;
+  position: relative;
+  border-left: 3px solid transparent;
 }
 
 .secondaryKpiCard.status-ok {
-    border-left-color: var(--ok);
+  border-left-color: var(--ok);
 }
 
 .secondaryKpiCard.status-warn {
-    border-left-color: var(--warn);
+  border-left-color: var(--warn);
 }
 
 .secondaryKpiCard.status-danger {
-    border-left-color: var(--danger);
+  border-left-color: var(--danger);
 }
 
 .secondaryKpiCard .favoriteBtn {
-    position: absolute;
-    top: 8px;
-    right: 8px;
-    background: none;
-    border: none;
-    cursor: pointer;
-    color: var(--muted);
-    font-size: 12px;
-    opacity: 0;
-    transition: opacity 0.2s;
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: var(--muted);
+  font-size: 12px;
+  opacity: 0;
+  transition: opacity 0.2s;
 }
 
 .secondaryKpiCard:hover .favoriteBtn {
-    opacity: 1;
+  opacity: 1;
 }
 
 .skpiLabel {
-    font-size: 12px;
-    color: var(--muted);
-    margin-bottom: 6px;
+  font-size: 12px;
+  color: var(--muted);
+  margin-bottom: 6px;
 }
 
 .skpiLabel .kpiInfo {
-    opacity: 0.5;
-    cursor: help;
+  opacity: 0.5;
+  cursor: help;
 }
 
 .skpiValue {
-    font-size: 20px;
-    font-weight: 700;
+  font-size: 20px;
+  font-weight: 700;
 }
 
 .skpiAction {
-    margin-top: 8px;
+  margin-top: 8px;
 }
 
 .actionTip {
-    font-size: 11px;
-    color: var(--warn);
-    display: flex;
-    align-items: center;
-    gap: 4px;
+  font-size: 11px;
+  color: var(--warn);
+  display: flex;
+  align-items: center;
+  gap: 4px;
 }
 
 /* Action Recommendations */
 .actionRecommendations {
-    margin-top: 20px;
+  margin-top: 20px;
 }
 
 .actionHeader {
-    font-weight: 600;
-    margin-bottom: 12px;
-    color: var(--muted);
-    display: flex;
-    align-items: center;
-    gap: 8px;
+  font-weight: 600;
+  margin-bottom: 12px;
+  color: var(--muted);
+  display: flex;
+  align-items: center;
+  gap: 8px;
 }
 
 .actionItem {
-    display: flex;
-    align-items: center;
-    gap: 12px;
-    padding: 12px 16px;
-    background: var(--panel);
-    border-radius: 8px;
-    margin-bottom: 8px;
-    border-left: 3px solid;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 16px;
+  background: var(--panel);
+  border-radius: 8px;
+  margin-bottom: 8px;
+  border-left: 3px solid;
 }
 
 .actionItem.ok {
-    border-left-color: var(--ok);
+  border-left-color: var(--ok);
 }
 
 .actionItem.warn {
-    border-left-color: var(--warn);
+  border-left-color: var(--warn);
 }
 
 .actionItem.danger {
-    border-left-color: var(--danger);
+  border-left-color: var(--danger);
 }
 
 .actionItem i {
-    font-size: 16px;
+  font-size: 16px;
 }
 
 .actionItem.ok i {
-    color: var(--ok);
+  color: var(--ok);
 }
 
 .actionItem.warn i {
-    color: var(--warn);
+  color: var(--warn);
 }
 
 .actionItem.danger i {
-    color: var(--danger);
+  color: var(--danger);
 }
 
 /* My View */
 .myViewContainer {
-    padding: 20px 0;
+  padding: 20px 0;
 }
 
 .myViewHeader h3 {
-    margin: 0 0 8px 0;
+  margin: 0 0 8px 0;
 }
 
 .myViewKpis {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
-    gap: 16px;
-    margin-top: 20px;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 16px;
+  margin-top: 20px;
 }
 
 .myViewKpiCard {
-    background: var(--panel);
-    border-radius: 12px;
-    padding: 20px;
-    position: relative;
-    border: 1px solid var(--border);
+  background: var(--panel);
+  border-radius: 12px;
+  padding: 20px;
+  position: relative;
+  border: 1px solid var(--border);
 }
 
 .myViewKpiCard .favoriteBtn {
-    position: absolute;
-    top: 10px;
-    right: 10px;
-    background: none;
-    border: none;
-    cursor: pointer;
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  background: none;
+  border: none;
+  cursor: pointer;
 }
 
 .mvKpiValue {
-    font-size: 24px;
-    font-weight: 700;
-    margin-bottom: 4px;
+  font-size: 24px;
+  font-weight: 700;
+  margin-bottom: 4px;
 }
 
 .mvKpiLabel {
-    font-size: 13px;
-    color: var(--muted);
+  font-size: 13px;
+  color: var(--muted);
 }
 
 .myViewEmpty {
-    text-align: center;
-    padding: 60px 20px;
-    color: var(--muted);
+  text-align: center;
+  padding: 60px 20px;
+  color: var(--muted);
 }
 
 .myViewEmpty p {
-    margin: 0;
+  margin: 0;
 }
+
 /* =====================
    SCENARIOPLANERING STYLES
    Business-focused, Executive-level Design
 ===================== */
 
 .scenarioContent {
-    padding: 20px 0;
-    display: flex;
-    flex-direction: column;
-    gap: 24px;
+  padding: 20px 0;
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
 }
 
 .scenarioSection {
-    background: var(--panel);
-    border-radius: 12px;
-    padding: 24px;
-    border: 1px solid var(--border);
+  background: var(--panel);
+  border-radius: 12px;
+  padding: 24px;
+  border: 1px solid var(--border);
 }
 
 .sectionHeader {
-    margin-bottom: 20px;
+  margin-bottom: 20px;
 }
 
 .sectionHeader h3 {
-    margin: 0 0 4px 0;
-    font-size: 18px;
-    display: flex;
-    align-items: center;
-    gap: 10px;
+  margin: 0 0 4px 0;
+  font-size: 18px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
 }
 
 .sectionHeader h3 i {
-    color: var(--primary);
+  color: var(--primary);
 }
 
 .sectionSubtitle {
-    color: var(--muted);
-    font-size: 14px;
+  color: var(--muted);
+  font-size: 14px;
 }
 
 /* Executive KPIs */
 .executiveKpis {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
-    gap: 20px;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 20px;
 }
 
 .execKpiCard {
-    text-align: center;
-    padding: 20px;
-    background: var(--panel2);
-    border-radius: 10px;
+  text-align: center;
+  padding: 20px;
+  background: var(--panel2);
+  border-radius: 10px;
 }
 
 .execKpiValue {
-    font-size: 36px;
-    font-weight: 800;
-    margin-bottom: 8px;
-    color: var(--text);
+  font-size: 36px;
+  font-weight: 800;
+  margin-bottom: 8px;
+  color: var(--text);
 }
 
 .execKpiValue.status-ok {
-    color: var(--ok);
+  color: var(--ok);
 }
 
 .execKpiValue.status-warn {
-    color: var(--warn);
+  color: var(--warn);
 }
 
 .execKpiLabel {
-    font-size: 14px;
-    font-weight: 600;
-    margin-bottom: 4px;
+  font-size: 14px;
+  font-weight: 600;
+  margin-bottom: 4px;
 }
 
 .execKpiContext {
-    font-size: 12px;
-    color: var(--muted);
+  font-size: 12px;
+  color: var(--muted);
 }
 
 /* Assumptions */
 .assumptionsGrid {
-    display: flex;
-    flex-direction: column;
-    gap: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
 }
 
 .assumptionCard {
-    padding: 16px 20px;
-    background: var(--panel2);
-    border-radius: 8px;
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    gap: 20px;
-    flex-wrap: wrap;
+  padding: 16px 20px;
+  background: var(--panel2);
+  border-radius: 8px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 20px;
+  flex-wrap: wrap;
 }
 
 .assumptionQuestion {
-    flex: 1;
-    min-width: 200px;
-    font-size: 14px;
-    color: var(--text);
+  flex: 1;
+  min-width: 200px;
+  font-size: 14px;
+  color: var(--text);
 }
 
 .assumptionInput {
-    display: flex;
-    align-items: center;
-    gap: 16px;
-    min-width: 250px;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  min-width: 250px;
 }
 
 .assumptionInput .slider {
-    flex: 1;
-    min-width: 150px;
+  flex: 1;
+  min-width: 150px;
 }
 
 .sliderValue {
-    min-width: 100px;
-    text-align: right;
-    font-weight: 700;
-    font-size: 16px;
-    color: var(--primary);
+  min-width: 100px;
+  text-align: right;
+  font-weight: 700;
+  font-size: 16px;
+  color: var(--primary);
 }
 
 /* Results Grid */
 .resultsGrid {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-    gap: 16px;
-    margin-bottom: 20px;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 16px;
+  margin-bottom: 20px;
 }
 
 .resultCard {
-    display: flex;
-    align-items: flex-start;
-    gap: 16px;
-    padding: 20px;
-    background: var(--panel2);
-    border-radius: 10px;
-    border-left: 4px solid var(--border);
+  display: flex;
+  align-items: flex-start;
+  gap: 16px;
+  padding: 20px;
+  background: var(--panel2);
+  border-radius: 10px;
+  border-left: 4px solid var(--border);
 }
 
 .resultCard.primary {
-    border-left-color: var(--primary);
-    background: linear-gradient(135deg, rgba(76, 125, 255, 0.1), var(--panel2));
+  border-left-color: var(--primary);
+  background: linear-gradient(135deg, rgba(76, 125, 255, 0.1), var(--panel2));
 }
 
 .resultCard.status-ok {
-    border-left-color: var(--ok);
+  border-left-color: var(--ok);
 }
 
 .resultCard.status-warn {
-    border-left-color: var(--warn);
+  border-left-color: var(--warn);
 }
 
 .resultIcon {
-    font-size: 24px;
-    color: var(--muted);
+  font-size: 24px;
+  color: var(--muted);
 }
 
 .resultCard.primary .resultIcon {
-    color: var(--primary);
+  color: var(--primary);
 }
 
 .resultCard.status-ok .resultIcon {
-    color: var(--ok);
+  color: var(--ok);
 }
 
 .resultCard.status-warn .resultIcon {
-    color: var(--warn);
+  color: var(--warn);
 }
 
 .resultValue {
-    font-size: 28px;
-    font-weight: 800;
-    margin-bottom: 4px;
+  font-size: 28px;
+  font-weight: 800;
+  margin-bottom: 4px;
 }
 
 .resultLabel {
-    font-size: 14px;
-    font-weight: 500;
-    margin-bottom: 2px;
+  font-size: 14px;
+  font-weight: 500;
+  margin-bottom: 2px;
 }
 
 .resultContext {
-    font-size: 12px;
-    color: var(--muted);
+  font-size: 12px;
+  color: var(--muted);
 }
 
 /* AI Value Card */
 .aiValueCard {
-    background: linear-gradient(135deg, rgba(76, 125, 255, 0.08), rgba(139, 92, 246, 0.08));
-    border: 1px solid rgba(76, 125, 255, 0.2);
-    border-radius: 10px;
-    padding: 20px;
+  background: linear-gradient(135deg, rgba(76, 125, 255, 0.08), rgba(139, 92, 246, 0.08));
+  border: 1px solid rgba(76, 125, 255, 0.2);
+  border-radius: 10px;
+  padding: 20px;
 }
 
 .aiValueHeader {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    margin-bottom: 16px;
-    font-weight: 600;
-    color: var(--primary);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 16px;
+  font-weight: 600;
+  color: var(--primary);
 }
 
 .aiValueStats {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
-    gap: 16px;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 16px;
 }
 
 .aiStat {
-    text-align: center;
+  text-align: center;
 }
 
 .aiStatValue {
-    font-size: 24px;
-    font-weight: 700;
-    color: var(--primary);
+  font-size: 24px;
+  font-weight: 700;
+  color: var(--primary);
 }
 
 .aiStatLabel {
-    font-size: 12px;
-    color: var(--muted);
+  font-size: 12px;
+  color: var(--muted);
 }
 
 /* Recommendation */
 .recommendationCard {
-    display: flex;
-    align-items: flex-start;
-    gap: 20px;
-    padding: 24px;
-    background: linear-gradient(135deg, var(--panel2), var(--panel));
-    border-radius: 12px;
-    border-left: 5px solid var(--primary);
+  display: flex;
+  align-items: flex-start;
+  gap: 20px;
+  padding: 24px;
+  background: linear-gradient(135deg, var(--panel2), var(--panel));
+  border-radius: 12px;
+  border-left: 5px solid var(--primary);
 }
 
 .recommendationCard.ok {
-    border-left-color: var(--ok);
+  border-left-color: var(--ok);
 }
 
 .recommendationCard.warn {
-    border-left-color: var(--warn);
+  border-left-color: var(--warn);
 }
 
 .recommendationCard.info {
-    border-left-color: var(--primary);
+  border-left-color: var(--primary);
 }
 
 .recIcon {
-    font-size: 32px;
-    color: var(--primary);
+  font-size: 32px;
+  color: var(--primary);
 }
 
 .recommendationCard.ok .recIcon {
-    color: var(--ok);
+  color: var(--ok);
 }
 
 .recommendationCard.warn .recIcon {
-    color: var(--warn);
+  color: var(--warn);
 }
 
 .recTitle {
-    font-size: 16px;
-    font-weight: 700;
-    margin-bottom: 8px;
+  font-size: 16px;
+  font-weight: 700;
+  margin-bottom: 8px;
 }
 
 .recText {
-    font-size: 15px;
-    line-height: 1.6;
-    color: var(--text);
+  font-size: 15px;
+  line-height: 1.6;
+  color: var(--text);
 }
 
 /* Responsive */
 @media (max-width: 768px) {
-    .assumptionCard {
-        flex-direction: column;
-        align-items: flex-start;
-    }
+  .assumptionCard {
+    flex-direction: column;
+    align-items: flex-start;
+  }
 
-    .assumptionInput {
-        width: 100%;
-    }
+  .assumptionInput {
+    width: 100%;
+  }
 
-    .execKpiValue {
-        font-size: 28px;
-    }
+  .execKpiValue {
+    font-size: 28px;
+  }
 
-    .resultValue {
-        font-size: 22px;
-    }
+  .resultValue {
+    font-size: 22px;
+  }
 }
 
 /* =====================
@@ -3118,7 +3121,7 @@ input[type="range"].slider::-webkit-slider-thumb:hover {
 }
 
 .scenarioSection:hover {
-  box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
 }
 
 /* Executive summary - hero style */
@@ -3249,152 +3252,153 @@ input[type="range"].slider::-webkit-slider-thumb:hover {
 .scenarioSection[id] {
   scroll-margin-top: 80px;
 }
+
 /* =====================
    SCENARIO PLANNER V2 - Modes & Favorites
 ===================== */
 
 /* Updated Header Panel */
 .scenarioHeaderPanel {
-    position: sticky;
-    top: 0;
-    z-index: 100;
-    background: var(--bg);
-    padding: 10px 0 20px 0;
-    border-bottom: 1px solid var(--border);
-    margin-bottom: 20px;
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  background: var(--bg);
+  padding: 10px 0 20px 0;
+  border-bottom: 1px solid var(--border);
+  margin-bottom: 20px;
 }
 
 .scenarioSummaryBar {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin-bottom: 16px;
-    background: var(--panel);
-    padding: 12px 20px;
-    border-radius: 8px;
-    border: 1px solid var(--border);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 16px;
+  background: var(--panel);
+  padding: 12px 20px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
 }
 
 .summaryStat {
-    display: flex;
-    flex-direction: column;
+  display: flex;
+  flex-direction: column;
 }
 
 .summaryStat .label {
-    font-size: 11px;
-    text-transform: uppercase;
-    letter-spacing: 0.5px;
-    color: var(--muted);
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--muted);
 }
 
 .summaryStat .value {
-    font-size: 18px;
-    font-weight: 700;
-    color: var(--text);
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--text);
 }
 
 .summaryStat .value.positive {
-    color: var(--ok);
+  color: var(--ok);
 }
 
 /* Mode Tabs */
 .scenarioModeTabs {
-    display: flex;
-    gap: 8px;
-    background: var(--panel2);
-    padding: 4px;
-    border-radius: 10px;
+  display: flex;
+  gap: 8px;
+  background: var(--panel2);
+  padding: 4px;
+  border-radius: 10px;
 }
 
 .modeTab {
-    flex: 1;
-    padding: 10px;
-    border: none;
-    background: none;
-    border-radius: 8px;
-    font-size: 14px;
-    font-weight: 500;
-    color: var(--muted);
-    cursor: pointer;
-    transition: all 0.2s;
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    gap: 8px;
+  flex: 1;
+  padding: 10px;
+  border: none;
+  background: none;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--muted);
+  cursor: pointer;
+  transition: all 0.2s;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 8px;
 }
 
 .modeTab:hover {
-    background: rgba(255, 255, 255, 0.05);
-    color: var(--text);
+  background: rgba(255, 255, 255, 0.05);
+  color: var(--text);
 }
 
 .modeTab.active {
-    background: var(--panel);
-    color: var(--primary);
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-    font-weight: 600;
+  background: var(--panel);
+  color: var(--primary);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  font-weight: 600;
 }
 
 /* Top Insight Banner */
 .topInsight {
-    background: linear-gradient(90deg, rgba(76, 125, 255, 0.1), rgba(139, 92, 246, 0.1));
-    border-left: 4px solid var(--primary);
-    padding: 16px 20px;
-    border-radius: 8px;
-    display: flex;
-    align-items: center;
-    gap: 16px;
-    margin-bottom: 24px;
-    color: var(--text);
-    font-weight: 500;
+  background: linear-gradient(90deg, rgba(76, 125, 255, 0.1), rgba(139, 92, 246, 0.1));
+  border-left: 4px solid var(--primary);
+  padding: 16px 20px;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  margin-bottom: 24px;
+  color: var(--text);
+  font-weight: 500;
 }
 
 .topInsight i {
-    color: var(--primary);
-    font-size: 20px;
+  color: var(--primary);
+  font-size: 20px;
 }
 
 /* Collapsible Sections */
 .sectionHeader.togglable {
-    cursor: pointer;
-    position: relative;
-    padding-right: 40px;
+  cursor: pointer;
+  position: relative;
+  padding-right: 40px;
 }
 
 .sectionHeader.togglable:hover h3 {
-    color: var(--primary);
+  color: var(--primary);
 }
 
 .toggleIcon {
-    position: absolute;
-    right: 0;
-    top: 50%;
-    transform: translateY(-50%);
-    transition: transform 0.3s;
-    color: var(--muted);
+  position: absolute;
+  right: 0;
+  top: 50%;
+  transform: translateY(-50%);
+  transition: transform 0.3s;
+  color: var(--muted);
 }
 
 .sectionContent.collapsed {
-    display: none;
+  display: none;
 }
 
 .sectionHeader.collapsed .toggleIcon {
-    transform: translateY(-50%) rotate(-90deg);
+  transform: translateY(-50%) rotate(-90deg);
 }
 
 /* Favorites Button */
 .favoriteBtn {
-    position: absolute;
-    top: 10px;
-    right: 10px;
-    background: none;
-    border: none;
-    color: var(--muted);
-    cursor: pointer;
-    opacity: 0;
-    transition: all 0.2s;
-    font-size: 16px;
-    z-index: 5;
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  background: none;
+  border: none;
+  color: var(--muted);
+  cursor: pointer;
+  opacity: 0;
+  transition: all 0.2s;
+  font-size: 16px;
+  z-index: 5;
 }
 
 .execKpiCard:hover .favoriteBtn,
@@ -3402,253 +3406,275 @@ input[type="range"].slider::-webkit-slider-thumb:hover {
 .savingsCard:hover .favoriteBtn,
 .growthCard:hover .favoriteBtn,
 .timeStat:hover .favoriteBtn {
-    opacity: 1;
+  opacity: 1;
 }
 
 .favoriteBtn.active {
-    opacity: 1;
-    color: #fbbf24;
-    /* Gold */
+  opacity: 1;
+  color: #fbbf24;
+  /* Gold */
 }
 
 .favoriteBtn i.fa-solid {
-    color: #fbbf24;
+  color: #fbbf24;
 }
 
 /* Tooltips */
 .tooltip {
-    color: var(--muted);
-    font-size: 12px;
-    margin-left: 6px;
-    cursor: help;
-    position: relative;
+  color: var(--muted);
+  font-size: 12px;
+  margin-left: 6px;
+  cursor: help;
+  position: relative;
 }
 
 .tooltip:hover::after {
-    content: attr(title);
-    position: absolute;
-    bottom: 100%;
-    left: 50%;
-    transform: translateX(-50%);
-    background: var(--bg);
-    border: 1px solid var(--border);
-    padding: 8px 12px;
-    border-radius: 6px;
-    width: 200px;
-    text-align: center;
-    z-index: 1000;
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
-    color: var(--text);
-    font-weight: normal;
-    pointer-events: none;
+  content: attr(title);
+  position: absolute;
+  bottom: 100%;
+  left: 50%;
+  transform: translateX(-50%);
+  background: var(--bg);
+  border: 1px solid var(--border);
+  padding: 8px 12px;
+  border-radius: 6px;
+  width: 200px;
+  text-align: center;
+  z-index: 1000;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+  color: var(--text);
+  font-weight: normal;
+  pointer-events: none;
 }
 
 /* Onboarding Modal */
 .onboardingModal {
-    position: fixed;
-    top: 0;
-    left: 0;
-    right: 0;
-    bottom: 0;
-    background: rgba(0, 0, 0, 0.8);
-    z-index: 2000;
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    backdrop-filter: blur(5px);
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.8);
+  z-index: 2000;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  backdrop-filter: blur(5px);
 }
 
 .onboardingContent {
-    background: var(--panel);
-    width: 90%;
-    max-width: 600px;
-    border-radius: 16px;
-    padding: 40px;
-    border: 1px solid var(--border);
-    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
-    text-align: center;
+  background: var(--panel);
+  width: 90%;
+  max-width: 600px;
+  border-radius: 16px;
+  padding: 40px;
+  border: 1px solid var(--border);
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+  text-align: center;
 }
 
 .step {
-    margin-bottom: 30px;
+  margin-bottom: 30px;
 }
 
 .stepIcon {
-    width: 60px;
-    height: 60px;
-    background: var(--panel2);
-    border-radius: 50%;
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    margin: 0 auto 16px auto;
-    font-size: 24px;
-    color: var(--primary);
+  width: 60px;
+  height: 60px;
+  background: var(--panel2);
+  border-radius: 50%;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  margin: 0 auto 16px auto;
+  font-size: 24px;
+  color: var(--primary);
 }
 
 .step h3 {
-    margin-bottom: 8px;
-    font-size: 18px;
+  margin-bottom: 8px;
+  font-size: 18px;
 }
 
 .step p {
-    color: var(--muted);
-    font-size: 14px;
-    line-height: 1.6;
+  color: var(--muted);
+  font-size: 14px;
+  line-height: 1.6;
 }
 
 /* My View / Favorites Grid */
 .favoritesGrid {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
-    gap: 20px;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+  gap: 20px;
 }
 
 .emptyState {
-    grid-column: 1 / -1;
-    text-align: center;
-    padding: 60px;
-    color: var(--muted);
-    background: var(--panel2);
-    border-radius: 12px;
-    border: 2px dashed var(--border);
+  grid-column: 1 / -1;
+  text-align: center;
+  padding: 60px;
+  color: var(--muted);
+  background: var(--panel2);
+  border-radius: 12px;
+  border: 2px dashed var(--border);
 }
 
 .emptyState i {
-    font-size: 48px;
-    margin-bottom: 16px;
-    opacity: 0.5;
+  font-size: 48px;
+  margin-bottom: 16px;
+  opacity: 0.5;
 }
 
 /* Advanced Toggle */
 .advancedAssumptionsToggle {
-    text-align: center;
-    color: var(--primary);
-    cursor: pointer;
-    font-size: 13px;
-    padding: 10px;
-    border-top: 1px solid var(--border);
-    margin-top: 10px;
+  text-align: center;
+  color: var(--primary);
+  cursor: pointer;
+  font-size: 13px;
+  padding: 10px;
+  border-top: 1px solid var(--border);
+  margin-top: 10px;
 }
 
 .advancedAssumptionsToggle:hover {
-    text-decoration: underline;
+  text-decoration: underline;
 }
 
 .hidden {
-    display: none;
+  display: none;
 }
 
 /* SCENARIO V3 - Hero & Filters */
 .headerTopRow {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin-bottom: 20px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 20px;
 }
 
 .scenarioTimeFilter {
-    display: flex;
-    align-items: center;
-    gap: 10px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
 }
 
 .filterLabel {
-    font-size: 13px;
-    color: var(--text-muted);
-    font-weight: 500;
+  font-size: 13px;
+  color: var(--text-muted);
+  font-weight: 500;
 }
 
 .segmentedControl {
-    background: var(--panel2);
-    border-radius: 8px;
-    padding: 2px;
-    display: flex;
-    gap: 2px;
+  background: var(--panel2);
+  border-radius: 8px;
+  padding: 2px;
+  display: flex;
+  gap: 2px;
 }
 
 .timeFilterBtn {
-    background: transparent;
-    border: none;
-    padding: 6px 12px;
-    border-radius: 6px;
-    font-size: 13px;
-    font-weight: 500;
-    color: var(--text-muted);
-    cursor: pointer;
-    transition: all 0.2s;
+  background: transparent;
+  border: none;
+  padding: 6px 12px;
+  border-radius: 6px;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: all 0.2s;
 }
 
 .timeFilterBtn.active {
-    background: var(--bg);
-    color: var(--text);
-    box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+  background: var(--bg);
+  color: var(--text);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
 }
 
 .timeFilterBtn:hover:not(.active) {
-    color: var(--text);
+  color: var(--text);
 }
 
 .heroMetricsGrid {
-    display: grid;
-    grid-template-columns: repeat(4, 1fr);
-    gap: 16px;
-    margin-bottom: 24px;
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 16px;
+  margin-bottom: 24px;
 }
 
 .heroCard {
-    background: var(--panel);
-    border-radius: 12px;
-    padding: 20px;
-    position: relative;
-    border: 1px solid var(--border);
-    transition: transform 0.2s, box-shadow 0.2s;
+  background: var(--panel);
+  border-radius: 12px;
+  padding: 20px;
+  position: relative;
+  border: 1px solid var(--border);
+  transition: transform 0.2s, box-shadow 0.2s;
 }
 
 .heroCard:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 8px 20px rgba(0,0,0,0.1);
+  transform: translateY(-2px);
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.1);
 }
 
-.heroCard.money { border-bottom: 3px solid var(--success); }
-.heroCard.time { border-bottom: 3px solid var(--primary); }
-.heroCard.vol { border-bottom: 3px solid var(--info); }
-.heroCard.quality { border-bottom: 3px solid #8b5cf6; }
+.heroCard.money {
+  border-bottom: 3px solid var(--success);
+}
+
+.heroCard.time {
+  border-bottom: 3px solid var(--primary);
+}
+
+.heroCard.vol {
+  border-bottom: 3px solid var(--info);
+}
+
+.heroCard.quality {
+  border-bottom: 3px solid #8b5cf6;
+}
 
 .heroIcon {
-    font-size: 24px;
-    margin-bottom: 12px;
-    opacity: 0.8;
+  font-size: 24px;
+  margin-bottom: 12px;
+  opacity: 0.8;
 }
 
-.heroCard.money .heroIcon { color: var(--success); }
-.heroCard.time .heroIcon { color: var(--primary); }
-.heroCard.vol .heroIcon { color: var(--info); }
-.heroCard.quality .heroIcon { color: #8b5cf6; }
+.heroCard.money .heroIcon {
+  color: var(--success);
+}
+
+.heroCard.time .heroIcon {
+  color: var(--primary);
+}
+
+.heroCard.vol .heroIcon {
+  color: var(--info);
+}
+
+.heroCard.quality .heroIcon {
+  color: #8b5cf6;
+}
 
 .heroLabel {
-    font-size: 13px;
-    color: var(--text-muted);
-    margin-bottom: 4px;
-    font-weight: 500;
+  font-size: 13px;
+  color: var(--text-muted);
+  margin-bottom: 4px;
+  font-weight: 500;
 }
 
 .heroValue {
-    font-size: 28px;
-    font-weight: 800;
-    color: var(--text);
-    letter-spacing: -0.5px;
-    margin-bottom: 4px;
+  font-size: 28px;
+  font-weight: 800;
+  color: var(--text);
+  letter-spacing: -0.5px;
+  margin-bottom: 4px;
 }
 
 .heroSub {
-    font-size: 12px;
-    color: var(--text-muted);
+  font-size: 12px;
+  color: var(--text-muted);
 }
 
 .scenarioSummaryBar .summaryStat .value.giant {
-    font-size: 24px;
-    font-weight: 900;
+  font-size: 24px;
+  font-weight: 900;
 }
 
 
@@ -3657,283 +3683,331 @@ input[type="range"].slider::-webkit-slider-thumb:hover {
 
 /* CRM Navigation (Sub-tabs) */
 .crmNav {
-    display: flex;
-    gap: 20px;
-    border-bottom: 1px solid var(--border);
-    margin-bottom: 20px;
-    padding-bottom: 10px;
+  display: flex;
+  gap: 20px;
+  border-bottom: 1px solid var(--border);
+  margin-bottom: 20px;
+  padding-bottom: 10px;
 }
 
 .crmNavBtn {
-    background: transparent;
-    border: none;
-    color: var(--text-muted);
-    font-weight: 500;
-    font-size: 14px;
-    cursor: pointer;
-    padding: 5px 0;
-    position: relative;
-    transition: color 0.2s;
+  background: transparent;
+  border: none;
+  color: var(--text-muted);
+  font-weight: 500;
+  font-size: 14px;
+  cursor: pointer;
+  padding: 5px 0;
+  position: relative;
+  transition: color 0.2s;
 }
 
 .crmNavBtn.active {
-    color: var(--primary);
+  color: var(--primary);
 }
 
 .crmNavBtn.active::after {
-    content: '';
-    position: absolute;
-    bottom: -11px;
-    left: 0;
-    width: 100%;
-    height: 2px;
-    background: var(--primary);
+  content: '';
+  position: absolute;
+  bottom: -11px;
+  left: 0;
+  width: 100%;
+  height: 2px;
+  background: var(--primary);
 }
 
 .crmNavBtn:hover {
-    color: var(--text);
+  color: var(--text);
 }
 
 /* CRM Dashboard Grid */
 .crmDashGrid {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-    gap: 16px;
-    margin-bottom: 24px;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+  gap: 16px;
+  margin-bottom: 24px;
 }
 
 .crmStatCard {
-    background: var(--panel2);
-    border-radius: 12px;
-    padding: 20px;
-    display: flex;
-    flex-direction: column;
-    justify-content: space-between;
-    border: 1px solid var(--border);
+  background: var(--panel2);
+  border-radius: 12px;
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  border: 1px solid var(--border);
 }
 
 .crmStatTitle {
-    font-size: 13px;
-    color: var(--text-muted);
-    margin-bottom: 8px;
-    display: flex;
-    justify-content: space-between;
+  font-size: 13px;
+  color: var(--text-muted);
+  margin-bottom: 8px;
+  display: flex;
+  justify-content: space-between;
 }
 
 .crmStatValue {
-    font-size: 24px;
-    font-weight: 700;
-    color: var(--text);
+  font-size: 24px;
+  font-weight: 700;
+  color: var(--text);
 }
 
 .crmStatTrend {
-    font-size: 12px;
-    margin-top: 5px;
+  font-size: 12px;
+  margin-top: 5px;
 }
 
 .crmStatTrend.up {
-    color: var(--success);
+  color: var(--success);
 }
 
 .crmStatTrend.down {
-    color: var(--danger);
+  color: var(--danger);
 }
 
 /* PIPELINE (KANBAN) */
 .pipelineContainer {
-    display: grid;
-    grid-template-columns: repeat(4, 1fr);
-    /* 4 Stages */
-    gap: 16px;
-    height: calc(100vh - 250px);
-    overflow-x: auto;
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  /* 4 Stages */
+  gap: 16px;
+  height: calc(100vh - 250px);
+  overflow-x: auto;
 }
 
 .pipelineColumn {
-    background: var(--panel2);
-    border-radius: 12px;
-    display: flex;
-    flex-direction: column;
-    height: 100%;
-    min-width: 280px;
+  background: var(--panel2);
+  border-radius: 12px;
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-width: 280px;
 }
 
 .pipelineHeader {
-    padding: 16px;
-    border-bottom: 1px solid var(--border);
-    font-weight: 600;
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
+  padding: 16px;
+  border-bottom: 1px solid var(--border);
+  font-weight: 600;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
 }
 
 .stageCount {
-    background: var(--bg);
-    padding: 2px 8px;
-    border-radius: 12px;
-    font-size: 12px;
-    color: var(--text-muted);
+  background: var(--bg);
+  padding: 2px 8px;
+  border-radius: 12px;
+  font-size: 12px;
+  color: var(--text-muted);
 }
 
 .pipelineBody {
-    padding: 12px;
-    overflow-y: auto;
-    flex: 1;
+  padding: 12px;
+  overflow-y: auto;
+  flex: 1;
 }
 
 .dealCard {
-    background: var(--panel);
-    border-radius: 8px;
-    padding: 12px;
-    margin-bottom: 12px;
-    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
-    border: 1px solid var(--border);
-    cursor: grab;
-    transition: transform 0.2s, box-shadow 0.2s;
-    position: relative;
+  background: var(--panel);
+  border-radius: 8px;
+  padding: 12px;
+  margin-bottom: 12px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+  border: 1px solid var(--border);
+  cursor: grab;
+  transition: transform 0.2s, box-shadow 0.2s;
+  position: relative;
 }
 
 .dealCard:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
 }
 
 .dealValue {
-    font-weight: 700;
-    font-size: 15px;
-    margin-bottom: 4px;
+  font-weight: 700;
+  font-size: 15px;
+  margin-bottom: 4px;
 }
 
 .dealCompany {
-    font-size: 13px;
-    color: var(--text-muted);
-    margin-bottom: 8px;
+  font-size: 13px;
+  color: var(--text-muted);
+  margin-bottom: 8px;
 }
 
 .dealFooter {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin-top: 8px;
-    font-size: 12px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: 8px;
+  font-size: 12px;
 }
 
 .dealTags {
-    display: flex;
-    gap: 4px;
+  display: flex;
+  gap: 4px;
 }
 
 .dealTag {
-    padding: 2px 6px;
-    border-radius: 4px;
-    font-size: 10px;
-    text-transform: uppercase;
-    font-weight: 600;
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-size: 10px;
+  text-transform: uppercase;
+  font-weight: 600;
 }
 
 .tag-hot {
-    background: rgba(255, 99, 71, 0.1);
-    color: tomato;
+  background: rgba(255, 99, 71, 0.1);
+  color: tomato;
 }
 
 .tag-warm {
-    background: rgba(255, 165, 0, 0.1);
-    color: orange;
+  background: rgba(255, 165, 0, 0.1);
+  color: orange;
 }
 
 .tag-cold {
-    background: rgba(100, 149, 237, 0.1);
-    color: cornflowerblue;
+  background: rgba(100, 149, 237, 0.1);
+  color: cornflowerblue;
 }
 
 .dealOwner {
-    width: 24px;
-    height: 24px;
-    border-radius: 50%;
-    background: var(--primary);
-    color: white;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 10px;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background: var(--primary);
+  color: white;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 10px;
 }
 
 /* CUSTOMER 360 VIEW (Enhanced) */
 .customerProfileLayout {
-    display: grid;
-    grid-template-columns: 300px 1fr;
-    gap: 24px;
-    height: 100%;
+  display: grid;
+  grid-template-columns: 300px 1fr;
+  gap: 24px;
+  height: 100%;
 }
 
 .customerSidebar {
-    background: var(--panel2);
-    border-radius: 12px;
-    padding: 20px;
-    height: fit-content;
+  background: var(--panel2);
+  border-radius: 12px;
+  padding: 20px;
+  height: fit-content;
 }
 
 .customerMain {
-    background: var(--panel);
-    border-radius: 12px;
-    padding: 20px;
-    border: 1px solid var(--border);
-    overflow-y: auto;
+  background: var(--panel);
+  border-radius: 12px;
+  padding: 20px;
+  border: 1px solid var(--border);
+  overflow-y: auto;
 }
 
 .aiInsightBox {
-    background: linear-gradient(135deg, rgba(76, 125, 255, 0.1) 0%, rgba(139, 92, 246, 0.1) 100%);
-    border: 1px solid rgba(76, 125, 255, 0.2);
-    border-radius: 8px;
-    padding: 12px;
-    margin-bottom: 16px;
+  background: linear-gradient(135deg, rgba(76, 125, 255, 0.1) 0%, rgba(139, 92, 246, 0.1) 100%);
+  border: 1px solid rgba(76, 125, 255, 0.2);
+  border-radius: 8px;
+  padding: 12px;
+  margin-bottom: 16px;
 }
 
 .aiScore {
-    font-size: 32px;
-    font-weight: 800;
-    color: var(--primary);
-    line-height: 1;
+  font-size: 32px;
+  font-weight: 800;
+  color: var(--primary);
+  line-height: 1;
 }
 
 .activityTimeline {
-    position: relative;
-    padding-left: 20px;
-    border-left: 2px solid var(--border);
-    margin-top: 20px;
+  position: relative;
+  padding-left: 20px;
+  border-left: 2px solid var(--border);
+  margin-top: 20px;
 }
 
 .activityItem {
-    margin-bottom: 20px;
-    position: relative;
+  margin-bottom: 20px;
+  position: relative;
 }
 
 .activityItem::before {
-    content: '';
-    position: absolute;
-    left: -26px;
-    top: 0;
-    width: 10px;
-    height: 10px;
-    border-radius: 50%;
-    background: var(--text-muted);
-    border: 2px solid var(--panel);
+  content: '';
+  position: absolute;
+  left: -26px;
+  top: 0;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--text-muted);
+  border: 2px solid var(--panel);
 }
 
 .activityItem.call::before {
-    background: #10b981;
+  background: #10b981;
 }
 
 .activityItem.email::before {
-    background: #3b82f6;
+  background: #3b82f6;
 }
 
 .activityItem.meeting::before {
-    background: #f59e0b;
+  background: #f59e0b;
 }
 
 .activityMeta {
-    font-size: 12px;
-    color: var(--text-muted);
-    margin-bottom: 4px;
+  font-size: 11px;
+  color: var(--muted);
+  margin-bottom: 2px;
+}
+
+@keyframes slideInRight {
+  from {
+    opacity: 0;
+    transform: translateX(-10px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+/* Status Pills */
+.pill {
+  padding: 4px 10px;
+  border-radius: 20px;
+  font-size: 11px;
+  font-weight: 600;
+  background: var(--panel2);
+  border: 1px solid var(--border);
+}
+
+.pill.ok {
+  background: rgba(55, 214, 122, 0.1);
+  color: var(--success);
+  border-color: rgba(55, 214, 122, 0.3);
+}
+
+.pill.warn {
+  background: rgba(255, 176, 32, 0.1);
+  color: var(--warn);
+  border-color: rgba(255, 176, 32, 0.3);
+}
+
+.pill.muted {
+  background: rgba(255, 255, 255, 0.05);
+  color: var(--muted);
+}
+
+/* Table Enhancements */
+#crmAnalyticsTable tr {
+  transition: background 0.2s ease;
+}
+
+#crmAnalyticsTable tr:hover {
+  background: var(--panel2);
 }

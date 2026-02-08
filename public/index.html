@@ -1059,262 +1059,262 @@
 
       <!-- NY: KUND-ADMIN / CRM (för admin) -->
       <!-- CRM VIEW (UPGRADED AI PRO) -->
-<section id="customerAdminView" class="view" style="display:none;">
-    <div class="topbar">
-        <div>
+      <section id="customerAdminView" class="view" style="display:none;">
+        <div class="topbar">
+          <div>
             <div class="title">CRM & Försäljning</div>
             <div class="subtitle muted">Hantera kunder, affärer och pipeline på ett ställe.</div>
-        </div>
-        <div class="topbarActions">
+          </div>
+          <div class="topbarActions">
             <button id="addDealBtn" class="btn primary" onclick="openDealModal()">
-                <i class="fa-solid fa-plus"></i> Ny Affär
+              <i class="fa-solid fa-plus"></i> Ny Affär
             </button>
             <button id="addCustomerBtn" class="btn ghost" onclick="openAddCustomerModal()">
-                <i class="fa-solid fa-user-plus"></i> Ny Kund
+              <i class="fa-solid fa-user-plus"></i> Ny Kund
             </button>
+          </div>
         </div>
-    </div>
 
-    <!-- CRM Navigation -->
-    <div class="crmNav">
-        <button class="crmNavBtn active" onclick="setCrmTab('dashboard')" id="tab_crm_dashboard">Översikt</button>
-        <button class="crmNavBtn" onclick="setCrmTab('pipeline')" id="tab_crm_pipeline">Pipeline</button>
-        <button class="crmNavBtn" onclick="setCrmTab('customers')" id="tab_crm_customers">Kunder</button>
-        <button class="crmNavBtn" onclick="setCrmTab('activities')" id="tab_crm_activities">Aktiviteter</button>
-    </div>
+        <!-- CRM Navigation -->
+        <div class="crmNav">
+          <button class="crmNavBtn active" onclick="setCrmTab('dashboard')" id="tab_crm_dashboard">Översikt</button>
+          <button class="crmNavBtn" onclick="setCrmTab('pipeline')" id="tab_crm_pipeline">Pipeline</button>
+          <button class="crmNavBtn" onclick="setCrmTab('customers')" id="tab_crm_customers">Kunder</button>
+          <button class="crmNavBtn" onclick="setCrmTab('activities')" id="tab_crm_activities">Aktiviteter</button>
+        </div>
 
-    <!-- TAB: DASHBOARD -->
-    <div id="crm_dashboard" class="crmTabContent">
-        <!-- Stats Grid -->
-        <div class="crmDashGrid">
+        <!-- TAB: DASHBOARD -->
+        <div id="crm_dashboard" class="crmTabContent">
+          <!-- Stats Grid -->
+          <div class="crmDashGrid">
             <div class="crmStatCard">
-                <div class="crmStatTitle">Total Pipeline Värde <i class="fa-solid fa-sack-dollar"></i></div>
-                <div class="crmStatValue">2.4 Mkr</div>
-                <div class="crmStatTrend up"><i class="fa-solid fa-arrow-trend-up"></i> +12% denna månad</div>
+              <div class="crmStatTitle">Total Pipeline Värde <i class="fa-solid fa-sack-dollar"></i></div>
+              <div class="crmStatValue">2.4 Mkr</div>
+              <div class="crmStatTrend up"><i class="fa-solid fa-arrow-trend-up"></i> +12% denna månad</div>
             </div>
             <div class="crmStatCard">
-                <div class="crmStatTitle">Öppna Affärer <i class="fa-solid fa-briefcase"></i></div>
-                <div class="crmStatValue">34 st</div>
-                <div class="crmStatTrend">7 i förhandling</div>
+              <div class="crmStatTitle">Öppna Affärer <i class="fa-solid fa-briefcase"></i></div>
+              <div class="crmStatValue">34 st</div>
+              <div class="crmStatTrend">7 i förhandling</div>
             </div>
             <div class="crmStatCard">
-                <div class="crmStatTitle">Nya Leads (AI Score > 80) <i class="fa-solid fa-star"></i></div>
-                <div class="crmStatValue">12 st</div>
-                <div class="crmStatTrend up">3 heta just nu</div>
+              <div class="crmStatTitle">Nya Leads (AI Score > 80) <i class="fa-solid fa-star"></i></div>
+              <div class="crmStatValue">12 st</div>
+              <div class="crmStatTrend up">3 heta just nu</div>
             </div>
             <div class="crmStatCard" style="border: 1px solid var(--primary); background: rgba(76, 125, 255, 0.05);">
-                <div class="crmStatTitle" style="color:var(--primary);">AI Insight <i class="fa-solid fa-robot"></i>
-                </div>
-                <div style="font-size:14px; font-weight:500;">"Du har 5 affärer som stannat av i 'Förhandling'. Skicka
-                    en uppföljning idag för att öka stängningsfrekvensen med 15%."</div>
-                <button class="btn primary small" style="margin-top:10px;">Agera nu</button>
+              <div class="crmStatTitle" style="color:var(--primary);">AI Insight <i class="fa-solid fa-robot"></i>
+              </div>
+              <div style="font-size:14px; font-weight:500;">"Du har 5 affärer som stannat av i 'Förhandling'. Skicka
+                en uppföljning idag för att öka stängningsfrekvensen med 15%."</div>
+              <button class="btn primary small" style="margin-top:10px;">Agera nu</button>
             </div>
-        </div>
+          </div>
 
-        <!-- Recent Activity List -->
-        <div class="panel">
+          <!-- Recent Activity List -->
+          <div class="panel">
             <div class="panelHead"><b><i class="fa-solid fa-clock-rotate-left"></i> Senaste Händelser</b></div>
             <div class="activityTimeline" style="border-left:none; padding-left:0;">
-                <div class="activityItem call" style="padding-left:20px; border-left:2px solid var(--border);">
-                    <div class="activityMeta">Idag 10:30 • Samtal</div>
-                    <div><b>Maria Andersson</b> (TechCorp) diskuterade avtalsvillkor.</div>
-                </div>
-                <div class="activityItem email" style="padding-left:20px; border-left:2px solid var(--border);">
-                    <div class="activityMeta">Igår 14:15 • E-post</div>
-                    <div><b>Johan Svensson</b> öppnade offerten "Q1 Licenser".</div>
-                </div>
-                <div class="activityItem meeting" style="padding-left:20px; border-left:2px solid var(--border);">
-                    <div class="activityMeta">Igår 09:00 • Möte</div>
-                    <div>Demo med <b>Fastighetsbolaget AB</b> slutförd. Kund mycket intresserad.</div>
-                </div>
+              <div class="activityItem call" style="padding-left:20px; border-left:2px solid var(--border);">
+                <div class="activityMeta">Idag 10:30 • Samtal</div>
+                <div><b>Maria Andersson</b> (TechCorp) diskuterade avtalsvillkor.</div>
+              </div>
+              <div class="activityItem email" style="padding-left:20px; border-left:2px solid var(--border);">
+                <div class="activityMeta">Igår 14:15 • E-post</div>
+                <div><b>Johan Svensson</b> öppnade offerten "Q1 Licenser".</div>
+              </div>
+              <div class="activityItem meeting" style="padding-left:20px; border-left:2px solid var(--border);">
+                <div class="activityMeta">Igår 09:00 • Möte</div>
+                <div>Demo med <b>Fastighetsbolaget AB</b> slutförd. Kund mycket intresserad.</div>
+              </div>
             </div>
+          </div>
         </div>
-    </div>
 
-    <!-- TAB: PIPELINE (KANBAN) -->
-    <div id="crm_pipeline" class="crmTabContent" style="display:none;">
-        <div class="pipelineContainer">
+        <!-- TAB: PIPELINE (KANBAN) -->
+        <div id="crm_pipeline" class="crmTabContent" style="display:none;">
+          <div class="pipelineContainer">
             <div class="pipelineColumn">
-                <div class="pipelineHeader">
-                    <span>Nytt Lead</span>
-                    <span class="stageCount">5</span>
+              <div class="pipelineHeader">
+                <span>Nytt Lead</span>
+                <span class="stageCount">5</span>
+              </div>
+              <div class="pipelineBody" ondrop="drop(event)" ondragover="allowDrop(event)">
+                <div class="dealCard" draggable="true" ondragstart="drag(event)" id="deal1">
+                  <div class="dealCompany">LogistikPartner AB</div>
+                  <div class="dealValue">250 000 kr</div>
+                  <div class="dealFooter">
+                    <div class="dealTags"><span class="dealTag tag-hot">HOT</span></div>
+                    <div class="dealOwner">MP</div>
+                  </div>
                 </div>
-                <div class="pipelineBody" ondrop="drop(event)" ondragover="allowDrop(event)">
-                    <div class="dealCard" draggable="true" ondragstart="drag(event)" id="deal1">
-                        <div class="dealCompany">LogistikPartner AB</div>
-                        <div class="dealValue">250 000 kr</div>
-                        <div class="dealFooter">
-                            <div class="dealTags"><span class="dealTag tag-hot">HOT</span></div>
-                            <div class="dealOwner">MP</div>
-                        </div>
-                    </div>
-                    <div class="dealCard" draggable="true" ondragstart="drag(event)" id="deal2">
-                        <div class="dealCompany">Norrland Transport</div>
-                        <div class="dealValue">120 000 kr</div>
-                        <div class="dealFooter">
-                            <div class="dealTags"><span class="dealTag tag-warm">WARM</span></div>
-                            <div class="dealOwner">JS</div>
-                        </div>
-                    </div>
+                <div class="dealCard" draggable="true" ondragstart="drag(event)" id="deal2">
+                  <div class="dealCompany">Norrland Transport</div>
+                  <div class="dealValue">120 000 kr</div>
+                  <div class="dealFooter">
+                    <div class="dealTags"><span class="dealTag tag-warm">WARM</span></div>
+                    <div class="dealOwner">JS</div>
+                  </div>
                 </div>
+              </div>
             </div>
             <div class="pipelineColumn">
-                <div class="pipelineHeader">
-                    <span>Kvalificerad</span>
-                    <span class="stageCount">3</span>
+              <div class="pipelineHeader">
+                <span>Kvalificerad</span>
+                <span class="stageCount">3</span>
+              </div>
+              <div class="pipelineBody" ondrop="drop(event)" ondragover="allowDrop(event)">
+                <div class="dealCard" draggable="true" ondragstart="drag(event)" id="deal3">
+                  <div class="dealCompany">Byggmax AB</div>
+                  <div class="dealValue">450 000 kr</div>
+                  <div class="dealFooter">
+                    <div class="dealTags"><span class="dealTag tag-cold">COLD</span></div>
+                    <div class="dealOwner">MP</div>
+                  </div>
                 </div>
-                <div class="pipelineBody" ondrop="drop(event)" ondragover="allowDrop(event)">
-                    <div class="dealCard" draggable="true" ondragstart="drag(event)" id="deal3">
-                        <div class="dealCompany">Byggmax AB</div>
-                        <div class="dealValue">450 000 kr</div>
-                        <div class="dealFooter">
-                            <div class="dealTags"><span class="dealTag tag-cold">COLD</span></div>
-                            <div class="dealOwner">MP</div>
-                        </div>
-                    </div>
-                </div>
+              </div>
             </div>
             <div class="pipelineColumn">
-                <div class="pipelineHeader">
-                    <span>Offert Skickad</span>
-                    <span class="stageCount">2</span>
+              <div class="pipelineHeader">
+                <span>Offert Skickad</span>
+                <span class="stageCount">2</span>
+              </div>
+              <div class="pipelineBody" ondrop="drop(event)" ondragover="allowDrop(event)">
+                <div class="dealCard" draggable="true" ondragstart="drag(event)" id="deal4">
+                  <div class="dealCompany">TechConsulting</div>
+                  <div class="dealValue">85 000 kr</div>
+                  <div class="dealFooter">
+                    <div class="dealTags"><span class="dealTag tag-hot">HOT</span></div>
+                    <div class="dealOwner">SJ</div>
+                  </div>
                 </div>
-                <div class="pipelineBody" ondrop="drop(event)" ondragover="allowDrop(event)">
-                    <div class="dealCard" draggable="true" ondragstart="drag(event)" id="deal4">
-                        <div class="dealCompany">TechConsulting</div>
-                        <div class="dealValue">85 000 kr</div>
-                        <div class="dealFooter">
-                            <div class="dealTags"><span class="dealTag tag-hot">HOT</span></div>
-                            <div class="dealOwner">SJ</div>
-                        </div>
-                    </div>
-                </div>
+              </div>
             </div>
             <div class="pipelineColumn">
-                <div class="pipelineHeader">
-                    <span>Förhandling</span>
-                    <span class="stageCount">1</span>
+              <div class="pipelineHeader">
+                <span>Förhandling</span>
+                <span class="stageCount">1</span>
+              </div>
+              <div class="pipelineBody" ondrop="drop(event)" ondragover="allowDrop(event)">
+                <div class="dealCard" draggable="true" ondragstart="drag(event)" id="deal5">
+                  <div class="dealCompany">Storbanken SE</div>
+                  <div class="dealValue">1 200 000 kr</div>
+                  <div class="dealFooter">
+                    <div class="dealTags"><span class="dealTag tag-hot">HOT</span></div>
+                    <div class="dealOwner">VD</div>
+                  </div>
                 </div>
-                <div class="pipelineBody" ondrop="drop(event)" ondragover="allowDrop(event)">
-                    <div class="dealCard" draggable="true" ondragstart="drag(event)" id="deal5">
-                        <div class="dealCompany">Storbanken SE</div>
-                        <div class="dealValue">1 200 000 kr</div>
-                        <div class="dealFooter">
-                            <div class="dealTags"><span class="dealTag tag-hot">HOT</span></div>
-                            <div class="dealOwner">VD</div>
-                        </div>
-                    </div>
-                </div>
+              </div>
             </div>
+          </div>
         </div>
-    </div>
 
-    <!-- TAB: CUSTOMERS (List) -->
-    <div id="crm_customers" class="crmTabContent" style="display:none;">
-        <div class="panel">
+        <!-- TAB: CUSTOMERS (List) -->
+        <div id="crm_customers" class="crmTabContent" style="display:none;">
+          <div class="panel">
             <div class="row" style="margin-bottom:15px; justify-content:space-between;">
-                <div class="searchInputs">
-                    <input class="input" placeholder="Sök företag eller kontakt..." style="width:300px;">
-                </div>
-                <div class="filters">
-                    <button class="btn ghost small"><i class="fa-solid fa-filter"></i> Filter</button>
-                    <button class="btn ghost small"><i class="fa-solid fa-download"></i> Exportera</button>
-                </div>
+              <div class="searchInputs">
+                <input class="input" placeholder="Sök företag eller kontakt..." style="width:300px;">
+              </div>
+              <div class="filters">
+                <button class="btn ghost small"><i class="fa-solid fa-filter"></i> Filter</button>
+                <button class="btn ghost small"><i class="fa-solid fa-download"></i> Exportera</button>
+              </div>
             </div>
             <table class="crmTable" style="width: 100%; border-collapse: collapse;">
-                <thead>
-                    <tr style="background: var(--panel2);">
-                        <th style="padding: 12px; text-align: left;">Företag</th>
-                        <th style="padding: 12px; text-align: left;">Kontakt</th>
-                        <th style="padding: 12px; text-align: left;">Status</th>
-                        <th style="padding: 12px; text-align: right;">Totalt Värde</th>
-                        <th style="padding: 12px; text-align: center;">AI Score</th>
-                        <th style="padding: 12px; text-align: right;">Åtgärd</th>
-                    </tr>
-                </thead>
-                <tbody id="crmAnalyticsTable">
-                    <tr onclick="openCustomerModal('TechCorp')"
-                        style="cursor:pointer; border-bottom:1px solid var(--border);">
-                        <td style="padding:12px;"><b>TechCorp AB</b><br><span class="muted small">IT-Konsult</span></td>
-                        <td style="padding:12px;">Maria Andersson<br><span class="muted small">maria@techcorp.se</span>
-                        </td>
-                        <td style="padding:12px;"><span class="pill ok">Kund</span></td>
-                        <td style="padding:12px; text-align:right;">1.2 Mkr</td>
-                        <td style="padding:12px; text-align:center;"><span
-                                style="color:var(--success); font-weight:bold;">92</span></td>
-                        <td style="padding:12px; text-align:right;">
-                            <button class="btn ghost small icon"><i class="fa-solid fa-phone"></i></button>
-                            <button class="btn ghost small icon"><i class="fa-solid fa-envelope"></i></button>
-                        </td>
-                    </tr>
-                    <tr onclick="openCustomerModal('Norrland')"
-                        style="cursor:pointer; border-bottom:1px solid var(--border);">
-                        <td style="padding:12px;"><b>Norrland Transport</b><br><span class="muted small">Logistik</span>
-                        </td>
-                        <td style="padding:12px;">Per Persson<br><span class="muted small">per@norrland.se</span></td>
-                        <td style="padding:12px;"><span class="pill warn">Förhandling</span></td>
-                        <td style="padding:12px; text-align:right;">450 000 kr</td>
-                        <td style="padding:12px; text-align:center;"><span
-                                style="color:orange; font-weight:bold;">65</span></td>
-                        <td style="padding:12px; text-align:right;">
-                            <button class="btn ghost small icon"><i class="fa-solid fa-phone"></i></button>
-                            <button class="btn ghost small icon"><i class="fa-solid fa-envelope"></i></button>
-                        </td>
-                    </tr>
-                </tbody>
+              <thead>
+                <tr style="background: var(--panel2);">
+                  <th style="padding: 12px; text-align: left;">Företag</th>
+                  <th style="padding: 12px; text-align: left;">Kontakt</th>
+                  <th style="padding: 12px; text-align: left;">Status</th>
+                  <th style="padding: 12px; text-align: right;">Totalt Värde</th>
+                  <th style="padding: 12px; text-align: center;">AI Score</th>
+                  <th style="padding: 12px; text-align: right;">Åtgärd</th>
+                </tr>
+              </thead>
+              <tbody id="crmAnalyticsTable">
+                <tr onclick="openCustomerModal('TechCorp')"
+                  style="cursor:pointer; border-bottom:1px solid var(--border);">
+                  <td style="padding:12px;"><b>TechCorp AB</b><br><span class="muted small">IT-Konsult</span></td>
+                  <td style="padding:12px;">Maria Andersson<br><span class="muted small">maria@techcorp.se</span>
+                  </td>
+                  <td style="padding:12px;"><span class="pill ok">Kund</span></td>
+                  <td style="padding:12px; text-align:right;">1.2 Mkr</td>
+                  <td style="padding:12px; text-align:center;"><span
+                      style="color:var(--success); font-weight:bold;">92</span></td>
+                  <td style="padding:12px; text-align:right;">
+                    <button class="btn ghost small icon"><i class="fa-solid fa-phone"></i></button>
+                    <button class="btn ghost small icon"><i class="fa-solid fa-envelope"></i></button>
+                  </td>
+                </tr>
+                <tr onclick="openCustomerModal('Norrland')"
+                  style="cursor:pointer; border-bottom:1px solid var(--border);">
+                  <td style="padding:12px;"><b>Norrland Transport</b><br><span class="muted small">Logistik</span>
+                  </td>
+                  <td style="padding:12px;">Per Persson<br><span class="muted small">per@norrland.se</span></td>
+                  <td style="padding:12px;"><span class="pill warn">Förhandling</span></td>
+                  <td style="padding:12px; text-align:right;">450 000 kr</td>
+                  <td style="padding:12px; text-align:center;"><span style="color:orange; font-weight:bold;">65</span>
+                  </td>
+                  <td style="padding:12px; text-align:right;">
+                    <button class="btn ghost small icon"><i class="fa-solid fa-phone"></i></button>
+                    <button class="btn ghost small icon"><i class="fa-solid fa-envelope"></i></button>
+                  </td>
+                </tr>
+              </tbody>
             </table>
+          </div>
         </div>
-    </div>
 
-    <!-- TAB: ACTIVITIES -->
-    <div id="crm_activities" class="crmTabContent" style="display:none;">
-        <div class="panel">
+        <!-- TAB: ACTIVITIES -->
+        <div id="crm_activities" class="crmTabContent" style="display:none;">
+          <div class="panel">
             <div class="panelHead"><b>Kommande Aktiviteter</b></div>
             <div
-                style="background:var(--panel2); padding:40px; text-align:center; border-radius:8px; color:var(--text-muted);">
-                <i class="fa-solid fa-calendar-days" style="font-size:32px; margin-bottom:10px;"></i>
-                <p>Kalenderintegration kommer snart.</p>
+              style="background:var(--panel2); padding:40px; text-align:center; border-radius:8px; color:var(--text-muted);">
+              <i class="fa-solid fa-calendar-days" style="font-size:32px; margin-bottom:10px;"></i>
+              <p>Kalenderintegration kommer snart.</p>
             </div>
+          </div>
         </div>
-    </div>
 
-    <!-- 360 MODAL (MOVED INSIDE SECTION FOR CLEANER REPLACE) -->
-    <div id="crmCustomerModal" class="modal" style="display: none;">
-        <div class="modalContent"
+        <!-- 360 MODAL (MOVED INSIDE SECTION FOR CLEANER REPLACE) -->
+        <div id="crmCustomerModal" class="modal" style="display: none;">
+          <div class="modalContent"
             style="width: 900px; max-width: 95vw; height: 85vh; overflow:hidden; display:flex; flex-direction:column;">
             <div class="modalHeader">
-                <h3><i class="fa-solid fa-building"></i> <span id="crmModalCustomerName">Kunddetaljer</span></h3>
-                <div class="modalActions">
-                    <button class="btn ghost small"><i class="fa-solid fa-pen"></i> Redigera</button>
-                    <button id="crmCloseModalBtn" class="btn ghost small"><i class="fa-solid fa-times"></i></button>
-                </div>
+              <h3><i class="fa-solid fa-building"></i> <span id="crmModalCustomerName">Kunddetaljer</span></h3>
+              <div class="modalActions">
+                <button class="btn ghost small"><i class="fa-solid fa-pen"></i> Redigera</button>
+                <button id="crmCloseModalBtn" class="btn ghost small"><i class="fa-solid fa-times"></i></button>
+              </div>
             </div>
             <div class="modalBody" id="crmModalBody" style="padding:0; flex:1; overflow:hidden;">
-                <div class="customerProfileLayout">
-                    <div class="customerSidebar" style="border-right:1px solid var(--border); border-radius:0;">
-                        <div class="topInfo" style="text-align:center; margin-bottom:20px;">
-                            <div class="avatar-large"
-                                style="width:80px; height:80px; margin:0 auto 10px; background:#e0e7ff; color:var(--primary); font-size:32px; display:flex; align-items:center; justify-content:center; border-radius:50%;">
-                                C</div>
-                            <h2 style="font-size:20px; margin:0;">Kundnamn</h2>
-                            <p class="muted">Bransch • Stad</p>
-                            <div class="pill ok" style="margin-top:5px;">Status</div>
-                        </div>
-                        <div class="aiInsightBox">
-                            <div
-                                style="font-size:12px; text-transform:uppercase; color:var(--primary); font-weight:bold; margin-bottom:5px;">
-                                AI Lead Score</div>
-                            <div class="aiScore">--</div>
-                        </div>
-                    </div>
-                    <div class="customerMain" style="border:none; border-radius:0; overflow-y:auto; padding:20px;">
-                        <p class="muted center">Välj en kund för att se detaljer.</p>
-                    </div>
+              <div class="customerProfileLayout">
+                <div class="customerSidebar" style="border-right:1px solid var(--border); border-radius:0;">
+                  <div class="topInfo" style="text-align:center; margin-bottom:20px;">
+                    <div class="avatar-large"
+                      style="width:80px; height:80px; margin:0 auto 10px; background:#e0e7ff; color:var(--primary); font-size:32px; display:flex; align-items:center; justify-content:center; border-radius:50%;">
+                      C</div>
+                    <h2 style="font-size:20px; margin:0;">Kundnamn</h2>
+                    <p class="muted">Bransch • Stad</p>
+                    <div class="pill ok" style="margin-top:5px;">Status</div>
+                  </div>
+                  <div class="aiInsightBox">
+                    <div
+                      style="font-size:12px; text-transform:uppercase; color:var(--primary); font-weight:bold; margin-bottom:5px;">
+                      AI Lead Score</div>
+                    <div class="aiScore">--</div>
+                  </div>
                 </div>
+                <div class="customerMain" style="border:none; border-radius:0; overflow-y:auto; padding:20px;">
+                  <p class="muted center">Välj en kund för att se detaljer.</p>
+                </div>
+              </div>
             </div>
+          </div>
         </div>
-    </div>
-</section><!-- SETTINGS VIEW / PROFILE -->
+      </section><!-- SETTINGS VIEW / PROFILE -->
       <section id="settingsView" class="view" style="display:none;">
         <div class="topbar">
           <div>
@@ -1893,805 +1893,808 @@
         </div>
       </section>
 
-<!-- SCENARIOPLANERING - Business Focused -->
-<section id="scenarioView" class="view" style="display:none;">
+      <!-- SCENARIOPLANERING - Business Focused -->
+      <section id="scenarioView" class="view" style="display:none;">
 
-    <!-- HEADER -->
-    <div class="topbar">
-        <div>
+        <!-- HEADER -->
+        <div class="topbar">
+          <div>
             <div class="title"><i class="fa-solid fa-briefcase" style="color:var(--primary);"></i> Affärsanalys</div>
             <div class="subtitle muted">Kapacitetsplanering och kostnadsoptimering</div>
-        </div>
-        <div class="topbarActions">
+          </div>
+          <div class="topbarActions">
             <button id="scenarioExportBtn" class="btn ghost" type="button">
-                <i class="fa-solid fa-download"></i> Exportera
+              <i class="fa-solid fa-download"></i> Exportera
             </button>
+          </div>
         </div>
-    </div>
 
-    <!-- MAIN CONTENT -->
-<!-- MAIN CONTENT -->
-<div class="scenarioContent">
+        <!-- MAIN CONTENT -->
+        <!-- MAIN CONTENT -->
+        <div class="scenarioContent">
 
-<!-- VIEW MODE SELECTOR & SUMMARY -->
-<div class="scenarioHeaderPanel">
-    <div class="headerTopRow"
-        style="display:flex; justify-content:space-between; align-items:center; margin-bottom:15px;">
-        <h2 style="margin:0; font-size:20px;">Scenario & Prognos</h2>
-        <div class="scenarioTimeFilter">
-            <span class="filterLabel">Prognosperiod:</span>
-            <div class="segmentedControl">
-                <button class="timeFilterBtn" onclick="setScenarioTime(1)" id="tf_1">1 Mån</button>
-                <button class="timeFilterBtn active" onclick="setScenarioTime(12)" id="tf_12">1 År</button>
-                <button class="timeFilterBtn" onclick="setScenarioTime(36)" id="tf_36">3 År</button>
+          <!-- VIEW MODE SELECTOR & SUMMARY -->
+          <div class="scenarioHeaderPanel">
+            <div class="headerTopRow"
+              style="display:flex; justify-content:space-between; align-items:center; margin-bottom:15px;">
+              <h2 style="margin:0; font-size:20px;">Scenario & Prognos</h2>
+              <div class="scenarioTimeFilter">
+                <span class="filterLabel">Prognosperiod:</span>
+                <div class="segmentedControl">
+                  <button class="timeFilterBtn" onclick="setScenarioTime(1)" id="tf_1">1 Mån</button>
+                  <button class="timeFilterBtn active" onclick="setScenarioTime(12)" id="tf_12">1 År</button>
+                  <button class="timeFilterBtn" onclick="setScenarioTime(36)" id="tf_36">3 År</button>
+                </div>
+              </div>
             </div>
-        </div>
-    </div>
 
-    <!-- Sticky Summary with Dynamic Time -->
-    <div class="scenarioSummaryBar">
-        <div class="summaryStats">
-            <div class="summaryStat primary">
-                <span class="label" id="summary_save_label">Besparing (1 år)</span>
-                <span class="value positive giant" id="sc_summaryYearSave">810 000 kr</span>
+            <!-- Sticky Summary with Dynamic Time -->
+            <div class="scenarioSummaryBar">
+              <div class="summaryStats">
+                <div class="summaryStat primary">
+                  <span class="label" id="summary_save_label">Besparing (1 år)</span>
+                  <span class="value positive giant" id="sc_summaryYearSave">810 000 kr</span>
+                </div>
+                <div class="summaryStat warning">
+                  <span class="label" id="summary_time_label">Sparad Tid</span>
+                  <span class="value" id="sc_summaryTime">4 000 h</span>
+                </div>
+                <div class="summaryStat ok">
+                  <span class="label">ROI</span>
+                  <span class="value positive" id="sc_summaryRoi">340%</span>
+                </div>
+              </div>
+              <div class="topbarActions">
+                <button class="btn ghost small" onclick="toggleScenarioOnboarding()">
+                  <i class="fa-solid fa-circle-question"></i> Hjälp
+                </button>
+                <button class="btn ghost small" onclick="exportScenarioReport()">
+                  <i class="fa-solid fa-download"></i> Rapport
+                </button>
+              </div>
             </div>
-            <div class="summaryStat warning">
-                <span class="label" id="summary_time_label">Sparad Tid</span>
-                <span class="value" id="sc_summaryTime">4 000 h</span>
+
+            <!-- Mode Tabs -->
+            <div class="scenarioModeTabs">
+              <button class="modeTab active" onclick="setScenarioMode('overview')" id="tab_overview">
+                <i class="fa-solid fa-chart-pie"></i> Översikt
+              </button>
+              <button class="modeTab" onclick="setScenarioMode('optimization')" id="tab_optimization">
+                <i class="fa-solid fa-rocket"></i> Optimering
+              </button>
+              <button class="modeTab" onclick="setScenarioMode('strategy')" id="tab_strategy">
+                <i class="fa-solid fa-chess"></i> Strategi
+              </button>
+              <button class="modeTab" onclick="setScenarioMode('myView')" id="tab_myView">
+                <i class="fa-solid fa-star"></i> Min Vy
+              </button>
             </div>
-            <div class="summaryStat ok">
-                <span class="label">ROI</span>
-                <span class="value positive" id="sc_summaryRoi">340%</span>
+          </div>
+
+          <!-- ONBOARDING MODAL -->
+          <div id="scenarioOnboarding" class="onboardingModal" style="display:none;">
+            <div class="onboardingContent">
+              <div class="step" data-step="1">
+                <div class="stepIcon"><i class="fa-solid fa-sliders"></i></div>
+                <h3>1. Justera antaganden</h3>
+                <p>Ställ in reglagen för att matcha din verksamhet.</p>
+              </div>
+              <div class="step" data-step="2">
+                <div class="stepIcon"><i class="fa-solid fa-clock"></i></div>
+                <h3>2. Välj tidsperiod</h3>
+                <p>Använd filtret "1 Mån / 1 År / 3 År" för att se långsiktig effekt.</p>
+              </div>
+              <div class="step" data-step="3">
+                <div class="stepIcon"><i class="fa-solid fa-star"></i></div>
+                <h3>3. Spara favoriter</h3>
+                <p>Stjärnmarkera dina viktigaste nyckeltal till "Min Vy".</p>
+              </div>
+              <button class="btn primary full" onclick="closeScenarioOnboarding()">Jag förstår, kör igång!</button>
             </div>
-        </div>
-        <div class="topbarActions">
-            <button class="btn ghost small" onclick="toggleScenarioOnboarding()">
-                <i class="fa-solid fa-circle-question"></i> Hjälp
-            </button>
-            <button class="btn ghost small" onclick="exportScenarioReport()">
-                <i class="fa-solid fa-download"></i> Rapport
-            </button>
-        </div>
-    </div>
+          </div>
 
-    <!-- Mode Tabs -->
-    <div class="scenarioModeTabs">
-        <button class="modeTab active" onclick="setScenarioMode('overview')" id="tab_overview">
-            <i class="fa-solid fa-chart-pie"></i> Översikt
-        </button>
-        <button class="modeTab" onclick="setScenarioMode('optimization')" id="tab_optimization">
-            <i class="fa-solid fa-rocket"></i> Optimering
-        </button>
-        <button class="modeTab" onclick="setScenarioMode('strategy')" id="tab_strategy">
-            <i class="fa-solid fa-chess"></i> Strategi
-        </button>
-        <button class="modeTab" onclick="setScenarioMode('myView')" id="tab_myView">
-            <i class="fa-solid fa-star"></i> Min Vy
-        </button>
-    </div>
-</div>
+          <!-- MY VIEW (Favorites) -->
+          <div id="sc_mode_myView" class="scenarioModeSection" style="display:none;">
+            <div class="sectionHeader">
+              <h3><i class="fa-solid fa-star"></i> Min Dashboard</h3>
+              <span class="sectionSubtitle">Dina utvalda mätvärden</span>
+            </div>
+            <div id="sc_favoritesContainer" class="favoritesGrid">
+              <div class="emptyState">
+                <i class="fa-regular fa-star"></i>
+                <p>Du har inte valt några favoriter än.</p>
+              </div>
+            </div>
+          </div>
 
-<!-- ONBOARDING MODAL -->
-<div id="scenarioOnboarding" class="onboardingModal" style="display:none;">
-    <div class="onboardingContent">
-        <div class="step" data-step="1">
-            <div class="stepIcon"><i class="fa-solid fa-sliders"></i></div>
-            <h3>1. Justera antaganden</h3>
-            <p>Ställ in reglagen för att matcha din verksamhet.</p>
-        </div>
-        <div class="step" data-step="2">
-            <div class="stepIcon"><i class="fa-solid fa-clock"></i></div>
-            <h3>2. Välj tidsperiod</h3>
-            <p>Använd filtret "1 Mån / 1 År / 3 År" för att se långsiktig effekt.</p>
-        </div>
-        <div class="step" data-step="3">
-            <div class="stepIcon"><i class="fa-solid fa-star"></i></div>
-            <h3>3. Spara favoriter</h3>
-            <p>Stjärnmarkera dina viktigaste nyckeltal till "Min Vy".</p>
-        </div>
-        <button class="btn primary full" onclick="closeScenarioOnboarding()">Jag förstår, kör igång!</button>
-    </div>
-</div>
+          <!-- OVERVIEW MODE -->
+          <div id="sc_mode_overview" class="scenarioModeSection">
 
-<!-- MY VIEW (Favorites) -->
-<div id="sc_mode_myView" class="scenarioModeSection" style="display:none;">
-    <div class="sectionHeader">
-        <h3><i class="fa-solid fa-star"></i> Min Dashboard</h3>
-        <span class="sectionSubtitle">Dina utvalda mätvärden</span>
-    </div>
-    <div id="sc_favoritesContainer" class="favoritesGrid">
-        <div class="emptyState">
-            <i class="fa-regular fa-star"></i>
-            <p>Du har inte valt några favoriter än.</p>
-        </div>
-    </div>
-</div>
-
-<!-- OVERVIEW MODE -->
-<div id="sc_mode_overview" class="scenarioModeSection">
-
-    <!-- HERO METRICS GRID -->
-    <div class="heroMetricsGrid">
-        <!-- Card 1: MONEY -->
-        <div class="heroCard money">
-            <button class="favoriteBtn" onclick="toggleFavorite('sc_yearSavings', 'Total Besparing')"><i
+            <!-- HERO METRICS GRID -->
+            <div class="heroMetricsGrid">
+              <!-- Card 1: MONEY -->
+              <div class="heroCard money">
+                <button class="favoriteBtn" onclick="toggleFavorite('sc_yearSavings', 'Total Besparing')"><i
                     class="fa-regular fa-star"></i></button>
-            <div class="heroIcon"><i class="fa-solid fa-sack-dollar"></i></div>
-            <div class="heroLabel" id="hero_money_label">Besparing (1 år)</div>
-            <div class="heroValue" id="hero_money_val">810 000 kr</div>
-            <div class="heroSub" id="hero_money_sub">Minskad driftskostnad</div>
-        </div>
+                <div class="heroIcon"><i class="fa-solid fa-sack-dollar"></i></div>
+                <div class="heroLabel" id="hero_money_label">Besparing (1 år)</div>
+                <div class="heroValue" id="hero_money_val">810 000 kr</div>
+                <div class="heroSub" id="hero_money_sub">Minskad driftskostnad</div>
+              </div>
 
-        <!-- Card 2: TIME -->
-        <div class="heroCard time">
-            <button class="favoriteBtn" onclick="toggleFavorite('sc_hoursSaved', 'Sparad Tid')"><i
+              <!-- Card 2: TIME -->
+              <div class="heroCard time">
+                <button class="favoriteBtn" onclick="toggleFavorite('sc_hoursSaved', 'Sparad Tid')"><i
                     class="fa-regular fa-star"></i></button>
-            <div class="heroIcon"><i class="fa-solid fa-clock"></i></div>
-            <div class="heroLabel" id="hero_time_label">Sparad Tid (1 år)</div>
-            <div class="heroValue" id="hero_time_val">4 000 h</div>
-            <div class="heroSub" id="hero_time_sub">Motsvarar <span id="hero_fte_val">2.5</span> heltidstjänster</div>
-        </div>
+                <div class="heroIcon"><i class="fa-solid fa-clock"></i></div>
+                <div class="heroLabel" id="hero_time_label">Sparad Tid (1 år)</div>
+                <div class="heroValue" id="hero_time_val">4 000 h</div>
+                <div class="heroSub" id="hero_time_sub">Motsvarar <span id="hero_fte_val">2.5</span> heltidstjänster
+                </div>
+              </div>
 
-        <!-- Card 3: VOLUME -->
-        <div class="heroCard vol">
-            <button class="favoriteBtn" onclick="toggleFavorite('sc_aiTickets', 'AI-ärenden')"><i
+              <!-- Card 3: VOLUME -->
+              <div class="heroCard vol">
+                <button class="favoriteBtn" onclick="toggleFavorite('sc_aiTickets', 'AI-ärenden')"><i
                     class="fa-regular fa-star"></i></button>
-            <div class="heroIcon"><i class="fa-solid fa-robot"></i></div>
-            <div class="heroLabel" id="hero_vol_label">AI-hanterade ärenden</div>
-            <div class="heroValue" id="hero_vol_val">2 400</div>
-            <div class="heroSub">Automatiserade ärenden</div>
-        </div>
+                <div class="heroIcon"><i class="fa-solid fa-robot"></i></div>
+                <div class="heroLabel" id="hero_vol_label">AI-hanterade ärenden</div>
+                <div class="heroValue" id="hero_vol_val">2 400</div>
+                <div class="heroSub">Automatiserade ärenden</div>
+              </div>
 
-        <!-- Card 4: QUALITY -->
-        <div class="heroCard quality">
-            <button class="favoriteBtn" onclick="toggleFavorite('sc_currentSla', 'Servicekvalitet')"><i
+              <!-- Card 4: QUALITY -->
+              <div class="heroCard quality">
+                <button class="favoriteBtn" onclick="toggleFavorite('sc_currentSla', 'Servicekvalitet')"><i
                     class="fa-regular fa-star"></i></button>
-            <div class="heroIcon"><i class="fa-solid fa-heart"></i></div>
-            <div class="heroLabel">Servicekvalitet</div>
-            <div class="heroValue" id="sc_currentSla">92%</div>
-            <div class="heroSub active">Uppnår SLA-mål</div>
-        </div>
-    </div>
+                <div class="heroIcon"><i class="fa-solid fa-heart"></i></div>
+                <div class="heroLabel">Servicekvalitet</div>
+                <div class="heroValue" id="sc_currentSla">92%</div>
+                <div class="heroSub active">Uppnår SLA-mål</div>
+              </div>
+            </div>
 
-    <!-- SEKTION 2: AFFÄRSANTAGANDEN (Simplified) -->
-    <div id="sc_assumptions" class="scenarioSection assumptions">
-        <div class="sectionHeader togglable" onclick="toggleSection('sc_assumptions_content')">
-            <h3><i class="fa-solid fa-sliders"></i> Justera simulering</h3>
-            <span class="sectionSubtitle">Dra i reglagen för att se effekten direkt</span>
-            <i class="fa-solid fa-chevron-down toggleIcon"></i>
-        </div>
-        <div id="sc_assumptions_content" class="sectionContent">
-            <div class="assumptionsGrid">
-                <div class="assumptionCard">
+            <!-- SEKTION 2: AFFÄRSANTAGANDEN (Simplified) -->
+            <div id="sc_assumptions" class="scenarioSection assumptions">
+              <div class="sectionHeader togglable" onclick="toggleSection('sc_assumptions_content')">
+                <h3><i class="fa-solid fa-sliders"></i> Justera simulering</h3>
+                <span class="sectionSubtitle">Dra i reglagen för att se effekten direkt</span>
+                <i class="fa-solid fa-chevron-down toggleIcon"></i>
+              </div>
+              <div id="sc_assumptions_content" class="sectionContent">
+                <div class="assumptionsGrid">
+                  <div class="assumptionCard">
                     <div class="assumptionQuestion">Ärenden / månad</div>
                     <div class="assumptionInput">
-                        <input type="range" id="sc_tickets" class="slider" min="100" max="5000" value="500" step="50">
-                        <div class="sliderValue"><span id="sc_tickets_val">500</span> st</div>
+                      <input type="range" id="sc_tickets" class="slider" min="100" max="5000" value="500" step="50">
+                      <div class="sliderValue"><span id="sc_tickets_val">500</span> st</div>
                     </div>
-                </div>
-                <div class="assumptionCard">
+                  </div>
+                  <div class="assumptionCard">
                     <div class="assumptionQuestion">AI-grad (%)</div>
                     <div class="assumptionInput">
-                        <input type="range" id="sc_aiRate" class="slider" min="0" max="95" value="40" step="5">
-                        <div class="sliderValue"><span id="sc_aiRate_val">40</span>%</div>
+                      <input type="range" id="sc_aiRate" class="slider" min="0" max="95" value="40" step="5">
+                      <div class="sliderValue"><span id="sc_aiRate_val">40</span>%</div>
                     </div>
-                </div>
-                <div class="assumptionCard">
+                  </div>
+                  <div class="assumptionCard">
                     <div class="assumptionQuestion">Personalkostnad / mån</div>
                     <div class="assumptionInput">
-                        <input type="range" id="sc_staffCost" class="slider" min="25000" max="80000" value="45000"
-                            step="1000">
-                        <div class="sliderValue"><span id="sc_staffCost_val">45 000</span> kr</div>
+                      <input type="range" id="sc_staffCost" class="slider" min="25000" max="80000" value="45000"
+                        step="1000">
+                      <div class="sliderValue"><span id="sc_staffCost_val">45 000</span> kr</div>
                     </div>
-                </div>
+                  </div>
 
-                <div class="advancedAssumptionsToggle"
+                  <div class="advancedAssumptionsToggle"
                     onclick="document.getElementById('advancedAssumptions').classList.toggle('hidden')">
                     <i class="fa-solid fa-cog"></i> Visa fler inställningar
-                </div>
-                <div id="advancedAssumptions" class="hidden">
+                  </div>
+                  <div id="advancedAssumptions" class="hidden">
                     <div class="assumptionCard">
-                        <div class="assumptionQuestion">Ärenden per handläggare / dag</div>
-                        <div class="assumptionInput">
-                            <input type="range" id="sc_ticketsPerDay" class="slider" min="5" max="50" value="12"
-                                step="1">
-                            <div class="sliderValue"><span id="sc_ticketsPerDay_val">12</span> st</div>
-                        </div>
+                      <div class="assumptionQuestion">Ärenden per handläggare / dag</div>
+                      <div class="assumptionInput">
+                        <input type="range" id="sc_ticketsPerDay" class="slider" min="5" max="50" value="12" step="1">
+                        <div class="sliderValue"><span id="sc_ticketsPerDay_val">12</span> st</div>
+                      </div>
                     </div>
                     <div class="assumptionCard">
-                        <div class="assumptionQuestion">Mål för Service Level (SLA)</div>
-                        <div class="assumptionInput">
-                            <input type="range" id="sc_targetSla" class="slider" min="80" max="99" value="90" step="1">
-                            <div class="sliderValue"><span id="sc_targetSla_val">90</span>%</div>
-                        </div>
+                      <div class="assumptionQuestion">Mål för Service Level (SLA)</div>
+                      <div class="assumptionInput">
+                        <input type="range" id="sc_targetSla" class="slider" min="80" max="99" value="90" step="1">
+                        <div class="sliderValue"><span id="sc_targetSla_val">90</span>%</div>
+                      </div>
                     </div>
+                  </div>
                 </div>
+              </div>
             </div>
-        </div>
-    </div>
 
-    <!-- SEKTION 7: REKOMMENDATION (Action Oriented) -->
-    <div id="sc_rec" class="scenarioSection recommendation">
-        <div class="recommendationCard" id="sc_recommendation">
-            <div class="recIcon"><i class="fa-solid fa-check-double"></i></div>
-            <div class="recContent">
-                <div class="recTitle">Rekommendation</div>
-                <div class="recText" id="sc_recText">
+            <!-- SEKTION 7: REKOMMENDATION (Action Oriented) -->
+            <div id="sc_rec" class="scenarioSection recommendation">
+              <div class="recommendationCard" id="sc_recommendation">
+                <div class="recIcon"><i class="fa-solid fa-check-double"></i></div>
+                <div class="recContent">
+                  <div class="recTitle">Rekommendation</div>
+                  <div class="recText" id="sc_recText">
                     Analysera...
-                </div>
-                <!-- Hidden hidden inputs for calculation reference -->
-                <div style="display:none">
+                  </div>
+                  <!-- Hidden hidden inputs for calculation reference -->
+                  <div style="display:none">
                     <span id="sc_yearSavings"></span>
                     <span id="sc_hoursSaved"></span>
                     <span id="sc_aiTickets"></span>
                     <span id="sc_currentCost"></span>
+                  </div>
                 </div>
+              </div>
             </div>
-        </div>
-    </div>
-</div>    <!-- OPTIMIZATION MODE -->
-    <div id="sc_mode_optimization" class="scenarioModeSection" style="display:none;">
-        <div class="topInsight">
-            <i class="fa-solid fa-arrow-trend-up"></i>
-            <span id="sc_topInsight_opt">Ökad automatisering kan frigöra 1.5 årsarbetare (+340% ROI).</span>
-        </div>
+          </div> <!-- OPTIMIZATION MODE -->
+          <div id="sc_mode_optimization" class="scenarioModeSection" style="display:none;">
+            <div class="topInsight">
+              <i class="fa-solid fa-arrow-trend-up"></i>
+              <span id="sc_topInsight_opt">Ökad automatisering kan frigöra 1.5 årsarbetare (+340% ROI).</span>
+            </div>
 
-        <!-- SEKTION 6: TIDSBESPARING -->
-        <div id="sc_time" class="scenarioSection time">
-            <div class="sectionHeader togglable" onclick="toggleSection('sc_time_content')">
+            <!-- SEKTION 6: TIDSBESPARING -->
+            <div id="sc_time" class="scenarioSection time">
+              <div class="sectionHeader togglable" onclick="toggleSection('sc_time_content')">
                 <h3><i class="fa-solid fa-hourglass-half"></i> Tidseffektivitet</h3>
                 <span class="sectionSubtitle">Frigjord tid för värdeskapande arbete</span>
                 <i class="fa-solid fa-chevron-down toggleIcon"></i>
-            </div>
-            <div id="sc_time_content" class="sectionContent">
+              </div>
+              <div id="sc_time_content" class="sectionContent">
                 <div class="timeGrid">
-                    <div class="timeStat">
-                        <button class="favoriteBtn" onclick="toggleFavorite('sc_hoursWeek', 'Timmar/vecka')"><i
-                                class="fa-regular fa-star"></i></button>
-                        <div class="timeValue" id="sc_hoursWeek">75 h</div>
-                        <div class="timeLabel">Per vecka</div>
-                    </div>
-                    <div class="timeStat">
-                        <button class="favoriteBtn" onclick="toggleFavorite('sc_hoursMonth', 'Timmar/månad')"><i
-                                class="fa-regular fa-star"></i></button>
-                        <div class="timeValue" id="sc_hoursMonth">333 h</div>
-                        <div class="timeLabel">Per månad</div>
-                    </div>
-                    <div class="timeStat">
-                        <button class="favoriteBtn" onclick="toggleFavorite('sc_hoursYear', 'Timmar/år')"><i
-                                class="fa-regular fa-star"></i></button>
-                        <div class="timeValue" id="sc_hoursYear">4 000 h</div>
-                        <div class="timeLabel">Per år</div>
-                    </div>
-                    <div class="timeStat highlight">
-                        <div class="timeValue">2.4</div>
-                        <div class="timeLabel">Årsarbetare (FTE)</div>
-                        <div class="actionLink">→ Omfördela resurser</div>
-                    </div>
+                  <div class="timeStat">
+                    <button class="favoriteBtn" onclick="toggleFavorite('sc_hoursWeek', 'Timmar/vecka')"><i
+                        class="fa-regular fa-star"></i></button>
+                    <div class="timeValue" id="sc_hoursWeek">75 h</div>
+                    <div class="timeLabel">Per vecka</div>
+                  </div>
+                  <div class="timeStat">
+                    <button class="favoriteBtn" onclick="toggleFavorite('sc_hoursMonth', 'Timmar/månad')"><i
+                        class="fa-regular fa-star"></i></button>
+                    <div class="timeValue" id="sc_hoursMonth">333 h</div>
+                    <div class="timeLabel">Per månad</div>
+                  </div>
+                  <div class="timeStat">
+                    <button class="favoriteBtn" onclick="toggleFavorite('sc_hoursYear', 'Timmar/år')"><i
+                        class="fa-regular fa-star"></i></button>
+                    <div class="timeValue" id="sc_hoursYear">4 000 h</div>
+                    <div class="timeLabel">Per år</div>
+                  </div>
+                  <div class="timeStat highlight">
+                    <div class="timeValue">2.4</div>
+                    <div class="timeLabel">Årsarbetare (FTE)</div>
+                    <div class="actionLink">→ Omfördela resurser</div>
+                  </div>
                 </div>
+              </div>
             </div>
-        </div>
 
-        <!-- SEKTION 3: AFFÄRSEFFEKT -->
-        <div id="sc_results" class="scenarioSection results">
-            <div class="sectionHeader togglable" onclick="toggleSection('sc_results_content')">
+            <!-- SEKTION 3: AFFÄRSEFFEKT -->
+            <div id="sc_results" class="scenarioSection results">
+              <div class="sectionHeader togglable" onclick="toggleSection('sc_results_content')">
                 <h3><i class="fa-solid fa-chart-line"></i> Affärseffekt</h3>
                 <span class="sectionSubtitle">Resultat av nuvarande inställningar</span>
                 <i class="fa-solid fa-chevron-down toggleIcon"></i>
-            </div>
-            <div id="sc_results_content" class="sectionContent">
+              </div>
+              <div id="sc_results_content" class="sectionContent">
                 <div class="resultsGrid">
-                    <div class="resultCard primary">
-                        <button class="favoriteBtn" onclick="toggleFavorite('sc_reqStaff', 'Bemanning')"><i
-                                class="fa-regular fa-star"></i></button>
-                        <div class="resultIcon"><i class="fa-solid fa-users"></i></div>
-                        <div class="resultContent">
-                            <div class="resultValue" id="sc_reqStaff">3</div>
-                            <div class="resultLabel">Bemanning <i class="fa-solid fa-circle-info tooltip"
-                                    title="Antal heltidstjänster som krävs"></i></div>
-                            <div class="resultRecommendation" id="sc_staffCtx">Optimal nivå</div>
-                        </div>
+                  <div class="resultCard primary">
+                    <button class="favoriteBtn" onclick="toggleFavorite('sc_reqStaff', 'Bemanning')"><i
+                        class="fa-regular fa-star"></i></button>
+                    <div class="resultIcon"><i class="fa-solid fa-users"></i></div>
+                    <div class="resultContent">
+                      <div class="resultValue" id="sc_reqStaff">3</div>
+                      <div class="resultLabel">Bemanning <i class="fa-solid fa-circle-info tooltip"
+                          title="Antal heltidstjänster som krävs"></i></div>
+                      <div class="resultRecommendation" id="sc_staffCtx">Optimal nivå</div>
                     </div>
-                    <div class="resultCard status-ok">
-                        <button class="favoriteBtn" onclick="toggleFavorite('sc_savings', 'Besparing')"><i
-                                class="fa-regular fa-star"></i></button>
-                        <div class="resultIcon"><i class="fa-solid fa-piggy-bank"></i></div>
-                        <div class="resultContent">
-                            <div class="resultValue" id="sc_savings">45 000 kr</div>
-                            <div class="resultLabel">Besparing <i class="fa-solid fa-circle-info tooltip"
-                                    title="Minskad kostnad vs manuell hantering"></i></div>
-                            <div class="resultRecommendation">Investera i tillväxt</div>
-                        </div>
+                  </div>
+                  <div class="resultCard status-ok">
+                    <button class="favoriteBtn" onclick="toggleFavorite('sc_savings', 'Besparing')"><i
+                        class="fa-regular fa-star"></i></button>
+                    <div class="resultIcon"><i class="fa-solid fa-piggy-bank"></i></div>
+                    <div class="resultContent">
+                      <div class="resultValue" id="sc_savings">45 000 kr</div>
+                      <div class="resultLabel">Besparing <i class="fa-solid fa-circle-info tooltip"
+                          title="Minskad kostnad vs manuell hantering"></i></div>
+                      <div class="resultRecommendation">Investera i tillväxt</div>
                     </div>
-                    <div class="resultCard">
-                        <button class="favoriteBtn" onclick="toggleFavorite('sc_projectedSla', 'Förväntad SLA')"><i
-                                class="fa-regular fa-star"></i></button>
-                        <div class="resultIcon"><i class="fa-solid fa-gauge-high"></i></div>
-                        <div class="resultContent">
-                            <div class="resultValue" id="sc_projectedSla">94%</div>
-                            <div class="resultLabel">SLA-prognos <i class="fa-solid fa-circle-info tooltip"
-                                    title="Beräknad servicekvalitet givet kapacitet"></i></div>
-                            <div class="resultRecommendation">Över målet (90%)</div>
-                        </div>
+                  </div>
+                  <div class="resultCard">
+                    <button class="favoriteBtn" onclick="toggleFavorite('sc_projectedSla', 'Förväntad SLA')"><i
+                        class="fa-regular fa-star"></i></button>
+                    <div class="resultIcon"><i class="fa-solid fa-gauge-high"></i></div>
+                    <div class="resultContent">
+                      <div class="resultValue" id="sc_projectedSla">94%</div>
+                      <div class="resultLabel">SLA-prognos <i class="fa-solid fa-circle-info tooltip"
+                          title="Beräknad servicekvalitet givet kapacitet"></i></div>
+                      <div class="resultRecommendation">Över målet (90%)</div>
                     </div>
+                  </div>
                 </div>
+              </div>
             </div>
-        </div>
-    </div>
+          </div>
 
-    <!-- STRATEGY MODE -->
-    <div id="sc_mode_strategy" class="scenarioModeSection" style="display:none;">
-        <div class="topInsight">
-            <i class="fa-solid fa-chess"></i>
-            <span id="sc_topInsight_strat">Break-even vid 750 ärenden. Nuvarande kostnad per ärende (270 kr) är
+          <!-- STRATEGY MODE -->
+          <div id="sc_mode_strategy" class="scenarioModeSection" style="display:none;">
+            <div class="topInsight">
+              <i class="fa-solid fa-chess"></i>
+              <span id="sc_topInsight_strat">Break-even vid 750 ärenden. Nuvarande kostnad per ärende (270 kr) är
                 konkurrenskraftig.</span>
-        </div>
+            </div>
 
-        <!-- SEKTION 4: BESPARINGSÖVERSIKT -->
-        <div id="sc_savings" class="scenarioSection savings">
-            <div class="sectionHeader togglable" onclick="toggleSection('sc_savings_content')">
+            <!-- SEKTION 4: BESPARINGSÖVERSIKT -->
+            <div id="sc_savings" class="scenarioSection savings">
+              <div class="sectionHeader togglable" onclick="toggleSection('sc_savings_content')">
                 <h3><i class="fa-solid fa-piggy-bank"></i> Finansiell Analys</h3>
                 <span class="sectionSubtitle">ROI och långsiktig lönsamhet</span>
                 <i class="fa-solid fa-chevron-down toggleIcon"></i>
-            </div>
-            <div id="sc_savings_content" class="sectionContent">
+              </div>
+              <div id="sc_savings_content" class="sectionContent">
                 <div class="savingsGrid">
-                    <div class="savingsCard highlight">
-                        <button class="favoriteBtn" onclick="toggleFavorite('sc_yearSavings', 'Årsbesparing')"><i
-                                class="fa-regular fa-star"></i></button>
-                        <div class="savingsIcon"><i class="fa-solid fa-calendar-check"></i></div>
-                        <div class="savingsValue" id="sc_yearSavings">810 000 kr</div>
-                        <div class="savingsLabel">Årlig besparing (Netto)</div>
-                    </div>
-                    <div class="savingsCard">
-                        <button class="favoriteBtn" onclick="toggleFavorite('sc_roiPercent', 'ROI')"><i
-                                class="fa-regular fa-star"></i></button>
-                        <div class="savingsIcon"><i class="fa-solid fa-percent"></i></div>
-                        <div class="savingsValue" id="sc_roiPercent">340%</div>
-                        <div class="savingsLabel">ROI (3-års prognos)</div>
-                    </div>
-                    <div class="savingsCard">
-                        <button class="favoriteBtn" onclick="toggleFavorite('sc_costPerTicket', 'Kostnad/ärende')"><i
-                                class="fa-regular fa-star"></i></button>
-                        <div class="savingsIcon"><i class="fa-solid fa-tag"></i></div>
-                        <div class="savingsValue" id="sc_costPerTicket">270 kr</div>
-                        <div class="savingsLabel">Kostnad per ärende</div>
-                        <div class="savingsContext success">22% lägre än snitt</div>
-                    </div>
+                  <div class="savingsCard highlight">
+                    <button class="favoriteBtn" onclick="toggleFavorite('sc_yearSavings', 'Årsbesparing')"><i
+                        class="fa-regular fa-star"></i></button>
+                    <div class="savingsIcon"><i class="fa-solid fa-calendar-check"></i></div>
+                    <div class="savingsValue" id="sc_yearSavings">810 000 kr</div>
+                    <div class="savingsLabel">Årlig besparing (Netto)</div>
+                  </div>
+                  <div class="savingsCard">
+                    <button class="favoriteBtn" onclick="toggleFavorite('sc_roiPercent', 'ROI')"><i
+                        class="fa-regular fa-star"></i></button>
+                    <div class="savingsIcon"><i class="fa-solid fa-percent"></i></div>
+                    <div class="savingsValue" id="sc_roiPercent">340%</div>
+                    <div class="savingsLabel">ROI (3-års prognos)</div>
+                  </div>
+                  <div class="savingsCard">
+                    <button class="favoriteBtn" onclick="toggleFavorite('sc_costPerTicket', 'Kostnad/ärende')"><i
+                        class="fa-regular fa-star"></i></button>
+                    <div class="savingsIcon"><i class="fa-solid fa-tag"></i></div>
+                    <div class="savingsValue" id="sc_costPerTicket">270 kr</div>
+                    <div class="savingsLabel">Kostnad per ärende</div>
+                    <div class="savingsContext success">22% lägre än snitt</div>
+                  </div>
                 </div>
+              </div>
             </div>
-        </div>
 
-        <!-- SEKTION 5: TILLVÄXT & SKALBARHET -->
-        <div id="sc_growth" class="scenarioSection growth">
-            <div class="sectionHeader togglable" onclick="toggleSection('sc_growth_content')">
+            <!-- SEKTION 5: TILLVÄXT & SKALBARHET -->
+            <div id="sc_growth" class="scenarioSection growth">
+              <div class="sectionHeader togglable" onclick="toggleSection('sc_growth_content')">
                 <h3><i class="fa-solid fa-chart-line"></i> Skalbarhet</h3>
                 <span class="sectionSubtitle">Kapacitetsplanering för tillväxt</span>
                 <i class="fa-solid fa-chevron-down toggleIcon"></i>
-            </div>
-            <div id="sc_growth_content" class="sectionContent">
+              </div>
+              <div id="sc_growth_content" class="sectionContent">
                 <div class="growthGrid">
-                    <div class="growthCard full-width">
-                        <div class="growthLabel" style="display:flex; justify-content:space-between;">
-                            <span>Kapacitetsutnyttjande</span>
-                            <span id="sc_capacityPercent">75%</span>
-                        </div>
-                        <div class="growthBar large">
-                            <div class="growthProgress" id="sc_capacityBar" style="width: 75%"></div>
-                        </div>
-                        <div class="growthContext">Du har utrymme för att växa utan att öka kostnaderna.</div>
+                  <div class="growthCard full-width">
+                    <div class="growthLabel" style="display:flex; justify-content:space-between;">
+                      <span>Kapacitetsutnyttjande</span>
+                      <span id="sc_capacityPercent">75%</span>
                     </div>
+                    <div class="growthBar large">
+                      <div class="growthProgress" id="sc_capacityBar" style="width: 75%"></div>
+                    </div>
+                    <div class="growthContext">Du har utrymme för att växa utan att öka kostnaderna.</div>
+                  </div>
 
-                    <div class="growthCard">
-                        <button class="favoriteBtn" onclick="toggleFavorite('sc_maxTickets', 'Maxkapacitet')"><i
-                                class="fa-regular fa-star"></i></button>
-                        <div class="growthLabel">Maxkapacitet</div>
-                        <div class="growthValue large" id="sc_maxTickets">660</div>
-                        <div class="growthContext">Ärenden/mån</div>
-                    </div>
-                    <div class="growthCard">
-                        <button class="favoriteBtn" onclick="toggleFavorite('sc_breakeven', 'Break-even')"><i
-                                class="fa-regular fa-star"></i></button>
-                        <div class="growthLabel">Break-even punkt</div>
-                        <div class="growthValue" id="sc_breakeven">750</div>
-                        <div class="growthContext">Kritisk gräns</div>
-                    </div>
+                  <div class="growthCard">
+                    <button class="favoriteBtn" onclick="toggleFavorite('sc_maxTickets', 'Maxkapacitet')"><i
+                        class="fa-regular fa-star"></i></button>
+                    <div class="growthLabel">Maxkapacitet</div>
+                    <div class="growthValue large" id="sc_maxTickets">660</div>
+                    <div class="growthContext">Ärenden/mån</div>
+                  </div>
+                  <div class="growthCard">
+                    <button class="favoriteBtn" onclick="toggleFavorite('sc_breakeven', 'Break-even')"><i
+                        class="fa-regular fa-star"></i></button>
+                    <div class="growthLabel">Break-even punkt</div>
+                    <div class="growthValue" id="sc_breakeven">750</div>
+                    <div class="growthContext">Kritisk gräns</div>
+                  </div>
                 </div>
+              </div>
             </div>
-        </div>
-    </div></section>
-<!-- SALES ANALYTICS - REDESIGNED -->
-<section id="salesView" class="view" style="display:none;">
+          </div>
+      </section>
+      <!-- SALES ANALYTICS - REDESIGNED -->
+      <section id="salesView" class="view" style="display:none;">
 
-    <!-- ONBOARDING MODAL -->
-    <div id="salesOnboarding" class="salesOnboardingModal" style="display:none;">
-        <div class="salesOnboardingContent">
+        <!-- ONBOARDING MODAL -->
+        <div id="salesOnboarding" class="salesOnboardingModal" style="display:none;">
+          <div class="salesOnboardingContent">
             <button class="modalClose" onclick="closeSalesOnboarding()">&times;</button>
             <h2 style="margin-bottom: 20px;"><i class="fa-solid fa-rocket" style="color: var(--primary);"></i> Välkommen
-                till Säljanalys</h2>
+              till Säljanalys</h2>
             <div class="onboardingSteps">
-                <div class="onboardingStep">
-                    <div class="stepNumber">1</div>
-                    <div class="stepContent">
-                        <h4>Välj ditt läge</h4>
-                        <p>Börja med <b>Översikt</b> för snabb statusbild. Gå till <b>Optimering</b> för
-                            förbättringsarbete eller <b>Strategi</b> för långsiktig planering.</p>
-                    </div>
+              <div class="onboardingStep">
+                <div class="stepNumber">1</div>
+                <div class="stepContent">
+                  <h4>Välj ditt läge</h4>
+                  <p>Börja med <b>Översikt</b> för snabb statusbild. Gå till <b>Optimering</b> för
+                    förbättringsarbete eller <b>Strategi</b> för långsiktig planering.</p>
                 </div>
-                <div class="onboardingStep">
-                    <div class="stepNumber">2</div>
-                    <div class="stepContent">
-                        <h4>Fokusera på gröna och röda signaler</h4>
-                        <p>Grönt = bra, rött = kräver åtgärd. Följ rekommendationerna som visas automatiskt.</p>
-                    </div>
+              </div>
+              <div class="onboardingStep">
+                <div class="stepNumber">2</div>
+                <div class="stepContent">
+                  <h4>Fokusera på gröna och röda signaler</h4>
+                  <p>Grönt = bra, rött = kräver åtgärd. Följ rekommendationerna som visas automatiskt.</p>
                 </div>
-                <div class="onboardingStep">
-                    <div class="stepNumber">3</div>
-                    <div class="stepContent">
-                        <h4>Skapa din personliga vy</h4>
-                        <p>Klicka på <i class="fa-regular fa-star"></i> för att markera favoriter och bygg din egen
-                            dashboard.</p>
-                    </div>
+              </div>
+              <div class="onboardingStep">
+                <div class="stepNumber">3</div>
+                <div class="stepContent">
+                  <h4>Skapa din personliga vy</h4>
+                  <p>Klicka på <i class="fa-regular fa-star"></i> för att markera favoriter och bygg din egen
+                    dashboard.</p>
                 </div>
+              </div>
             </div>
             <button class="btn primary" onclick="closeSalesOnboarding()" style="margin-top: 20px;">
-                <i class="fa-solid fa-check"></i> Jag förstår, starta
+              <i class="fa-solid fa-check"></i> Jag förstår, starta
             </button>
+          </div>
         </div>
-    </div>
 
-    <!-- HEADER -->
-    <div class="topbar">
-        <div>
+        <!-- HEADER -->
+        <div class="topbar">
+          <div>
             <div class="title"><i class="fa-solid fa-chart-column" style="color:var(--ok);"></i> Säljanalys</div>
             <div class="subtitle muted">Fatta snabba, datadrivna beslut</div>
-        </div>
-        <div class="topbarActions">
+          </div>
+          <div class="topbarActions">
             <select id="salesPeriodFilter" class="input" style="width: auto;">
-                <option value="7">7 dagar</option>
-                <option value="30" selected>30 dagar</option>
-                <option value="90">90 dagar</option>
-                <option value="365">1 år</option>
+              <option value="7">7 dagar</option>
+              <option value="30" selected>30 dagar</option>
+              <option value="90">90 dagar</option>
+              <option value="365">1 år</option>
             </select>
             <button id="showSalesOnboarding" class="btn ghost" type="button" title="Visa guide">
-                <i class="fa-solid fa-circle-question"></i>
+              <i class="fa-solid fa-circle-question"></i>
             </button>
             <button id="exportSalesBtn" class="btn ghost" type="button">
-                <i class="fa-solid fa-download"></i>
+              <i class="fa-solid fa-download"></i>
             </button>
+          </div>
         </div>
-    </div>
 
-    <!-- VIEW MODE SELECTOR -->
-    <div class="salesModeSelector">
-        <button class="salesModeBtn active" data-mode="overview" title="Snabb statusbild med de viktigaste nyckeltalen">
+        <!-- VIEW MODE SELECTOR -->
+        <div class="salesModeSelector">
+          <button class="salesModeBtn active" data-mode="overview"
+            title="Snabb statusbild med de viktigaste nyckeltalen">
             <i class="fa-solid fa-gauge"></i>
             <span>Översikt</span>
             <small>Nyckeltal</small>
-        </button>
-        <button class="salesModeBtn" data-mode="optimization" title="Optimera konvertering, AI och mersälj">
+          </button>
+          <button class="salesModeBtn" data-mode="optimization" title="Optimera konvertering, AI och mersälj">
             <i class="fa-solid fa-sliders"></i>
             <span>Optimering</span>
             <small>Förbättra</small>
-        </button>
-        <button class="salesModeBtn" data-mode="strategy" title="Långsiktig planering med CLV, churn och prediktioner">
+          </button>
+          <button class="salesModeBtn" data-mode="strategy"
+            title="Långsiktig planering med CLV, churn och prediktioner">
             <i class="fa-solid fa-chess"></i>
             <span>Strategi</span>
             <small>Planera</small>
-        </button>
-        <button class="salesModeBtn" data-mode="myview" title="Dina favoritmarkerade mätvärden">
+          </button>
+          <button class="salesModeBtn" data-mode="myview" title="Dina favoritmarkerade mätvärden">
             <i class="fa-solid fa-star"></i>
             <span>Min vy</span>
             <small>Favoriter</small>
-        </button>
-    </div>
+          </button>
+        </div>
 
-    <!-- ==================== OVERVIEW MODE ==================== -->
-    <div id="salesModeOverview" class="salesModeContent">
+        <!-- ==================== OVERVIEW MODE ==================== -->
+        <div id="salesModeOverview" class="salesModeContent">
 
-        <!-- TOP INSIGHT -->
-        <div class="topInsightCard" id="overviewTopInsight">
+          <!-- TOP INSIGHT -->
+          <div class="topInsightCard" id="overviewTopInsight">
             <div class="insightIcon"><i class="fa-solid fa-lightbulb"></i></div>
             <div class="insightContent">
-                <div class="insightTitle">Laddar insikt...</div>
-                <div class="insightText">Analyserar din försäljningsdata</div>
+              <div class="insightTitle">Laddar insikt...</div>
+              <div class="insightText">Analyserar din försäljningsdata</div>
             </div>
-        </div>
+          </div>
 
-        <!-- PRIMARY KPIs -->
-        <div class="salesPrimaryKpis">
+          <!-- PRIMARY KPIs -->
+          <div class="salesPrimaryKpis">
             <div class="primaryKpiCard" data-kpi="revenue">
-                <button class="favoriteBtn" onclick="toggleFavorite('revenue')" title="Markera som favorit"><i
-                        class="fa-regular fa-star"></i></button>
-                <div class="kpiValue" id="kpi_revenue">0 kr</div>
-                <div class="kpiLabel">Total försäljning <span class="kpiTooltip"
-                        title="Summan av alla genomförda köp under vald period"><i
-                            class="fa-solid fa-circle-info"></i></span></div>
-                <div class="kpiTrend" id="kpi_revenue_trend"></div>
+              <button class="favoriteBtn" onclick="toggleFavorite('revenue')" title="Markera som favorit"><i
+                  class="fa-regular fa-star"></i></button>
+              <div class="kpiValue" id="kpi_revenue">0 kr</div>
+              <div class="kpiLabel">Total försäljning <span class="kpiTooltip"
+                  title="Summan av alla genomförda köp under vald period"><i class="fa-solid fa-circle-info"></i></span>
+              </div>
+              <div class="kpiTrend" id="kpi_revenue_trend"></div>
             </div>
             <div class="primaryKpiCard" data-kpi="conversion">
-                <button class="favoriteBtn" onclick="toggleFavorite('conversion')" title="Markera som favorit"><i
-                        class="fa-regular fa-star"></i></button>
-                <div class="kpiValue" id="kpi_conversion">0%</div>
-                <div class="kpiLabel">Konverteringsgrad <span class="kpiTooltip"
-                        title="Andel besökare som genomför köp"><i class="fa-solid fa-circle-info"></i></span></div>
-                <div class="kpiTrend" id="kpi_conversion_trend"></div>
+              <button class="favoriteBtn" onclick="toggleFavorite('conversion')" title="Markera som favorit"><i
+                  class="fa-regular fa-star"></i></button>
+              <div class="kpiValue" id="kpi_conversion">0%</div>
+              <div class="kpiLabel">Konverteringsgrad <span class="kpiTooltip"
+                  title="Andel besökare som genomför köp"><i class="fa-solid fa-circle-info"></i></span></div>
+              <div class="kpiTrend" id="kpi_conversion_trend"></div>
             </div>
             <div class="primaryKpiCard" data-kpi="aov">
-                <button class="favoriteBtn" onclick="toggleFavorite('aov')" title="Markera som favorit"><i
-                        class="fa-regular fa-star"></i></button>
-                <div class="kpiValue" id="kpi_aov">0 kr</div>
-                <div class="kpiLabel">Ordervärde (snitt) <span class="kpiTooltip"
-                        title="Genomsnittligt belopp per order"><i class="fa-solid fa-circle-info"></i></span></div>
-                <div class="kpiTrend" id="kpi_aov_trend"></div>
+              <button class="favoriteBtn" onclick="toggleFavorite('aov')" title="Markera som favorit"><i
+                  class="fa-regular fa-star"></i></button>
+              <div class="kpiValue" id="kpi_aov">0 kr</div>
+              <div class="kpiLabel">Ordervärde (snitt) <span class="kpiTooltip"
+                  title="Genomsnittligt belopp per order"><i class="fa-solid fa-circle-info"></i></span></div>
+              <div class="kpiTrend" id="kpi_aov_trend"></div>
             </div>
             <div class="primaryKpiCard" data-kpi="aiRevenue">
-                <button class="favoriteBtn" onclick="toggleFavorite('aiRevenue')" title="Markera som favorit"><i
-                        class="fa-regular fa-star"></i></button>
-                <div class="kpiValue" id="kpi_aiRevenue">0 kr</div>
-                <div class="kpiLabel">AI-driven försäljning <span class="kpiTooltip"
-                        title="Intäkter från köp där AI var involverad"><i class="fa-solid fa-circle-info"></i></span>
-                </div>
-                <div class="kpiTrend" id="kpi_aiRevenue_trend"></div>
+              <button class="favoriteBtn" onclick="toggleFavorite('aiRevenue')" title="Markera som favorit"><i
+                  class="fa-regular fa-star"></i></button>
+              <div class="kpiValue" id="kpi_aiRevenue">0 kr</div>
+              <div class="kpiLabel">AI-driven försäljning <span class="kpiTooltip"
+                  title="Intäkter från köp där AI var involverad"><i class="fa-solid fa-circle-info"></i></span>
+              </div>
+              <div class="kpiTrend" id="kpi_aiRevenue_trend"></div>
             </div>
             <div class="primaryKpiCard" data-kpi="orders">
-                <button class="favoriteBtn" onclick="toggleFavorite('orders')" title="Markera som favorit"><i
-                        class="fa-regular fa-star"></i></button>
-                <div class="kpiValue" id="kpi_orders">0</div>
-                <div class="kpiLabel">Antal köp <span class="kpiTooltip" title="Totalt antal genomförda ordrar"><i
-                            class="fa-solid fa-circle-info"></i></span></div>
-                <div class="kpiTrend" id="kpi_orders_trend"></div>
+              <button class="favoriteBtn" onclick="toggleFavorite('orders')" title="Markera som favorit"><i
+                  class="fa-regular fa-star"></i></button>
+              <div class="kpiValue" id="kpi_orders">0</div>
+              <div class="kpiLabel">Antal köp <span class="kpiTooltip" title="Totalt antal genomförda ordrar"><i
+                    class="fa-solid fa-circle-info"></i></span></div>
+              <div class="kpiTrend" id="kpi_orders_trend"></div>
             </div>
+          </div>
+
+          <!-- ACTION RECOMMENDATIONS -->
+          <div class="actionRecommendations" id="overviewActions"></div>
         </div>
 
-        <!-- ACTION RECOMMENDATIONS -->
-        <div class="actionRecommendations" id="overviewActions"></div>
-    </div>
+        <!-- ==================== OPTIMIZATION MODE ==================== -->
+        <div id="salesModeOptimization" class="salesModeContent" style="display:none;">
 
-    <!-- ==================== OPTIMIZATION MODE ==================== -->
-    <div id="salesModeOptimization" class="salesModeContent" style="display:none;">
-
-        <!-- Sales Flow Section -->
-        <div class="salesSection">
+          <!-- Sales Flow Section -->
+          <div class="salesSection">
             <div class="salesSectionHeader" onclick="toggleSalesSection('salesFlow')">
-                <div class="sectionTitle"><i class="fa-solid fa-filter"></i> <span>Försäljningsflöde</span> <span
-                        class="sectionInsight" id="salesFlowInsight"></span></div>
-                <i class="fa-solid fa-chevron-down sectionChevron"></i>
+              <div class="sectionTitle"><i class="fa-solid fa-filter"></i> <span>Försäljningsflöde</span> <span
+                  class="sectionInsight" id="salesFlowInsight"></span></div>
+              <i class="fa-solid fa-chevron-down sectionChevron"></i>
             </div>
             <div class="salesSectionContent" id="salesFlowContent">
-                <div class="secondaryKpiGrid">
-                    <div class="secondaryKpiCard" data-kpi="convStarted">
-                        <button class="favoriteBtn" onclick="toggleFavorite('convStarted')"><i
-                                class="fa-regular fa-star"></i></button>
-                        <div class="skpiLabel">Startade konversationer <i class="fa-solid fa-circle-info kpiInfo"
-                                title="Antal chattar som initierats"></i></div>
-                        <div class="skpiValue" id="kpi_convStarted">-</div>
-                    </div>
-                    <div class="secondaryKpiCard" data-kpi="offersShown">
-                        <button class="favoriteBtn" onclick="toggleFavorite('offersShown')"><i
-                                class="fa-regular fa-star"></i></button>
-                        <div class="skpiLabel">Erbjudanden visade <i class="fa-solid fa-circle-info kpiInfo"
-                                title="Antal säljförslag som presenterats"></i></div>
-                        <div class="skpiValue" id="kpi_offersShown">-</div>
-                    </div>
-                    <div class="secondaryKpiCard" data-kpi="offersClicked">
-                        <button class="favoriteBtn" onclick="toggleFavorite('offersClicked')"><i
-                                class="fa-regular fa-star"></i></button>
-                        <div class="skpiLabel">Klick på erbjudanden <i class="fa-solid fa-circle-info kpiInfo"
-                                title="Antal gånger kunder klickade på förslag"></i></div>
-                        <div class="skpiValue" id="kpi_offersClicked">-</div>
-                    </div>
-                    <div class="secondaryKpiCard status-warn" data-kpi="dropoff">
-                        <button class="favoriteBtn" onclick="toggleFavorite('dropoff')"><i
-                                class="fa-regular fa-star"></i></button>
-                        <div class="skpiLabel">Drop-off <i class="fa-solid fa-circle-info kpiInfo"
-                                title="Andel som avbröt innan köp"></i></div>
-                        <div class="skpiValue" id="kpi_dropoff">-</div>
-                        <div class="skpiAction" id="kpi_dropoff_action"></div>
-                    </div>
+              <div class="secondaryKpiGrid">
+                <div class="secondaryKpiCard" data-kpi="convStarted">
+                  <button class="favoriteBtn" onclick="toggleFavorite('convStarted')"><i
+                      class="fa-regular fa-star"></i></button>
+                  <div class="skpiLabel">Startade konversationer <i class="fa-solid fa-circle-info kpiInfo"
+                      title="Antal chattar som initierats"></i></div>
+                  <div class="skpiValue" id="kpi_convStarted">-</div>
                 </div>
+                <div class="secondaryKpiCard" data-kpi="offersShown">
+                  <button class="favoriteBtn" onclick="toggleFavorite('offersShown')"><i
+                      class="fa-regular fa-star"></i></button>
+                  <div class="skpiLabel">Erbjudanden visade <i class="fa-solid fa-circle-info kpiInfo"
+                      title="Antal säljförslag som presenterats"></i></div>
+                  <div class="skpiValue" id="kpi_offersShown">-</div>
+                </div>
+                <div class="secondaryKpiCard" data-kpi="offersClicked">
+                  <button class="favoriteBtn" onclick="toggleFavorite('offersClicked')"><i
+                      class="fa-regular fa-star"></i></button>
+                  <div class="skpiLabel">Klick på erbjudanden <i class="fa-solid fa-circle-info kpiInfo"
+                      title="Antal gånger kunder klickade på förslag"></i></div>
+                  <div class="skpiValue" id="kpi_offersClicked">-</div>
+                </div>
+                <div class="secondaryKpiCard status-warn" data-kpi="dropoff">
+                  <button class="favoriteBtn" onclick="toggleFavorite('dropoff')"><i
+                      class="fa-regular fa-star"></i></button>
+                  <div class="skpiLabel">Drop-off <i class="fa-solid fa-circle-info kpiInfo"
+                      title="Andel som avbröt innan köp"></i></div>
+                  <div class="skpiValue" id="kpi_dropoff">-</div>
+                  <div class="skpiAction" id="kpi_dropoff_action"></div>
+                </div>
+              </div>
             </div>
-        </div>
+          </div>
 
-        <!-- Upsell Section -->
-        <div class="salesSection">
+          <!-- Upsell Section -->
+          <div class="salesSection">
             <div class="salesSectionHeader" onclick="toggleSalesSection('upsell')">
-                <div class="sectionTitle"><i class="fa-solid fa-arrow-up-right-dots"></i> <span>Mersälj &
-                        Korsförsäljning</span> <span class="sectionInsight" id="upsellInsight"></span></div>
-                <i class="fa-solid fa-chevron-down sectionChevron"></i>
+              <div class="sectionTitle"><i class="fa-solid fa-arrow-up-right-dots"></i> <span>Mersälj &
+                  Korsförsäljning</span> <span class="sectionInsight" id="upsellInsight"></span></div>
+              <i class="fa-solid fa-chevron-down sectionChevron"></i>
             </div>
             <div class="salesSectionContent" id="upsellContent">
-                <div class="secondaryKpiGrid">
-                    <div class="secondaryKpiCard" data-kpi="upsellRate">
-                        <button class="favoriteBtn" onclick="toggleFavorite('upsellRate')"><i
-                                class="fa-regular fa-star"></i></button>
-                        <div class="skpiLabel">Mersäljsgrad <i class="fa-solid fa-circle-info kpiInfo"
-                                title="Andel ordrar med tilläggsprodukter"></i></div>
-                        <div class="skpiValue" id="kpi_upsellRate">-</div>
-                    </div>
-                    <div class="secondaryKpiCard" data-kpi="upsellRevenue">
-                        <button class="favoriteBtn" onclick="toggleFavorite('upsellRevenue')"><i
-                                class="fa-regular fa-star"></i></button>
-                        <div class="skpiLabel">Mersäljsintäkt <i class="fa-solid fa-circle-info kpiInfo"
-                                title="Extra intäkt från tilläggsprodukter"></i></div>
-                        <div class="skpiValue" id="kpi_upsellRevenue">-</div>
-                    </div>
-                    <div class="secondaryKpiCard status-warn" data-kpi="rejectedOffers">
-                        <button class="favoriteBtn" onclick="toggleFavorite('rejectedOffers')"><i
-                                class="fa-regular fa-star"></i></button>
-                        <div class="skpiLabel">Avvisade förslag <i class="fa-solid fa-circle-info kpiInfo"
-                                title="Andel erbjudanden som nekades"></i></div>
-                        <div class="skpiValue" id="kpi_rejectedOffers">-</div>
-                        <div class="skpiAction" id="kpi_rejectedOffers_action"></div>
-                    </div>
+              <div class="secondaryKpiGrid">
+                <div class="secondaryKpiCard" data-kpi="upsellRate">
+                  <button class="favoriteBtn" onclick="toggleFavorite('upsellRate')"><i
+                      class="fa-regular fa-star"></i></button>
+                  <div class="skpiLabel">Mersäljsgrad <i class="fa-solid fa-circle-info kpiInfo"
+                      title="Andel ordrar med tilläggsprodukter"></i></div>
+                  <div class="skpiValue" id="kpi_upsellRate">-</div>
                 </div>
+                <div class="secondaryKpiCard" data-kpi="upsellRevenue">
+                  <button class="favoriteBtn" onclick="toggleFavorite('upsellRevenue')"><i
+                      class="fa-regular fa-star"></i></button>
+                  <div class="skpiLabel">Mersäljsintäkt <i class="fa-solid fa-circle-info kpiInfo"
+                      title="Extra intäkt från tilläggsprodukter"></i></div>
+                  <div class="skpiValue" id="kpi_upsellRevenue">-</div>
+                </div>
+                <div class="secondaryKpiCard status-warn" data-kpi="rejectedOffers">
+                  <button class="favoriteBtn" onclick="toggleFavorite('rejectedOffers')"><i
+                      class="fa-regular fa-star"></i></button>
+                  <div class="skpiLabel">Avvisade förslag <i class="fa-solid fa-circle-info kpiInfo"
+                      title="Andel erbjudanden som nekades"></i></div>
+                  <div class="skpiValue" id="kpi_rejectedOffers">-</div>
+                  <div class="skpiAction" id="kpi_rejectedOffers_action"></div>
+                </div>
+              </div>
             </div>
-        </div>
+          </div>
 
-        <!-- AI as Salesperson Section -->
-        <div class="salesSection">
+          <!-- AI as Salesperson Section -->
+          <div class="salesSection">
             <div class="salesSectionHeader" onclick="toggleSalesSection('aiSeller')">
-                <div class="sectionTitle"><i class="fa-solid fa-robot"></i> <span>AI som säljare</span> <span
-                        class="sectionInsight" id="aiSellerInsight"></span></div>
-                <i class="fa-solid fa-chevron-down sectionChevron"></i>
+              <div class="sectionTitle"><i class="fa-solid fa-robot"></i> <span>AI som säljare</span> <span
+                  class="sectionInsight" id="aiSellerInsight"></span></div>
+              <i class="fa-solid fa-chevron-down sectionChevron"></i>
             </div>
             <div class="salesSectionContent" id="aiSellerContent">
-                <div class="secondaryKpiGrid">
-                    <div class="secondaryKpiCard" data-kpi="aiConversion">
-                        <button class="favoriteBtn" onclick="toggleFavorite('aiConversion')"><i
-                                class="fa-regular fa-star"></i></button>
-                        <div class="skpiLabel">AI-konvertering <i class="fa-solid fa-circle-info kpiInfo"
-                                title="Andel AI-förslag som ledde till köp"></i></div>
-                        <div class="skpiValue" id="kpi_aiConversion">-</div>
-                    </div>
-                    <div class="secondaryKpiCard" data-kpi="promptPerformance">
-                        <button class="favoriteBtn" onclick="toggleFavorite('promptPerformance')"><i
-                                class="fa-regular fa-star"></i></button>
-                        <div class="skpiLabel">Bästa prompt <i class="fa-solid fa-circle-info kpiInfo"
-                                title="Promptversion med högst konvertering"></i></div>
-                        <div class="skpiValue" id="kpi_promptPerformance">-</div>
-                    </div>
-                    <div class="secondaryKpiCard status-danger" data-kpi="fallbackLost">
-                        <button class="favoriteBtn" onclick="toggleFavorite('fallbackLost')"><i
-                                class="fa-regular fa-star"></i></button>
-                        <div class="skpiLabel">Tappad vid eskalering <i class="fa-solid fa-circle-info kpiInfo"
-                                title="Förlorad intäkt när AI eskalerade"></i></div>
-                        <div class="skpiValue" id="kpi_fallbackLost">-</div>
-                        <div class="skpiAction" id="kpi_fallbackLost_action"></div>
-                    </div>
+              <div class="secondaryKpiGrid">
+                <div class="secondaryKpiCard" data-kpi="aiConversion">
+                  <button class="favoriteBtn" onclick="toggleFavorite('aiConversion')"><i
+                      class="fa-regular fa-star"></i></button>
+                  <div class="skpiLabel">AI-konvertering <i class="fa-solid fa-circle-info kpiInfo"
+                      title="Andel AI-förslag som ledde till köp"></i></div>
+                  <div class="skpiValue" id="kpi_aiConversion">-</div>
                 </div>
+                <div class="secondaryKpiCard" data-kpi="promptPerformance">
+                  <button class="favoriteBtn" onclick="toggleFavorite('promptPerformance')"><i
+                      class="fa-regular fa-star"></i></button>
+                  <div class="skpiLabel">Bästa prompt <i class="fa-solid fa-circle-info kpiInfo"
+                      title="Promptversion med högst konvertering"></i></div>
+                  <div class="skpiValue" id="kpi_promptPerformance">-</div>
+                </div>
+                <div class="secondaryKpiCard status-danger" data-kpi="fallbackLost">
+                  <button class="favoriteBtn" onclick="toggleFavorite('fallbackLost')"><i
+                      class="fa-regular fa-star"></i></button>
+                  <div class="skpiLabel">Tappad vid eskalering <i class="fa-solid fa-circle-info kpiInfo"
+                      title="Förlorad intäkt när AI eskalerade"></i></div>
+                  <div class="skpiValue" id="kpi_fallbackLost">-</div>
+                  <div class="skpiAction" id="kpi_fallbackLost_action"></div>
+                </div>
+              </div>
             </div>
+          </div>
         </div>
-    </div>
 
-    <!-- ==================== STRATEGY MODE ==================== -->
-    <div id="salesModeStrategy" class="salesModeContent" style="display:none;">
+        <!-- ==================== STRATEGY MODE ==================== -->
+        <div id="salesModeStrategy" class="salesModeContent" style="display:none;">
 
-        <!-- CLV Section -->
-        <div class="salesSection">
+          <!-- CLV Section -->
+          <div class="salesSection">
             <div class="salesSectionHeader" onclick="toggleSalesSection('clv')">
-                <div class="sectionTitle"><i class="fa-solid fa-gem"></i> <span>Kundlivstidsvärde (CLV)</span> <span
-                        class="sectionInsight" id="clvInsight"></span></div>
-                <i class="fa-solid fa-chevron-down sectionChevron"></i>
+              <div class="sectionTitle"><i class="fa-solid fa-gem"></i> <span>Kundlivstidsvärde (CLV)</span> <span
+                  class="sectionInsight" id="clvInsight"></span></div>
+              <i class="fa-solid fa-chevron-down sectionChevron"></i>
             </div>
             <div class="salesSectionContent" id="clvContent">
-                <div class="secondaryKpiGrid">
-                    <div class="secondaryKpiCard status-ok" data-kpi="clvTotal">
-                        <button class="favoriteBtn" onclick="toggleFavorite('clvTotal')"><i
-                                class="fa-regular fa-star"></i></button>
-                        <div class="skpiLabel">Genomsnittligt CLV <i class="fa-solid fa-circle-info kpiInfo"
-                                title="Förväntat livstidsvärde per kund"></i></div>
-                        <div class="skpiValue" id="kpi_clvTotal">-</div>
-                    </div>
-                    <div class="secondaryKpiCard status-ok" data-kpi="clvAi">
-                        <button class="favoriteBtn" onclick="toggleFavorite('clvAi')"><i
-                                class="fa-regular fa-star"></i></button>
-                        <div class="skpiLabel">CLV med AI <i class="fa-solid fa-circle-info kpiInfo"
-                                title="CLV för kunder som interagerat med AI"></i></div>
-                        <div class="skpiValue" id="kpi_clvAi">-</div>
-                    </div>
-                    <div class="secondaryKpiCard" data-kpi="clvGrowth">
-                        <button class="favoriteBtn" onclick="toggleFavorite('clvGrowth')"><i
-                                class="fa-regular fa-star"></i></button>
-                        <div class="skpiLabel">CLV-tillväxt <i class="fa-solid fa-circle-info kpiInfo"
-                                title="Förändring av CLV över tid"></i></div>
-                        <div class="skpiValue" id="kpi_clvGrowth">-</div>
-                    </div>
+              <div class="secondaryKpiGrid">
+                <div class="secondaryKpiCard status-ok" data-kpi="clvTotal">
+                  <button class="favoriteBtn" onclick="toggleFavorite('clvTotal')"><i
+                      class="fa-regular fa-star"></i></button>
+                  <div class="skpiLabel">Genomsnittligt CLV <i class="fa-solid fa-circle-info kpiInfo"
+                      title="Förväntat livstidsvärde per kund"></i></div>
+                  <div class="skpiValue" id="kpi_clvTotal">-</div>
                 </div>
+                <div class="secondaryKpiCard status-ok" data-kpi="clvAi">
+                  <button class="favoriteBtn" onclick="toggleFavorite('clvAi')"><i
+                      class="fa-regular fa-star"></i></button>
+                  <div class="skpiLabel">CLV med AI <i class="fa-solid fa-circle-info kpiInfo"
+                      title="CLV för kunder som interagerat med AI"></i></div>
+                  <div class="skpiValue" id="kpi_clvAi">-</div>
+                </div>
+                <div class="secondaryKpiCard" data-kpi="clvGrowth">
+                  <button class="favoriteBtn" onclick="toggleFavorite('clvGrowth')"><i
+                      class="fa-regular fa-star"></i></button>
+                  <div class="skpiLabel">CLV-tillväxt <i class="fa-solid fa-circle-info kpiInfo"
+                      title="Förändring av CLV över tid"></i></div>
+                  <div class="skpiValue" id="kpi_clvGrowth">-</div>
+                </div>
+              </div>
             </div>
-        </div>
+          </div>
 
-        <!-- Churn Section -->
-        <div class="salesSection">
+          <!-- Churn Section -->
+          <div class="salesSection">
             <div class="salesSectionHeader" onclick="toggleSalesSection('churn')">
-                <div class="sectionTitle"><i class="fa-solid fa-user-slash"></i> <span>Kundbortfall (Churn)</span> <span
-                        class="sectionInsight status-warn" id="churnInsight"></span></div>
-                <i class="fa-solid fa-chevron-down sectionChevron"></i>
+              <div class="sectionTitle"><i class="fa-solid fa-user-slash"></i> <span>Kundbortfall (Churn)</span> <span
+                  class="sectionInsight status-warn" id="churnInsight"></span></div>
+              <i class="fa-solid fa-chevron-down sectionChevron"></i>
             </div>
             <div class="salesSectionContent" id="churnContent">
-                <div class="secondaryKpiGrid">
-                    <div class="secondaryKpiCard status-warn" data-kpi="churnRisk">
-                        <button class="favoriteBtn" onclick="toggleFavorite('churnRisk')"><i
-                                class="fa-regular fa-star"></i></button>
-                        <div class="skpiLabel">Genomsnittlig churn-risk <i class="fa-solid fa-circle-info kpiInfo"
-                                title="Andel kunder med hög avhoppsrisk"></i></div>
-                        <div class="skpiValue" id="kpi_churnRisk">-</div>
-                        <div class="skpiAction" id="kpi_churnRisk_action"></div>
-                    </div>
-                    <div class="secondaryKpiCard status-danger" data-kpi="churnFailedAi">
-                        <button class="favoriteBtn" onclick="toggleFavorite('churnFailedAi')"><i
-                                class="fa-regular fa-star"></i></button>
-                        <div class="skpiLabel">Churn efter AI-misslyckande <i class="fa-solid fa-circle-info kpiInfo"
-                                title="Avhopp efter dålig AI-upplevelse"></i></div>
-                        <div class="skpiValue" id="kpi_churnFailedAi">-</div>
-                        <div class="skpiAction" id="kpi_churnFailedAi_action"></div>
-                    </div>
-                    <div class="secondaryKpiCard" data-kpi="highRiskCount">
-                        <button class="favoriteBtn" onclick="toggleFavorite('highRiskCount')"><i
-                                class="fa-regular fa-star"></i></button>
-                        <div class="skpiLabel">Högrisk-kunder <i class="fa-solid fa-circle-info kpiInfo"
-                                title="Antal kunder med >70% churn-risk"></i></div>
-                        <div class="skpiValue" id="kpi_highRiskCount">-</div>
-                    </div>
+              <div class="secondaryKpiGrid">
+                <div class="secondaryKpiCard status-warn" data-kpi="churnRisk">
+                  <button class="favoriteBtn" onclick="toggleFavorite('churnRisk')"><i
+                      class="fa-regular fa-star"></i></button>
+                  <div class="skpiLabel">Genomsnittlig churn-risk <i class="fa-solid fa-circle-info kpiInfo"
+                      title="Andel kunder med hög avhoppsrisk"></i></div>
+                  <div class="skpiValue" id="kpi_churnRisk">-</div>
+                  <div class="skpiAction" id="kpi_churnRisk_action"></div>
                 </div>
+                <div class="secondaryKpiCard status-danger" data-kpi="churnFailedAi">
+                  <button class="favoriteBtn" onclick="toggleFavorite('churnFailedAi')"><i
+                      class="fa-regular fa-star"></i></button>
+                  <div class="skpiLabel">Churn efter AI-misslyckande <i class="fa-solid fa-circle-info kpiInfo"
+                      title="Avhopp efter dålig AI-upplevelse"></i></div>
+                  <div class="skpiValue" id="kpi_churnFailedAi">-</div>
+                  <div class="skpiAction" id="kpi_churnFailedAi_action"></div>
+                </div>
+                <div class="secondaryKpiCard" data-kpi="highRiskCount">
+                  <button class="favoriteBtn" onclick="toggleFavorite('highRiskCount')"><i
+                      class="fa-regular fa-star"></i></button>
+                  <div class="skpiLabel">Högrisk-kunder <i class="fa-solid fa-circle-info kpiInfo"
+                      title="Antal kunder med >70% churn-risk"></i></div>
+                  <div class="skpiValue" id="kpi_highRiskCount">-</div>
+                </div>
+              </div>
             </div>
-        </div>
+          </div>
 
-        <!-- Predictive Section -->
-        <div class="salesSection">
+          <!-- Predictive Section -->
+          <div class="salesSection">
             <div class="salesSectionHeader" onclick="toggleSalesSection('predictive')">
-                <div class="sectionTitle"><i class="fa-solid fa-crystal-ball"></i> <span>Prediktiv analys</span> <span
-                        class="sectionInsight" id="predictiveInsight"></span></div>
-                <i class="fa-solid fa-chevron-down sectionChevron"></i>
+              <div class="sectionTitle"><i class="fa-solid fa-crystal-ball"></i> <span>Prediktiv analys</span> <span
+                  class="sectionInsight" id="predictiveInsight"></span></div>
+              <i class="fa-solid fa-chevron-down sectionChevron"></i>
             </div>
             <div class="salesSectionContent" id="predictiveContent">
-                <div class="secondaryKpiGrid">
-                    <div class="secondaryKpiCard" data-kpi="predictedRevenue">
-                        <button class="favoriteBtn" onclick="toggleFavorite('predictedRevenue')"><i
-                                class="fa-regular fa-star"></i></button>
-                        <div class="skpiLabel">Prognostiserad intäkt <i class="fa-solid fa-circle-info kpiInfo"
-                                title="Förväntad försäljning nästa period"></i></div>
-                        <div class="skpiValue" id="kpi_predictedRevenue">-</div>
-                    </div>
-                    <div class="secondaryKpiCard status-ok" data-kpi="hotLeads">
-                        <button class="favoriteBtn" onclick="toggleFavorite('hotLeads')"><i
-                                class="fa-regular fa-star"></i></button>
-                        <div class="skpiLabel">Heta leads <i class="fa-solid fa-circle-info kpiInfo"
-                                title="Kunder med >80% köpsannolikhet"></i></div>
-                        <div class="skpiValue" id="kpi_hotLeads">-</div>
-                    </div>
-                    <div class="secondaryKpiCard" data-kpi="buyProbability">
-                        <button class="favoriteBtn" onclick="toggleFavorite('buyProbability')"><i
-                                class="fa-regular fa-star"></i></button>
-                        <div class="skpiLabel">Köpsannolikhet (snitt) <i class="fa-solid fa-circle-info kpiInfo"
-                                title="Genomsnittlig sannolikhet för köp"></i></div>
-                        <div class="skpiValue" id="kpi_buyProbability">-</div>
-                    </div>
+              <div class="secondaryKpiGrid">
+                <div class="secondaryKpiCard" data-kpi="predictedRevenue">
+                  <button class="favoriteBtn" onclick="toggleFavorite('predictedRevenue')"><i
+                      class="fa-regular fa-star"></i></button>
+                  <div class="skpiLabel">Prognostiserad intäkt <i class="fa-solid fa-circle-info kpiInfo"
+                      title="Förväntad försäljning nästa period"></i></div>
+                  <div class="skpiValue" id="kpi_predictedRevenue">-</div>
                 </div>
+                <div class="secondaryKpiCard status-ok" data-kpi="hotLeads">
+                  <button class="favoriteBtn" onclick="toggleFavorite('hotLeads')"><i
+                      class="fa-regular fa-star"></i></button>
+                  <div class="skpiLabel">Heta leads <i class="fa-solid fa-circle-info kpiInfo"
+                      title="Kunder med >80% köpsannolikhet"></i></div>
+                  <div class="skpiValue" id="kpi_hotLeads">-</div>
+                </div>
+                <div class="secondaryKpiCard" data-kpi="buyProbability">
+                  <button class="favoriteBtn" onclick="toggleFavorite('buyProbability')"><i
+                      class="fa-regular fa-star"></i></button>
+                  <div class="skpiLabel">Köpsannolikhet (snitt) <i class="fa-solid fa-circle-info kpiInfo"
+                      title="Genomsnittlig sannolikhet för köp"></i></div>
+                  <div class="skpiValue" id="kpi_buyProbability">-</div>
+                </div>
+              </div>
             </div>
+          </div>
         </div>
-    </div>
 
-    <!-- ==================== MY VIEW MODE ==================== -->
-    <div id="salesModeMyview" class="salesModeContent" style="display:none;">
-        <div class="myViewContainer">
+        <!-- ==================== MY VIEW MODE ==================== -->
+        <div id="salesModeMyview" class="salesModeContent" style="display:none;">
+          <div class="myViewContainer">
             <div class="myViewHeader">
-                <h3><i class="fa-solid fa-star" style="color: var(--warn);"></i> Mina favoriter</h3>
-                <p class="muted">Klicka på <i class="fa-regular fa-star"></i> bredvid valfritt mätvärde för att lägga
-                    till det här.</p>
+              <h3><i class="fa-solid fa-star" style="color: var(--warn);"></i> Mina favoriter</h3>
+              <p class="muted">Klicka på <i class="fa-regular fa-star"></i> bredvid valfritt mätvärde för att lägga
+                till det här.</p>
             </div>
             <div class="myViewKpis" id="myViewKpiContainer">
-                <div class="myViewEmpty" id="myViewEmpty">
-                    <i class="fa-regular fa-star" style="font-size: 48px; opacity: 0.3; margin-bottom: 16px;"></i>
-                    <p>Du har inga favoriter ännu</p>
-                    <p class="muted">Gå till Översikt, Optimering eller Strategi och markera de mätvärden du vill se
-                        här.</p>
-                </div>
+              <div class="myViewEmpty" id="myViewEmpty">
+                <i class="fa-regular fa-star" style="font-size: 48px; opacity: 0.3; margin-bottom: 16px;"></i>
+                <p>Du har inga favoriter ännu</p>
+                <p class="muted">Gå till Översikt, Optimering eller Strategi och markera de mätvärden du vill se
+                  här.</p>
+              </div>
             </div>
+          </div>
         </div>
-    </div>
 
-</section>
+      </section>
 
     </main>
   </div>
@@ -2740,348 +2743,349 @@
   </div>
 
   <script src="script.js"></script>
-<!-- MODAL: ADD DEAL (ADVANCED) -->
-<div id="crmAddDealModal" class="modal" style="display: none;">
+  <!-- MODAL: ADD DEAL (ADVANCED) -->
+  <div id="crmAddDealModal" class="modal" style="display: none;">
     <div class="modalContent" style="max-width: 700px; padding:0; display:flex; flex-direction:column; height:80vh;">
-        <div class="modalHeader" style="padding:20px; border-bottom:1px solid var(--border);">
-            <h3><i class="fa-solid fa-briefcase"></i> Ny Affärsmöjlighet</h3>
-            <button class="btn ghost small" onclick="closeCrmModal('crmAddDealModal')"><i
-                    class="fa-solid fa-times"></i></button>
+      <div class="modalHeader" style="padding:20px; border-bottom:1px solid var(--border);">
+        <h3><i class="fa-solid fa-briefcase"></i> Ny Affärsmöjlighet</h3>
+        <button class="btn ghost small" onclick="closeCrmModal('crmAddDealModal')"><i
+            class="fa-solid fa-times"></i></button>
+      </div>
+
+      <div class="modalBody" style="flex:1; overflow-y:auto; padding:20px;">
+        <div class="grid2 gap">
+          <div class="col">
+            <label>Affärens namn *</label>
+            <input id="dealName" class="input" placeholder="T.ex. Q3 Licenser + Support" />
+          </div>
+          <div class="col">
+            <label>Kopplad Kund (Företag) *</label>
+            <input id="dealCompanyInput" class="input" list="dealCompanyList" placeholder="Sök företag..."
+              oninput="filterCompanyList(this)" />
+            <datalist id="dealCompanyList">
+              <!-- Populated via JS -->
+            </datalist>
+          </div>
         </div>
 
-        <div class="modalBody" style="flex:1; overflow-y:auto; padding:20px;">
-            <div class="grid2 gap">
-                <div class="col">
-                    <label>Affärens namn *</label>
-                    <input id="dealName" class="input" placeholder="T.ex. Q3 Licenser + Support" />
-                </div>
-                <div class="col">
-                    <label>Kopplad Kund (Företag) *</label>
-                    <input id="dealCompanyInput" class="input" list="dealCompanyList" placeholder="Sök företag..."
-                        oninput="filterCompanyList(this)" />
-                    <datalist id="dealCompanyList">
-                        <!-- Populated via JS -->
-                    </datalist>
-                </div>
+        <div class="grid2 gap">
+          <div class="col">
+            <label>Affärsvärde (SEK)</label>
+            <div class="inputGroup">
+              <input id="dealValue" type="number" class="input" placeholder="0" />
+              <span class="inputSuffix">kr</span>
             </div>
-
-            <div class="grid2 gap">
-                <div class="col">
-                    <label>Affärsvärde (SEK)</label>
-                    <div class="inputGroup">
-                        <input id="dealValue" type="number" class="input" placeholder="0" />
-                        <span class="inputSuffix">kr</span>
-                    </div>
-                </div>
-                <div class="col">
-                    <label>Sannolikhet (%)</label>
-                    <input id="dealProb" type="range" class="input" min="0" max="100" value="50"
-                        oninput="this.nextElementSibling.textContent = this.value + '%'" />
-                    <div style="text-align:right; font-size:12px; font-weight:bold; color:var(--primary);">50%</div>
-                </div>
-            </div>
-
-            <div class="grid2 gap">
-                <div class="col">
-                    <label>Pipeline Fas</label>
-                    <select id="dealStage" class="input">
-                        <option value="new">Nytt Lead</option>
-                        <option value="qualified">Kvalificerad</option>
-                        <option value="proposal">Offert Skickad</option>
-                        <option value="negotiation">Förhandling</option>
-                        <option value="won">Vunnen (Stängd)</option>
-                        <option value="lost">Förlorad</option>
-                    </select>
-                </div>
-                <div class="col">
-                    <label>Förväntat Avslut</label>
-                    <input id="dealCloseDate" type="date" class="input" />
-                </div>
-            </div>
-
-            <div class="grid2 gap">
-                <div class="col">
-                    <label>Affärstyp</label>
-                    <select id="dealType" class="input">
-                        <option value="new">Nyförsäljning</option>
-                        <option value="upsell">Merköp / Uppgradering</option>
-                        <option value="renewal">Förnyelse</option>
-                    </select>
-                </div>
-                <div class="col">
-                    <label>Ansvarig Säljare</label>
-                    <select id="dealOwner" class="input">
-                        <option value="me">Jag</option>
-                        <option value="team">Säljteamet</option>
-                    </select>
-                </div>
-            </div>
-
-            <label>Beskrivning / Produkter</label>
-            <textarea id="dealDesc" class="input" style="height:80px; resize:none;"
-                placeholder="Vad ingår i affären?"></textarea>
-
-            <label>Nästa Steg</label>
-            <input id="dealNextStep" class="input" placeholder="T.ex. Skicka avtalsutkast..." />
+          </div>
+          <div class="col">
+            <label>Sannolikhet (%)</label>
+            <input id="dealProb" type="range" class="input" min="0" max="100" value="50"
+              oninput="this.nextElementSibling.textContent = this.value + '%'" />
+            <div style="text-align:right; font-size:12px; font-weight:bold; color:var(--primary);">50%</div>
+          </div>
         </div>
 
-        <div class="modalFooter"
-            style="padding:20px; border-top:1px solid var(--border); display:flex; justify-content:flex-end; gap:10px; background:var(--panel);">
-            <button class="btn ghost" onclick="closeCrmModal('crmAddDealModal')">Avbryt</button>
-            <button class="btn primary" onclick="saveNewDealAdvanced()">
-                <i class="fa-solid fa-plus"></i> Skapa Affär
-            </button>
+        <div class="grid2 gap">
+          <div class="col">
+            <label>Pipeline Fas</label>
+            <select id="dealStage" class="input">
+              <option value="new">Nytt Lead</option>
+              <option value="qualified">Kvalificerad</option>
+              <option value="proposal">Offert Skickad</option>
+              <option value="negotiation">Förhandling</option>
+              <option value="won">Vunnen (Stängd)</option>
+              <option value="lost">Förlorad</option>
+            </select>
+          </div>
+          <div class="col">
+            <label>Förväntat Avslut</label>
+            <input id="dealCloseDate" type="date" class="input" />
+          </div>
         </div>
+
+        <div class="grid2 gap">
+          <div class="col">
+            <label>Affärstyp</label>
+            <select id="dealType" class="input">
+              <option value="new">Nyförsäljning</option>
+              <option value="upsell">Merköp / Uppgradering</option>
+              <option value="renewal">Förnyelse</option>
+            </select>
+          </div>
+          <div class="col">
+            <label>Ansvarig Säljare</label>
+            <select id="dealOwner" class="input">
+              <option value="me">Jag</option>
+              <option value="team">Säljteamet</option>
+            </select>
+          </div>
+        </div>
+
+        <label>Beskrivning / Produkter</label>
+        <textarea id="dealDesc" class="input" style="height:80px; resize:none;"
+          placeholder="Vad ingår i affären?"></textarea>
+
+        <label>Nästa Steg</label>
+        <input id="dealNextStep" class="input" placeholder="T.ex. Skicka avtalsutkast..." />
+      </div>
+
+      <div class="modalFooter"
+        style="padding:20px; border-top:1px solid var(--border); display:flex; justify-content:flex-end; gap:10px; background:var(--panel);">
+        <button class="btn ghost" onclick="closeCrmModal('crmAddDealModal')">Avbryt</button>
+        <button class="btn primary" onclick="saveNewDealAdvanced()">
+          <i class="fa-solid fa-plus"></i> Skapa Affär
+        </button>
+      </div>
     </div>
-</div>
+  </div>
 
-<!-- MODAL: LOG ACTIVITY -->
-<div id="crmLogActivityModal" class="modal" style="display: none;">
+  <!-- MODAL: LOG ACTIVITY -->
+  <div id="crmLogActivityModal" class="modal" style="display: none;">
     <div class="modalContent" style="max-width: 500px;">
-        <div class="modalHeader">
-            <h3><i class="fa-solid fa-list-check"></i> Logga Aktivitet</h3>
-            <button class="btn ghost small" onclick="closeCrmModal('crmLogActivityModal')"><i
-                    class="fa-solid fa-times"></i></button>
+      <div class="modalHeader">
+        <h3><i class="fa-solid fa-list-check"></i> Logga Aktivitet</h3>
+        <button class="btn ghost small" onclick="closeCrmModal('crmLogActivityModal')"><i
+            class="fa-solid fa-times"></i></button>
+      </div>
+      <div class="modalBody">
+        <label>Typ av aktivitet</label>
+        <div class="row gap" style="margin-bottom:15px;">
+          <button class="btn ghost small activityTypeBtn active" onclick="setActivityType('call', this)"><i
+              class="fa-solid fa-phone"></i> Samtal</button>
+          <button class="btn ghost small activityTypeBtn" onclick="setActivityType('meeting', this)"><i
+              class="fa-solid fa-users"></i> Möte</button>
+          <button class="btn ghost small activityTypeBtn" onclick="setActivityType('email', this)"><i
+              class="fa-solid fa-envelope"></i> E-post</button>
+          <button class="btn ghost small activityTypeBtn" onclick="setActivityType('task', this)"><i
+              class="fa-solid fa-check"></i> Uppgift</button>
         </div>
-        <div class="modalBody">
-            <label>Typ av aktivitet</label>
-            <div class="row gap" style="margin-bottom:15px;">
-                <button class="btn ghost small activityTypeBtn active" onclick="setActivityType('call', this)"><i
-                        class="fa-solid fa-phone"></i> Samtal</button>
-                <button class="btn ghost small activityTypeBtn" onclick="setActivityType('meeting', this)"><i
-                        class="fa-solid fa-users"></i> Möte</button>
-                <button class="btn ghost small activityTypeBtn" onclick="setActivityType('email', this)"><i
-                        class="fa-solid fa-envelope"></i> E-post</button>
-                <button class="btn ghost small activityTypeBtn" onclick="setActivityType('task', this)"><i
-                        class="fa-solid fa-check"></i> Uppgift</button>
-            </div>
 
-            <label>Rubrik / Ämne</label>
-            <input id="actSubject" class="input" placeholder="T.ex. Uppföljning av offert" />
+        <label>Rubrik / Ämne</label>
+        <input id="actSubject" class="input" placeholder="T.ex. Uppföljning av offert" />
 
-            <label>Beskrivning</label>
-            <textarea id="actDesc" class="input" style="height:80px;"
-                placeholder="Anteckningar från mötet/samtalet..."></textarea>
+        <label>Beskrivning</label>
+        <textarea id="actDesc" class="input" style="height:80px;"
+          placeholder="Anteckningar från mötet/samtalet..."></textarea>
 
-            <div class="row gap">
-                <div class="col">
-                    <label>Datum</label>
-                    <input id="actDate" type="date" class="input" />
-                </div>
-                <div class="col">
-                    <label>Status</label>
-                    <select id="actStatus" class="input">
-                        <option value="done">Utförd</option>
-                        <option value="planned">Planerad</option>
-                    </select>
-                </div>
-            </div>
-
-            <input type="hidden" id="actType" value="call" />
-            <input type="hidden" id="actTargetId" /> <!-- Customer or Deal ID -->
-
-            <button class="btn primary full" onclick="saveActivity()" style="margin-top:20px;">Spara</button>
+        <div class="row gap">
+          <div class="col">
+            <label>Datum</label>
+            <input id="actDate" type="date" class="input" />
+          </div>
+          <div class="col">
+            <label>Status</label>
+            <select id="actStatus" class="input">
+              <option value="done">Utförd</option>
+              <option value="planned">Planerad</option>
+            </select>
+          </div>
         </div>
+
+        <input type="hidden" id="actType" value="call" />
+        <input type="hidden" id="actTargetId" /> <!-- Customer or Deal ID -->
+
+        <button class="btn primary full" onclick="saveActivity()" style="margin-top:20px;">Spara</button>
+      </div>
     </div>
-</div><!-- MODAL: ADD CUSTOMER (FULL ENTERPRISE) -->
-<div id="crmAddCustomerModal" class="modal" style="display: none;">
+  </div><!-- MODAL: ADD CUSTOMER (FULL ENTERPRISE) -->
+  <div id="crmAddCustomerModal" class="modal" style="display: none;">
     <div class="modalContent" style="max-width: 850px; height: 85vh; display:flex; flex-direction:column; padding:0;">
-        <div class="modalHeader" style="padding: 20px; border-bottom: 1px solid var(--border);">
-            <h3><i class="fa-solid fa-building"></i> Ny Företagskund</h3>
-            <button class="btn ghost small" onclick="closeCrmModal('crmAddCustomerModal')"><i
-                    class="fa-solid fa-times"></i></button>
-        </div>
+      <div class="modalHeader" style="padding: 20px; border-bottom: 1px solid var(--border);">
+        <h3><i class="fa-solid fa-building"></i> Ny Företagskund</h3>
+        <button class="btn ghost small" onclick="closeCrmModal('crmAddCustomerModal')"><i
+            class="fa-solid fa-times"></i></button>
+      </div>
 
-        <!-- Tabs for Modal -->
-        <div class="tabs" style="border-bottom:1px solid var(--border); padding:0 20px; background:var(--panel2);">
-            <button class="tabBtn active" onclick="setModalTab('modalTabBasic', this)"
-                style="padding: 15px 20px;">Grunduppgifter</button>
-            <button class="tabBtn" onclick="setModalTab('modalTabContact', this)" style="padding: 15px 20px;">Kontakt &
-                Adress</button>
-            <button class="tabBtn" onclick="setModalTab('modalTabAi', this)" style="padding: 15px 20px;">AI &
-                System</button>
-        </div>
+      <!-- Tabs for Modal -->
+      <div class="tabs" style="border-bottom:1px solid var(--border); padding:0 20px; background:var(--panel2);">
+        <button class="tabBtn active" onclick="setModalTab('modalTabBasic', this)"
+          style="padding: 15px 20px;">Grunduppgifter</button>
+        <button class="tabBtn" onclick="setModalTab('modalTabContact', this)" style="padding: 15px 20px;">Kontakt &
+          Adress</button>
+        <button class="tabBtn" onclick="setModalTab('modalTabAi', this)" style="padding: 15px 20px;">AI &
+          System</button>
+      </div>
 
-        <div class="modalBody" style="flex:1; overflow-y:auto; padding:20px;">
+      <div class="modalBody" style="flex:1; overflow-y:auto; padding:20px;">
 
-            <!-- TAB: BASIC -->
-            <div id="modalTabBasic" class="modalTabContent">
-                <div class="grid2 gap">
-                    <div class="col">
-                        <label>Företagsnamn *</label>
-                        <input id="custName" class="input" placeholder="T.ex. TechCorp AB" />
-                    </div>
-                    <div class="col">
-                        <label>Organisationsnummer</label>
-                        <input id="custOrg" class="input" placeholder="556XXX-XXXX" />
-                    </div>
-                </div>
-
-                <div class="grid2 gap">
-                    <div class="col">
-                        <label>Bransch</label>
-                        <select id="custIndustry" class="input">
-                            <option value="">Välj...</option>
-                            <option value="IT">IT & Teknik</option>
-                            <option value="Retail">Handel / E-handel</option>
-                            <option value="Construction">Bygg & Fastighet</option>
-                            <option value="Service">Tjänsteföretag</option>
-                            <option value="Finance">Bank & Finans</option>
-                            <option value="Public">Offentlig Sektor</option>
-                            <option value="Other">Annat</option>
-                        </select>
-                    </div>
-                    <div class="col">
-                        <label>Webbplats</label>
-                        <input id="custWeb" class="input" placeholder="https://..." />
-                    </div>
-                </div>
-
-                <div class="grid2 gap">
-                    <div class="col">
-                        <label>Status</label>
-                        <select id="custStatus" class="input">
-                            <option value="prospect">Prospekt (Lead)</option>
-                            <option value="customer" selected>Aktiv Kund</option>
-                            <option value="inactive">Inaktiv</option>
-                            <option value="churn">Före detta Kund</option>
-                        </select>
-                    </div>
-                    <div class="col">
-                        <label>Kontoägare (Säljare)</label>
-                        <select id="custOwner" class="input">
-                            <option value="me">Jag (Nuvarande användare)</option>
-                            <option value="unassigned">Ej tilldelad</option>
-                        </select>
-                    </div>
-                </div>
-
-                <label>Interna Anteckningar</label>
-                <textarea id="custNotes" class="input" style="height:100px; resize:none;"
-                    placeholder="Kort beskrivning av verksamheten, behov och historik..."></textarea>
+        <!-- TAB: BASIC -->
+        <div id="modalTabBasic" class="modalTabContent">
+          <div class="grid2 gap">
+            <div class="col">
+              <label>Företagsnamn *</label>
+              <input id="custName" class="input" placeholder="T.ex. TechCorp AB" />
             </div>
-
-            <!-- TAB: CONTACT & ADDRESS -->
-            <div id="modalTabContact" class="modalTabContent" style="display:none;">
-                <h4
-                    style="margin-bottom:15px; border-bottom:1px solid var(--border); padding-bottom:5px; color:var(--primary);">
-                    Primär Kontaktperson</h4>
-                <div class="grid2 gap">
-                    <div class="col">
-                        <label>Förnamn</label>
-                        <input id="custContactFirst" class="input" />
-                    </div>
-                    <div class="col">
-                        <label>Efternamn</label>
-                        <input id="custContactLast" class="input" />
-                    </div>
-                </div>
-                <div class="grid2 gap">
-                    <div class="col">
-                        <label>E-post *</label>
-                        <input id="custEmail" type="email" class="input" placeholder="namn@foretag.se" />
-                    </div>
-                    <div class="col">
-                        <label>Telefon / Mobil</label>
-                        <input id="custPhone" class="input" placeholder="+46..." />
-                    </div>
-                </div>
-                <div class="col">
-                    <label>Befattning / Roll</label>
-                    <input id="custRole" class="input" placeholder="T.ex. VD, IT-chef, Inköpare" />
-                </div>
-
-                <h4
-                    style="margin:25px 0 15px; border-bottom:1px solid var(--border); padding-bottom:5px; color:var(--primary);">
-                    Besöks- & Fakturaadress</h4>
-                <div class="col">
-                    <label>Gatuadress</label>
-                    <input id="custAddress" class="input" placeholder="Storgatan 1" />
-                </div>
-                <div class="grid2 gap">
-                    <div class="col">
-                        <label>Postnummer</label>
-                        <input id="custZip" class="input" style="width:120px;" placeholder="123 45" />
-                    </div>
-                    <div class="col">
-                        <label>Ort</label>
-                        <input id="custCity" class="input" placeholder="Stockholm" />
-                    </div>
-                </div>
-                <div class="col">
-                    <label>Land</label>
-                    <select id="custCountry" class="input">
-                        <option value="SE" selected>Sverige</option>
-                        <option value="NO">Norge</option>
-                        <option value="DK">Danmark</option>
-                        <option value="FI">Finland</option>
-                        <option value="Other">Annat</option>
-                    </select>
-                </div>
+            <div class="col">
+              <label>Organisationsnummer</label>
+              <input id="custOrg" class="input" placeholder="556XXX-XXXX" />
             </div>
+          </div>
 
-            <!-- TAB: AI & SYSTEM -->
-            <div id="modalTabAi" class="modalTabContent" style="display:none;">
-                <div class="aiSetupBox"
-                    style="background:rgba(76, 125, 255, 0.05); border:1px dashed var(--primary); padding:20px; border-radius:8px;">
-                    <div class="row gap" style="align-items:flex-start;">
-                        <input type="checkbox" id="custAiDeploy" checked
-                            style="width:20px; height:20px; margin-top:5px; accent-color:var(--primary);" />
-                        <div>
-                            <b style="color:var(--primary); font-size:16px;">Aktivera AI Kundtjänst (Auto-Deploy) 🤖</b>
-                            <p class="muted" style="margin-top:5px; line-height:1.5;">
-                                När du sparar kunden kommer systemet automatiskt att:
-                            <ul style="margin-top:8px; padding-left:20px; font-size:13px; color:var(--text-muted);">
-                                <li>Skapa en dedikerad AI-agent för <span class="highlight">detta företag</span>.</li>
-                                <li>Generera en unik API-nyckel för integration.</li>
-                                <li>Indexera deras webbplats (om angiven) för kunskapsbasen.</li>
-                                <li>Sätta upp en standard "Support"-bot som kan svara på frågor direkt.</li>
-                            </ul>
-                            </p>
-                        </div>
-                    </div>
-                </div>
-
-                <div class="grid2 gap" style="margin-top:20px;">
-                    <div class="col">
-                        <label>AI-Modell</label>
-                        <select id="custAiModel" class="input">
-                            <option value="gpt-4o">GPT-4o (Rekommenderad)</option>
-                            <option value="gpt-4-turbo">GPT-4 Turbo</option>
-                            <option value="gpt-3.5-turbo">GPT-3.5 Turbo (Snabbast)</option>
-                        </select>
-                    </div>
-                    <div class="col">
-                        <label>Språkstöd</label>
-                        <select id="custAiLang" class="input">
-                            <option value="sv">Svenska (Primärt)</option>
-                            <option value="en">Engelska</option>
-                            <option value="multi">Flerspråkig (Auto-detect)</option>
-                        </select>
-                    </div>
-                </div>
+          <div class="grid2 gap">
+            <div class="col">
+              <label>Bransch</label>
+              <select id="custIndustry" class="input">
+                <option value="">Välj...</option>
+                <option value="IT">IT & Teknik</option>
+                <option value="Retail">Handel / E-handel</option>
+                <option value="Construction">Bygg & Fastighet</option>
+                <option value="Service">Tjänsteföretag</option>
+                <option value="Finance">Bank & Finans</option>
+                <option value="Public">Offentlig Sektor</option>
+                <option value="Other">Annat</option>
+              </select>
             </div>
+            <div class="col">
+              <label>Webbplats</label>
+              <input id="custWeb" class="input" placeholder="https://..." />
+            </div>
+          </div>
 
+          <div class="grid2 gap">
+            <div class="col">
+              <label>Status</label>
+              <select id="custStatus" class="input">
+                <option value="prospect">Prospekt (Lead)</option>
+                <option value="customer" selected>Aktiv Kund</option>
+                <option value="inactive">Inaktiv</option>
+                <option value="churn">Före detta Kund</option>
+              </select>
+            </div>
+            <div class="col">
+              <label>Kontoägare (Säljare)</label>
+              <select id="custOwner" class="input">
+                <option value="me">Jag (Nuvarande användare)</option>
+                <option value="unassigned">Ej tilldelad</option>
+              </select>
+            </div>
+          </div>
+
+          <label>Interna Anteckningar</label>
+          <textarea id="custNotes" class="input" style="height:100px; resize:none;"
+            placeholder="Kort beskrivning av verksamheten, behov och historik..."></textarea>
         </div>
 
-        <div class="modalFooter"
-            style="padding:20px; border-top:1px solid var(--border); display:flex; justify-content:flex-end; gap:10px; background:var(--panel);">
-            <button class="btn ghost" onclick="closeCrmModal('crmAddCustomerModal')">Avbryt</button>
-            <button class="btn primary" onclick="saveNewCustomerExpanded()">
-                <i class="fa-solid fa-check"></i> Spara Kund & Konfigurera
-            </button>
+        <!-- TAB: CONTACT & ADDRESS -->
+        <div id="modalTabContact" class="modalTabContent" style="display:none;">
+          <h4
+            style="margin-bottom:15px; border-bottom:1px solid var(--border); padding-bottom:5px; color:var(--primary);">
+            Primär Kontaktperson</h4>
+          <div class="grid2 gap">
+            <div class="col">
+              <label>Förnamn</label>
+              <input id="custContactFirst" class="input" />
+            </div>
+            <div class="col">
+              <label>Efternamn</label>
+              <input id="custContactLast" class="input" />
+            </div>
+          </div>
+          <div class="grid2 gap">
+            <div class="col">
+              <label>E-post *</label>
+              <input id="custEmail" type="email" class="input" placeholder="namn@foretag.se" />
+            </div>
+            <div class="col">
+              <label>Telefon / Mobil</label>
+              <input id="custPhone" class="input" placeholder="+46..." />
+            </div>
+          </div>
+          <div class="col">
+            <label>Befattning / Roll</label>
+            <input id="custRole" class="input" placeholder="T.ex. VD, IT-chef, Inköpare" />
+          </div>
+
+          <h4
+            style="margin:25px 0 15px; border-bottom:1px solid var(--border); padding-bottom:5px; color:var(--primary);">
+            Besöks- & Fakturaadress</h4>
+          <div class="col">
+            <label>Gatuadress</label>
+            <input id="custAddress" class="input" placeholder="Storgatan 1" />
+          </div>
+          <div class="grid2 gap">
+            <div class="col">
+              <label>Postnummer</label>
+              <input id="custZip" class="input" style="width:120px;" placeholder="123 45" />
+            </div>
+            <div class="col">
+              <label>Ort</label>
+              <input id="custCity" class="input" placeholder="Stockholm" />
+            </div>
+          </div>
+          <div class="col">
+            <label>Land</label>
+            <select id="custCountry" class="input">
+              <option value="SE" selected>Sverige</option>
+              <option value="NO">Norge</option>
+              <option value="DK">Danmark</option>
+              <option value="FI">Finland</option>
+              <option value="Other">Annat</option>
+            </select>
+          </div>
         </div>
+
+        <!-- TAB: AI & SYSTEM -->
+        <div id="modalTabAi" class="modalTabContent" style="display:none;">
+          <div class="aiSetupBox"
+            style="background:rgba(76, 125, 255, 0.05); border:1px dashed var(--primary); padding:20px; border-radius:8px;">
+            <div class="row gap" style="align-items:flex-start;">
+              <input type="checkbox" id="custAiDeploy" checked
+                style="width:20px; height:20px; margin-top:5px; accent-color:var(--primary);" />
+              <div>
+                <b style="color:var(--primary); font-size:16px;">Aktivera AI Kundtjänst (Auto-Deploy) 🤖</b>
+                <p class="muted" style="margin-top:5px; line-height:1.5;">
+                  När du sparar kunden kommer systemet automatiskt att:
+                <ul style="margin-top:8px; padding-left:20px; font-size:13px; color:var(--text-muted);">
+                  <li>Skapa en dedikerad AI-agent för <span class="highlight">detta företag</span>.</li>
+                  <li>Generera en unik API-nyckel för integration.</li>
+                  <li>Indexera deras webbplats (om angiven) för kunskapsbasen.</li>
+                  <li>Sätta upp en standard "Support"-bot som kan svara på frågor direkt.</li>
+                </ul>
+                </p>
+              </div>
+            </div>
+          </div>
+
+          <div class="grid2 gap" style="margin-top:20px;">
+            <div class="col">
+              <label>AI-Modell</label>
+              <select id="custAiModel" class="input">
+                <option value="gpt-4o">GPT-4o (Rekommenderad)</option>
+                <option value="gpt-4-turbo">GPT-4 Turbo</option>
+                <option value="gpt-3.5-turbo">GPT-3.5 Turbo (Snabbast)</option>
+              </select>
+            </div>
+            <div class="col">
+              <label>Språkstöd</label>
+              <select id="custAiLang" class="input">
+                <option value="sv">Svenska (Primärt)</option>
+                <option value="en">Engelska</option>
+                <option value="multi">Flerspråkig (Auto-detect)</option>
+              </select>
+            </div>
+          </div>
+        </div>
+
+      </div>
+
+      <div class="modalFooter"
+        style="padding:20px; border-top:1px solid var(--border); display:flex; justify-content:flex-end; gap:10px; background:var(--panel);">
+        <button class="btn ghost" onclick="closeCrmModal('crmAddCustomerModal')">Avbryt</button>
+        <button class="btn primary" onclick="saveNewCustomerExpanded()">
+          <i class="fa-solid fa-check"></i> Spara Kund & Konfigurera
+        </button>
+      </div>
     </div>
-</div><!-- AI DEPLOYMENT OVERLAY (Fake Loader) -->
-<div id="aiDeployOverlay" class="modal"
+  </div><!-- AI DEPLOYMENT OVERLAY (Fake Loader) -->
+  <div id="aiDeployOverlay" class="modal"
     style="display:none; align-items:center; justify-content:center; background:rgba(0,0,0,0.8);">
     <div style="text-align:center; color:white;">
-        <i class="fa-solid fa-circle-notch fa-spin"
-            style="font-size:48px; color:var(--primary); margin-bottom:20px;"></i>
-        <h2 id="aiDeployText">Konfigurerar AI-agent...</h2>
-        <div id="aiDeploySub" class="muted">Analyserar företagsdata</div>
+      <i class="fa-solid fa-circle-notch fa-spin" style="font-size:48px; color:var(--primary); margin-bottom:20px;"></i>
+      <h2 id="aiDeployText">Konfigurerar AI-agent...</h2>
+      <div id="aiDeploySub" class="muted">Analyserar företagsdata</div>
     </div>
-</div>
+  </div>
+  <script src="script.js"></script>
+  <script src="crm_enhancements.js"></script>
 </body>
 
 </html>
