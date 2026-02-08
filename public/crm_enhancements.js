@@ -236,8 +236,12 @@ window.renderCustomerList = function () {
 
     if (customers.length === 0) {
         tbody.innerHTML = `<tr><td colspan="6" class="muted center" style="padding:20px;">Inga kunder.</td></tr>`;
-        const footer = document.getElementById('crmTotalValueFooter');
-        if (footer) footer.innerText = '0 kr';
+        ['crmTotalValueHeader', 'crmTotalValueFooter'].forEach(id => {
+            const el = document.getElementById(id);
+            if (el) el.innerText = '0 kr';
+        });
+        const countHeader = document.getElementById('crmTotalCustomersHeader');
+        if (countHeader) countHeader.innerText = '0 st';
         return;
     }
 
@@ -261,9 +265,13 @@ window.renderCustomerList = function () {
         </tr>`;
     }).join('');
 
-    const footer = document.getElementById('crmTotalValueFooter');
-    if (footer) {
-        footer.innerText = new Intl.NumberFormat('sv-SE', { style: 'currency', currency: 'SEK' }).format(totalValue);
+    ['crmTotalValueHeader', 'crmTotalValueFooter'].forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.innerText = new Intl.NumberFormat('sv-SE', { style: 'currency', currency: 'SEK' }).format(totalValue);
+    });
+    const countHeader = document.getElementById('crmTotalCustomersHeader');
+    if (countHeader) {
+        countHeader.innerText = customers.length + " st";
     }
 };
 

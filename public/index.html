@@ -1227,6 +1227,23 @@
                 <button class="btn ghost small"><i class="fa-solid fa-download"></i> Exportera</button>
               </div>
             </div>
+
+            <!-- Summary Bar at Top -->
+            <div class="crmSummaryBar"
+              style="background:var(--panel2); padding:15px; border-radius:12px; margin-bottom:20px; display:flex; gap:30px; border:1px solid var(--border);">
+              <div>
+                <div class="muted"
+                  style="font-size:11px; text-transform:uppercase; font-weight:bold; letter-spacing:0.5px;">Total
+                  månadsintäkt</div>
+                <div id="crmTotalValueHeader" style="font-size:22px; font-weight:800; color:var(--primary);">0 kr</div>
+              </div>
+              <div>
+                <div class="muted"
+                  style="font-size:11px; text-transform:uppercase; font-weight:bold; letter-spacing:0.5px;">Aktiva
+                  kunder</div>
+                <div id="crmTotalCustomersHeader" style="font-size:22px; font-weight:800; color:var(--text);">0 st</div>
+              </div>
+            </div>
             <table class="crmTable" style="width: 100%; border-collapse: collapse;">
               <thead>
                 <tr style="background: var(--panel2);">
@@ -1268,14 +1285,6 @@
                   </td>
                 </tr>
               </tbody>
-              <tfoot id="crmTableFooter" style="background: var(--panel2); font-weight: bold;">
-                <tr>
-                  <td colspan="3" style="padding: 12px; text-align: right;">Total månadsintäkt:</td>
-                  <td id="crmTotalValueFooter" style="padding: 12px; text-align: right; color: var(--primary);">0 kr
-                  </td>
-                  <td colspan="2"></td>
-                </tr>
-              </tfoot>
             </table>
           </div>
         </div>
