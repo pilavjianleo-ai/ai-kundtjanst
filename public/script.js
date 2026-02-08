@@ -414,8 +414,13 @@ async function sendFeedback(type) {
    Auth
 ========================= */
 async function doLogin() {
-  const username = $("username")?.value?.trim();
-  const password = $("password")?.value?.trim();
+  const usernameInput = $("username");
+  const passwordInput = $("password");
+
+  const username = usernameInput?.value?.trim();
+  const password = passwordInput?.value?.trim();
+
+  console.log("Login attempt for:", username);
 
   if (!username || !password) return toast("Saknas", "Fyll i användarnamn & lösenord", "error");
 

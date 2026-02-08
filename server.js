@@ -311,13 +311,21 @@ app.post("/auth/register", async (req, res) => {
 app.post("/auth/login", async (req, res) => {
   try {
     const { username, password } = req.body;
+    console.log(`[AUTH] Login attempt: ${username}`);
     const user = await User.findOne({ username });
-    if (!user || !(await bcrypt.compare(password, user.password))) {
+    if (!user) {
+      console.warn(`[AUTH] User not found: ${username}`);
+      return res.status(400).json({ error: "Fel inloggningsuppgifter" });
+    }
+    const match = await bcrypt.compare(password, user.password);
+    if (!match) {
+      console.warn(`[AUTH] Password mismatch for: ${username}`);
       return res.status(400).json({ error: "Fel inloggningsuppgifter" });
     }
     const token = jwt.sign({ id: user._id }, process.env.JWT_SECRET, { expiresIn: "7d" });
     res.json({ token, user: { id: user._id, username: user.username, role: user.role } });
   } catch (err) {
+    console.error(`[AUTH] Error: ${err.message}`);
     res.status(500).json({ error: err.message });
   }
 });
