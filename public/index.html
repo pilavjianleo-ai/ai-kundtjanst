@@ -2740,51 +2740,150 @@
   </div>
 
   <script src="script.js"></script>
-<!-- MODAL: ADD DEAL -->
+<!-- MODAL: ADD DEAL (ADVANCED) -->
 <div id="crmAddDealModal" class="modal" style="display: none;">
-    <div class="modalContent" style="max-width: 500px;">
-        <div class="modalHeader">
-            <h3><i class="fa-solid fa-briefcase"></i> Ny Affär</h3>
+    <div class="modalContent" style="max-width: 700px; padding:0; display:flex; flex-direction:column; height:80vh;">
+        <div class="modalHeader" style="padding:20px; border-bottom:1px solid var(--border);">
+            <h3><i class="fa-solid fa-briefcase"></i> Ny Affärsmöjlighet</h3>
             <button class="btn ghost small" onclick="closeCrmModal('crmAddDealModal')"><i
                     class="fa-solid fa-times"></i></button>
         </div>
-        <div class="modalBody">
-            <label>Affärens namn</label>
-            <input id="dealName" class="input" placeholder="T.ex. Q3 Licenser" />
 
-            <label>Företag</label>
-            <input id="dealCompany" class="input" placeholder="Sök företag..." list="companyList" />
-            <datalist id="companyList">
-                <!-- Populated by JS -->
-            </datalist>
-
-            <div class="row gap">
+        <div class="modalBody" style="flex:1; overflow-y:auto; padding:20px;">
+            <div class="grid2 gap">
                 <div class="col">
-                    <label>Värde (kr)</label>
-                    <input id="dealValue" type="number" class="input" placeholder="0" />
+                    <label>Affärens namn *</label>
+                    <input id="dealName" class="input" placeholder="T.ex. Q3 Licenser + Support" />
                 </div>
                 <div class="col">
-                    <label>Sannolikhet (%)</label>
-                    <input id="dealProb" type="number" class="input" value="50" />
+                    <label>Kopplad Kund (Företag) *</label>
+                    <input id="dealCompanyInput" class="input" list="dealCompanyList" placeholder="Sök företag..."
+                        oninput="filterCompanyList(this)" />
+                    <datalist id="dealCompanyList">
+                        <!-- Populated via JS -->
+                    </datalist>
                 </div>
             </div>
 
-            <label>Pipeline Fas</label>
-            <select id="dealStage" class="input">
-                <option value="new">Nytt Lead</option>
-                <option value="qualified">Kvalificerad</option>
-                <option value="proposal">Offert Skickad</option>
-                <option value="negotiation">Förhandling</option>
-            </select>
+            <div class="grid2 gap">
+                <div class="col">
+                    <label>Affärsvärde (SEK)</label>
+                    <div class="inputGroup">
+                        <input id="dealValue" type="number" class="input" placeholder="0" />
+                        <span class="inputSuffix">kr</span>
+                    </div>
+                </div>
+                <div class="col">
+                    <label>Sannolikhet (%)</label>
+                    <input id="dealProb" type="range" class="input" min="0" max="100" value="50"
+                        oninput="this.nextElementSibling.textContent = this.value + '%'" />
+                    <div style="text-align:right; font-size:12px; font-weight:bold; color:var(--primary);">50%</div>
+                </div>
+            </div>
 
-            <button class="btn primary full" onclick="saveNewDeal()" style="margin-top:20px;">
+            <div class="grid2 gap">
+                <div class="col">
+                    <label>Pipeline Fas</label>
+                    <select id="dealStage" class="input">
+                        <option value="new">Nytt Lead</option>
+                        <option value="qualified">Kvalificerad</option>
+                        <option value="proposal">Offert Skickad</option>
+                        <option value="negotiation">Förhandling</option>
+                        <option value="won">Vunnen (Stängd)</option>
+                        <option value="lost">Förlorad</option>
+                    </select>
+                </div>
+                <div class="col">
+                    <label>Förväntat Avslut</label>
+                    <input id="dealCloseDate" type="date" class="input" />
+                </div>
+            </div>
+
+            <div class="grid2 gap">
+                <div class="col">
+                    <label>Affärstyp</label>
+                    <select id="dealType" class="input">
+                        <option value="new">Nyförsäljning</option>
+                        <option value="upsell">Merköp / Uppgradering</option>
+                        <option value="renewal">Förnyelse</option>
+                    </select>
+                </div>
+                <div class="col">
+                    <label>Ansvarig Säljare</label>
+                    <select id="dealOwner" class="input">
+                        <option value="me">Jag</option>
+                        <option value="team">Säljteamet</option>
+                    </select>
+                </div>
+            </div>
+
+            <label>Beskrivning / Produkter</label>
+            <textarea id="dealDesc" class="input" style="height:80px; resize:none;"
+                placeholder="Vad ingår i affären?"></textarea>
+
+            <label>Nästa Steg</label>
+            <input id="dealNextStep" class="input" placeholder="T.ex. Skicka avtalsutkast..." />
+        </div>
+
+        <div class="modalFooter"
+            style="padding:20px; border-top:1px solid var(--border); display:flex; justify-content:flex-end; gap:10px; background:var(--panel);">
+            <button class="btn ghost" onclick="closeCrmModal('crmAddDealModal')">Avbryt</button>
+            <button class="btn primary" onclick="saveNewDealAdvanced()">
                 <i class="fa-solid fa-plus"></i> Skapa Affär
             </button>
         </div>
     </div>
 </div>
 
-<!-- MODAL: ADD CUSTOMER (FULL ENTERPRISE) -->
+<!-- MODAL: LOG ACTIVITY -->
+<div id="crmLogActivityModal" class="modal" style="display: none;">
+    <div class="modalContent" style="max-width: 500px;">
+        <div class="modalHeader">
+            <h3><i class="fa-solid fa-list-check"></i> Logga Aktivitet</h3>
+            <button class="btn ghost small" onclick="closeCrmModal('crmLogActivityModal')"><i
+                    class="fa-solid fa-times"></i></button>
+        </div>
+        <div class="modalBody">
+            <label>Typ av aktivitet</label>
+            <div class="row gap" style="margin-bottom:15px;">
+                <button class="btn ghost small activityTypeBtn active" onclick="setActivityType('call', this)"><i
+                        class="fa-solid fa-phone"></i> Samtal</button>
+                <button class="btn ghost small activityTypeBtn" onclick="setActivityType('meeting', this)"><i
+                        class="fa-solid fa-users"></i> Möte</button>
+                <button class="btn ghost small activityTypeBtn" onclick="setActivityType('email', this)"><i
+                        class="fa-solid fa-envelope"></i> E-post</button>
+                <button class="btn ghost small activityTypeBtn" onclick="setActivityType('task', this)"><i
+                        class="fa-solid fa-check"></i> Uppgift</button>
+            </div>
+
+            <label>Rubrik / Ämne</label>
+            <input id="actSubject" class="input" placeholder="T.ex. Uppföljning av offert" />
+
+            <label>Beskrivning</label>
+            <textarea id="actDesc" class="input" style="height:80px;"
+                placeholder="Anteckningar från mötet/samtalet..."></textarea>
+
+            <div class="row gap">
+                <div class="col">
+                    <label>Datum</label>
+                    <input id="actDate" type="date" class="input" />
+                </div>
+                <div class="col">
+                    <label>Status</label>
+                    <select id="actStatus" class="input">
+                        <option value="done">Utförd</option>
+                        <option value="planned">Planerad</option>
+                    </select>
+                </div>
+            </div>
+
+            <input type="hidden" id="actType" value="call" />
+            <input type="hidden" id="actTargetId" /> <!-- Customer or Deal ID -->
+
+            <button class="btn primary full" onclick="saveActivity()" style="margin-top:20px;">Spara</button>
+        </div>
+    </div>
+</div><!-- MODAL: ADD CUSTOMER (FULL ENTERPRISE) -->
 <div id="crmAddCustomerModal" class="modal" style="display: none;">
     <div class="modalContent" style="max-width: 850px; height: 85vh; display:flex; flex-direction:column; padding:0;">
         <div class="modalHeader" style="padding: 20px; border-bottom: 1px solid var(--border);">

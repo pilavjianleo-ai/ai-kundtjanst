@@ -6479,3 +6479,270 @@ function renderCustomerModalContent(customer, modal) {
 window.setModalTab = setModalTab;
 window.saveNewCustomerExpanded = saveNewCustomerExpanded;
 
+
+
+
+/* =====================
+   CRM 4.0 LOGIC (ENTERPRISE DEPTH)
+===================== */
+
+const crmActivities = JSON.parse(localStorage.getItem('crmActivities') || '[]');
+
+// --- DEAL LOGIC ---
+
+// Override openDealModal to support Advanced options
+function openDealModal() {
+    const modal = document.getElementById('crmAddDealModal');
+    if (!modal) return;
+
+    // Clear form
+    if (document.getElementById('dealName')) document.getElementById('dealName').value = '';
+    if (document.getElementById('dealValue')) document.getElementById('dealValue').value = '';
+    if (document.getElementById('dealCompanyInput')) document.getElementById('dealCompanyInput').value = '';
+
+    // Populate DataList for Companies
+    const dl = document.getElementById('dealCompanyList');
+    if (dl && crmState.customers.length > 0) {
+        dl.innerHTML = crmState.customers.map(c => `<option value="${c.name}">`).join('');
+    }
+
+    modal.style.display = 'flex';
+}
+
+function filterCompanyList(input) {
+    // Client side filter handled by browser datalist natively
+}
+
+function saveNewDealAdvanced() {
+    const name = document.getElementById('dealName')?.value;
+    const company = document.getElementById('dealCompanyInput')?.value; // Using input not select
+    const value = document.getElementById('dealValue')?.value;
+    const stage = document.getElementById('dealStage')?.value;
+    const prob = document.getElementById('dealProb')?.value;
+    const closeDate = document.getElementById('dealCloseDate')?.value;
+    const type = document.getElementById('dealType')?.value;
+    const owner = document.getElementById('dealOwner')?.value;
+    const desc = document.getElementById('dealDesc')?.value;
+    const nextStep = document.getElementById('dealNextStep')?.value;
+
+    if (!name || !company) {
+        if (typeof toast === 'function') toast('Fel', 'Fyll i namn och företag', 'error');
+        else alert("Fyll i namn och företag");
+        return;
+    }
+
+    // Find linked customer ID if possible
+    const linkedCustomer = crmState.customers.find(c => c.name === company);
+    const customerId = linkedCustomer ? linkedCustomer.id : null;
+
+    const deal = {
+        id: 'd' + Date.now(),
+        name,
+        company,
+        customerId,
+        value: parseInt(value) || 0,
+        stage,
+        probability: parseInt(prob),
+        closeDate,
+        type,
+        owner,
+        description: desc,
+        nextStep,
+        created: new Date().toISOString()
+    };
+
+    crmState.deals.push(deal);
+    localStorage.setItem('crmDeals', JSON.stringify(crmState.deals));
+
+    closeCrmModal('crmAddDealModal');
+
+    // Log creation activity automatically
+    logActivity({
+        type: 'system',
+        subject: 'Affär skapad',
+        description: `Affär "${name}" värd ${value} kr skapad i fas ${stage}.`,
+        targetId: customerId || deal.id, // Log on customer if found, else deal
+        date: new Date().toISOString(),
+        status: 'done'
+    });
+
+    // Update UI
+    addDealToPipelineUI(deal);
+    if (typeof toast === 'function') toast('Sparat', 'Affär skapad', 'success');
+}
+
+// --- ACTIVITY LOGIC ---
+
+function openActivityModal(targetId) { // Customer ID or Deal ID
+    const modal = document.getElementById('crmLogActivityModal');
+    if (!modal) return;
+
+    document.getElementById('actTargetId').value = targetId || '';
+    modal.style.display = 'flex';
+    // Set default date to today
+    document.getElementById('actDate').valueAsDate = new Date();
+}
+
+function setActivityType(type, btn) {
+    document.getElementById('actType').value = type;
+    document.querySelectorAll('.activityTypeBtn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+}
+
+function saveActivity() {
+    const type = document.getElementById('actType').value;
+    const subject = document.getElementById('actSubject').value;
+    const desc = document.getElementById('actDesc').value;
+    const date = document.getElementById('actDate').value;
+    const status = document.getElementById('actStatus').value;
+    const targetId = document.getElementById('actTargetId').value;
+
+    if (!subject) { alert("Ange ämne"); return; }
+
+    const activity = {
+        id: 'act' + Date.now(),
+        type,
+        subject,
+        description: desc,
+        date,
+        status,
+        targetId, // Link to customer
+        created: new Date().toISOString()
+    };
+
+    crmActivities.push(activity);
+    localStorage.setItem('crmActivities', JSON.stringify(crmActivities));
+
+    closeCrmModal('crmLogActivityModal');
+
+    // If we are viewing a customer, refresh the timeline
+    if (targetId) {
+        // Refresh modal content if open
+        const currentModal = document.getElementById('crmCustomerModal');
+        if (currentModal && currentModal.style.display !== 'none') {
+            const customer = crmState.customers.find(c => c.id === targetId);
+            if (customer) renderCustomerModalContent(customer, currentModal);
+        }
+    }
+
+    if (typeof toast === 'function') toast('Loggad', 'Aktivitet sparad', 'success');
+}
+
+function logActivity(act) {
+    crmActivities.push({ ...act, id: 'act' + Date.now() });
+    localStorage.setItem('crmActivities', JSON.stringify(crmActivities));
+}
+
+// Override renderCustomerModalContent again to include Activity Listing and Log Button
+function renderCustomerModalContent(customer, modal) {
+    const body = document.getElementById('crmModalBody');
+    const initials = customer.name.substring(0, 2).toUpperCase();
+
+    // Get Activities for this customer
+    const activities = crmActivities.filter(a => a.targetId === customer.id).sort((a, b) => new Date(b.created) - new Date(a.created));
+
+    // Safety
+    const city = customer.address?.city || 'Ingen ort';
+
+    body.innerHTML = `
+        <div class="customerProfileLayout">
+            <!-- SIDEBAR SAME AS BEFORE -->
+            <div class="customerSidebar" style="border-right:1px solid var(--border); overflow-y:auto; max-height:100%;">
+                 <div class="topInfo" style="text-align:center; margin-bottom:20px;">
+                    <div class="avatar-large" style="width:80px; height:80px; margin:0 auto 10px; background:#e0e7ff; color:var(--primary); font-size:32px; display:flex; align-items:center; justify-content:center; border-radius:50%;">${initials}</div>
+                    <h2 style="font-size:20px; margin:0;">${customer.name}</h2>
+                    <p class="muted">${customer.industry || 'Okänd bransch'} • ${city}</p>
+                    
+                     <div class="row center gap" style="margin-top:15px;">
+                        <button class="btn primary small" onclick="openActivityModal('${customer.id}')"><i class="fa-solid fa-plus"></i> Aktivitet</button>
+                        <button class="btn ghost small"><i class="fa-solid fa-pen"></i></button>
+                    </div>
+
+                    <div class="pill ${customer.aiConfig ? 'ok' : (customer.status === 'prospect' ? 'warn' : 'info')}" style="margin-top:15px;">
+                        ${customer.status === 'prospect' ? 'Prospekt' : (customer.status === 'churn' ? 'Avslutad' : 'Aktiv Kund')}
+                    </div>
+                </div>
+                 
+                 ${customer.aiConfig ? `
+                <div class="aiInsightBox">
+                    <div style="font-size:12px; text-transform:uppercase; color:var(--primary); font-weight:bold; margin-bottom:5px; display:flex; justify-content:space-between;">
+                        <span>AI Status</span> <span style="font-size:16px;">🟢</span>
+                    </div>
+                    <div class="aiScore">ONLINE</div>
+                    <div style="font-size:11px; margin-top:5px; color:var(--text-muted);">
+                        <b>Modell:</b> ${customer.aiConfig.model}<br>
+                        <b>API Key:</b> ${customer.aiConfig.apiKey.substring(0, 8)}...
+                    </div>
+                </div>` : ''}
+                 
+                 <div class="contactInfoList" style="margin-top:20px;">
+                     <div style="margin-bottom:10px;">
+                        <div style="font-weight:600;">${customer.contact || '-'}</div>
+                        <div class="muted small">${customer.role || 'Ingen roll angiven'}</div>
+                    </div>
+                    <div style="margin-bottom:10px;">
+                         <a href="mailto:${customer.email}" class="link small">${customer.email || '-'}</a>
+                    </div>
+                 </div>
+            </div>
+            
+            <!-- MAIN CONTENT -->
+            <div class="customerMain" style="padding:20px; display:flex; flex-direction:column;">
+                 <div class="crmNav" style="margin-bottom:20px; flex-shrink:0;">
+                    <button class="crmNavBtn active">Översikt</button>
+                    <button class="crmNavBtn">Anteckningar</button>
+                    <button class="crmNavBtn">Affärer</button>
+                    <button class="crmNavBtn">Ärenden</button>
+                </div>
+                
+                <div style="flex:1; overflow-y:auto;">
+                    <h4 style="margin-bottom:15px;">Aktivitetslogg</h4>
+                    <div class="activityTimeline">
+                        <!-- Render Activities from State -->
+                        ${activities.map(a => `
+                        <div class="activityItem ${a.type === 'task' ? 'email' : a.type}"> <!-- Fallback style -->
+                            <div class="activityMeta">${new Date(a.date || a.created).toLocaleDateString()} • ${translateType(a.type)}</div>
+                            <div><b>${a.subject}</b><br>${a.description || ''}</div>
+                        </div>`).join('')}
+                        
+                         <!-- Default logs -->
+                        <div class="activityItem meeting">
+                            <div class="activityMeta">Idag • System</div>
+                            <div>Kundprofil öppnad.</div>
+                        </div>
+                         ${customer.aiConfig ? `
+                        <div class="activityItem call">
+                            <div class="activityMeta">Nyss • AI System</div>
+                            <div><b>AI-agent driftsatt</b></div>
+                        </div>` : ''}
+                         <div class="activityItem email">
+                            <div class="activityMeta">${new Date(customer.created).toLocaleDateString()} • System</div>
+                            <div>Kund registrerad.</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    `;
+
+    // Update Header 
+    const title = document.getElementById('crmModalCustomerName');
+    if (title) title.textContent = customer.name;
+}
+
+function translateType(t) {
+    if (t === 'call') return 'Samtal';
+    if (t === 'meeting') return 'Möte';
+    if (t === 'email') return 'E-post';
+    if (t === 'task') return 'Uppgift';
+    if (t === 'system') return 'System';
+    return t;
+}
+
+// Expose
+window.saveNewDealAdvanced = saveNewDealAdvanced;
+window.openActivityModal = openActivityModal;
+window.setActivityType = setActivityType;
+window.saveActivity = saveActivity;
+window.filterCompanyList = filterCompanyList;
+
