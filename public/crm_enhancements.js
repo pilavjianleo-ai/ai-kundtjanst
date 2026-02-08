@@ -407,14 +407,35 @@ window.goToCustomerKB = function (companyId) {
     toast("Kunskapsbas", `Hanterar data för ${companyId}`, "info");
 };
 
-window.deleteCustomer = function (id) {
-    if (!confirm('Ta bort kund?')) return;
+window.deleteCustomer = async function (id) {
+    if (!confirm('VARNING: Detta kommer att radera kunden och ALL tillhörande data (biljetter, dokument, AI-inställningar) permanent från hela systemet. Vill du fortsätta?')) return;
+
+    // 1. Delete from Backend (Real sync)
+    try {
+        if (typeof api === 'function' && state.token) {
+            await api(`/admin/companies/${id}`, {
+                method: "DELETE"
+            });
+            console.log("Company deleted from backend.");
+        }
+    } catch (e) {
+        console.error("Backend deletion failed:", e.message);
+        toast("System-fel", "Kunde inte radera från backend, men tar bort lokalt.", "warning");
+    }
+
+    // 2. Delete from Local CRM
     let customers = JSON.parse(localStorage.getItem('crmCustomers') || '[]');
     customers = customers.filter(c => c.id !== id);
     localStorage.setItem('crmCustomers', JSON.stringify(customers));
+
+    // 3. Update UI
     renderCustomerList();
     renderCrmDashboard();
     updateChatCategoriesFromCRM();
+    if (typeof loadCompanies === 'function') await loadCompanies();
+
+    toast("Raderad", "Kunden har raderats helt från systemet.", "success");
+    logCrmActivity(`Raderade kund: ${id}`, 'warning');
 };
 
 window.closeCrmModal = function (id) {
