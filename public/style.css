@@ -62,16 +62,33 @@ body[data-theme="light"] {
   --overlay: rgba(255, 255, 255, 0.8);
 }
 
-/* Enhancements for Light Theme Chat visibility: Glassy but transparent */
+/* Enhancements for Light Theme Chat visibility - Matching the reference image */
 body[data-theme="light"] .messages {
-  background: rgba(255, 255, 255, 0.6);
-  /* Semi-transparent to show gradient */
-  backdrop-filter: blur(12px);
-  /* Strong glass effect */
+  /* Radial gradient for that soft, premium glow seen in the screenshot */
+  background: radial-gradient(circle at 50% 30%, #ffffff 0%, #f0f5ff 100%);
+  border: 1px solid rgba(255, 255, 255, 0.8);
   box-shadow:
-    0 10px 30px -5px rgba(0, 0, 0, 0.05),
-    inset 0 0 20px rgba(255, 255, 255, 0.5);
-  border: 1px solid rgba(255, 255, 255, 0.6);
+    0 10px 40px -5px rgba(0, 0, 0, 0.05),
+    inset 0 0 20px rgba(255, 255, 255, 0.8);
+}
+
+/* "Pill" style buttons for Topbar in Light Theme (as seen in screenshot) */
+body[data-theme="light"] .topbarActions .btn.ghost {
+  background: #ffffff;
+  border: 1px solid var(--border);
+  border-radius: 20px;
+  padding: 6px 14px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.03);
+  color: var(--text);
+  font-weight: 500;
+  transition: all 0.2s;
+}
+
+body[data-theme="light"] .topbarActions .btn.ghost:hover {
+  border-color: var(--primary);
+  transform: translateY(-1px);
+  box-shadow: 0 3px 8px rgba(0, 0, 0, 0.08);
+  background: #ffffff;
 }
 
 body[data-theme="light"] .msg.ai .bubble {
@@ -2062,42 +2079,58 @@ input[type="range"].slider::-webkit-slider-thumb:hover {
     display: inline-flex;
     align-items: center;
     justify-content: center;
+    background: var(--panel);
+    /* Ensure it's visible against bg */
+    border: 1px solid var(--border);
+    width: 36px;
+    height: 36px;
+    border-radius: 8px;
   }
 
   .topbar {
-    padding: 12px;
-    gap: 8px;
+    padding: 10px var(--radius);
+    /* Consistent padding */
+    position: sticky;
+    /* Keep navigation accessible */
+    top: 0;
+    z-index: 90;
   }
 
-  .messages {
-    height: calc(100vh - 200px);
-    /* Better fit for mobile keyboard */
-    padding: 15px;
-  }
-
-  .composer {
-    position: fixed;
-    bottom: 10px;
-    left: 10px;
-    right: 10px;
-    z-index: 800;
-    background: var(--panel);
-    box-shadow: 0 -5px 20px var(--shadow);
-  }
-
-  /* Add padding to bottom of messages so they aren't covered by composer */
-  /* Better mobile flex layout */
-  .view {
+  /* Ensure content doesn't get hidden behind fixed headers/footers */
+  #chatView {
     display: flex;
     flex-direction: column;
     height: 100vh;
   }
 
   .messages {
-    height: auto;
     flex: 1;
-    margin-bottom: 80px;
-    /* Space for composer */
+    height: auto;
+    min-height: 0;
+    /* Important for flex scrolling */
+    margin-bottom: 0;
+    /* Removed fixed margin */
+    padding-bottom: 90px;
+    /* Internal padding for composer */
+  }
+
+  .composer {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    padding: 10px;
+    padding-bottom: max(10px, env(safe-area-inset-bottom));
+    /* iPhone X+ safety */
+    background: var(--panel);
+    border-top: 1px solid var(--border);
+    z-index: 100;
+  }
+
+  .view {
+    display: flex;
+    flex-direction: column;
+    height: 100vh;
   }
 
   /* Prevent zoom on inputs */
@@ -2107,6 +2140,7 @@ input[type="range"].slider::-webkit-slider-thumb:hover {
     font-size: 16px !important;
   }
 }
+
 
 /* Onboarding Modal */
 .salesOnboardingModal {
