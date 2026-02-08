@@ -236,14 +236,14 @@ function updateRoleUI() {
 ========================= */
 function toggleTheme() {
   const b = document.body;
-  const cur = b.getAttribute("data-theme") || "dark";
+  const cur = b.getAttribute("data-theme") || "light";
   b.setAttribute("data-theme", cur === "dark" ? "light" : "dark");
   localStorage.setItem("theme", b.getAttribute("data-theme"));
 }
 
 function loadTheme() {
-  const saved = localStorage.getItem("theme");
-  if (saved) document.body.setAttribute("data-theme", saved);
+  const saved = localStorage.getItem("theme") || "light";
+  document.body.setAttribute("data-theme", saved);
 }
 
 function renderDebug() {
