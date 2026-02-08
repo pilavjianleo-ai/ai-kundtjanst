@@ -106,6 +106,7 @@ window.setMode = function (mode) {
 };
 
 window.triggerContactForm = function () {
+    if (window.state && window.state.currentView !== 'chatView') return;
     if (sessionStorage.getItem('contactInfoSkipped') || sessionStorage.getItem('contactInfo')) return;
     const modal = document.getElementById('contactFormModal');
     if (modal) modal.style.display = 'flex';
@@ -137,7 +138,7 @@ document.addEventListener("DOMContentLoaded", () => {
         if (!document.querySelector(".msg")) {
             window.triggerContactForm();
         }
-    }, 1500);
+    }, 100);
 });
 
 // Patch global switchCompany to show modal again
@@ -153,8 +154,8 @@ const patchInterval = setInterval(() => {
             sessionStorage.removeItem('contactInfo');
             if (window.state) window.state.userContactInfo = null;
 
-            // Show form
-            setTimeout(window.triggerContactForm, 800);
+            // Show form quickly
+            setTimeout(window.triggerContactForm, 100);
         };
         window.switchCompany._patched = true;
         clearInterval(patchInterval);

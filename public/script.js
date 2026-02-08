@@ -609,9 +609,9 @@ async function switchCompany(newCompanyId) {
 
   setTimeout(() => {
     addMsg("assistant", greeting);
-    renderSuggestions(["Hur fungerar det?", "Vilka priser har ni?", "Prata med person"]);
-    $("suggestions").style.display = "flex";
-  }, 400);
+    // Hide default suggestions to avoid duplicates with Intro Card
+    $("suggestions").style.display = "none";
+  }, 100);
 
   // Reload inbox if we're currently viewing it
   if (state.currentView === "inboxView") {

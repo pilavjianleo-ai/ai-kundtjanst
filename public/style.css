@@ -64,8 +64,8 @@ body[data-theme="light"] {
 
 /* Enhancements for Light Theme Chat visibility - Matching the reference image */
 body[data-theme="light"] .messages {
-  /* Radial gradient for that soft, premium glow seen in the screenshot */
-  background: radial-gradient(circle at 50% 30%, #ffffff 0%, #f0f5ff 100%);
+  /* Radial gradient for that soft, premium glow seen in the screenshot - STRONGER BLUE */
+  background: radial-gradient(circle at 50% 30%, #ffffff 0%, #dbeafe 100%) !important;
   border: 1px solid rgba(255, 255, 255, 0.8);
   box-shadow:
     0 10px 40px -5px rgba(0, 0, 0, 0.05),
