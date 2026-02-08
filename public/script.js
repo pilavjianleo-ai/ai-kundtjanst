@@ -608,8 +608,8 @@ async function switchCompany(newCompanyId) {
   state.conversation.push({ role: "assistant", content: greeting });
 
   setTimeout(() => {
-    // Only use Intro Card - no duplicate message bubble
-    // addMsg("assistant", greeting);
+    // Restore the greeting bubble (user request)
+    addMsg("assistant", greeting);
 
     // Hide default suggestions bar
     const sugg = $("suggestions");
