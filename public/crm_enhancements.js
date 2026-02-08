@@ -1,5 +1,5 @@
 /* =====================
-   CRM ENHANCEMENTS V7: FULL KB SYNC & BACKEND INTEGRATION
+   CRM ENHANCEMENTS V8: COMPLETE DATA SYNC & EDIT
 ===================== */
 
 /**
@@ -146,7 +146,7 @@ window.saveNewCustomerExpanded = async function () {
 
     const companyId = name.toLowerCase().replace(/[^a-z0-9]/g, '-').slice(0, 30);
 
-    // Create in Backend (The "Real" Company)
+    // Create in Backend
     try {
         if (typeof api === 'function' && state.token) {
             await api("/admin/companies", {
@@ -252,13 +252,13 @@ window.openCustomerModal = function (id) {
                 <p class="muted">${c.industry || 'Bransch'} • ${c.address?.city || 'Stad'}</p>
                 <div class="pill ${c.status === 'customer' ? 'ok' : 'warn'}" style="margin-top:5px;">${c.status.toUpperCase()}</div>
             </div>
-            <div class="aiInsightBox" style="background:rgba(76, 125, 255, 0.05); padding:15px; border-radius:12px; text-align:center;">
+            <div class="aiInsightBox" style="background:rgba(76, 125, 255, 0.05); padding:15px; border-radius:12px; text-align:center; margin-bottom:15px;">
                 <div style="font-size:12px; text-transform:uppercase; color:var(--primary); font-weight:bold; margin-bottom:5px;">AI Lead Score</div>
                 <div class="aiScore" style="font-size:32px; font-weight:800; color:var(--primary);">${c.aiScore}</div>
             </div>
-            <div style="margin-top:20px; display:flex; flex-direction:column; gap:10px;">
+            <div style="display:flex; flex-direction:column; gap:10px;">
                 <button class="btn primary full" onclick="saveCustomerEdits('${c.id}')"><i class="fa-solid fa-save"></i> SPARA ÄNDRINGAR</button>
-                <button class="btn ghost full" onclick="goToCustomerKB('${c.id}')"><i class="fa-solid fa-book"></i> GÅ TILL KB MANAGER</button>
+                <button class="btn ghost full" onclick="goToCustomerKB('${c.id}')"><i class="fa-solid fa-book"></i> HANTERA KB</button>
             </div>
         `;
     }
@@ -267,29 +267,60 @@ window.openCustomerModal = function (id) {
     if (main) {
         main.innerHTML = `
             <div class="panel soft" style="margin-bottom:20px;">
-                <div class="panelHead"><b>Kontakt & Info</b></div>
+                <div class="panelHead"><b>Profil & Kontakt</b></div>
                 <div class="grid2" style="padding:15px; gap:15px;">
+                    <div><label class="small-label">Företagsnamn</label><input type="text" id="editCustName" class="input" value="${c.name || ''}"></div>
                     <div><label class="small-label">E-post</label><input type="text" id="editCustEmail" class="input" value="${c.email || ''}"></div>
                     <div><label class="small-label">Telefon</label><input type="text" id="editCustPhone" class="input" value="${c.phone || ''}"></div>
                     <div><label class="small-label">Webbplats</label><input type="text" id="editCustWeb" class="input" value="${c.web || ''}"></div>
                     <div><label class="small-label">Bransch</label><input type="text" id="editCustIndustry" class="input" value="${c.industry || ''}"></div>
+                    <div><label class="small-label">Värde (SEK)</label><input type="number" id="editCustValue" class="input" value="${c.value || 0}"></div>
                 </div>
             </div>
-            <div class="panel soft">
-                <div class="panelHead"><b>Systeminställningar</b></div>
+
+            <div class="panel soft" style="margin-bottom:20px;">
+                <div class="panelHead"><b>Adressuppgifter</b></div>
                 <div class="grid2" style="padding:15px; gap:15px;">
+                    <div><label class="small-label">Postnummer</label><input type="text" id="editCustZip" class="input" value="${c.address?.zip || ''}"></div>
                     <div><label class="small-label">Stad</label><input type="text" id="editCustCity" class="input" value="${c.address?.city || ''}"></div>
-                    <div><label class="small-label">Värde (SEK)</label><input type="number" id="editCustValue" class="input" value="${c.value || 0}"></div>
+                    <div><label class="small-label">Land</label>
+                        <select id="editCustCountry" class="input">
+                            <option value="SE" ${c.address?.country === 'SE' ? 'selected' : ''}>Sverige</option>
+                            <option value="NO" ${c.address?.country === 'NO' ? 'selected' : ''}>Norge</option>
+                            <option value="DK" ${c.address?.country === 'DK' ? 'selected' : ''}>Danmark</option>
+                            <option value="FI" ${c.address?.country === 'FI' ? 'selected' : ''}>Finland</option>
+                        </select>
+                    </div>
+                    <div><label class="small-label">Typ</label>
+                         <select id="editCustStatus" class="input">
+                            <option value="customer" ${c.status === 'customer' ? 'selected' : ''}>Kund</option>
+                            <option value="lead" ${c.status === 'lead' ? 'selected' : ''}>Lead</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+
+            <div class="panel soft" style="background:rgba(76, 125, 255, 0.03);">
+                <div class="panelHead"><b>AI-Konfiguration</b></div>
+                <div class="grid2" style="padding:15px; gap:15px;">
                     <div><label class="small-label">AI Status</label>
                         <select id="editCustAiStatus" class="input">
                             <option value="active" ${c.aiConfig?.status === 'active' ? 'selected' : ''}>Aktiv</option>
                             <option value="inactive" ${c.aiConfig?.status === 'inactive' ? 'selected' : ''}>Inaktiv</option>
                         </select>
                     </div>
-                    <div><label class="small-label">Kundtyp</label>
-                        <select id="editCustStatus" class="input">
-                            <option value="customer" ${c.status === 'customer' ? 'selected' : ''}>Kund</option>
-                            <option value="lead" ${c.status === 'lead' ? 'selected' : ''}>Lead</option>
+                    <div><label class="small-label">AI Modell</label>
+                        <select id="editCustAiModel" class="input">
+                            <option value="gpt-4o" ${c.aiConfig?.model === 'gpt-4o' ? 'selected' : ''}>GPT-4o (Standard)</option>
+                            <option value="gpt-4-turbo" ${c.aiConfig?.model === 'gpt-4-turbo' ? 'selected' : ''}>GPT-4 Turbo</option>
+                            <option value="gpt-3.5-turbo" ${c.aiConfig?.model === 'gpt-3.5-turbo' ? 'selected' : ''}>GPT-3.5 Turbo</option>
+                        </select>
+                    </div>
+                    <div><label class="small-label">Språk</label>
+                        <select id="editCustAiLang" class="input">
+                            <option value="sv" ${c.aiConfig?.lang === 'sv' ? 'selected' : ''}>Svenska</option>
+                            <option value="en" ${c.aiConfig?.lang === 'en' ? 'selected' : ''}>Engelska</option>
+                            <option value="multi" ${c.aiConfig?.lang === 'multi' ? 'selected' : ''}>Multi (Auto)</option>
                         </select>
                     </div>
                 </div>
@@ -305,16 +336,25 @@ window.saveCustomerEdits = async function (id) {
     if (cIndex === -1) return;
 
     const c = customers[cIndex];
-    c.email = document.getElementById('editCustEmail').value;
-    c.phone = document.getElementById('editCustPhone').value;
-    c.web = document.getElementById('editCustWeb').value;
-    c.industry = document.getElementById('editCustIndustry').value;
-    c.address.city = document.getElementById('editCustCity').value;
+
+    // Update local object
+    c.name = document.getElementById('editCustName').value.trim();
+    c.email = document.getElementById('editCustEmail').value.trim();
+    c.phone = document.getElementById('editCustPhone').value.trim();
+    c.web = document.getElementById('editCustWeb').value.trim();
+    c.industry = document.getElementById('editCustIndustry').value.trim();
     c.value = parseFloat(document.getElementById('editCustValue').value) || 0;
     c.status = document.getElementById('editCustStatus').value;
 
+    if (!c.address) c.address = {};
+    c.address.zip = document.getElementById('editCustZip').value.trim();
+    c.address.city = document.getElementById('editCustCity').value.trim();
+    c.address.country = document.getElementById('editCustCountry').value;
+
     if (!c.aiConfig) c.aiConfig = {};
     c.aiConfig.status = document.getElementById('editCustAiStatus').value;
+    c.aiConfig.model = document.getElementById('editCustAiModel').value;
+    c.aiConfig.lang = document.getElementById('editCustAiLang').value;
 
     // Sync to Backend
     try {
@@ -327,7 +367,7 @@ window.saveCustomerEdits = async function (id) {
                     phone: c.phone,
                     industry: c.industry,
                     status: c.aiConfig.status === 'active' ? 'active' : 'inactive',
-                    notes: `Uppdaterad via CRM. Värde: ${c.value}`
+                    notes: `Uppdaterad via CRM. Värde: ${c.value}. Modell: ${c.aiConfig.model}`
                 }
             });
         }
@@ -336,8 +376,8 @@ window.saveCustomerEdits = async function (id) {
     }
 
     localStorage.setItem('crmCustomers', JSON.stringify(customers));
-    toast("Uppdaterad", `Uppgifter sparade för ${c.name} och synkade till systemet.`, "success");
-    logCrmActivity(`Uppdaterade ${c.name}`, 'info');
+    toast("Uppdaterad", `All information sparad och synkad för ${c.name}.`, "success");
+    logCrmActivity(`Fullständig uppdatering av ${c.name}`, 'info');
 
     renderCustomerList();
     renderCrmDashboard();
@@ -350,29 +390,20 @@ window.saveCustomerEdits = async function (id) {
  * Jump to KB Manager for specific customer
  */
 window.goToCustomerKB = function (companyId) {
-    // 1. Close current modal
     window.closeCrmModal('crmCustomerModal');
-
-    // 2. Switch View (assuming showView handles the transition)
     if (typeof showView === 'function') {
         showView('adminView');
-
-        // select tabKB
         const tabBtn = document.querySelector('.tabBtn[data-tab="tabKB"]');
         if (tabBtn) tabBtn.click();
-
-        // 3. Set the select value (wait a tiny bit for render if needed)
         setTimeout(() => {
             const kbSel = document.getElementById('kbCategorySelect');
             if (kbSel) {
                 kbSel.value = companyId;
-                // Trigger refresh to show documents for this company
                 const refreshBtn = document.getElementById('kbRefreshBtn');
                 if (refreshBtn) refreshBtn.click();
             }
         }, 150);
     }
-
     toast("Kunskapsbas", `Hanterar data för ${companyId}`, "info");
 };
 
