@@ -5823,3 +5823,242 @@ Rapporten skapad av AI Kundtjänst
 }
 
 window.initSalesAnalytics = initSalesAnalytics;
+
+/* =====================
+   SCENARIOPLANERING - Business Focused
+   Affärsanalys & Kapacitetsplanering
+===================== */
+
+// Scenario State
+const scenarioState = {
+    workDaysPerMonth: 22,
+    aiCostPerTicket: 2 // SEK per AI-handled ticket
+};
+
+// Initialize Scenario Planner
+async function initScenarioPlanner() {
+    bindScenarioInputs();
+    bindScenarioExport();
+
+    // Try to load real data
+    try {
+        const slaData = await api("/sla/dashboard?days=30").catch(() => null);
+        if (slaData && slaData.totalTickets) {
+            document.getElementById('sc_tickets').value = slaData.totalTickets;
+            document.getElementById('sc_tickets_val').textContent = slaData.totalTickets;
+        }
+    } catch (e) {
+        console.log("Using default scenario values");
+    }
+
+    // Initial calculation
+    calculateScenario();
+}
+
+function bindScenarioInputs() {
+    const inputs = ['sc_tickets', 'sc_aiRate', 'sc_staffCost', 'sc_ticketsPerDay', 'sc_targetSla'];
+
+    inputs.forEach(id => {
+        const input = document.getElementById(id);
+        if (!input) return;
+
+        input.oninput = () => {
+            updateSliderValue(id);
+            calculateScenario();
+        };
+    });
+}
+
+function updateSliderValue(id) {
+    const input = document.getElementById(id);
+    const display = document.getElementById(id + '_val');
+    if (!input || !display) return;
+
+    let value = parseInt(input.value);
+
+    if (id === 'sc_staffCost') {
+        display.textContent = value.toLocaleString('sv-SE');
+    } else {
+        display.textContent = value;
+    }
+}
+
+function bindScenarioExport() {
+    const btn = document.getElementById('scenarioExportBtn');
+    if (btn) btn.onclick = exportScenarioReport;
+}
+
+function calculateScenario() {
+    // Get inputs
+    const tickets = parseInt(document.getElementById('sc_tickets')?.value || 500);
+    const aiRate = parseInt(document.getElementById('sc_aiRate')?.value || 40) / 100;
+    const staffCost = parseInt(document.getElementById('sc_staffCost')?.value || 45000);
+    const ticketsPerDay = parseInt(document.getElementById('sc_ticketsPerDay')?.value || 12);
+    const targetSla = parseInt(document.getElementById('sc_targetSla')?.value || 90);
+
+    // Calculate
+    const manualTickets = Math.round(tickets * (1 - aiRate));
+    const aiTickets = Math.round(tickets * aiRate);
+
+    const ticketsPerStaffPerMonth = ticketsPerDay * scenarioState.workDaysPerMonth;
+    const requiredStaff = Math.ceil(manualTickets / ticketsPerStaffPerMonth);
+    const optimalStaff = Math.max(1, requiredStaff);
+
+    const staffTotalCost = optimalStaff * staffCost;
+    const aiCost = aiTickets * scenarioState.aiCostPerTicket;
+    const totalCost = staffTotalCost + aiCost;
+
+    // Calculate baseline (no AI)
+    const baselineStaff = Math.ceil(tickets / ticketsPerStaffPerMonth);
+    const baselineCost = baselineStaff * staffCost;
+    const savings = baselineCost - totalCost;
+
+    // Calculate freed capacity
+    const freedStaff = (baselineStaff - optimalStaff).toFixed(1);
+
+    // Calculate projected SLA (capacity-based estimate)
+    const capacity = optimalStaff * ticketsPerStaffPerMonth;
+    const utilizationRate = manualTickets / capacity;
+    let projectedSla = targetSla;
+    if (utilizationRate > 1) {
+        projectedSla = Math.max(70, targetSla - Math.round((utilizationRate - 1) * 30));
+    } else if (utilizationRate < 0.8) {
+        projectedSla = Math.min(99, targetSla + Math.round((0.8 - utilizationRate) * 10));
+    }
+
+    // Update Executive Summary
+    updateExecKpi('sc_currentTickets', tickets);
+    updateExecKpi('sc_currentCost', formatCurrencyShort(baselineCost));
+    updateExecKpi('sc_currentSla', targetSla + '%');
+    updateExecKpi('sc_currentAi', Math.round(aiRate * 100) + '%');
+
+    // Update Results
+    updateResult('sc_reqStaff', optimalStaff);
+    updateResult('sc_totalCost', formatCurrencyShort(totalCost));
+    updateResult('sc_savings', formatCurrencyShort(Math.abs(savings)));
+    updateResult('sc_projectedSla', projectedSla + '%');
+
+    // Update savings context
+    const savingsContext = document.getElementById('sc_savingsContext');
+    if (savingsContext) {
+        if (savings > 0) {
+            savingsContext.textContent = 'Besparing per månad';
+            savingsContext.parentElement.parentElement.classList.add('status-ok');
+            savingsContext.parentElement.parentElement.classList.remove('status-warn');
+        } else {
+            savingsContext.textContent = 'Ökad kostnad';
+            savingsContext.parentElement.parentElement.classList.remove('status-ok');
+            savingsContext.parentElement.parentElement.classList.add('status-warn');
+        }
+    }
+
+    // Update staff context
+    const staffContext = document.getElementById('sc_staffContext');
+    if (staffContext) {
+        if (optimalStaff < baselineStaff) {
+            staffContext.textContent = `${baselineStaff - optimalStaff} färre än utan AI`;
+        } else {
+            staffContext.textContent = 'Medarbetare för att möta efterfrågan';
+        }
+    }
+
+    // Update AI value
+    updateResult('sc_aiTickets', aiTickets);
+    updateResult('sc_aiSaved', freedStaff);
+    updateResult('sc_aiCostSaved', formatCurrencyShort(Math.max(0, savings)));
+
+    // Update recommendation
+    updateRecommendation(optimalStaff, baselineStaff, savings, projectedSla, targetSla, utilizationRate);
+}
+
+function updateExecKpi(id, value) {
+    const el = document.getElementById(id);
+    if (el) el.textContent = value;
+}
+
+function updateResult(id, value) {
+    const el = document.getElementById(id);
+    if (el) el.textContent = value;
+}
+
+function formatCurrencyShort(value) {
+    return value.toLocaleString('sv-SE') + ' kr';
+}
+
+function updateRecommendation(optimalStaff, baselineStaff, savings, projectedSla, targetSla, utilization) {
+    const recText = document.getElementById('sc_recText');
+    const recCard = document.getElementById('sc_recommendation');
+    if (!recText) return;
+
+    let text = '';
+    let status = 'info';
+
+    if (optimalStaff < baselineStaff && savings > 0) {
+        text = `Genom att automatisera ${document.getElementById('sc_aiRate')?.value || 40}% av ärendena kan bemanningen reduceras till ${optimalStaff} medarbetare. Detta ger en besparing på ${formatCurrencyShort(savings)} per månad med bibehållen servicekvalitet på ${projectedSla}%.`;
+        status = 'ok';
+    } else if (utilization > 1) {
+        text = `Nuvarande kapacitet är otillräcklig. För att uppnå ${targetSla}% servicekvalitet rekommenderas ${optimalStaff} medarbetare. Överväg att öka automatiseringsgraden för att minska behovet.`;
+        status = 'warn';
+    } else if (utilization < 0.6) {
+        text = `Det finns ledig kapacitet i organisationen. Nuvarande bemanning klarar betydligt fler ärenden, eller så kan bemanningen justeras nedåt för kostnadsoptimering.`;
+        status = 'info';
+    } else {
+        text = `Bemanningen på ${optimalStaff} medarbetare är väl anpassad till nuvarande ärendevolym och automatiseringsgrad. Servicekvaliteten beräknas till ${projectedSla}%.`;
+        status = 'ok';
+    }
+
+    recText.textContent = text;
+
+    if (recCard) {
+        recCard.className = 'recommendationCard ' + status;
+    }
+}
+
+function exportScenarioReport() {
+    const tickets = document.getElementById('sc_tickets')?.value || 500;
+    const aiRate = document.getElementById('sc_aiRate')?.value || 40;
+    const staffCost = document.getElementById('sc_staffCost')?.value || 45000;
+    const reqStaff = document.getElementById('sc_reqStaff')?.textContent || '-';
+    const totalCost = document.getElementById('sc_totalCost')?.textContent || '-';
+    const savings = document.getElementById('sc_savings')?.textContent || '-';
+    const projectedSla = document.getElementById('sc_projectedSla')?.textContent || '-';
+    const recText = document.getElementById('sc_recText')?.textContent || '';
+
+    const report = `
+AFFÄRSANALYS - KAPACITETSPLANERING
+===================================
+Genererad: ${new Date().toLocaleString('sv-SE')}
+
+ANTAGANDEN
+----------
+Ärenden per månad: ${tickets}
+Automatiseringsgrad (AI): ${aiRate}%
+Personalkostnad: ${parseInt(staffCost).toLocaleString('sv-SE')} kr/månad
+
+RESULTAT
+--------
+Rekommenderad bemanning: ${reqStaff} medarbetare
+Total månadskostnad: ${totalCost}
+Besparing: ${savings}
+Förväntad servicekvalitet: ${projectedSla}
+
+REKOMMENDATION
+--------------
+${recText}
+
+---
+Rapporten skapad av AI Kundtjänst
+  `.trim();
+
+    const blob = new Blob([report], { type: 'text/plain;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `affarsanalys_${new Date().toISOString().split('T')[0]}.txt`;
+    a.click();
+    URL.revokeObjectURL(url);
+
+    if (typeof toast === 'function') toast('Exporterad', 'Rapporten har laddats ner', 'success');
+}
+
+window.initScenarioPlanner = initScenarioPlanner;

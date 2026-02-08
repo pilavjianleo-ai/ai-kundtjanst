@@ -2118,6 +2118,182 @@
         </div>
       </section>
 
+<!-- SCENARIOPLANERING - Business Focused -->
+<section id="scenarioView" class="view" style="display:none;">
+
+    <!-- HEADER -->
+    <div class="topbar">
+        <div>
+            <div class="title"><i class="fa-solid fa-briefcase" style="color:var(--primary);"></i> Affärsanalys</div>
+            <div class="subtitle muted">Kapacitetsplanering och kostnadsoptimering</div>
+        </div>
+        <div class="topbarActions">
+            <button id="scenarioExportBtn" class="btn ghost" type="button">
+                <i class="fa-solid fa-download"></i> Exportera
+            </button>
+        </div>
+    </div>
+
+    <!-- MAIN CONTENT -->
+    <div class="scenarioContent">
+
+        <!-- SEKTION 1: AFFÄRSÖVERSIKT (Executive Summary) -->
+        <div class="scenarioSection executive">
+            <div class="sectionHeader">
+                <h3><i class="fa-solid fa-chart-pie"></i> Nulägesöversikt</h3>
+                <span class="sectionSubtitle">Hur ser verksamheten ut just nu?</span>
+            </div>
+            <div class="executiveKpis">
+                <div class="execKpiCard">
+                    <div class="execKpiValue" id="sc_currentTickets">500</div>
+                    <div class="execKpiLabel">Ärenden per månad</div>
+                    <div class="execKpiContext">Inkommande kundärenden</div>
+                </div>
+                <div class="execKpiCard">
+                    <div class="execKpiValue" id="sc_currentCost">125 000 kr</div>
+                    <div class="execKpiLabel">Operativ kostnad</div>
+                    <div class="execKpiContext">Personal och drift per månad</div>
+                </div>
+                <div class="execKpiCard">
+                    <div class="execKpiValue status-ok" id="sc_currentSla">92%</div>
+                    <div class="execKpiLabel">Servicekvalitet</div>
+                    <div class="execKpiContext">SLA-efterlevnad</div>
+                </div>
+                <div class="execKpiCard">
+                    <div class="execKpiValue" id="sc_currentAi">40%</div>
+                    <div class="execKpiLabel">Automatiseringsgrad</div>
+                    <div class="execKpiContext">Ärenden hanterade av AI</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- SEKTION 2: AFFÄRSANTAGANDEN -->
+        <div class="scenarioSection assumptions">
+            <div class="sectionHeader">
+                <h3><i class="fa-solid fa-sliders"></i> Affärsantaganden</h3>
+                <span class="sectionSubtitle">Justera för att se påverkan på verksamheten</span>
+            </div>
+            <div class="assumptionsGrid">
+                <div class="assumptionCard">
+                    <div class="assumptionQuestion">Hur många kundärenden hanterar verksamheten per månad?</div>
+                    <div class="assumptionInput">
+                        <input type="range" id="sc_tickets" class="slider" min="100" max="2000" value="500" step="50">
+                        <div class="sliderValue"><span id="sc_tickets_val">500</span> ärenden</div>
+                    </div>
+                </div>
+                <div class="assumptionCard">
+                    <div class="assumptionQuestion">Hur stor andel av arbetet kan automatiseras utan att påverka
+                        kvalitet?</div>
+                    <div class="assumptionInput">
+                        <input type="range" id="sc_aiRate" class="slider" min="0" max="90" value="40" step="5">
+                        <div class="sliderValue"><span id="sc_aiRate_val">40</span>%</div>
+                    </div>
+                </div>
+                <div class="assumptionCard">
+                    <div class="assumptionQuestion">Vad kostar en medarbetare per månad (inkl. sociala avgifter)?</div>
+                    <div class="assumptionInput">
+                        <input type="range" id="sc_staffCost" class="slider" min="25000" max="80000" value="45000"
+                            step="5000">
+                        <div class="sliderValue"><span id="sc_staffCost_val">45 000</span> kr</div>
+                    </div>
+                </div>
+                <div class="assumptionCard">
+                    <div class="assumptionQuestion">Hur många ärenden klarar en medarbetare per dag?</div>
+                    <div class="assumptionInput">
+                        <input type="range" id="sc_ticketsPerDay" class="slider" min="5" max="30" value="12" step="1">
+                        <div class="sliderValue"><span id="sc_ticketsPerDay_val">12</span> ärenden</div>
+                    </div>
+                </div>
+                <div class="assumptionCard">
+                    <div class="assumptionQuestion">Vilken servicenivå (SLA) eftersträvas?</div>
+                    <div class="assumptionInput">
+                        <input type="range" id="sc_targetSla" class="slider" min="80" max="99" value="90" step="1">
+                        <div class="sliderValue"><span id="sc_targetSla_val">90</span>%</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- SEKTION 3: AFFÄRSEFFEKT -->
+        <div class="scenarioSection results">
+            <div class="sectionHeader">
+                <h3><i class="fa-solid fa-chart-line"></i> Affärseffekt</h3>
+                <span class="sectionSubtitle">Vad betyder detta för verksamheten?</span>
+            </div>
+            <div class="resultsGrid">
+                <div class="resultCard primary">
+                    <div class="resultIcon"><i class="fa-solid fa-users"></i></div>
+                    <div class="resultContent">
+                        <div class="resultValue" id="sc_reqStaff">3</div>
+                        <div class="resultLabel">Rekommenderad bemanning</div>
+                        <div class="resultContext" id="sc_staffContext">Medarbetare för att möta efterfrågan</div>
+                    </div>
+                </div>
+                <div class="resultCard">
+                    <div class="resultIcon"><i class="fa-solid fa-coins"></i></div>
+                    <div class="resultContent">
+                        <div class="resultValue" id="sc_totalCost">135 000 kr</div>
+                        <div class="resultLabel">Total månadskostnad</div>
+                        <div class="resultContext">Personal + AI-kostnad</div>
+                    </div>
+                </div>
+                <div class="resultCard status-ok">
+                    <div class="resultIcon"><i class="fa-solid fa-piggy-bank"></i></div>
+                    <div class="resultContent">
+                        <div class="resultValue" id="sc_savings">45 000 kr</div>
+                        <div class="resultLabel">Potentiell besparing</div>
+                        <div class="resultContext" id="sc_savingsContext">Jämfört med nuvarande kostnad</div>
+                    </div>
+                </div>
+                <div class="resultCard">
+                    <div class="resultIcon"><i class="fa-solid fa-gauge-high"></i></div>
+                    <div class="resultContent">
+                        <div class="resultValue" id="sc_projectedSla">94%</div>
+                        <div class="resultLabel">Förväntad servicekvalitet</div>
+                        <div class="resultContext">Baserat på kapacitet</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- AI Value -->
+            <div class="aiValueCard">
+                <div class="aiValueHeader">
+                    <i class="fa-solid fa-robot"></i>
+                    <span>AI-bidrag till verksamheten</span>
+                </div>
+                <div class="aiValueStats">
+                    <div class="aiStat">
+                        <div class="aiStatValue" id="sc_aiTickets">200</div>
+                        <div class="aiStatLabel">Ärenden hanterade av AI</div>
+                    </div>
+                    <div class="aiStat">
+                        <div class="aiStatValue" id="sc_aiSaved">1.5</div>
+                        <div class="aiStatLabel">Manuella tjänster frigjorda</div>
+                    </div>
+                    <div class="aiStat">
+                        <div class="aiStatValue" id="sc_aiCostSaved">67 500 kr</div>
+                        <div class="aiStatLabel">Kostnadsreduktion per månad</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- SEKTION 4: REKOMMENDATION -->
+        <div class="scenarioSection recommendation">
+            <div class="recommendationCard" id="sc_recommendation">
+                <div class="recIcon"><i class="fa-solid fa-lightbulb"></i></div>
+                <div class="recContent">
+                    <div class="recTitle">Rekommenderat beslut</div>
+                    <div class="recText" id="sc_recText">
+                        Baserat på nuvarande förutsättningar är optimal bemanning 3 medarbetare. Detta säkerställer god
+                        servicekvalitet samtidigt som kostnaden optimeras.
+                    </div>
+                </div>
+            </div>
+        </div>
+
+    </div>
+</section>
 <!-- SALES ANALYTICS - REDESIGNED -->
 <section id="salesView" class="view" style="display:none;">
 
