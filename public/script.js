@@ -6757,3 +6757,105 @@ document.getElementById('addCustomerBtn').onclick = window.openAddCustomerModal;
 
 
 
+
+
+
+/* =====================
+   HOTFIX: SAFE RENDER (Crash Prevention)
+===================== */
+window.renderCustomerModalContent = function (customer, modal) {
+    const body = document.getElementById('crmModalBody');
+    if (!body || !customer) return;
+
+    // Safety checks
+    const name = customer.name || 'Okänd Kund';
+    const initials = name.substring(0, 2).toUpperCase();
+    const city = (customer.address && customer.address.city) ? customer.address.city : 'Ingen ort';
+
+    // AI Config Safety
+    let aiSection = '';
+    if (customer.aiConfig) {
+        const model = customer.aiConfig.model || 'Standard';
+        let apiKeyDisplay = 'Genereras...';
+        if (customer.aiConfig.apiKey && typeof customer.aiConfig.apiKey === 'string') {
+            apiKeyDisplay = customer.aiConfig.apiKey.substring(0, 8) + '...';
+        }
+
+        aiSection = `
+        <div class="aiInsightBox">
+            <div style="font-size:12px; text-transform:uppercase; color:var(--primary); font-weight:bold; margin-bottom:5px; display:flex; justify-content:space-between;">
+                <span>AI Status</span> <span style="font-size:16px;">🟢</span>
+            </div>
+            <div class="aiScore">ONLINE</div>
+            <div style="font-size:11px; margin-top:5px; color:var(--text-muted);">
+                <b>Modell:</b> ${model}<br>
+                <b>API Key:</b> ${apiKeyDisplay}
+            </div>
+        </div>`;
+    }
+
+    // Activities Safety (assuming crmActivities exists globally)
+    const activities = (window.crmActivities || [])
+        .filter(a => a.targetId === customer.id)
+        .sort((a, b) => new Date(b.created) - new Date(a.created));
+
+    body.innerHTML = `
+        <div class="customerProfileLayout">
+            <!-- SIDEBAR -->
+            <div class="customerSidebar" style="border-right:1px solid var(--border); overflow-y:auto; max-height:100%;">
+                 <div class="topInfo" style="text-align:center; margin-bottom:20px;">
+                    <div class="avatar-large" style="width:80px; height:80px; margin:0 auto 10px; background:#e0e7ff; color:var(--primary); font-size:32px; display:flex; align-items:center; justify-content:center; border-radius:50%;">${initials}</div>
+                    <h2 style="font-size:20px; margin:0;">${name}</h2>
+                    <p class="muted">${customer.industry || 'Okänd bransch'} • ${city}</p>
+                    
+                     <div class="row center gap" style="margin-top:15px;">
+                        <button class="btn primary small" onclick="openActivityModal('${customer.id}')"><i class="fa-solid fa-plus"></i> Aktivitet</button>
+                    </div>
+
+                    <div class="pill ${customer.aiConfig ? 'ok' : (customer.status === 'prospect' ? 'warn' : 'info')}" style="margin-top:15px;">
+                        ${customer.status === 'prospect' ? 'Prospekt' : (customer.status === 'churn' ? 'Avslutad' : 'Aktiv Kund')}
+                    </div>
+                </div>
+                 
+                 ${aiSection}
+                 
+                 <div class="contactInfoList" style="margin-top:20px;">
+                     <div style="margin-bottom:10px;">
+                        <div style="font-weight:600;">${customer.contact || '-'}</div>
+                        <div class="muted small">${customer.role || 'Ingen roll angiven'}</div>
+                    </div>
+                    <div style="margin-bottom:10px;">
+                         <a href="mailto:${customer.email}" class="link small">${customer.email || '-'}</a>
+                    </div>
+                 </div>
+            </div>
+            
+            <!-- MAIN CONTENT -->
+            <div class="customerMain" style="padding:20px; display:flex; flex-direction:column;">
+                 <div class="crmNav" style="margin-bottom:20px; flex-shrink:0;">
+                    <button class="crmNavBtn active">Översikt</button>
+                    <button class="crmNavBtn">Affärer</button>
+                </div>
+                
+                <div style="flex:1; overflow-y:auto;">
+                    <h4 style="margin-bottom:15px;">Aktivitetslogg</h4>
+                    <div class="activityTimeline">
+                        ${activities.map(a => `
+                        <div class="activityItem ${a.type}">
+                            <div class="activityMeta">${new Date(a.date || a.created).toLocaleDateString()} • ${a.type}</div>
+                            <div><b>${a.subject}</b><br>${a.description || ''}</div>
+                        </div>`).join('')}
+                         <div class="activityItem meeting">
+                            <div class="activityMeta">Idag • System</div>
+                            <div>Kundprofil öppnad.</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    `;
+
+    const title = document.getElementById('crmModalCustomerName');
+    if (title) title.textContent = name;
+}
+
