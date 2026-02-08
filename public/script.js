@@ -6754,3 +6754,6 @@ window.filterCompanyList = filterCompanyList;
 /* HOTFIX */
 window.openAddCustomerModal = function() { console.log('OPENING CUSTOMER MODAL'); const modal = document.getElementById('crmAddCustomerModal'); if(modal) { modal.style.display = 'flex'; if(window.setModalTab && modal.querySelector('#modalTabBasic')) { const btn = modal.querySelector('.tabBtn'); if(btn) window.setModalTab('modalTabBasic', btn); } } else { alert('Kunde inte öppna formulär (ID saknas)'); } };
 document.getElementById('addCustomerBtn').onclick = window.openAddCustomerModal;
+
+
+
