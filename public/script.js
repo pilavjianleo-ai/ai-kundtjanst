@@ -5364,3 +5364,462 @@ Rapporten skapad av AI Kundtjänst Säljanalys
 
 // Make globally available
 window.initSalesAnalytics = initSalesAnalytics;
+
+/* =====================
+   SALES ANALYTICS V2 - Redesigned
+   Clean, Decision-focused, User-friendly
+===================== */
+
+// State
+const salesState = {
+    favorites: JSON.parse(localStorage.getItem('salesFavorites') || '[]'),
+    onboardingShown: localStorage.getItem('salesOnboardingShown') === 'true',
+    currentMode: 'overview'
+};
+
+// KPI Definitions with thresholds and recommendations
+const kpiDefs = {
+    revenue: { label: 'Total försäljning', format: 'currency' },
+    conversion: {
+        label: 'Konverteringsgrad', format: 'percent', warnBelow: 10, dangerBelow: 5,
+        actionLow: 'Förbättra erbjudandetexter eller timing'
+    },
+    aov: { label: 'Ordervärde', format: 'currency' },
+    aiRevenue: { label: 'AI-driven försäljning', format: 'currency' },
+    orders: { label: 'Antal köp', format: 'number' },
+    convStarted: { label: 'Konversationer', format: 'number' },
+    offersShown: { label: 'Erbjudanden visade', format: 'number' },
+    offersClicked: { label: 'Klick på erbjudanden', format: 'number' },
+    dropoff: {
+        label: 'Drop-off', format: 'percent', warnAbove: 40, dangerAbove: 60,
+        actionHigh: 'Hög drop-off → Testa kortare erbjudandetext'
+    },
+    upsellRate: { label: 'Mersäljsgrad', format: 'percent' },
+    upsellRevenue: { label: 'Mersäljsintäkt', format: 'currency' },
+    rejectedOffers: {
+        label: 'Avvisade förslag', format: 'percent', warnAbove: 35, dangerAbove: 50,
+        actionHigh: 'Många avvisningar → Anpassa timing eller relevans'
+    },
+    aiConversion: { label: 'AI-konvertering', format: 'percent' },
+    promptPerformance: { label: 'Bästa prompt', format: 'text' },
+    fallbackLost: {
+        label: 'Tappad vid eskalering', format: 'currency', dangerAbove: 10000,
+        actionHigh: 'Hög förlust → Träna AI på vanliga eskaleringsfrågor'
+    },
+    clvTotal: { label: 'Genomsnittligt CLV', format: 'currency' },
+    clvAi: { label: 'CLV med AI', format: 'currency' },
+    clvGrowth: { label: 'CLV-tillväxt', format: 'percent' },
+    churnRisk: {
+        label: 'Churn-risk', format: 'percent', warnAbove: 8, dangerAbove: 15,
+        actionHigh: 'Hög churn-risk → Aktivera retention-kampanj'
+    },
+    churnFailedAi: {
+        label: 'Churn efter AI-misslyckande', format: 'percent', dangerAbove: 15,
+        actionHigh: 'Granska misslyckade AI-dialoger för förbättring'
+    },
+    highRiskCount: { label: 'Högrisk-kunder', format: 'number' },
+    predictedRevenue: { label: 'Prognostiserad intäkt', format: 'currency' },
+    hotLeads: { label: 'Heta leads', format: 'number' },
+    buyProbability: { label: 'Köpsannolikhet', format: 'percent' }
+};
+
+// Initialize
+async function initSalesAnalytics() {
+    bindSalesModeButtons();
+    bindSalesEvents();
+
+    // Show onboarding first time
+    if (!salesState.onboardingShown) {
+        showSalesOnboarding();
+    }
+
+    await loadSalesData();
+    updateFavoriteButtons();
+}
+
+function bindSalesModeButtons() {
+    document.querySelectorAll('.salesModeBtn').forEach(btn => {
+        btn.onclick = () => {
+            const mode = btn.dataset.mode;
+            switchSalesMode(mode);
+        };
+    });
+}
+
+function switchSalesMode(mode) {
+    salesState.currentMode = mode;
+
+    // Update buttons
+    document.querySelectorAll('.salesModeBtn').forEach(b => b.classList.remove('active'));
+    document.querySelector(`.salesModeBtn[data-mode="${mode}"]`)?.classList.add('active');
+
+    // Update content
+    document.querySelectorAll('.salesModeContent').forEach(c => c.style.display = 'none');
+    const modeId = 'salesMode' + mode.charAt(0).toUpperCase() + mode.slice(1);
+    const modeEl = document.getElementById(modeId);
+    if (modeEl) modeEl.style.display = '';
+
+    // Load favorites if my view
+    if (mode === 'myview') renderMyViewFavorites();
+}
+
+function bindSalesEvents() {
+    const periodFilter = document.getElementById('salesPeriodFilter');
+    if (periodFilter) periodFilter.onchange = loadSalesData;
+
+    const showOnboardingBtn = document.getElementById('showSalesOnboarding');
+    if (showOnboardingBtn) showOnboardingBtn.onclick = showSalesOnboarding;
+
+    const exportBtn = document.getElementById('exportSalesBtn');
+    if (exportBtn) exportBtn.onclick = exportSalesReport;
+}
+
+function showSalesOnboarding() {
+    const modal = document.getElementById('salesOnboarding');
+    if (modal) modal.style.display = 'flex';
+}
+
+function closeSalesOnboarding() {
+    const modal = document.getElementById('salesOnboarding');
+    if (modal) modal.style.display = 'none';
+    localStorage.setItem('salesOnboardingShown', 'true');
+    salesState.onboardingShown = true;
+}
+window.closeSalesOnboarding = closeSalesOnboarding;
+
+function toggleSalesSection(sectionId) {
+    const content = document.getElementById(sectionId + 'Content');
+    const header = content?.previousElementSibling;
+    if (!content) return;
+
+    const isOpen = content.style.display !== 'none';
+    content.style.display = isOpen ? 'none' : '';
+
+    const chevron = header?.querySelector('.sectionChevron');
+    if (chevron) {
+        chevron.style.transform = isOpen ? 'rotate(-90deg)' : '';
+    }
+}
+window.toggleSalesSection = toggleSalesSection;
+
+function toggleFavorite(kpiId) {
+    const idx = salesState.favorites.indexOf(kpiId);
+    if (idx === -1) {
+        salesState.favorites.push(kpiId);
+    } else {
+        salesState.favorites.splice(idx, 1);
+    }
+    localStorage.setItem('salesFavorites', JSON.stringify(salesState.favorites));
+    updateFavoriteButtons();
+
+    if (salesState.currentMode === 'myview') renderMyViewFavorites();
+}
+window.toggleFavorite = toggleFavorite;
+
+function updateFavoriteButtons() {
+    document.querySelectorAll('.favoriteBtn').forEach(btn => {
+        const card = btn.closest('[data-kpi]');
+        if (!card) return;
+        const kpiId = card.dataset.kpi;
+        const isFav = salesState.favorites.includes(kpiId);
+        btn.innerHTML = isFav ? '<i class="fa-solid fa-star" style="color: var(--warn);"></i>' : '<i class="fa-regular fa-star"></i>';
+    });
+}
+
+async function loadSalesData() {
+    const days = parseInt(document.getElementById('salesPeriodFilter')?.value || 30);
+    const data = generateSalesData(days);
+
+    // Update all KPIs
+    updateKpi('revenue', data.revenue, data.revenueTrend);
+    updateKpi('conversion', data.conversion, data.conversionTrend);
+    updateKpi('aov', data.aov, data.aovTrend);
+    updateKpi('aiRevenue', data.aiRevenue, data.aiRevenueTrend);
+    updateKpi('orders', data.orders, data.ordersTrend);
+
+    // Optimization mode
+    updateKpi('convStarted', data.convStarted);
+    updateKpi('offersShown', data.offersShown);
+    updateKpi('offersClicked', data.offersClicked);
+    updateKpi('dropoff', data.dropoff);
+    updateKpi('upsellRate', data.upsellRate);
+    updateKpi('upsellRevenue', data.upsellRevenue);
+    updateKpi('rejectedOffers', data.rejectedOffers);
+    updateKpi('aiConversion', data.aiConversion);
+    updateKpi('promptPerformance', data.promptPerformance);
+    updateKpi('fallbackLost', data.fallbackLost);
+
+    // Strategy mode
+    updateKpi('clvTotal', data.clvTotal);
+    updateKpi('clvAi', data.clvAi);
+    updateKpi('clvGrowth', data.clvGrowth);
+    updateKpi('churnRisk', data.churnRisk);
+    updateKpi('churnFailedAi', data.churnFailedAi);
+    updateKpi('highRiskCount', data.highRiskCount);
+    updateKpi('predictedRevenue', data.predictedRevenue);
+    updateKpi('hotLeads', data.hotLeads);
+    updateKpi('buyProbability', data.buyProbability);
+
+    // Update insights
+    updateTopInsight(data);
+    updateSectionInsights(data);
+    updateActionRecommendations(data);
+}
+
+function generateSalesData(days) {
+    const m = days / 30;
+    return {
+        revenue: Math.round(487500 * m),
+        revenueTrend: 12.4,
+        conversion: 12.4,
+        conversionTrend: 2.1,
+        aov: 1975,
+        aovTrend: -1.2,
+        aiRevenue: Math.round(316875 * m),
+        aiRevenueTrend: 18.5,
+        orders: Math.round(247 * m),
+        ordersTrend: 8.3,
+
+        convStarted: Math.round(2000 * m),
+        offersShown: Math.round(1037 * m),
+        offersClicked: Math.round(518 * m),
+        dropoff: 52.4,
+        upsellRate: 23.5,
+        upsellRevenue: Math.round(87750 * m),
+        rejectedOffers: 34.2,
+        aiConversion: 31.2,
+        promptPerformance: 'v2.1 (+18%)',
+        fallbackLost: Math.round(12400 * m),
+
+        clvTotal: 24500,
+        clvAi: 32400,
+        clvGrowth: 15.2,
+        churnRisk: 8.4,
+        churnFailedAi: 18.7,
+        highRiskCount: 12,
+        predictedRevenue: Math.round(534000 * m),
+        hotLeads: 23,
+        buyProbability: 45.8
+    };
+}
+
+function updateKpi(kpiId, value, trend = null) {
+    const def = kpiDefs[kpiId] || {};
+
+    // Format value
+    let formatted;
+    if (def.format === 'currency') {
+        formatted = value.toLocaleString('sv-SE') + ' kr';
+    } else if (def.format === 'percent') {
+        formatted = value + '%';
+    } else if (def.format === 'number') {
+        formatted = value.toLocaleString('sv-SE');
+    } else {
+        formatted = value;
+    }
+
+    // Update main value
+    const valueEl = document.getElementById('kpi_' + kpiId);
+    if (valueEl) valueEl.textContent = formatted;
+
+    // Update trend
+    if (trend !== null) {
+        const trendEl = document.getElementById('kpi_' + kpiId + '_trend');
+        if (trendEl) {
+            const isPositive = trend >= 0;
+            const color = isPositive ? 'var(--ok)' : 'var(--danger)';
+            trendEl.innerHTML = `<span style="color: ${color}; font-size: 12px;"><i class="fa-solid fa-arrow-${isPositive ? 'up' : 'down'}"></i> ${Math.abs(trend)}%</span>`;
+        }
+    }
+
+    // Check thresholds and update actions
+    const actionEl = document.getElementById('kpi_' + kpiId + '_action');
+    if (actionEl) {
+        let action = '';
+        if (def.dangerAbove && value > def.dangerAbove) {
+            action = def.actionHigh || '';
+        } else if (def.warnAbove && value > def.warnAbove) {
+            action = def.actionHigh || '';
+        } else if (def.dangerBelow && value < def.dangerBelow) {
+            action = def.actionLow || '';
+        } else if (def.warnBelow && value < def.warnBelow) {
+            action = def.actionLow || '';
+        }
+        actionEl.innerHTML = action ? `<span class="actionTip"><i class="fa-solid fa-lightbulb"></i> ${action}</span>` : '';
+    }
+
+    // Update card status
+    const card = document.querySelector(`[data-kpi="${kpiId}"]`);
+    if (card) {
+        card.classList.remove('status-ok', 'status-warn', 'status-danger');
+        if (def.dangerAbove && value > def.dangerAbove) {
+            card.classList.add('status-danger');
+        } else if (def.warnAbove && value > def.warnAbove) {
+            card.classList.add('status-warn');
+        } else if (def.dangerBelow && value < def.dangerBelow) {
+            card.classList.add('status-danger');
+        } else if (def.warnBelow && value < def.warnBelow) {
+            card.classList.add('status-warn');
+        }
+    }
+}
+
+function updateTopInsight(data) {
+    const insightEl = document.getElementById('overviewTopInsight');
+    if (!insightEl) return;
+
+    let insight = { title: '', text: '', type: 'info' };
+
+    if (data.aiRevenueTrend > 15) {
+        insight = { title: 'AI-försäljningen växer starkt', text: `+${data.aiRevenueTrend}% jämfört med förra perioden. Fortsätt med nuvarande strategi.`, type: 'ok' };
+    } else if (data.dropoff > 50) {
+        insight = { title: 'Hög drop-off påverkar intäkten', text: `${data.dropoff}% avbryter köpflödet. Överväg att förenkla erbjudanden.`, type: 'warn' };
+    } else if (data.churnRisk > 10) {
+        insight = { title: 'Ökad churn-risk detekterad', text: `${data.highRiskCount} kunder har hög risk för avhopp. Aktivera retention-åtgärder.`, type: 'danger' };
+    } else {
+        insight = { title: 'Stabil försäljningsutveckling', text: `Konverteringsgraden ligger på ${data.conversion}% med ${data.orders} genomförda köp.`, type: 'ok' };
+    }
+
+    const iconColors = { ok: 'var(--ok)', warn: 'var(--warn)', danger: 'var(--danger)', info: 'var(--primary)' };
+
+    insightEl.innerHTML = `
+    <div class="insightIcon" style="color: ${iconColors[insight.type]}"><i class="fa-solid fa-lightbulb"></i></div>
+    <div class="insightContent">
+      <div class="insightTitle">${insight.title}</div>
+      <div class="insightText">${insight.text}</div>
+    </div>
+  `;
+}
+
+function updateSectionInsights(data) {
+    const setInsight = (id, text, status = '') => {
+        const el = document.getElementById(id);
+        if (el) {
+            el.textContent = text;
+            el.className = 'sectionInsight' + (status ? ' status-' + status : '');
+        }
+    };
+
+    setInsight('salesFlowInsight', `${data.conversion}% konvertering`, data.conversion < 10 ? 'warn' : 'ok');
+    setInsight('upsellInsight', `${data.upsellRate}% mersälj`, data.upsellRate > 20 ? 'ok' : '');
+    setInsight('aiSellerInsight', `${data.aiConversion}% AI-konv.`, data.aiConversion > 25 ? 'ok' : '');
+    setInsight('clvInsight', data.clvTotal.toLocaleString('sv-SE') + ' kr', 'ok');
+    setInsight('churnInsight', data.churnRisk + '% risk', data.churnRisk > 10 ? 'danger' : 'warn');
+    setInsight('predictiveInsight', data.hotLeads + ' heta leads', 'ok');
+}
+
+function updateActionRecommendations(data) {
+    const container = document.getElementById('overviewActions');
+    if (!container) return;
+
+    const recommendations = [];
+
+    if (data.dropoff > 50) {
+        recommendations.push({ icon: 'fa-triangle-exclamation', type: 'warn', text: 'Hög drop-off (' + data.dropoff + '%) → Testa kortare erbjudandetext' });
+    }
+    if (data.churnRisk > 8) {
+        recommendations.push({ icon: 'fa-user-slash', type: 'warn', text: data.highRiskCount + ' kunder har hög churn-risk → Aktivera retention' });
+    }
+    if (data.aiRevenueTrend > 15) {
+        recommendations.push({ icon: 'fa-robot', type: 'ok', text: 'AI-försäljningen ökar (' + data.aiRevenueTrend + '%) → Expandera AI-användningen' });
+    }
+    if (data.hotLeads > 15) {
+        recommendations.push({ icon: 'fa-fire', type: 'ok', text: data.hotLeads + ' heta leads identifierade → Prioritera dessa i outreach' });
+    }
+
+    if (recommendations.length === 0) {
+        container.innerHTML = '';
+        return;
+    }
+
+    container.innerHTML = `
+    <div class="actionHeader"><i class="fa-solid fa-hand-point-right"></i> Rekommenderade åtgärder</div>
+    ${recommendations.map(r => `
+      <div class="actionItem ${r.type}">
+        <i class="fa-solid ${r.icon}"></i>
+        <span>${r.text}</span>
+      </div>
+    `).join('')}
+  `;
+}
+
+function renderMyViewFavorites() {
+    const container = document.getElementById('myViewKpiContainer');
+    const emptyEl = document.getElementById('myViewEmpty');
+    if (!container) return;
+
+    if (salesState.favorites.length === 0) {
+        if (emptyEl) emptyEl.style.display = '';
+        return;
+    }
+
+    if (emptyEl) emptyEl.style.display = 'none';
+
+    const days = parseInt(document.getElementById('salesPeriodFilter')?.value || 30);
+    const data = generateSalesData(days);
+
+    container.innerHTML = salesState.favorites.map(kpiId => {
+        const def = kpiDefs[kpiId] || { label: kpiId, format: 'text' };
+        const value = data[kpiId];
+        let formatted;
+        if (def.format === 'currency') formatted = (value || 0).toLocaleString('sv-SE') + ' kr';
+        else if (def.format === 'percent') formatted = (value || 0) + '%';
+        else if (def.format === 'number') formatted = (value || 0).toLocaleString('sv-SE');
+        else formatted = value || '-';
+
+        return `
+      <div class="myViewKpiCard" data-kpi="${kpiId}">
+        <button class="favoriteBtn" onclick="toggleFavorite('${kpiId}')"><i class="fa-solid fa-star" style="color: var(--warn);"></i></button>
+        <div class="mvKpiValue">${formatted}</div>
+        <div class="mvKpiLabel">${def.label}</div>
+      </div>
+    `;
+    }).join('');
+}
+
+function exportSalesReport() {
+    const days = document.getElementById('salesPeriodFilter')?.value || 30;
+    const data = generateSalesData(parseInt(days));
+
+    const report = `
+SÄLJANALYSRAPPORT
+=================
+Period: Senaste ${days} dagar
+Genererad: ${new Date().toLocaleString('sv-SE')}
+
+NYCKELTAL
+---------
+Total försäljning: ${data.revenue.toLocaleString('sv-SE')} kr
+Konverteringsgrad: ${data.conversion}%
+Genomsnittligt ordervärde: ${data.aov.toLocaleString('sv-SE')} kr
+AI-driven försäljning: ${data.aiRevenue.toLocaleString('sv-SE')} kr
+Antal köp: ${data.orders}
+
+OPTIMERING
+----------
+Drop-off: ${data.dropoff}%
+Mersäljsgrad: ${data.upsellRate}%
+AI-konvertering: ${data.aiConversion}%
+
+STRATEGI
+--------
+CLV (snitt): ${data.clvTotal.toLocaleString('sv-SE')} kr
+CLV med AI: ${data.clvAi.toLocaleString('sv-SE')} kr
+Churn-risk: ${data.churnRisk}%
+Heta leads: ${data.hotLeads}
+
+Rapporten skapad av AI Kundtjänst
+  `.trim();
+
+    const blob = new Blob([report], { type: 'text/plain;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `saljanalys_${new Date().toISOString().split('T')[0]}.txt`;
+    a.click();
+    URL.revokeObjectURL(url);
+
+    if (typeof toast === 'function') toast('Exporterad', 'Rapporten har laddats ner', 'success');
+}
+
+window.initSalesAnalytics = initSalesAnalytics;

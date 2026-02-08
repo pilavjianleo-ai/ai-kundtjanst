@@ -2118,372 +2118,398 @@
         </div>
       </section>
 
-      <!-- SALES ANALYTICS -->
-      <section id="salesView" class="view" style="display:none;">
-        <div class="topbar">
-          <div>
+<!-- SALES ANALYTICS - REDESIGNED -->
+<section id="salesView" class="view" style="display:none;">
+
+    <!-- ONBOARDING MODAL -->
+    <div id="salesOnboarding" class="salesOnboardingModal" style="display:none;">
+        <div class="salesOnboardingContent">
+            <button class="modalClose" onclick="closeSalesOnboarding()">&times;</button>
+            <h2 style="margin-bottom: 20px;"><i class="fa-solid fa-rocket" style="color: var(--primary);"></i> Välkommen
+                till Säljanalys</h2>
+            <div class="onboardingSteps">
+                <div class="onboardingStep">
+                    <div class="stepNumber">1</div>
+                    <div class="stepContent">
+                        <h4>Välj ditt läge</h4>
+                        <p>Börja med <b>Översikt</b> för snabb statusbild. Gå till <b>Optimering</b> för
+                            förbättringsarbete eller <b>Strategi</b> för långsiktig planering.</p>
+                    </div>
+                </div>
+                <div class="onboardingStep">
+                    <div class="stepNumber">2</div>
+                    <div class="stepContent">
+                        <h4>Fokusera på gröna och röda signaler</h4>
+                        <p>Grönt = bra, rött = kräver åtgärd. Följ rekommendationerna som visas automatiskt.</p>
+                    </div>
+                </div>
+                <div class="onboardingStep">
+                    <div class="stepNumber">3</div>
+                    <div class="stepContent">
+                        <h4>Skapa din personliga vy</h4>
+                        <p>Klicka på <i class="fa-regular fa-star"></i> för att markera favoriter och bygg din egen
+                            dashboard.</p>
+                    </div>
+                </div>
+            </div>
+            <button class="btn primary" onclick="closeSalesOnboarding()" style="margin-top: 20px;">
+                <i class="fa-solid fa-check"></i> Jag förstår, starta
+            </button>
+        </div>
+    </div>
+
+    <!-- HEADER -->
+    <div class="topbar">
+        <div>
             <div class="title"><i class="fa-solid fa-chart-column" style="color:var(--ok);"></i> Säljanalys</div>
-            <div class="subtitle muted">Komplett översikt över försäljning, konvertering och kundvärde</div>
-          </div>
-          <div class="topbarActions">
+            <div class="subtitle muted">Fatta snabba, datadrivna beslut</div>
+        </div>
+        <div class="topbarActions">
             <select id="salesPeriodFilter" class="input" style="width: auto;">
-              <option value="7">Senaste 7 dagar</option>
-              <option value="30" selected>Senaste 30 dagar</option>
-              <option value="90">Senaste 90 dagar</option>
-              <option value="365">Senaste året</option>
+                <option value="7">7 dagar</option>
+                <option value="30" selected>30 dagar</option>
+                <option value="90">90 dagar</option>
+                <option value="365">1 år</option>
             </select>
-            <button id="refreshSalesBtn" class="btn ghost" type="button">
-              <i class="fa-solid fa-rotate"></i> Uppdatera
+            <button id="showSalesOnboarding" class="btn ghost" type="button" title="Visa guide">
+                <i class="fa-solid fa-circle-question"></i>
             </button>
-            <button id="exportSalesBtn" class="btn primary" type="button">
-              <i class="fa-solid fa-download"></i> Exportera
+            <button id="exportSalesBtn" class="btn ghost" type="button">
+                <i class="fa-solid fa-download"></i>
             </button>
-          </div>
+        </div>
+    </div>
+
+    <!-- VIEW MODE SELECTOR -->
+    <div class="salesModeSelector">
+        <button class="salesModeBtn active" data-mode="overview" title="Snabb statusbild med de viktigaste nyckeltalen">
+            <i class="fa-solid fa-gauge"></i>
+            <span>Översikt</span>
+            <small>Nyckeltal</small>
+        </button>
+        <button class="salesModeBtn" data-mode="optimization" title="Optimera konvertering, AI och mersälj">
+            <i class="fa-solid fa-sliders"></i>
+            <span>Optimering</span>
+            <small>Förbättra</small>
+        </button>
+        <button class="salesModeBtn" data-mode="strategy" title="Långsiktig planering med CLV, churn och prediktioner">
+            <i class="fa-solid fa-chess"></i>
+            <span>Strategi</span>
+            <small>Planera</small>
+        </button>
+        <button class="salesModeBtn" data-mode="myview" title="Dina favoritmarkerade mätvärden">
+            <i class="fa-solid fa-star"></i>
+            <span>Min vy</span>
+            <small>Favoriter</small>
+        </button>
+    </div>
+
+    <!-- ==================== OVERVIEW MODE ==================== -->
+    <div id="salesModeOverview" class="salesModeContent">
+
+        <!-- TOP INSIGHT -->
+        <div class="topInsightCard" id="overviewTopInsight">
+            <div class="insightIcon"><i class="fa-solid fa-lightbulb"></i></div>
+            <div class="insightContent">
+                <div class="insightTitle">Laddar insikt...</div>
+                <div class="insightText">Analyserar din försäljningsdata</div>
+            </div>
         </div>
 
-        <!-- TOP KPI CARDS -->
-        <div class="statsRow"
-          style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 16px; margin: 20px 0;">
-          <div class="statCard" style="background: linear-gradient(135deg, #10b981, #059669); color: white;">
-            <div class="statIcon"><i class="fa-solid fa-sack-dollar"></i></div>
-            <div class="statValue" id="salesTotalRevenue">0 kr</div>
-            <div class="statLabel">Total försäljning</div>
-          </div>
-          <div class="statCard" style="background: linear-gradient(135deg, #3b82f6, #1d4ed8); color: white;">
-            <div class="statIcon"><i class="fa-solid fa-shopping-cart"></i></div>
-            <div class="statValue" id="salesTotalOrders">0</div>
-            <div class="statLabel">Antal köp</div>
-          </div>
-          <div class="statCard" style="background: linear-gradient(135deg, #8b5cf6, #6d28d9); color: white;">
-            <div class="statIcon"><i class="fa-solid fa-receipt"></i></div>
-            <div class="statValue" id="salesAov">0 kr</div>
-            <div class="statLabel">Genomsnittligt ordervärde</div>
-          </div>
-          <div class="statCard" style="background: linear-gradient(135deg, #f59e0b, #d97706); color: white;">
-            <div class="statIcon"><i class="fa-solid fa-percent"></i></div>
-            <div class="statValue" id="salesConversionRate">0%</div>
-            <div class="statLabel">Conversion rate</div>
-          </div>
-          <div class="statCard" style="background: linear-gradient(135deg, #ec4899, #be185d); color: white;">
-            <div class="statIcon"><i class="fa-solid fa-robot"></i></div>
-            <div class="statValue" id="salesAiRevenue">0 kr</div>
-            <div class="statLabel">AI-driven intäkt</div>
-          </div>
+        <!-- PRIMARY KPIs -->
+        <div class="salesPrimaryKpis">
+            <div class="primaryKpiCard" data-kpi="revenue">
+                <button class="favoriteBtn" onclick="toggleFavorite('revenue')" title="Markera som favorit"><i
+                        class="fa-regular fa-star"></i></button>
+                <div class="kpiValue" id="kpi_revenue">0 kr</div>
+                <div class="kpiLabel">Total försäljning <span class="kpiTooltip"
+                        title="Summan av alla genomförda köp under vald period"><i
+                            class="fa-solid fa-circle-info"></i></span></div>
+                <div class="kpiTrend" id="kpi_revenue_trend"></div>
+            </div>
+            <div class="primaryKpiCard" data-kpi="conversion">
+                <button class="favoriteBtn" onclick="toggleFavorite('conversion')" title="Markera som favorit"><i
+                        class="fa-regular fa-star"></i></button>
+                <div class="kpiValue" id="kpi_conversion">0%</div>
+                <div class="kpiLabel">Konverteringsgrad <span class="kpiTooltip"
+                        title="Andel besökare som genomför köp"><i class="fa-solid fa-circle-info"></i></span></div>
+                <div class="kpiTrend" id="kpi_conversion_trend"></div>
+            </div>
+            <div class="primaryKpiCard" data-kpi="aov">
+                <button class="favoriteBtn" onclick="toggleFavorite('aov')" title="Markera som favorit"><i
+                        class="fa-regular fa-star"></i></button>
+                <div class="kpiValue" id="kpi_aov">0 kr</div>
+                <div class="kpiLabel">Ordervärde (snitt) <span class="kpiTooltip"
+                        title="Genomsnittligt belopp per order"><i class="fa-solid fa-circle-info"></i></span></div>
+                <div class="kpiTrend" id="kpi_aov_trend"></div>
+            </div>
+            <div class="primaryKpiCard" data-kpi="aiRevenue">
+                <button class="favoriteBtn" onclick="toggleFavorite('aiRevenue')" title="Markera som favorit"><i
+                        class="fa-regular fa-star"></i></button>
+                <div class="kpiValue" id="kpi_aiRevenue">0 kr</div>
+                <div class="kpiLabel">AI-driven försäljning <span class="kpiTooltip"
+                        title="Intäkter från köp där AI var involverad"><i class="fa-solid fa-circle-info"></i></span>
+                </div>
+                <div class="kpiTrend" id="kpi_aiRevenue_trend"></div>
+            </div>
+            <div class="primaryKpiCard" data-kpi="orders">
+                <button class="favoriteBtn" onclick="toggleFavorite('orders')" title="Markera som favorit"><i
+                        class="fa-regular fa-star"></i></button>
+                <div class="kpiValue" id="kpi_orders">0</div>
+                <div class="kpiLabel">Antal köp <span class="kpiTooltip" title="Totalt antal genomförda ordrar"><i
+                            class="fa-solid fa-circle-info"></i></span></div>
+                <div class="kpiTrend" id="kpi_orders_trend"></div>
+            </div>
         </div>
 
-        <!-- CATEGORY TABS -->
-        <div class="salesTabs"
-          style="display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 20px; border-bottom: 2px solid var(--border); padding-bottom: 10px;">
-          <button class="salesTabBtn active" data-tab="salesCore" type="button">📊 Grundläggande</button>
-          <button class="salesTabBtn" data-tab="salesFunnel" type="button">🔄 Konvertering</button>
-          <button class="salesTabBtn" data-tab="salesUpsell" type="button">📈 Mersälj</button>
-          <button class="salesTabBtn" data-tab="salesProducts" type="button">📦 Produkter</button>
-          <button class="salesTabBtn" data-tab="salesCustomers" type="button">👥 Kunder</button>
-          <button class="salesTabBtn" data-tab="salesAi" type="button">🤖 AI Performance</button>
-          <button class="salesTabBtn" data-tab="salesPredictive" type="button">🔮 Prediktiv</button>
-          <button class="salesTabBtn" data-tab="salesChurn" type="button">⚠️ Churn</button>
-          <button class="salesTabBtn" data-tab="salesClv" type="button">💎 CLV</button>
+        <!-- ACTION RECOMMENDATIONS -->
+        <div class="actionRecommendations" id="overviewActions"></div>
+    </div>
+
+    <!-- ==================== OPTIMIZATION MODE ==================== -->
+    <div id="salesModeOptimization" class="salesModeContent" style="display:none;">
+
+        <!-- Sales Flow Section -->
+        <div class="salesSection">
+            <div class="salesSectionHeader" onclick="toggleSalesSection('salesFlow')">
+                <div class="sectionTitle"><i class="fa-solid fa-filter"></i> <span>Försäljningsflöde</span> <span
+                        class="sectionInsight" id="salesFlowInsight"></span></div>
+                <i class="fa-solid fa-chevron-down sectionChevron"></i>
+            </div>
+            <div class="salesSectionContent" id="salesFlowContent">
+                <div class="secondaryKpiGrid">
+                    <div class="secondaryKpiCard" data-kpi="convStarted">
+                        <button class="favoriteBtn" onclick="toggleFavorite('convStarted')"><i
+                                class="fa-regular fa-star"></i></button>
+                        <div class="skpiLabel">Startade konversationer <i class="fa-solid fa-circle-info kpiInfo"
+                                title="Antal chattar som initierats"></i></div>
+                        <div class="skpiValue" id="kpi_convStarted">-</div>
+                    </div>
+                    <div class="secondaryKpiCard" data-kpi="offersShown">
+                        <button class="favoriteBtn" onclick="toggleFavorite('offersShown')"><i
+                                class="fa-regular fa-star"></i></button>
+                        <div class="skpiLabel">Erbjudanden visade <i class="fa-solid fa-circle-info kpiInfo"
+                                title="Antal säljförslag som presenterats"></i></div>
+                        <div class="skpiValue" id="kpi_offersShown">-</div>
+                    </div>
+                    <div class="secondaryKpiCard" data-kpi="offersClicked">
+                        <button class="favoriteBtn" onclick="toggleFavorite('offersClicked')"><i
+                                class="fa-regular fa-star"></i></button>
+                        <div class="skpiLabel">Klick på erbjudanden <i class="fa-solid fa-circle-info kpiInfo"
+                                title="Antal gånger kunder klickade på förslag"></i></div>
+                        <div class="skpiValue" id="kpi_offersClicked">-</div>
+                    </div>
+                    <div class="secondaryKpiCard status-warn" data-kpi="dropoff">
+                        <button class="favoriteBtn" onclick="toggleFavorite('dropoff')"><i
+                                class="fa-regular fa-star"></i></button>
+                        <div class="skpiLabel">Drop-off <i class="fa-solid fa-circle-info kpiInfo"
+                                title="Andel som avbröt innan köp"></i></div>
+                        <div class="skpiValue" id="kpi_dropoff">-</div>
+                        <div class="skpiAction" id="kpi_dropoff_action"></div>
+                    </div>
+                </div>
+            </div>
         </div>
 
-        <!-- TAB: CORE SALES -->
-        <div id="salesCore" class="salesTabContent">
-          <div class="grid2">
-            <div class="panel">
-              <div class="panelHead"><b><i class="fa-solid fa-coins"></i> Intäktsöversikt</b></div>
-              <div class="salesMetricGrid" style="display: grid; gap: 12px; margin-top: 15px;">
-                <div class="salesMetricRow"><span>Total försäljning (SEK)</span><span id="sm_totalRevenue"
-                    class="salesMetricValue">-</span></div>
-                <div class="salesMetricRow"><span>Antal köp</span><span id="sm_totalOrders"
-                    class="salesMetricValue">-</span></div>
-                <div class="salesMetricRow"><span>Genomsnittligt ordervärde (AOV)</span><span id="sm_aov"
-                    class="salesMetricValue">-</span></div>
-                <div class="salesMetricRow"><span>Intäkt per konversation</span><span id="sm_revenuePerConv"
-                    class="salesMetricValue">-</span></div>
-                <div class="salesMetricRow"><span>Intäkt per AI-rekommendation</span><span id="sm_revenuePerAi"
-                    class="salesMetricValue">-</span></div>
-              </div>
+        <!-- Upsell Section -->
+        <div class="salesSection">
+            <div class="salesSectionHeader" onclick="toggleSalesSection('upsell')">
+                <div class="sectionTitle"><i class="fa-solid fa-arrow-up-right-dots"></i> <span>Mersälj &
+                        Korsförsäljning</span> <span class="sectionInsight" id="upsellInsight"></span></div>
+                <i class="fa-solid fa-chevron-down sectionChevron"></i>
             </div>
-            <div class="panel">
-              <div class="panelHead"><b><i class="fa-solid fa-chart-line"></i> Trendöversikt</b></div>
-              <div id="salesTrendChart"
-                style="height: 200px; display: flex; align-items: center; justify-content: center; background: var(--panel2); border-radius: 8px; margin-top: 15px;">
-                <span class="muted">📈 Försäljningstrend visas här</span>
-              </div>
+            <div class="salesSectionContent" id="upsellContent">
+                <div class="secondaryKpiGrid">
+                    <div class="secondaryKpiCard" data-kpi="upsellRate">
+                        <button class="favoriteBtn" onclick="toggleFavorite('upsellRate')"><i
+                                class="fa-regular fa-star"></i></button>
+                        <div class="skpiLabel">Mersäljsgrad <i class="fa-solid fa-circle-info kpiInfo"
+                                title="Andel ordrar med tilläggsprodukter"></i></div>
+                        <div class="skpiValue" id="kpi_upsellRate">-</div>
+                    </div>
+                    <div class="secondaryKpiCard" data-kpi="upsellRevenue">
+                        <button class="favoriteBtn" onclick="toggleFavorite('upsellRevenue')"><i
+                                class="fa-regular fa-star"></i></button>
+                        <div class="skpiLabel">Mersäljsintäkt <i class="fa-solid fa-circle-info kpiInfo"
+                                title="Extra intäkt från tilläggsprodukter"></i></div>
+                        <div class="skpiValue" id="kpi_upsellRevenue">-</div>
+                    </div>
+                    <div class="secondaryKpiCard status-warn" data-kpi="rejectedOffers">
+                        <button class="favoriteBtn" onclick="toggleFavorite('rejectedOffers')"><i
+                                class="fa-regular fa-star"></i></button>
+                        <div class="skpiLabel">Avvisade förslag <i class="fa-solid fa-circle-info kpiInfo"
+                                title="Andel erbjudanden som nekades"></i></div>
+                        <div class="skpiValue" id="kpi_rejectedOffers">-</div>
+                        <div class="skpiAction" id="kpi_rejectedOffers_action"></div>
+                    </div>
+                </div>
             </div>
-          </div>
         </div>
 
-        <!-- TAB: FUNNEL -->
-        <div id="salesFunnel" class="salesTabContent" style="display:none;">
-          <div class="grid2">
-            <div class="panel">
-              <div class="panelHead"><b><i class="fa-solid fa-filter"></i> Konverteringstratt</b></div>
-              <div class="salesMetricGrid" style="margin-top: 15px;">
-                <div class="salesMetricRow"><span>Konversationer startade</span><span id="sm_convStarted"
-                    class="salesMetricValue">-</span></div>
-                <div class="salesMetricRow"><span>Erbjudanden visade</span><span id="sm_offersShown"
-                    class="salesMetricValue">-</span></div>
-                <div class="salesMetricRow"><span>Klick på erbjudanden</span><span id="sm_offersClicked"
-                    class="salesMetricValue">-</span></div>
-                <div class="salesMetricRow"><span>Köp genomförda</span><span id="sm_purchasesMade"
-                    class="salesMetricValue">-</span></div>
-                <div class="salesMetricRow"><span>Funnel conversion rate</span><span id="sm_funnelRate"
-                    class="salesMetricValue">-</span></div>
-              </div>
+        <!-- AI as Salesperson Section -->
+        <div class="salesSection">
+            <div class="salesSectionHeader" onclick="toggleSalesSection('aiSeller')">
+                <div class="sectionTitle"><i class="fa-solid fa-robot"></i> <span>AI som säljare</span> <span
+                        class="sectionInsight" id="aiSellerInsight"></span></div>
+                <i class="fa-solid fa-chevron-down sectionChevron"></i>
             </div>
-            <div class="panel">
-              <div class="panelHead"><b><i class="fa-solid fa-arrow-trend-down"></i> Drop-off Analys</b></div>
-              <div class="salesMetricGrid" style="margin-top: 15px;">
-                <div class="salesMetricRow"><span>Drop-off: Visa → Klick</span><span id="sm_dropoff1"
-                    class="salesMetricValue text-warn">-</span></div>
-                <div class="salesMetricRow"><span>Drop-off: Klick → Köp</span><span id="sm_dropoff2"
-                    class="salesMetricValue text-warn">-</span></div>
-                <div class="salesMetricRow"><span>Conversion rate (AI → köp)</span><span id="sm_aiToSale"
-                    class="salesMetricValue">-</span></div>
-              </div>
+            <div class="salesSectionContent" id="aiSellerContent">
+                <div class="secondaryKpiGrid">
+                    <div class="secondaryKpiCard" data-kpi="aiConversion">
+                        <button class="favoriteBtn" onclick="toggleFavorite('aiConversion')"><i
+                                class="fa-regular fa-star"></i></button>
+                        <div class="skpiLabel">AI-konvertering <i class="fa-solid fa-circle-info kpiInfo"
+                                title="Andel AI-förslag som ledde till köp"></i></div>
+                        <div class="skpiValue" id="kpi_aiConversion">-</div>
+                    </div>
+                    <div class="secondaryKpiCard" data-kpi="promptPerformance">
+                        <button class="favoriteBtn" onclick="toggleFavorite('promptPerformance')"><i
+                                class="fa-regular fa-star"></i></button>
+                        <div class="skpiLabel">Bästa prompt <i class="fa-solid fa-circle-info kpiInfo"
+                                title="Promptversion med högst konvertering"></i></div>
+                        <div class="skpiValue" id="kpi_promptPerformance">-</div>
+                    </div>
+                    <div class="secondaryKpiCard status-danger" data-kpi="fallbackLost">
+                        <button class="favoriteBtn" onclick="toggleFavorite('fallbackLost')"><i
+                                class="fa-regular fa-star"></i></button>
+                        <div class="skpiLabel">Tappad vid eskalering <i class="fa-solid fa-circle-info kpiInfo"
+                                title="Förlorad intäkt när AI eskalerade"></i></div>
+                        <div class="skpiValue" id="kpi_fallbackLost">-</div>
+                        <div class="skpiAction" id="kpi_fallbackLost_action"></div>
+                    </div>
+                </div>
             </div>
-          </div>
+        </div>
+    </div>
+
+    <!-- ==================== STRATEGY MODE ==================== -->
+    <div id="salesModeStrategy" class="salesModeContent" style="display:none;">
+
+        <!-- CLV Section -->
+        <div class="salesSection">
+            <div class="salesSectionHeader" onclick="toggleSalesSection('clv')">
+                <div class="sectionTitle"><i class="fa-solid fa-gem"></i> <span>Kundlivstidsvärde (CLV)</span> <span
+                        class="sectionInsight" id="clvInsight"></span></div>
+                <i class="fa-solid fa-chevron-down sectionChevron"></i>
+            </div>
+            <div class="salesSectionContent" id="clvContent">
+                <div class="secondaryKpiGrid">
+                    <div class="secondaryKpiCard status-ok" data-kpi="clvTotal">
+                        <button class="favoriteBtn" onclick="toggleFavorite('clvTotal')"><i
+                                class="fa-regular fa-star"></i></button>
+                        <div class="skpiLabel">Genomsnittligt CLV <i class="fa-solid fa-circle-info kpiInfo"
+                                title="Förväntat livstidsvärde per kund"></i></div>
+                        <div class="skpiValue" id="kpi_clvTotal">-</div>
+                    </div>
+                    <div class="secondaryKpiCard status-ok" data-kpi="clvAi">
+                        <button class="favoriteBtn" onclick="toggleFavorite('clvAi')"><i
+                                class="fa-regular fa-star"></i></button>
+                        <div class="skpiLabel">CLV med AI <i class="fa-solid fa-circle-info kpiInfo"
+                                title="CLV för kunder som interagerat med AI"></i></div>
+                        <div class="skpiValue" id="kpi_clvAi">-</div>
+                    </div>
+                    <div class="secondaryKpiCard" data-kpi="clvGrowth">
+                        <button class="favoriteBtn" onclick="toggleFavorite('clvGrowth')"><i
+                                class="fa-regular fa-star"></i></button>
+                        <div class="skpiLabel">CLV-tillväxt <i class="fa-solid fa-circle-info kpiInfo"
+                                title="Förändring av CLV över tid"></i></div>
+                        <div class="skpiValue" id="kpi_clvGrowth">-</div>
+                    </div>
+                </div>
+            </div>
         </div>
 
-        <!-- TAB: UPSELL -->
-        <div id="salesUpsell" class="salesTabContent" style="display:none;">
-          <div class="grid2">
-            <div class="panel">
-              <div class="panelHead"><b><i class="fa-solid fa-arrow-up-right-dots"></i> Mersälj</b></div>
-              <div class="salesMetricGrid" style="margin-top: 15px;">
-                <div class="salesMetricRow"><span>Mersäljsgrad (%)</span><span id="sm_upsellRate"
-                    class="salesMetricValue">-</span></div>
-                <div class="salesMetricRow"><span>Mersäljsintäkt (SEK)</span><span id="sm_upsellRevenue"
-                    class="salesMetricValue">-</span></div>
-                <div class="salesMetricRow"><span>Genomsnittligt mersäljsvärde</span><span id="sm_avgUpsellValue"
-                    class="salesMetricValue">-</span></div>
-                <div class="salesMetricRow"><span>Korsförsäljningsfrekvens</span><span id="sm_crossSellFreq"
-                    class="salesMetricValue">-</span></div>
-              </div>
+        <!-- Churn Section -->
+        <div class="salesSection">
+            <div class="salesSectionHeader" onclick="toggleSalesSection('churn')">
+                <div class="sectionTitle"><i class="fa-solid fa-user-slash"></i> <span>Kundbortfall (Churn)</span> <span
+                        class="sectionInsight status-warn" id="churnInsight"></span></div>
+                <i class="fa-solid fa-chevron-down sectionChevron"></i>
             </div>
-            <div class="panel">
-              <div class="panelHead"><b><i class="fa-solid fa-clock"></i> Timing & Avvisning</b></div>
-              <div class="salesMetricGrid" style="margin-top: 15px;">
-                <div class="salesMetricRow"><span>Avvisade säljförslag (%)</span><span id="sm_rejectedOffers"
-                    class="salesMetricValue text-warn">-</span></div>
-                <div class="salesMetricRow"><span>Tid från AI-förslag till köp</span><span id="sm_timeToSale"
-                    class="salesMetricValue">-</span></div>
-                <div class="salesMetricRow"><span>Timing-effekt på erbjudanden</span><span id="sm_timingEffect"
-                    class="salesMetricValue">-</span></div>
-              </div>
+            <div class="salesSectionContent" id="churnContent">
+                <div class="secondaryKpiGrid">
+                    <div class="secondaryKpiCard status-warn" data-kpi="churnRisk">
+                        <button class="favoriteBtn" onclick="toggleFavorite('churnRisk')"><i
+                                class="fa-regular fa-star"></i></button>
+                        <div class="skpiLabel">Genomsnittlig churn-risk <i class="fa-solid fa-circle-info kpiInfo"
+                                title="Andel kunder med hög avhoppsrisk"></i></div>
+                        <div class="skpiValue" id="kpi_churnRisk">-</div>
+                        <div class="skpiAction" id="kpi_churnRisk_action"></div>
+                    </div>
+                    <div class="secondaryKpiCard status-danger" data-kpi="churnFailedAi">
+                        <button class="favoriteBtn" onclick="toggleFavorite('churnFailedAi')"><i
+                                class="fa-regular fa-star"></i></button>
+                        <div class="skpiLabel">Churn efter AI-misslyckande <i class="fa-solid fa-circle-info kpiInfo"
+                                title="Avhopp efter dålig AI-upplevelse"></i></div>
+                        <div class="skpiValue" id="kpi_churnFailedAi">-</div>
+                        <div class="skpiAction" id="kpi_churnFailedAi_action"></div>
+                    </div>
+                    <div class="secondaryKpiCard" data-kpi="highRiskCount">
+                        <button class="favoriteBtn" onclick="toggleFavorite('highRiskCount')"><i
+                                class="fa-regular fa-star"></i></button>
+                        <div class="skpiLabel">Högrisk-kunder <i class="fa-solid fa-circle-info kpiInfo"
+                                title="Antal kunder med >70% churn-risk"></i></div>
+                        <div class="skpiValue" id="kpi_highRiskCount">-</div>
+                    </div>
+                </div>
             </div>
-          </div>
         </div>
 
-        <!-- TAB: PRODUCTS -->
-        <div id="salesProducts" class="salesTabContent" style="display:none;">
-          <div class="grid2">
-            <div class="panel">
-              <div class="panelHead"><b><i class="fa-solid fa-box"></i> Produktstatistik</b></div>
-              <div class="salesMetricGrid" style="margin-top: 15px;">
-                <div class="salesMetricRow"><span>Antal produkter per order</span><span id="sm_productsPerOrder"
-                    class="salesMetricValue">-</span></div>
-                <div class="salesMetricRow"><span>Single-item orders</span><span id="sm_singleItemOrders"
-                    class="salesMetricValue">-</span></div>
-                <div class="salesMetricRow"><span>Bundle-orders</span><span id="sm_bundleOrders"
-                    class="salesMetricValue">-</span></div>
-              </div>
+        <!-- Predictive Section -->
+        <div class="salesSection">
+            <div class="salesSectionHeader" onclick="toggleSalesSection('predictive')">
+                <div class="sectionTitle"><i class="fa-solid fa-crystal-ball"></i> <span>Prediktiv analys</span> <span
+                        class="sectionInsight" id="predictiveInsight"></span></div>
+                <i class="fa-solid fa-chevron-down sectionChevron"></i>
             </div>
-            <div class="panel">
-              <div class="panelHead"><b><i class="fa-solid fa-ranking-star"></i> Topprodukter</b></div>
-              <div id="salesTopProducts" style="margin-top: 15px;">
-                <div class="muted center" style="padding: 20px;">Laddar produktdata...</div>
-              </div>
+            <div class="salesSectionContent" id="predictiveContent">
+                <div class="secondaryKpiGrid">
+                    <div class="secondaryKpiCard" data-kpi="predictedRevenue">
+                        <button class="favoriteBtn" onclick="toggleFavorite('predictedRevenue')"><i
+                                class="fa-regular fa-star"></i></button>
+                        <div class="skpiLabel">Prognostiserad intäkt <i class="fa-solid fa-circle-info kpiInfo"
+                                title="Förväntad försäljning nästa period"></i></div>
+                        <div class="skpiValue" id="kpi_predictedRevenue">-</div>
+                    </div>
+                    <div class="secondaryKpiCard status-ok" data-kpi="hotLeads">
+                        <button class="favoriteBtn" onclick="toggleFavorite('hotLeads')"><i
+                                class="fa-regular fa-star"></i></button>
+                        <div class="skpiLabel">Heta leads <i class="fa-solid fa-circle-info kpiInfo"
+                                title="Kunder med >80% köpsannolikhet"></i></div>
+                        <div class="skpiValue" id="kpi_hotLeads">-</div>
+                    </div>
+                    <div class="secondaryKpiCard" data-kpi="buyProbability">
+                        <button class="favoriteBtn" onclick="toggleFavorite('buyProbability')"><i
+                                class="fa-regular fa-star"></i></button>
+                        <div class="skpiLabel">Köpsannolikhet (snitt) <i class="fa-solid fa-circle-info kpiInfo"
+                                title="Genomsnittlig sannolikhet för köp"></i></div>
+                        <div class="skpiValue" id="kpi_buyProbability">-</div>
+                    </div>
+                </div>
             </div>
-            <div class="panel">
-              <div class="panelHead"><b><i class="fa-solid fa-tags"></i> Sälj per intentkategori</b></div>
-              <div id="salesByIntent" style="margin-top: 15px;">
-                <div class="muted center" style="padding: 20px;">Laddar intentdata...</div>
-              </div>
-            </div>
-          </div>
         </div>
+    </div>
 
-        <!-- TAB: CUSTOMERS -->
-        <div id="salesCustomers" class="salesTabContent" style="display:none;">
-          <div class="grid2">
-            <div class="panel">
-              <div class="panelHead"><b><i class="fa-solid fa-user-plus"></i> Kundtyper</b></div>
-              <div class="salesMetricGrid" style="margin-top: 15px;">
-                <div class="salesMetricRow"><span>Nya kunder</span><span id="sm_newCustomers"
-                    class="salesMetricValue">-</span></div>
-                <div class="salesMetricRow"><span>Återkommande kunder</span><span id="sm_returningCustomers"
-                    class="salesMetricValue">-</span></div>
-                <div class="salesMetricRow"><span>Köp per kundtyp (ny)</span><span id="sm_purchasesNew"
-                    class="salesMetricValue">-</span></div>
-                <div class="salesMetricRow"><span>Köp per kundtyp (återk.)</span><span id="sm_purchasesReturning"
-                    class="salesMetricValue">-</span></div>
-              </div>
+    <!-- ==================== MY VIEW MODE ==================== -->
+    <div id="salesModeMyview" class="salesModeContent" style="display:none;">
+        <div class="myViewContainer">
+            <div class="myViewHeader">
+                <h3><i class="fa-solid fa-star" style="color: var(--warn);"></i> Mina favoriter</h3>
+                <p class="muted">Klicka på <i class="fa-regular fa-star"></i> bredvid valfritt mätvärde för att lägga
+                    till det här.</p>
             </div>
-            <div class="panel">
-              <div class="panelHead"><b><i class="fa-solid fa-clock-rotate-left"></i> Beteendeanalys</b></div>
-              <div class="salesMetricGrid" style="margin-top: 15px;">
-                <div class="salesMetricRow"><span>Köp per kanal</span><span id="sm_purchasesByChannel"
-                    class="salesMetricValue">-</span></div>
-                <div class="salesMetricRow"><span>Köp per tidpunkt (peak)</span><span id="sm_peakTime"
-                    class="salesMetricValue">-</span></div>
-                <div class="salesMetricRow"><span>Köp efter löst supportärende</span><span id="sm_postSupportPurchase"
-                    class="salesMetricValue">-</span></div>
-                <div class="salesMetricRow"><span>Retur-/ångerkvot</span><span id="sm_returnRate"
-                    class="salesMetricValue text-warn">-</span></div>
-                <div class="salesMetricRow"><span>Repetitiva köp via AI</span><span id="sm_repeatAiPurchases"
-                    class="salesMetricValue">-</span></div>
-              </div>
+            <div class="myViewKpis" id="myViewKpiContainer">
+                <div class="myViewEmpty" id="myViewEmpty">
+                    <i class="fa-regular fa-star" style="font-size: 48px; opacity: 0.3; margin-bottom: 16px;"></i>
+                    <p>Du har inga favoriter ännu</p>
+                    <p class="muted">Gå till Översikt, Optimering eller Strategi och markera de mätvärden du vill se
+                        här.</p>
+                </div>
             </div>
-          </div>
         </div>
+    </div>
 
-        <!-- TAB: AI PERFORMANCE -->
-        <div id="salesAi" class="salesTabContent" style="display:none;">
-          <div class="grid2">
-            <div class="panel">
-              <div class="panelHead"><b><i class="fa-solid fa-microchip"></i> Promptprestanda</b></div>
-              <div class="salesMetricGrid" style="margin-top: 15px;">
-                <div class="salesMetricRow"><span>Conversion rate per promptversion</span><span id="sm_convPerPrompt"
-                    class="salesMetricValue">-</span></div>
-                <div class="salesMetricRow"><span>Intäkt per promptversion</span><span id="sm_revenuePerPrompt"
-                    class="salesMetricValue">-</span></div>
-                <div class="salesMetricRow"><span>Intäkt per modell</span><span id="sm_revenuePerModel"
-                    class="salesMetricValue">-</span></div>
-                <div class="salesMetricRow"><span>Förslag → köp-ratio</span><span id="sm_suggestionToSale"
-                    class="salesMetricValue">-</span></div>
-              </div>
-            </div>
-            <div class="panel">
-              <div class="panelHead"><b><i class="fa-solid fa-triangle-exclamation"></i> Tappade affärer</b></div>
-              <div class="salesMetricGrid" style="margin-top: 15px;">
-                <div class="salesMetricRow"><span>Fallback till människa → tappad sälj</span><span id="sm_fallbackLost"
-                    class="salesMetricValue text-danger">-</span></div>
-                <div class="salesMetricRow"><span>Misslyckade AI-dialoger → tappad intäkt</span><span
-                    id="sm_failedAiLost" class="salesMetricValue text-danger">-</span></div>
-              </div>
-            </div>
-            <div class="panel">
-              <div class="panelHead"><b><i class="fa-solid fa-flask"></i> A/B-testning</b></div>
-              <div class="salesMetricGrid" style="margin-top: 15px;">
-                <div class="salesMetricRow"><span>Prompt A vs B – intäktsjämförelse</span><span id="sm_abComparison"
-                    class="salesMetricValue">-</span></div>
-                <div class="salesMetricRow"><span>Sälj per säljstrategi</span><span id="sm_salesByStrategy"
-                    class="salesMetricValue">-</span></div>
-                <div class="salesMetricRow"><span>Timing-effekt på erbjudanden</span><span id="sm_offerTiming"
-                    class="salesMetricValue">-</span></div>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <!-- TAB: PREDICTIVE -->
-        <div id="salesPredictive" class="salesTabContent" style="display:none;">
-          <div class="panel"
-            style="background: linear-gradient(135deg, var(--primary), #8b5cf6); color: white; margin-bottom: 16px;">
-            <div class="panelHead" style="color: white;"><b><i class="fa-solid fa-brain"></i> Prediktiv AI-analys</b>
-            </div>
-            <p style="opacity: 0.9; margin-top: 10px;">Maskininlärningsbaserade sannolikheter för framtida kundbeteenden
-            </p>
-          </div>
-          <div class="grid2">
-            <div class="panel">
-              <div class="panelHead"><b><i class="fa-solid fa-chart-pie"></i> Köpsannolikhet</b></div>
-              <div class="salesMetricGrid" style="margin-top: 15px;">
-                <div class="salesMetricRow"><span>Per konversation (%)</span><span id="sm_probConv"
-                    class="salesMetricValue">-</span></div>
-                <div class="salesMetricRow"><span>Per kund (%)</span><span id="sm_probCustomer"
-                    class="salesMetricValue">-</span></div>
-                <div class="salesMetricRow"><span>Per produkt (%)</span><span id="sm_probProduct"
-                    class="salesMetricValue">-</span></div>
-                <div class="salesMetricRow"><span>Per intent (%)</span><span id="sm_probIntent"
-                    class="salesMetricValue">-</span></div>
-                <div class="salesMetricRow"><span>Per sentiment (%)</span><span id="sm_probSentiment"
-                    class="salesMetricValue">-</span></div>
-              </div>
-            </div>
-            <div class="panel">
-              <div class="panelHead"><b><i class="fa-solid fa-bullseye"></i> Högsannolikhets-leads</b></div>
-              <div id="salesHighProbLeads" style="margin-top: 15px;">
-                <div class="muted center" style="padding: 20px;">Analyserar kunddata...</div>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <!-- TAB: CHURN -->
-        <div id="salesChurn" class="salesTabContent" style="display:none;">
-          <div class="panel"
-            style="background: linear-gradient(135deg, #ef4444, #b91c1c); color: white; margin-bottom: 16px;">
-            <div class="panelHead" style="color: white;"><b><i class="fa-solid fa-user-slash"></i> Churn-riskanalys</b>
-            </div>
-            <p style="opacity: 0.9; margin-top: 10px;">Identifiera kunder med hög risk för avhopp</p>
-          </div>
-          <div class="grid2">
-            <div class="panel">
-              <div class="panelHead"><b><i class="fa-solid fa-gauge-high"></i> Churn-risknivåer</b></div>
-              <div class="salesMetricGrid" style="margin-top: 15px;">
-                <div class="salesMetricRow"><span>Churn-risk per kund (%)</span><span id="sm_churnCustomer"
-                    class="salesMetricValue text-warn">-</span></div>
-                <div class="salesMetricRow"><span>Churn efter avvisat erbjudande</span><span id="sm_churnRejected"
-                    class="salesMetricValue text-warn">-</span></div>
-                <div class="salesMetricRow"><span>Churn efter misslyckad AI-dialog</span><span id="sm_churnFailedAi"
-                    class="salesMetricValue text-danger">-</span></div>
-                <div class="salesMetricRow"><span>Churn efter eskalering till människa</span><span
-                    id="sm_churnEscalated" class="salesMetricValue text-warn">-</span></div>
-                <div class="salesMetricRow"><span>Churn per kundsegment</span><span id="sm_churnSegment"
-                    class="salesMetricValue">-</span></div>
-              </div>
-            </div>
-            <div class="panel">
-              <div class="panelHead"><b><i class="fa-solid fa-users-slash"></i> Högrisk-kunder</b></div>
-              <div id="salesHighChurnRisk" style="margin-top: 15px;">
-                <div class="muted center" style="padding: 20px;">Analyserar churn-risk...</div>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <!-- TAB: CLV -->
-        <div id="salesClv" class="salesTabContent" style="display:none;">
-          <div class="panel"
-            style="background: linear-gradient(135deg, #10b981, #059669); color: white; margin-bottom: 16px;">
-            <div class="panelHead" style="color: white;"><b><i class="fa-solid fa-gem"></i> Customer Lifetime Value</b>
-            </div>
-            <p style="opacity: 0.9; margin-top: 10px;">Långsiktigt kundvärde och AI-påverkan</p>
-          </div>
-          <div class="grid2">
-            <div class="panel">
-              <div class="panelHead"><b><i class="fa-solid fa-crown"></i> CLV Översikt</b></div>
-              <div class="salesMetricGrid" style="margin-top: 15px;">
-                <div class="salesMetricRow"><span>Customer Lifetime Value (CLV)</span><span id="sm_clvTotal"
-                    class="salesMetricValue text-ok">-</span></div>
-                <div class="salesMetricRow"><span>AI-påverkad CLV</span><span id="sm_clvAiInfluenced"
-                    class="salesMetricValue text-ok">-</span></div>
-                <div class="salesMetricRow"><span>CLV för AI-interagerade kunder</span><span id="sm_clvAiCustomers"
-                    class="salesMetricValue">-</span></div>
-                <div class="salesMetricRow"><span>CLV för icke AI-interagerade</span><span id="sm_clvNonAiCustomers"
-                    class="salesMetricValue">-</span></div>
-              </div>
-            </div>
-            <div class="panel">
-              <div class="panelHead"><b><i class="fa-solid fa-arrow-trend-up"></i> CLV Tillväxt</b></div>
-              <div class="salesMetricGrid" style="margin-top: 15px;">
-                <div class="salesMetricRow"><span>CLV före AI-interaktion</span><span id="sm_clvPreAi"
-                    class="salesMetricValue">-</span></div>
-                <div class="salesMetricRow"><span>CLV efter AI-interaktion</span><span id="sm_clvPostAi"
-                    class="salesMetricValue text-ok">-</span></div>
-                <div class="salesMetricRow"><span>CLV per promptversion</span><span id="sm_clvPerPrompt"
-                    class="salesMetricValue">-</span></div>
-                <div class="salesMetricRow"><span>CLV per modell</span><span id="sm_clvPerModel"
-                    class="salesMetricValue">-</span></div>
-                <div class="salesMetricRow"><span>CLV per säljstrategi</span><span id="sm_clvPerStrategy"
-                    class="salesMetricValue">-</span></div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </section>
+</section>
 
     </main>
   </div>

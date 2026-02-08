@@ -1889,4 +1889,448 @@ input[type="range"].slider::-webkit-slider-thumb {
 input[type="range"].slider::-webkit-slider-thumb:hover {
   transform: scale(1.1);
   box-shadow: 0 0 10px var(--primary);
+}/* =====================
+   SALES ANALYTICS V2 STYLES
+===================== */
+
+/* Onboarding Modal */
+.salesOnboardingModal {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.7);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 1000;
+    backdrop-filter: blur(4px);
+}
+
+.salesOnboardingContent {
+    background: var(--panel);
+    border-radius: 16px;
+    padding: 30px;
+    max-width: 500px;
+    position: relative;
+    box-shadow: var(--shadow);
+}
+
+.onboardingSteps {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+}
+
+.onboardingStep {
+    display: flex;
+    gap: 16px;
+    align-items: flex-start;
+}
+
+.stepNumber {
+    width: 32px;
+    height: 32px;
+    background: var(--primary);
+    color: white;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 700;
+    flex-shrink: 0;
+}
+
+.stepContent h4 {
+    margin: 0 0 4px 0;
+}
+
+.stepContent p {
+    margin: 0;
+    color: var(--muted);
+    font-size: 14px;
+}
+
+/* Mode Selector */
+.salesModeSelector {
+    display: flex;
+    gap: 12px;
+    margin: 20px 0;
+    flex-wrap: wrap;
+}
+
+.salesModeBtn {
+    flex: 1;
+    min-width: 120px;
+    padding: 16px;
+    border: 2px solid var(--border);
+    background: var(--panel);
+    border-radius: 12px;
+    cursor: pointer;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
+    transition: all 0.2s;
+}
+
+.salesModeBtn i {
+    font-size: 24px;
+    color: var(--muted);
+}
+
+.salesModeBtn span {
+    font-weight: 600;
+    color: var(--text);
+}
+
+.salesModeBtn small {
+    font-size: 11px;
+    color: var(--muted);
+}
+
+.salesModeBtn:hover {
+    border-color: var(--primary);
+    background: var(--panel2);
+}
+
+.salesModeBtn.active {
+    border-color: var(--primary);
+    background: rgba(76, 125, 255, 0.1);
+}
+
+.salesModeBtn.active i {
+    color: var(--primary);
+}
+
+/* Top Insight Card */
+.topInsightCard {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    padding: 20px;
+    background: linear-gradient(135deg, var(--panel), var(--panel2));
+    border-radius: 12px;
+    border-left: 4px solid var(--primary);
+    margin-bottom: 20px;
+}
+
+.insightIcon {
+    font-size: 32px;
+    color: var(--primary);
+}
+
+.insightTitle {
+    font-weight: 700;
+    font-size: 16px;
+    margin-bottom: 4px;
+}
+
+.insightText {
+    color: var(--muted);
+    font-size: 14px;
+}
+
+/* Primary KPIs */
+.salesPrimaryKpis {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: 16px;
+    margin-bottom: 20px;
+}
+
+.primaryKpiCard {
+    background: var(--panel);
+    border-radius: 12px;
+    padding: 20px;
+    position: relative;
+    border: 1px solid var(--border);
+    transition: all 0.2s;
+}
+
+.primaryKpiCard:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+}
+
+.primaryKpiCard .favoriteBtn {
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    background: none;
+    border: none;
+    cursor: pointer;
+    color: var(--muted);
+    opacity: 0.5;
+    transition: opacity 0.2s;
+}
+
+.primaryKpiCard:hover .favoriteBtn,
+.primaryKpiCard .favoriteBtn:hover {
+    opacity: 1;
+}
+
+.kpiValue {
+    font-size: 28px;
+    font-weight: 800;
+    margin-bottom: 4px;
+}
+
+.kpiLabel {
+    font-size: 13px;
+    color: var(--muted);
+}
+
+.kpiTooltip {
+    cursor: help;
+    opacity: 0.5;
+}
+
+.kpiTrend {
+    margin-top: 8px;
+}
+
+/* Secondary KPIs */
+.salesSection {
+    margin-bottom: 16px;
+    border-radius: 12px;
+    overflow: hidden;
+    border: 1px solid var(--border);
+}
+
+.salesSectionHeader {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 16px 20px;
+    background: var(--panel);
+    cursor: pointer;
+    transition: background 0.2s;
+}
+
+.salesSectionHeader:hover {
+    background: var(--panel2);
+}
+
+.sectionTitle {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-weight: 600;
+}
+
+.sectionTitle i {
+    color: var(--primary);
+}
+
+.sectionInsight {
+    font-size: 12px;
+    padding: 4px 10px;
+    border-radius: 20px;
+    background: var(--panel2);
+    color: var(--muted);
+}
+
+.sectionInsight.status-ok {
+    background: rgba(55, 214, 122, 0.15);
+    color: var(--ok);
+}
+
+.sectionInsight.status-warn {
+    background: rgba(255, 176, 32, 0.15);
+    color: var(--warn);
+}
+
+.sectionInsight.status-danger {
+    background: rgba(255, 77, 77, 0.15);
+    color: var(--danger);
+}
+
+.sectionChevron {
+    color: var(--muted);
+    transition: transform 0.2s;
+}
+
+.salesSectionContent {
+    padding: 16px 20px;
+    background: var(--panel2);
+}
+
+.secondaryKpiGrid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 12px;
+}
+
+.secondaryKpiCard {
+    background: var(--panel);
+    border-radius: 8px;
+    padding: 16px;
+    position: relative;
+    border-left: 3px solid transparent;
+}
+
+.secondaryKpiCard.status-ok {
+    border-left-color: var(--ok);
+}
+
+.secondaryKpiCard.status-warn {
+    border-left-color: var(--warn);
+}
+
+.secondaryKpiCard.status-danger {
+    border-left-color: var(--danger);
+}
+
+.secondaryKpiCard .favoriteBtn {
+    position: absolute;
+    top: 8px;
+    right: 8px;
+    background: none;
+    border: none;
+    cursor: pointer;
+    color: var(--muted);
+    font-size: 12px;
+    opacity: 0;
+    transition: opacity 0.2s;
+}
+
+.secondaryKpiCard:hover .favoriteBtn {
+    opacity: 1;
+}
+
+.skpiLabel {
+    font-size: 12px;
+    color: var(--muted);
+    margin-bottom: 6px;
+}
+
+.skpiLabel .kpiInfo {
+    opacity: 0.5;
+    cursor: help;
+}
+
+.skpiValue {
+    font-size: 20px;
+    font-weight: 700;
+}
+
+.skpiAction {
+    margin-top: 8px;
+}
+
+.actionTip {
+    font-size: 11px;
+    color: var(--warn);
+    display: flex;
+    align-items: center;
+    gap: 4px;
+}
+
+/* Action Recommendations */
+.actionRecommendations {
+    margin-top: 20px;
+}
+
+.actionHeader {
+    font-weight: 600;
+    margin-bottom: 12px;
+    color: var(--muted);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.actionItem {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px 16px;
+    background: var(--panel);
+    border-radius: 8px;
+    margin-bottom: 8px;
+    border-left: 3px solid;
+}
+
+.actionItem.ok {
+    border-left-color: var(--ok);
+}
+
+.actionItem.warn {
+    border-left-color: var(--warn);
+}
+
+.actionItem.danger {
+    border-left-color: var(--danger);
+}
+
+.actionItem i {
+    font-size: 16px;
+}
+
+.actionItem.ok i {
+    color: var(--ok);
+}
+
+.actionItem.warn i {
+    color: var(--warn);
+}
+
+.actionItem.danger i {
+    color: var(--danger);
+}
+
+/* My View */
+.myViewContainer {
+    padding: 20px 0;
+}
+
+.myViewHeader h3 {
+    margin: 0 0 8px 0;
+}
+
+.myViewKpis {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: 16px;
+    margin-top: 20px;
+}
+
+.myViewKpiCard {
+    background: var(--panel);
+    border-radius: 12px;
+    padding: 20px;
+    position: relative;
+    border: 1px solid var(--border);
+}
+
+.myViewKpiCard .favoriteBtn {
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    background: none;
+    border: none;
+    cursor: pointer;
+}
+
+.mvKpiValue {
+    font-size: 24px;
+    font-weight: 700;
+    margin-bottom: 4px;
+}
+
+.mvKpiLabel {
+    font-size: 13px;
+    color: var(--muted);
+}
+
+.myViewEmpty {
+    text-align: center;
+    padding: 60px 20px;
+    color: var(--muted);
+}
+
+.myViewEmpty p {
+    margin: 0;
 }
