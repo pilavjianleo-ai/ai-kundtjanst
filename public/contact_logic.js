@@ -106,9 +106,10 @@ window.setMode = function (mode) {
 };
 
 window.triggerContactForm = function () {
-    // Robust check: Is chatView actually visible?
-    const chatView = document.getElementById('chatView');
-    if (!chatView || window.getComputedStyle(chatView).display === 'none') return;
+    // Robust check: Is chat interface actually visible?
+    // checking offsetParent is a reliable way to check if an element is visible in the DOM
+    const msgs = document.querySelector('.messages');
+    if (!msgs || msgs.offsetParent === null) return;
 
     if (sessionStorage.getItem('contactInfoSkipped') || sessionStorage.getItem('contactInfo')) return;
     const modal = document.getElementById('contactFormModal');
