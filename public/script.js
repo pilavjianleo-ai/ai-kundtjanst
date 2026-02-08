@@ -608,9 +608,12 @@ async function switchCompany(newCompanyId) {
   state.conversation.push({ role: "assistant", content: greeting });
 
   setTimeout(() => {
-    addMsg("assistant", greeting);
-    // Hide default suggestions to avoid duplicates with Intro Card
-    $("suggestions").style.display = "none";
+    // Only use Intro Card - no duplicate message bubble
+    // addMsg("assistant", greeting);
+
+    // Hide default suggestions bar
+    const sugg = $("suggestions");
+    if (sugg) sugg.style.display = "none";
   }, 100);
 
   // Reload inbox if we're currently viewing it

@@ -106,7 +106,10 @@ window.setMode = function (mode) {
 };
 
 window.triggerContactForm = function () {
-    if (window.state && window.state.currentView !== 'chatView') return;
+    // Robust check: Is chatView actually visible?
+    const chatView = document.getElementById('chatView');
+    if (!chatView || window.getComputedStyle(chatView).display === 'none') return;
+
     if (sessionStorage.getItem('contactInfoSkipped') || sessionStorage.getItem('contactInfo')) return;
     const modal = document.getElementById('contactFormModal');
     if (modal) modal.style.display = 'flex';
