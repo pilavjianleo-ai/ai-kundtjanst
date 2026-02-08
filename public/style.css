@@ -36,8 +36,11 @@ body[data-theme="light"] {
   --muted: #6b7280;
   --text-muted: #9ca3af;
   --border: rgba(0, 0, 0, 0.08);
-  /* Softer, larger shadow for floating feel */
-  --shadow: 0 10px 30px -5px rgba(0, 0, 0, 0.06), 0 4px 10px -2px rgba(0, 0, 0, 0.03);
+  /* Deeper, layered shadow for distinct floating feel */
+  --shadow:
+    0 4px 6px -1px rgba(0, 0, 0, 0.05),
+    0 10px 15px -3px rgba(0, 0, 0, 0.05),
+    0 0 0 1px rgba(0, 0, 0, 0.02);
 
   /* Stronger glass effect */
   --glass: rgba(255, 255, 255, 0.65);
@@ -442,8 +445,8 @@ body[data-theme="light"] .btn:hover {
   background: var(--panel);
   border-color: var(--primary);
   transform: translateY(-2px);
-  box-shadow: 0 8px 16px rgba(79, 70, 229, 0.12);
-  /* Colored shadow glow */
+  /* Stronger, colored glow on hover */
+  box-shadow: 0 10px 25px -5px rgba(79, 70, 229, 0.15), 0 4px 10px -2px rgba(79, 70, 229, 0.1);
 }
 
 .btn:active {
@@ -2223,6 +2226,10 @@ input[type="range"].slider::-webkit-slider-thumb:hover {
 .salesSectionContent {
   padding: 16px 20px;
   background: var(--panel2);
+  border-top: 1px solid var(--border);
+  /* Ensure separation */
+  color: var(--text);
+  /* Explicit text color */
 }
 
 .secondaryKpiGrid {

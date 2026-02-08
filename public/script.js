@@ -2999,13 +2999,13 @@ async function loadSlaDashboard() {
       escOverview.innerHTML = `
         <div style="display:flex; align-items:center; gap:20px;">
           <div style="flex:1;">
-            <div style="display:flex; height:20px; border-radius:10px; overflow:hidden; background:#222;">
-              <div style="width:${aiRate}%; background: linear-gradient(90deg, #37d67a, #4c7dff); transition: width 0.5s;"></div>
-              <div style="width:${humanRate}%; background: linear-gradient(90deg, #ff6b6b, #ffa726); transition: width 0.5s;"></div>
+            <div style="display:flex; height:20px; border-radius:10px; overflow:hidden; background:var(--panel2); border: 1px solid var(--border);">
+              <div style="width:${aiRate}%; background: linear-gradient(90deg, var(--ok), var(--primary)); transition: width 0.5s;"></div>
+              <div style="width:${humanRate}%; background: linear-gradient(90deg, var(--danger), var(--warn)); transition: width 0.5s;"></div>
             </div>
             <div class="row gap" style="margin-top:10px; font-size:12px;">
-              <span><i class="fa-solid fa-robot" style="color:#37d67a;"></i> AI: ${aiRate}%</span>
-              <span style="margin-left:auto;"><i class="fa-solid fa-user" style="color:#ffa726;"></i> Människa: ${humanRate}%</span>
+              <span><i class="fa-solid fa-robot" style="color:var(--ok);"></i> AI: ${aiRate}%</span>
+              <span style="margin-left:auto;"><i class="fa-solid fa-user" style="color:var(--warn);"></i> Människa: ${humanRate}%</span>
             </div>
           </div>
         </div>
