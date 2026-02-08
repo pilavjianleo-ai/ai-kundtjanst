@@ -1421,6 +1421,20 @@ app.post("/admin/companies", authenticate, requireAdmin, async (req, res) => {
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
+app.put("/admin/companies/:id", authenticate, requireAdmin, async (req, res) => {
+  try {
+    const { displayName, contactEmail, plan, status, orgNr, contactName, phone, notes } = req.body;
+    const companyId = req.params.id;
+    const c = await Company.findOneAndUpdate(
+      { companyId },
+      { displayName, contactEmail, plan, status, orgNr, contactName, phone, notes },
+      { new: true }
+    );
+    if (!c) return res.status(404).json({ error: "Bolag hittades ej" });
+    res.json(c);
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
 app.delete("/admin/companies/:id", authenticate, requireAdmin, async (req, res) => {
   try {
     const companyId = req.params.id;

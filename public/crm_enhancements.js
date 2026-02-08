@@ -1,5 +1,5 @@
 /* =====================
-   CRM ENHANCEMENTS V6: FULL INTEGRATION & SYNC
+   CRM ENHANCEMENTS V7: FULL KB SYNC & BACKEND INTEGRATION
 ===================== */
 
 /**
@@ -256,8 +256,9 @@ window.openCustomerModal = function (id) {
                 <div style="font-size:12px; text-transform:uppercase; color:var(--primary); font-weight:bold; margin-bottom:5px;">AI Lead Score</div>
                 <div class="aiScore" style="font-size:32px; font-weight:800; color:var(--primary);">${c.aiScore}</div>
             </div>
-            <div style="margin-top:20px;">
+            <div style="margin-top:20px; display:flex; flex-direction:column; gap:10px;">
                 <button class="btn primary full" onclick="saveCustomerEdits('${c.id}')"><i class="fa-solid fa-save"></i> SPARA ÄNDRINGAR</button>
+                <button class="btn ghost full" onclick="goToCustomerKB('${c.id}')"><i class="fa-solid fa-book"></i> GÅ TILL KB MANAGER</button>
             </div>
         `;
     }
@@ -298,7 +299,7 @@ window.openCustomerModal = function (id) {
     modal.style.display = 'flex';
 };
 
-window.saveCustomerEdits = function (id) {
+window.saveCustomerEdits = async function (id) {
     let customers = JSON.parse(localStorage.getItem('crmCustomers') || '[]');
     let cIndex = customers.findIndex(c => c.id === id);
     if (cIndex === -1) return;
@@ -315,14 +316,64 @@ window.saveCustomerEdits = function (id) {
     if (!c.aiConfig) c.aiConfig = {};
     c.aiConfig.status = document.getElementById('editCustAiStatus').value;
 
+    // Sync to Backend
+    try {
+        if (typeof api === 'function' && state.token) {
+            await api(`/admin/companies/${id}`, {
+                method: "PUT",
+                body: {
+                    displayName: c.name,
+                    contactEmail: c.email,
+                    phone: c.phone,
+                    industry: c.industry,
+                    status: c.aiConfig.status === 'active' ? 'active' : 'inactive',
+                    notes: `Uppdaterad via CRM. Värde: ${c.value}`
+                }
+            });
+        }
+    } catch (e) {
+        console.error("Backend sync failed:", e.message);
+    }
+
     localStorage.setItem('crmCustomers', JSON.stringify(customers));
-    toast("Uppdaterad", `Uppgifter sparade för ${c.name}.`, "success");
+    toast("Uppdaterad", `Uppgifter sparade för ${c.name} och synkade till systemet.`, "success");
     logCrmActivity(`Uppdaterade ${c.name}`, 'info');
 
     renderCustomerList();
     renderCrmDashboard();
     updateChatCategoriesFromCRM();
+    if (typeof loadCompanies === 'function') await loadCompanies();
     window.closeCrmModal('crmCustomerModal');
+};
+
+/**
+ * Jump to KB Manager for specific customer
+ */
+window.goToCustomerKB = function (companyId) {
+    // 1. Close current modal
+    window.closeCrmModal('crmCustomerModal');
+
+    // 2. Switch View (assuming showView handles the transition)
+    if (typeof showView === 'function') {
+        showView('adminView');
+
+        // select tabKB
+        const tabBtn = document.querySelector('.tabBtn[data-tab="tabKB"]');
+        if (tabBtn) tabBtn.click();
+
+        // 3. Set the select value (wait a tiny bit for render if needed)
+        setTimeout(() => {
+            const kbSel = document.getElementById('kbCategorySelect');
+            if (kbSel) {
+                kbSel.value = companyId;
+                // Trigger refresh to show documents for this company
+                const refreshBtn = document.getElementById('kbRefreshBtn');
+                if (refreshBtn) refreshBtn.click();
+            }
+        }, 150);
+    }
+
+    toast("Kunskapsbas", `Hanterar data för ${companyId}`, "info");
 };
 
 window.deleteCustomer = function (id) {
