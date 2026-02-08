@@ -2893,3 +2893,151 @@ input[type="range"].slider::-webkit-slider-thumb:hover {
   line-height: 1.6;
   color: var(--text);
 }
+
+/* Scenario Savings Section */
+.savingsGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 16px;
+}
+
+.savingsCard {
+  background: var(--panel2);
+  border-radius: 10px;
+  padding: 20px;
+  text-align: center;
+}
+
+.savingsCard.highlight {
+  background: linear-gradient(135deg, rgba(55, 214, 122, 0.1), rgba(76, 125, 255, 0.1));
+  border: 2px solid var(--ok);
+}
+
+.savingsIcon {
+  font-size: 24px;
+  color: var(--ok);
+  margin-bottom: 10px;
+}
+
+.savingsValue {
+  font-size: 28px;
+  font-weight: 800;
+  color: var(--ok);
+  margin-bottom: 4px;
+}
+
+.savingsLabel {
+  font-size: 14px;
+  font-weight: 500;
+}
+
+.savingsContext {
+  font-size: 12px;
+  color: var(--muted);
+  margin-top: 4px;
+}
+
+/* Growth Section */
+.growthGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 16px;
+}
+
+.growthCard {
+  background: var(--panel2);
+  border-radius: 10px;
+  padding: 20px;
+}
+
+.growthLabel {
+  font-size: 13px;
+  color: var(--muted);
+  margin-bottom: 10px;
+}
+
+.growthBar {
+  height: 12px;
+  background: var(--panel);
+  border-radius: 6px;
+  overflow: hidden;
+  margin-bottom: 8px;
+}
+
+.growthProgress {
+  height: 100%;
+  background: linear-gradient(90deg, var(--primary), #8b5cf6);
+  border-radius: 6px;
+  transition: width 0.5s;
+}
+
+.growthValue {
+  font-size: 20px;
+  font-weight: 700;
+}
+
+.growthValue.large {
+  font-size: 32px;
+  color: var(--primary);
+}
+
+.growthContext {
+  font-size: 12px;
+  color: var(--muted);
+  margin-top: 4px;
+}
+
+/* Time Section */
+.timeGrid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 16px;
+  margin-bottom: 16px;
+}
+
+.timeStat {
+  text-align: center;
+  padding: 20px;
+  background: var(--panel2);
+  border-radius: 10px;
+}
+
+.timeValue {
+  font-size: 28px;
+  font-weight: 800;
+  color: var(--primary);
+  margin-bottom: 4px;
+}
+
+.timeLabel {
+  font-size: 13px;
+  color: var(--muted);
+}
+
+.timeInsight {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 16px;
+  background: linear-gradient(135deg, rgba(76, 125, 255, 0.1), rgba(139, 92, 246, 0.08));
+  border-radius: 10px;
+  border-left: 4px solid var(--primary);
+}
+
+.timeInsight i {
+  color: var(--primary);
+  font-size: 20px;
+}
+
+.actionButtons {
+  display: flex;
+  gap: 12px;
+  margin-top: 16px;
+  flex-wrap: wrap;
+}
+
+@media (max-width: 768px) {
+  .timeGrid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}

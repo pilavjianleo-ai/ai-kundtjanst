@@ -4993,317 +4993,317 @@ window.initSalesAnalytics = initSalesAnalytics;
 
 // State
 const salesState = {
-    favorites: JSON.parse(localStorage.getItem('salesFavorites') || '[]'),
-    onboardingShown: localStorage.getItem('salesOnboardingShown') === 'true',
-    currentMode: 'overview'
+  favorites: JSON.parse(localStorage.getItem('salesFavorites') || '[]'),
+  onboardingShown: localStorage.getItem('salesOnboardingShown') === 'true',
+  currentMode: 'overview'
 };
 
 // KPI Definitions with thresholds and recommendations
 const kpiDefs = {
-    revenue: { label: 'Total försäljning', format: 'currency' },
-    conversion: {
-        label: 'Konverteringsgrad', format: 'percent', warnBelow: 10, dangerBelow: 5,
-        actionLow: 'Förbättra erbjudandetexter eller timing'
-    },
-    aov: { label: 'Ordervärde', format: 'currency' },
-    aiRevenue: { label: 'AI-driven försäljning', format: 'currency' },
-    orders: { label: 'Antal köp', format: 'number' },
-    convStarted: { label: 'Konversationer', format: 'number' },
-    offersShown: { label: 'Erbjudanden visade', format: 'number' },
-    offersClicked: { label: 'Klick på erbjudanden', format: 'number' },
-    dropoff: {
-        label: 'Drop-off', format: 'percent', warnAbove: 40, dangerAbove: 60,
-        actionHigh: 'Hög drop-off → Testa kortare erbjudandetext'
-    },
-    upsellRate: { label: 'Mersäljsgrad', format: 'percent' },
-    upsellRevenue: { label: 'Mersäljsintäkt', format: 'currency' },
-    rejectedOffers: {
-        label: 'Avvisade förslag', format: 'percent', warnAbove: 35, dangerAbove: 50,
-        actionHigh: 'Många avvisningar → Anpassa timing eller relevans'
-    },
-    aiConversion: { label: 'AI-konvertering', format: 'percent' },
-    promptPerformance: { label: 'Bästa prompt', format: 'text' },
-    fallbackLost: {
-        label: 'Tappad vid eskalering', format: 'currency', dangerAbove: 10000,
-        actionHigh: 'Hög förlust → Träna AI på vanliga eskaleringsfrågor'
-    },
-    clvTotal: { label: 'Genomsnittligt CLV', format: 'currency' },
-    clvAi: { label: 'CLV med AI', format: 'currency' },
-    clvGrowth: { label: 'CLV-tillväxt', format: 'percent' },
-    churnRisk: {
-        label: 'Churn-risk', format: 'percent', warnAbove: 8, dangerAbove: 15,
-        actionHigh: 'Hög churn-risk → Aktivera retention-kampanj'
-    },
-    churnFailedAi: {
-        label: 'Churn efter AI-misslyckande', format: 'percent', dangerAbove: 15,
-        actionHigh: 'Granska misslyckade AI-dialoger för förbättring'
-    },
-    highRiskCount: { label: 'Högrisk-kunder', format: 'number' },
-    predictedRevenue: { label: 'Prognostiserad intäkt', format: 'currency' },
-    hotLeads: { label: 'Heta leads', format: 'number' },
-    buyProbability: { label: 'Köpsannolikhet', format: 'percent' }
+  revenue: { label: 'Total försäljning', format: 'currency' },
+  conversion: {
+    label: 'Konverteringsgrad', format: 'percent', warnBelow: 10, dangerBelow: 5,
+    actionLow: 'Förbättra erbjudandetexter eller timing'
+  },
+  aov: { label: 'Ordervärde', format: 'currency' },
+  aiRevenue: { label: 'AI-driven försäljning', format: 'currency' },
+  orders: { label: 'Antal köp', format: 'number' },
+  convStarted: { label: 'Konversationer', format: 'number' },
+  offersShown: { label: 'Erbjudanden visade', format: 'number' },
+  offersClicked: { label: 'Klick på erbjudanden', format: 'number' },
+  dropoff: {
+    label: 'Drop-off', format: 'percent', warnAbove: 40, dangerAbove: 60,
+    actionHigh: 'Hög drop-off → Testa kortare erbjudandetext'
+  },
+  upsellRate: { label: 'Mersäljsgrad', format: 'percent' },
+  upsellRevenue: { label: 'Mersäljsintäkt', format: 'currency' },
+  rejectedOffers: {
+    label: 'Avvisade förslag', format: 'percent', warnAbove: 35, dangerAbove: 50,
+    actionHigh: 'Många avvisningar → Anpassa timing eller relevans'
+  },
+  aiConversion: { label: 'AI-konvertering', format: 'percent' },
+  promptPerformance: { label: 'Bästa prompt', format: 'text' },
+  fallbackLost: {
+    label: 'Tappad vid eskalering', format: 'currency', dangerAbove: 10000,
+    actionHigh: 'Hög förlust → Träna AI på vanliga eskaleringsfrågor'
+  },
+  clvTotal: { label: 'Genomsnittligt CLV', format: 'currency' },
+  clvAi: { label: 'CLV med AI', format: 'currency' },
+  clvGrowth: { label: 'CLV-tillväxt', format: 'percent' },
+  churnRisk: {
+    label: 'Churn-risk', format: 'percent', warnAbove: 8, dangerAbove: 15,
+    actionHigh: 'Hög churn-risk → Aktivera retention-kampanj'
+  },
+  churnFailedAi: {
+    label: 'Churn efter AI-misslyckande', format: 'percent', dangerAbove: 15,
+    actionHigh: 'Granska misslyckade AI-dialoger för förbättring'
+  },
+  highRiskCount: { label: 'Högrisk-kunder', format: 'number' },
+  predictedRevenue: { label: 'Prognostiserad intäkt', format: 'currency' },
+  hotLeads: { label: 'Heta leads', format: 'number' },
+  buyProbability: { label: 'Köpsannolikhet', format: 'percent' }
 };
 
 // Initialize
 async function initSalesAnalytics() {
-    bindSalesModeButtons();
-    bindSalesEvents();
+  bindSalesModeButtons();
+  bindSalesEvents();
 
-    // Show onboarding first time
-    if (!salesState.onboardingShown) {
-        showSalesOnboarding();
-    }
+  // Show onboarding first time
+  if (!salesState.onboardingShown) {
+    showSalesOnboarding();
+  }
 
-    await loadSalesData();
-    updateFavoriteButtons();
+  await loadSalesData();
+  updateFavoriteButtons();
 }
 
 function bindSalesModeButtons() {
-    document.querySelectorAll('.salesModeBtn').forEach(btn => {
-        btn.onclick = () => {
-            const mode = btn.dataset.mode;
-            switchSalesMode(mode);
-        };
-    });
+  document.querySelectorAll('.salesModeBtn').forEach(btn => {
+    btn.onclick = () => {
+      const mode = btn.dataset.mode;
+      switchSalesMode(mode);
+    };
+  });
 }
 
 function switchSalesMode(mode) {
-    salesState.currentMode = mode;
+  salesState.currentMode = mode;
 
-    // Update buttons
-    document.querySelectorAll('.salesModeBtn').forEach(b => b.classList.remove('active'));
-    document.querySelector(`.salesModeBtn[data-mode="${mode}"]`)?.classList.add('active');
+  // Update buttons
+  document.querySelectorAll('.salesModeBtn').forEach(b => b.classList.remove('active'));
+  document.querySelector(`.salesModeBtn[data-mode="${mode}"]`)?.classList.add('active');
 
-    // Update content
-    document.querySelectorAll('.salesModeContent').forEach(c => c.style.display = 'none');
-    const modeId = 'salesMode' + mode.charAt(0).toUpperCase() + mode.slice(1);
-    const modeEl = document.getElementById(modeId);
-    if (modeEl) modeEl.style.display = '';
+  // Update content
+  document.querySelectorAll('.salesModeContent').forEach(c => c.style.display = 'none');
+  const modeId = 'salesMode' + mode.charAt(0).toUpperCase() + mode.slice(1);
+  const modeEl = document.getElementById(modeId);
+  if (modeEl) modeEl.style.display = '';
 
-    // Load favorites if my view
-    if (mode === 'myview') renderMyViewFavorites();
+  // Load favorites if my view
+  if (mode === 'myview') renderMyViewFavorites();
 }
 
 function bindSalesEvents() {
-    const periodFilter = document.getElementById('salesPeriodFilter');
-    if (periodFilter) periodFilter.onchange = loadSalesData;
+  const periodFilter = document.getElementById('salesPeriodFilter');
+  if (periodFilter) periodFilter.onchange = loadSalesData;
 
-    const showOnboardingBtn = document.getElementById('showSalesOnboarding');
-    if (showOnboardingBtn) showOnboardingBtn.onclick = showSalesOnboarding;
+  const showOnboardingBtn = document.getElementById('showSalesOnboarding');
+  if (showOnboardingBtn) showOnboardingBtn.onclick = showSalesOnboarding;
 
-    const exportBtn = document.getElementById('exportSalesBtn');
-    if (exportBtn) exportBtn.onclick = exportSalesReport;
+  const exportBtn = document.getElementById('exportSalesBtn');
+  if (exportBtn) exportBtn.onclick = exportSalesReport;
 }
 
 function showSalesOnboarding() {
-    const modal = document.getElementById('salesOnboarding');
-    if (modal) modal.style.display = 'flex';
+  const modal = document.getElementById('salesOnboarding');
+  if (modal) modal.style.display = 'flex';
 }
 
 function closeSalesOnboarding() {
-    const modal = document.getElementById('salesOnboarding');
-    if (modal) modal.style.display = 'none';
-    localStorage.setItem('salesOnboardingShown', 'true');
-    salesState.onboardingShown = true;
+  const modal = document.getElementById('salesOnboarding');
+  if (modal) modal.style.display = 'none';
+  localStorage.setItem('salesOnboardingShown', 'true');
+  salesState.onboardingShown = true;
 }
 window.closeSalesOnboarding = closeSalesOnboarding;
 
 function toggleSalesSection(sectionId) {
-    const content = document.getElementById(sectionId + 'Content');
-    const header = content?.previousElementSibling;
-    if (!content) return;
+  const content = document.getElementById(sectionId + 'Content');
+  const header = content?.previousElementSibling;
+  if (!content) return;
 
-    const isOpen = content.style.display !== 'none';
-    content.style.display = isOpen ? 'none' : '';
+  const isOpen = content.style.display !== 'none';
+  content.style.display = isOpen ? 'none' : '';
 
-    const chevron = header?.querySelector('.sectionChevron');
-    if (chevron) {
-        chevron.style.transform = isOpen ? 'rotate(-90deg)' : '';
-    }
+  const chevron = header?.querySelector('.sectionChevron');
+  if (chevron) {
+    chevron.style.transform = isOpen ? 'rotate(-90deg)' : '';
+  }
 }
 window.toggleSalesSection = toggleSalesSection;
 
 function toggleFavorite(kpiId) {
-    const idx = salesState.favorites.indexOf(kpiId);
-    if (idx === -1) {
-        salesState.favorites.push(kpiId);
-    } else {
-        salesState.favorites.splice(idx, 1);
-    }
-    localStorage.setItem('salesFavorites', JSON.stringify(salesState.favorites));
-    updateFavoriteButtons();
+  const idx = salesState.favorites.indexOf(kpiId);
+  if (idx === -1) {
+    salesState.favorites.push(kpiId);
+  } else {
+    salesState.favorites.splice(idx, 1);
+  }
+  localStorage.setItem('salesFavorites', JSON.stringify(salesState.favorites));
+  updateFavoriteButtons();
 
-    if (salesState.currentMode === 'myview') renderMyViewFavorites();
+  if (salesState.currentMode === 'myview') renderMyViewFavorites();
 }
 window.toggleFavorite = toggleFavorite;
 
 function updateFavoriteButtons() {
-    document.querySelectorAll('.favoriteBtn').forEach(btn => {
-        const card = btn.closest('[data-kpi]');
-        if (!card) return;
-        const kpiId = card.dataset.kpi;
-        const isFav = salesState.favorites.includes(kpiId);
-        btn.innerHTML = isFav ? '<i class="fa-solid fa-star" style="color: var(--warn);"></i>' : '<i class="fa-regular fa-star"></i>';
-    });
+  document.querySelectorAll('.favoriteBtn').forEach(btn => {
+    const card = btn.closest('[data-kpi]');
+    if (!card) return;
+    const kpiId = card.dataset.kpi;
+    const isFav = salesState.favorites.includes(kpiId);
+    btn.innerHTML = isFav ? '<i class="fa-solid fa-star" style="color: var(--warn);"></i>' : '<i class="fa-regular fa-star"></i>';
+  });
 }
 
 async function loadSalesData() {
-    const days = parseInt(document.getElementById('salesPeriodFilter')?.value || 30);
-    const data = generateSalesData(days);
+  const days = parseInt(document.getElementById('salesPeriodFilter')?.value || 30);
+  const data = generateSalesData(days);
 
-    // Update all KPIs
-    updateKpi('revenue', data.revenue, data.revenueTrend);
-    updateKpi('conversion', data.conversion, data.conversionTrend);
-    updateKpi('aov', data.aov, data.aovTrend);
-    updateKpi('aiRevenue', data.aiRevenue, data.aiRevenueTrend);
-    updateKpi('orders', data.orders, data.ordersTrend);
+  // Update all KPIs
+  updateKpi('revenue', data.revenue, data.revenueTrend);
+  updateKpi('conversion', data.conversion, data.conversionTrend);
+  updateKpi('aov', data.aov, data.aovTrend);
+  updateKpi('aiRevenue', data.aiRevenue, data.aiRevenueTrend);
+  updateKpi('orders', data.orders, data.ordersTrend);
 
-    // Optimization mode
-    updateKpi('convStarted', data.convStarted);
-    updateKpi('offersShown', data.offersShown);
-    updateKpi('offersClicked', data.offersClicked);
-    updateKpi('dropoff', data.dropoff);
-    updateKpi('upsellRate', data.upsellRate);
-    updateKpi('upsellRevenue', data.upsellRevenue);
-    updateKpi('rejectedOffers', data.rejectedOffers);
-    updateKpi('aiConversion', data.aiConversion);
-    updateKpi('promptPerformance', data.promptPerformance);
-    updateKpi('fallbackLost', data.fallbackLost);
+  // Optimization mode
+  updateKpi('convStarted', data.convStarted);
+  updateKpi('offersShown', data.offersShown);
+  updateKpi('offersClicked', data.offersClicked);
+  updateKpi('dropoff', data.dropoff);
+  updateKpi('upsellRate', data.upsellRate);
+  updateKpi('upsellRevenue', data.upsellRevenue);
+  updateKpi('rejectedOffers', data.rejectedOffers);
+  updateKpi('aiConversion', data.aiConversion);
+  updateKpi('promptPerformance', data.promptPerformance);
+  updateKpi('fallbackLost', data.fallbackLost);
 
-    // Strategy mode
-    updateKpi('clvTotal', data.clvTotal);
-    updateKpi('clvAi', data.clvAi);
-    updateKpi('clvGrowth', data.clvGrowth);
-    updateKpi('churnRisk', data.churnRisk);
-    updateKpi('churnFailedAi', data.churnFailedAi);
-    updateKpi('highRiskCount', data.highRiskCount);
-    updateKpi('predictedRevenue', data.predictedRevenue);
-    updateKpi('hotLeads', data.hotLeads);
-    updateKpi('buyProbability', data.buyProbability);
+  // Strategy mode
+  updateKpi('clvTotal', data.clvTotal);
+  updateKpi('clvAi', data.clvAi);
+  updateKpi('clvGrowth', data.clvGrowth);
+  updateKpi('churnRisk', data.churnRisk);
+  updateKpi('churnFailedAi', data.churnFailedAi);
+  updateKpi('highRiskCount', data.highRiskCount);
+  updateKpi('predictedRevenue', data.predictedRevenue);
+  updateKpi('hotLeads', data.hotLeads);
+  updateKpi('buyProbability', data.buyProbability);
 
-    // Update insights
-    updateTopInsight(data);
-    updateSectionInsights(data);
-    updateActionRecommendations(data);
+  // Update insights
+  updateTopInsight(data);
+  updateSectionInsights(data);
+  updateActionRecommendations(data);
 }
 
 function generateSalesData(days) {
-    const m = days / 30;
-    return {
-        revenue: Math.round(487500 * m),
-        revenueTrend: 12.4,
-        conversion: 12.4,
-        conversionTrend: 2.1,
-        aov: 1975,
-        aovTrend: -1.2,
-        aiRevenue: Math.round(316875 * m),
-        aiRevenueTrend: 18.5,
-        orders: Math.round(247 * m),
-        ordersTrend: 8.3,
+  const m = days / 30;
+  return {
+    revenue: Math.round(487500 * m),
+    revenueTrend: 12.4,
+    conversion: 12.4,
+    conversionTrend: 2.1,
+    aov: 1975,
+    aovTrend: -1.2,
+    aiRevenue: Math.round(316875 * m),
+    aiRevenueTrend: 18.5,
+    orders: Math.round(247 * m),
+    ordersTrend: 8.3,
 
-        convStarted: Math.round(2000 * m),
-        offersShown: Math.round(1037 * m),
-        offersClicked: Math.round(518 * m),
-        dropoff: 52.4,
-        upsellRate: 23.5,
-        upsellRevenue: Math.round(87750 * m),
-        rejectedOffers: 34.2,
-        aiConversion: 31.2,
-        promptPerformance: 'v2.1 (+18%)',
-        fallbackLost: Math.round(12400 * m),
+    convStarted: Math.round(2000 * m),
+    offersShown: Math.round(1037 * m),
+    offersClicked: Math.round(518 * m),
+    dropoff: 52.4,
+    upsellRate: 23.5,
+    upsellRevenue: Math.round(87750 * m),
+    rejectedOffers: 34.2,
+    aiConversion: 31.2,
+    promptPerformance: 'v2.1 (+18%)',
+    fallbackLost: Math.round(12400 * m),
 
-        clvTotal: 24500,
-        clvAi: 32400,
-        clvGrowth: 15.2,
-        churnRisk: 8.4,
-        churnFailedAi: 18.7,
-        highRiskCount: 12,
-        predictedRevenue: Math.round(534000 * m),
-        hotLeads: 23,
-        buyProbability: 45.8
-    };
+    clvTotal: 24500,
+    clvAi: 32400,
+    clvGrowth: 15.2,
+    churnRisk: 8.4,
+    churnFailedAi: 18.7,
+    highRiskCount: 12,
+    predictedRevenue: Math.round(534000 * m),
+    hotLeads: 23,
+    buyProbability: 45.8
+  };
 }
 
 function updateKpi(kpiId, value, trend = null) {
-    const def = kpiDefs[kpiId] || {};
+  const def = kpiDefs[kpiId] || {};
 
-    // Format value
-    let formatted;
-    if (def.format === 'currency') {
-        formatted = value.toLocaleString('sv-SE') + ' kr';
-    } else if (def.format === 'percent') {
-        formatted = value + '%';
-    } else if (def.format === 'number') {
-        formatted = value.toLocaleString('sv-SE');
-    } else {
-        formatted = value;
+  // Format value
+  let formatted;
+  if (def.format === 'currency') {
+    formatted = value.toLocaleString('sv-SE') + ' kr';
+  } else if (def.format === 'percent') {
+    formatted = value + '%';
+  } else if (def.format === 'number') {
+    formatted = value.toLocaleString('sv-SE');
+  } else {
+    formatted = value;
+  }
+
+  // Update main value
+  const valueEl = document.getElementById('kpi_' + kpiId);
+  if (valueEl) valueEl.textContent = formatted;
+
+  // Update trend
+  if (trend !== null) {
+    const trendEl = document.getElementById('kpi_' + kpiId + '_trend');
+    if (trendEl) {
+      const isPositive = trend >= 0;
+      const color = isPositive ? 'var(--ok)' : 'var(--danger)';
+      trendEl.innerHTML = `<span style="color: ${color}; font-size: 12px;"><i class="fa-solid fa-arrow-${isPositive ? 'up' : 'down'}"></i> ${Math.abs(trend)}%</span>`;
     }
+  }
 
-    // Update main value
-    const valueEl = document.getElementById('kpi_' + kpiId);
-    if (valueEl) valueEl.textContent = formatted;
-
-    // Update trend
-    if (trend !== null) {
-        const trendEl = document.getElementById('kpi_' + kpiId + '_trend');
-        if (trendEl) {
-            const isPositive = trend >= 0;
-            const color = isPositive ? 'var(--ok)' : 'var(--danger)';
-            trendEl.innerHTML = `<span style="color: ${color}; font-size: 12px;"><i class="fa-solid fa-arrow-${isPositive ? 'up' : 'down'}"></i> ${Math.abs(trend)}%</span>`;
-        }
+  // Check thresholds and update actions
+  const actionEl = document.getElementById('kpi_' + kpiId + '_action');
+  if (actionEl) {
+    let action = '';
+    if (def.dangerAbove && value > def.dangerAbove) {
+      action = def.actionHigh || '';
+    } else if (def.warnAbove && value > def.warnAbove) {
+      action = def.actionHigh || '';
+    } else if (def.dangerBelow && value < def.dangerBelow) {
+      action = def.actionLow || '';
+    } else if (def.warnBelow && value < def.warnBelow) {
+      action = def.actionLow || '';
     }
+    actionEl.innerHTML = action ? `<span class="actionTip"><i class="fa-solid fa-lightbulb"></i> ${action}</span>` : '';
+  }
 
-    // Check thresholds and update actions
-    const actionEl = document.getElementById('kpi_' + kpiId + '_action');
-    if (actionEl) {
-        let action = '';
-        if (def.dangerAbove && value > def.dangerAbove) {
-            action = def.actionHigh || '';
-        } else if (def.warnAbove && value > def.warnAbove) {
-            action = def.actionHigh || '';
-        } else if (def.dangerBelow && value < def.dangerBelow) {
-            action = def.actionLow || '';
-        } else if (def.warnBelow && value < def.warnBelow) {
-            action = def.actionLow || '';
-        }
-        actionEl.innerHTML = action ? `<span class="actionTip"><i class="fa-solid fa-lightbulb"></i> ${action}</span>` : '';
+  // Update card status
+  const card = document.querySelector(`[data-kpi="${kpiId}"]`);
+  if (card) {
+    card.classList.remove('status-ok', 'status-warn', 'status-danger');
+    if (def.dangerAbove && value > def.dangerAbove) {
+      card.classList.add('status-danger');
+    } else if (def.warnAbove && value > def.warnAbove) {
+      card.classList.add('status-warn');
+    } else if (def.dangerBelow && value < def.dangerBelow) {
+      card.classList.add('status-danger');
+    } else if (def.warnBelow && value < def.warnBelow) {
+      card.classList.add('status-warn');
     }
-
-    // Update card status
-    const card = document.querySelector(`[data-kpi="${kpiId}"]`);
-    if (card) {
-        card.classList.remove('status-ok', 'status-warn', 'status-danger');
-        if (def.dangerAbove && value > def.dangerAbove) {
-            card.classList.add('status-danger');
-        } else if (def.warnAbove && value > def.warnAbove) {
-            card.classList.add('status-warn');
-        } else if (def.dangerBelow && value < def.dangerBelow) {
-            card.classList.add('status-danger');
-        } else if (def.warnBelow && value < def.warnBelow) {
-            card.classList.add('status-warn');
-        }
-    }
+  }
 }
 
 function updateTopInsight(data) {
-    const insightEl = document.getElementById('overviewTopInsight');
-    if (!insightEl) return;
+  const insightEl = document.getElementById('overviewTopInsight');
+  if (!insightEl) return;
 
-    let insight = { title: '', text: '', type: 'info' };
+  let insight = { title: '', text: '', type: 'info' };
 
-    if (data.aiRevenueTrend > 15) {
-        insight = { title: 'AI-försäljningen växer starkt', text: `+${data.aiRevenueTrend}% jämfört med förra perioden. Fortsätt med nuvarande strategi.`, type: 'ok' };
-    } else if (data.dropoff > 50) {
-        insight = { title: 'Hög drop-off påverkar intäkten', text: `${data.dropoff}% avbryter köpflödet. Överväg att förenkla erbjudanden.`, type: 'warn' };
-    } else if (data.churnRisk > 10) {
-        insight = { title: 'Ökad churn-risk detekterad', text: `${data.highRiskCount} kunder har hög risk för avhopp. Aktivera retention-åtgärder.`, type: 'danger' };
-    } else {
-        insight = { title: 'Stabil försäljningsutveckling', text: `Konverteringsgraden ligger på ${data.conversion}% med ${data.orders} genomförda köp.`, type: 'ok' };
-    }
+  if (data.aiRevenueTrend > 15) {
+    insight = { title: 'AI-försäljningen växer starkt', text: `+${data.aiRevenueTrend}% jämfört med förra perioden. Fortsätt med nuvarande strategi.`, type: 'ok' };
+  } else if (data.dropoff > 50) {
+    insight = { title: 'Hög drop-off påverkar intäkten', text: `${data.dropoff}% avbryter köpflödet. Överväg att förenkla erbjudanden.`, type: 'warn' };
+  } else if (data.churnRisk > 10) {
+    insight = { title: 'Ökad churn-risk detekterad', text: `${data.highRiskCount} kunder har hög risk för avhopp. Aktivera retention-åtgärder.`, type: 'danger' };
+  } else {
+    insight = { title: 'Stabil försäljningsutveckling', text: `Konverteringsgraden ligger på ${data.conversion}% med ${data.orders} genomförda köp.`, type: 'ok' };
+  }
 
-    const iconColors = { ok: 'var(--ok)', warn: 'var(--warn)', danger: 'var(--danger)', info: 'var(--primary)' };
+  const iconColors = { ok: 'var(--ok)', warn: 'var(--warn)', danger: 'var(--danger)', info: 'var(--primary)' };
 
-    insightEl.innerHTML = `
+  insightEl.innerHTML = `
     <div class="insightIcon" style="color: ${iconColors[insight.type]}"><i class="fa-solid fa-lightbulb"></i></div>
     <div class="insightContent">
       <div class="insightTitle">${insight.title}</div>
@@ -5313,47 +5313,47 @@ function updateTopInsight(data) {
 }
 
 function updateSectionInsights(data) {
-    const setInsight = (id, text, status = '') => {
-        const el = document.getElementById(id);
-        if (el) {
-            el.textContent = text;
-            el.className = 'sectionInsight' + (status ? ' status-' + status : '');
-        }
-    };
+  const setInsight = (id, text, status = '') => {
+    const el = document.getElementById(id);
+    if (el) {
+      el.textContent = text;
+      el.className = 'sectionInsight' + (status ? ' status-' + status : '');
+    }
+  };
 
-    setInsight('salesFlowInsight', `${data.conversion}% konvertering`, data.conversion < 10 ? 'warn' : 'ok');
-    setInsight('upsellInsight', `${data.upsellRate}% mersälj`, data.upsellRate > 20 ? 'ok' : '');
-    setInsight('aiSellerInsight', `${data.aiConversion}% AI-konv.`, data.aiConversion > 25 ? 'ok' : '');
-    setInsight('clvInsight', data.clvTotal.toLocaleString('sv-SE') + ' kr', 'ok');
-    setInsight('churnInsight', data.churnRisk + '% risk', data.churnRisk > 10 ? 'danger' : 'warn');
-    setInsight('predictiveInsight', data.hotLeads + ' heta leads', 'ok');
+  setInsight('salesFlowInsight', `${data.conversion}% konvertering`, data.conversion < 10 ? 'warn' : 'ok');
+  setInsight('upsellInsight', `${data.upsellRate}% mersälj`, data.upsellRate > 20 ? 'ok' : '');
+  setInsight('aiSellerInsight', `${data.aiConversion}% AI-konv.`, data.aiConversion > 25 ? 'ok' : '');
+  setInsight('clvInsight', data.clvTotal.toLocaleString('sv-SE') + ' kr', 'ok');
+  setInsight('churnInsight', data.churnRisk + '% risk', data.churnRisk > 10 ? 'danger' : 'warn');
+  setInsight('predictiveInsight', data.hotLeads + ' heta leads', 'ok');
 }
 
 function updateActionRecommendations(data) {
-    const container = document.getElementById('overviewActions');
-    if (!container) return;
+  const container = document.getElementById('overviewActions');
+  if (!container) return;
 
-    const recommendations = [];
+  const recommendations = [];
 
-    if (data.dropoff > 50) {
-        recommendations.push({ icon: 'fa-triangle-exclamation', type: 'warn', text: 'Hög drop-off (' + data.dropoff + '%) → Testa kortare erbjudandetext' });
-    }
-    if (data.churnRisk > 8) {
-        recommendations.push({ icon: 'fa-user-slash', type: 'warn', text: data.highRiskCount + ' kunder har hög churn-risk → Aktivera retention' });
-    }
-    if (data.aiRevenueTrend > 15) {
-        recommendations.push({ icon: 'fa-robot', type: 'ok', text: 'AI-försäljningen ökar (' + data.aiRevenueTrend + '%) → Expandera AI-användningen' });
-    }
-    if (data.hotLeads > 15) {
-        recommendations.push({ icon: 'fa-fire', type: 'ok', text: data.hotLeads + ' heta leads identifierade → Prioritera dessa i outreach' });
-    }
+  if (data.dropoff > 50) {
+    recommendations.push({ icon: 'fa-triangle-exclamation', type: 'warn', text: 'Hög drop-off (' + data.dropoff + '%) → Testa kortare erbjudandetext' });
+  }
+  if (data.churnRisk > 8) {
+    recommendations.push({ icon: 'fa-user-slash', type: 'warn', text: data.highRiskCount + ' kunder har hög churn-risk → Aktivera retention' });
+  }
+  if (data.aiRevenueTrend > 15) {
+    recommendations.push({ icon: 'fa-robot', type: 'ok', text: 'AI-försäljningen ökar (' + data.aiRevenueTrend + '%) → Expandera AI-användningen' });
+  }
+  if (data.hotLeads > 15) {
+    recommendations.push({ icon: 'fa-fire', type: 'ok', text: data.hotLeads + ' heta leads identifierade → Prioritera dessa i outreach' });
+  }
 
-    if (recommendations.length === 0) {
-        container.innerHTML = '';
-        return;
-    }
+  if (recommendations.length === 0) {
+    container.innerHTML = '';
+    return;
+  }
 
-    container.innerHTML = `
+  container.innerHTML = `
     <div class="actionHeader"><i class="fa-solid fa-hand-point-right"></i> Rekommenderade åtgärder</div>
     ${recommendations.map(r => `
       <div class="actionItem ${r.type}">
@@ -5365,44 +5365,44 @@ function updateActionRecommendations(data) {
 }
 
 function renderMyViewFavorites() {
-    const container = document.getElementById('myViewKpiContainer');
-    const emptyEl = document.getElementById('myViewEmpty');
-    if (!container) return;
+  const container = document.getElementById('myViewKpiContainer');
+  const emptyEl = document.getElementById('myViewEmpty');
+  if (!container) return;
 
-    if (salesState.favorites.length === 0) {
-        if (emptyEl) emptyEl.style.display = '';
-        return;
-    }
+  if (salesState.favorites.length === 0) {
+    if (emptyEl) emptyEl.style.display = '';
+    return;
+  }
 
-    if (emptyEl) emptyEl.style.display = 'none';
+  if (emptyEl) emptyEl.style.display = 'none';
 
-    const days = parseInt(document.getElementById('salesPeriodFilter')?.value || 30);
-    const data = generateSalesData(days);
+  const days = parseInt(document.getElementById('salesPeriodFilter')?.value || 30);
+  const data = generateSalesData(days);
 
-    container.innerHTML = salesState.favorites.map(kpiId => {
-        const def = kpiDefs[kpiId] || { label: kpiId, format: 'text' };
-        const value = data[kpiId];
-        let formatted;
-        if (def.format === 'currency') formatted = (value || 0).toLocaleString('sv-SE') + ' kr';
-        else if (def.format === 'percent') formatted = (value || 0) + '%';
-        else if (def.format === 'number') formatted = (value || 0).toLocaleString('sv-SE');
-        else formatted = value || '-';
+  container.innerHTML = salesState.favorites.map(kpiId => {
+    const def = kpiDefs[kpiId] || { label: kpiId, format: 'text' };
+    const value = data[kpiId];
+    let formatted;
+    if (def.format === 'currency') formatted = (value || 0).toLocaleString('sv-SE') + ' kr';
+    else if (def.format === 'percent') formatted = (value || 0) + '%';
+    else if (def.format === 'number') formatted = (value || 0).toLocaleString('sv-SE');
+    else formatted = value || '-';
 
-        return `
+    return `
       <div class="myViewKpiCard" data-kpi="${kpiId}">
         <button class="favoriteBtn" onclick="toggleFavorite('${kpiId}')"><i class="fa-solid fa-star" style="color: var(--warn);"></i></button>
         <div class="mvKpiValue">${formatted}</div>
         <div class="mvKpiLabel">${def.label}</div>
       </div>
     `;
-    }).join('');
+  }).join('');
 }
 
 function exportSalesReport() {
-    const days = document.getElementById('salesPeriodFilter')?.value || 30;
-    const data = generateSalesData(parseInt(days));
+  const days = document.getElementById('salesPeriodFilter')?.value || 30;
+  const data = generateSalesData(parseInt(days));
 
-    const report = `
+  const report = `
 SÄLJANALYSRAPPORT
 =================
 Period: Senaste ${days} dagar
@@ -5432,15 +5432,15 @@ Heta leads: ${data.hotLeads}
 Rapporten skapad av AI Kundtjänst
   `.trim();
 
-    const blob = new Blob([report], { type: 'text/plain;charset=utf-8' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `saljanalys_${new Date().toISOString().split('T')[0]}.txt`;
-    a.click();
-    URL.revokeObjectURL(url);
+  const blob = new Blob([report], { type: 'text/plain;charset=utf-8' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `saljanalys_${new Date().toISOString().split('T')[0]}.txt`;
+  a.click();
+  URL.revokeObjectURL(url);
 
-    if (typeof toast === 'function') toast('Exporterad', 'Rapporten har laddats ner', 'success');
+  if (typeof toast === 'function') toast('Exporterad', 'Rapporten har laddats ner', 'success');
 }
 
 window.initSalesAnalytics = initSalesAnalytics;
@@ -5452,200 +5452,261 @@ window.initSalesAnalytics = initSalesAnalytics;
 
 // Scenario State
 const scenarioState = {
-    workDaysPerMonth: 22,
-    aiCostPerTicket: 2 // SEK per AI-handled ticket
+  workDaysPerMonth: 22,
+  aiCostPerTicket: 2 // SEK per AI-handled ticket
 };
 
 // Initialize Scenario Planner
 async function initScenarioPlanner() {
-    bindScenarioInputs();
-    bindScenarioExport();
+  bindScenarioInputs();
+  bindScenarioExport();
 
-    // Try to load real data
-    try {
-        const slaData = await api("/sla/dashboard?days=30").catch(() => null);
-        if (slaData && slaData.totalTickets) {
-            document.getElementById('sc_tickets').value = slaData.totalTickets;
-            document.getElementById('sc_tickets_val').textContent = slaData.totalTickets;
-        }
-    } catch (e) {
-        console.log("Using default scenario values");
+  // Try to load real data
+  try {
+    const slaData = await api("/sla/dashboard?days=30").catch(() => null);
+    if (slaData && slaData.totalTickets) {
+      document.getElementById('sc_tickets').value = slaData.totalTickets;
+      document.getElementById('sc_tickets_val').textContent = slaData.totalTickets;
     }
+  } catch (e) {
+    console.log("Using default scenario values");
+  }
 
-    // Initial calculation
-    calculateScenario();
+  // Initial calculation
+  calculateScenario();
 }
 
 function bindScenarioInputs() {
-    const inputs = ['sc_tickets', 'sc_aiRate', 'sc_staffCost', 'sc_ticketsPerDay', 'sc_targetSla'];
+  const inputs = ['sc_tickets', 'sc_aiRate', 'sc_staffCost', 'sc_ticketsPerDay', 'sc_targetSla'];
 
-    inputs.forEach(id => {
-        const input = document.getElementById(id);
-        if (!input) return;
+  inputs.forEach(id => {
+    const input = document.getElementById(id);
+    if (!input) return;
 
-        input.oninput = () => {
-            updateSliderValue(id);
-            calculateScenario();
-        };
-    });
+    input.oninput = () => {
+      updateSliderValue(id);
+      calculateScenario();
+    };
+  });
 }
 
 function updateSliderValue(id) {
-    const input = document.getElementById(id);
-    const display = document.getElementById(id + '_val');
-    if (!input || !display) return;
+  const input = document.getElementById(id);
+  const display = document.getElementById(id + '_val');
+  if (!input || !display) return;
 
-    let value = parseInt(input.value);
+  let value = parseInt(input.value);
 
-    if (id === 'sc_staffCost') {
-        display.textContent = value.toLocaleString('sv-SE');
-    } else {
-        display.textContent = value;
-    }
+  if (id === 'sc_staffCost') {
+    display.textContent = value.toLocaleString('sv-SE');
+  } else {
+    display.textContent = value;
+  }
 }
 
 function bindScenarioExport() {
-    const btn = document.getElementById('scenarioExportBtn');
-    if (btn) btn.onclick = exportScenarioReport;
+  const btn = document.getElementById('scenarioExportBtn');
+  if (btn) btn.onclick = exportScenarioReport;
 }
 
 function calculateScenario() {
-    // Get inputs
-    const tickets = parseInt(document.getElementById('sc_tickets')?.value || 500);
-    const aiRate = parseInt(document.getElementById('sc_aiRate')?.value || 40) / 100;
-    const staffCost = parseInt(document.getElementById('sc_staffCost')?.value || 45000);
-    const ticketsPerDay = parseInt(document.getElementById('sc_ticketsPerDay')?.value || 12);
-    const targetSla = parseInt(document.getElementById('sc_targetSla')?.value || 90);
+  // Get inputs
+  const tickets = parseInt(document.getElementById('sc_tickets')?.value || 500);
+  const aiRate = parseInt(document.getElementById('sc_aiRate')?.value || 40) / 100;
+  const staffCost = parseInt(document.getElementById('sc_staffCost')?.value || 45000);
+  const ticketsPerDay = parseInt(document.getElementById('sc_ticketsPerDay')?.value || 12);
+  const targetSla = parseInt(document.getElementById('sc_targetSla')?.value || 90);
 
-    // Calculate
-    const manualTickets = Math.round(tickets * (1 - aiRate));
-    const aiTickets = Math.round(tickets * aiRate);
+  // Calculate
+  const manualTickets = Math.round(tickets * (1 - aiRate));
+  const aiTickets = Math.round(tickets * aiRate);
 
-    const ticketsPerStaffPerMonth = ticketsPerDay * scenarioState.workDaysPerMonth;
-    const requiredStaff = Math.ceil(manualTickets / ticketsPerStaffPerMonth);
-    const optimalStaff = Math.max(1, requiredStaff);
+  const ticketsPerStaffPerMonth = ticketsPerDay * scenarioState.workDaysPerMonth;
+  const requiredStaff = Math.ceil(manualTickets / ticketsPerStaffPerMonth);
+  const optimalStaff = Math.max(1, requiredStaff);
 
-    const staffTotalCost = optimalStaff * staffCost;
-    const aiCost = aiTickets * scenarioState.aiCostPerTicket;
-    const totalCost = staffTotalCost + aiCost;
+  const staffTotalCost = optimalStaff * staffCost;
+  const aiCost = aiTickets * scenarioState.aiCostPerTicket;
+  const totalCost = staffTotalCost + aiCost;
 
-    // Calculate baseline (no AI)
-    const baselineStaff = Math.ceil(tickets / ticketsPerStaffPerMonth);
-    const baselineCost = baselineStaff * staffCost;
-    const savings = baselineCost - totalCost;
+  // Calculate baseline (no AI)
+  const baselineStaff = Math.ceil(tickets / ticketsPerStaffPerMonth);
+  const baselineCost = baselineStaff * staffCost;
+  const savings = baselineCost - totalCost;
 
-    // Calculate freed capacity
-    const freedStaff = (baselineStaff - optimalStaff).toFixed(1);
+  // Calculate freed capacity
+  const freedStaff = (baselineStaff - optimalStaff).toFixed(1);
 
-    // Calculate projected SLA (capacity-based estimate)
-    const capacity = optimalStaff * ticketsPerStaffPerMonth;
-    const utilizationRate = manualTickets / capacity;
-    let projectedSla = targetSla;
-    if (utilizationRate > 1) {
-        projectedSla = Math.max(70, targetSla - Math.round((utilizationRate - 1) * 30));
-    } else if (utilizationRate < 0.8) {
-        projectedSla = Math.min(99, targetSla + Math.round((0.8 - utilizationRate) * 10));
+  // Calculate projected SLA (capacity-based estimate)
+  const capacity = optimalStaff * ticketsPerStaffPerMonth;
+  const utilizationRate = manualTickets / capacity;
+  let projectedSla = targetSla;
+  if (utilizationRate > 1) {
+    projectedSla = Math.max(70, targetSla - Math.round((utilizationRate - 1) * 30));
+  } else if (utilizationRate < 0.8) {
+    projectedSla = Math.min(99, targetSla + Math.round((0.8 - utilizationRate) * 10));
+  }
+
+  // Update Executive Summary
+  updateExecKpi('sc_currentTickets', tickets);
+  updateExecKpi('sc_currentCost', formatCurrencyShort(baselineCost));
+  updateExecKpi('sc_currentSla', targetSla + '%');
+  updateExecKpi('sc_currentAi', Math.round(aiRate * 100) + '%');
+
+  // Update Results
+  updateResult('sc_reqStaff', optimalStaff);
+  updateResult('sc_totalCost', formatCurrencyShort(totalCost));
+  updateResult('sc_savings', formatCurrencyShort(Math.abs(savings)));
+  updateResult('sc_projectedSla', projectedSla + '%');
+
+  // Update savings context
+  const savingsContext = document.getElementById('sc_savingsContext');
+  if (savingsContext) {
+    if (savings > 0) {
+      savingsContext.textContent = 'Besparing per månad';
+      savingsContext.parentElement.parentElement.classList.add('status-ok');
+      savingsContext.parentElement.parentElement.classList.remove('status-warn');
+    } else {
+      savingsContext.textContent = 'Ökad kostnad';
+      savingsContext.parentElement.parentElement.classList.remove('status-ok');
+      savingsContext.parentElement.parentElement.classList.add('status-warn');
     }
+  }
 
-    // Update Executive Summary
-    updateExecKpi('sc_currentTickets', tickets);
-    updateExecKpi('sc_currentCost', formatCurrencyShort(baselineCost));
-    updateExecKpi('sc_currentSla', targetSla + '%');
-    updateExecKpi('sc_currentAi', Math.round(aiRate * 100) + '%');
-
-    // Update Results
-    updateResult('sc_reqStaff', optimalStaff);
-    updateResult('sc_totalCost', formatCurrencyShort(totalCost));
-    updateResult('sc_savings', formatCurrencyShort(Math.abs(savings)));
-    updateResult('sc_projectedSla', projectedSla + '%');
-
-    // Update savings context
-    const savingsContext = document.getElementById('sc_savingsContext');
-    if (savingsContext) {
-        if (savings > 0) {
-            savingsContext.textContent = 'Besparing per månad';
-            savingsContext.parentElement.parentElement.classList.add('status-ok');
-            savingsContext.parentElement.parentElement.classList.remove('status-warn');
-        } else {
-            savingsContext.textContent = 'Ökad kostnad';
-            savingsContext.parentElement.parentElement.classList.remove('status-ok');
-            savingsContext.parentElement.parentElement.classList.add('status-warn');
-        }
+  // Update staff context
+  const staffContext = document.getElementById('sc_staffContext');
+  if (staffContext) {
+    if (optimalStaff < baselineStaff) {
+      staffContext.textContent = `${baselineStaff - optimalStaff} färre än utan AI`;
     }
+  }
 
-    // Update staff context
-    const staffContext = document.getElementById('sc_staffContext');
-    if (staffContext) {
-        if (optimalStaff < baselineStaff) {
-            staffContext.textContent = `${baselineStaff - optimalStaff} färre än utan AI`;
-        } else {
-            staffContext.textContent = 'Medarbetare för att möta efterfrågan';
-        }
-    }
 
-    // Update AI value
-    updateResult('sc_aiTickets', aiTickets);
-    updateResult('sc_aiSaved', freedStaff);
-    updateResult('sc_aiCostSaved', formatCurrencyShort(Math.max(0, savings)));
+  // Update AI value
+  updateResult('sc_aiTickets', aiTickets);
+  updateResult('sc_aiSaved', freedStaff);
+  updateResult('sc_aiCostSaved', formatCurrencyShort(Math.max(0, savings)));
 
-    // Update recommendation
-    updateRecommendation(optimalStaff, baselineStaff, savings, projectedSla, targetSla, utilizationRate);
+  // Calculate extended metrics
+  const avgHandleTime = 20; // minutes per ticket
+  const hoursPerMonth = Math.round((aiTickets * avgHandleTime) / 60);
+  const hoursPerYear = hoursPerMonth * 12;
+  const hoursPerWeek = Math.round(hoursPerMonth / 4.33);
+  const hoursPerDay = Math.round(hoursPerMonth / scenarioState.workDaysPerMonth);
+
+  const yearSavings = savings * 12;
+  const aiMonthlyCost = 2000; // Approximate AI cost
+  const roi = aiMonthlyCost > 0 ? Math.round((savings / aiMonthlyCost) * 100) : 0;
+
+  const maxCapacity = optimalStaff * ticketsPerStaffPerMonth;
+  const maxTicketsWithAi = Math.round(maxCapacity / (1 - aiRate));
+  const growthRoom = maxTicketsWithAi - tickets;
+  const growthPercent = Math.round((growthRoom / tickets) * 100);
+  const breakeven = Math.round(maxCapacity * 1.15 / (1 - aiRate));
+  const costPerTicket = Math.round(totalCost / tickets);
+  const industryAvg = 350; // Industry average cost per ticket
+  const costComparison = Math.round(((industryAvg - costPerTicket) / industryAvg) * 100);
+
+  // Update Savings section
+  updateResult('sc_yearSavings', formatCurrencyShort(Math.max(0, yearSavings)));
+  updateResult('sc_monthSavings', formatCurrencyShort(Math.max(0, savings)));
+  updateResult('sc_hoursSaved', hoursPerMonth + ' h');
+  updateResult('sc_roiPercent', roi + '%');
+
+  // Update Time section
+  updateResult('sc_hoursDay', hoursPerDay + ' h');
+  updateResult('sc_hoursWeek', hoursPerWeek + ' h');
+  updateResult('sc_hoursMonth', hoursPerMonth + ' h');
+  updateResult('sc_hoursYear', hoursPerYear.toLocaleString('sv-SE') + ' h');
+
+  const fteEquivalent = (hoursPerMonth / 160).toFixed(1);
+  const timeInsight = document.getElementById('sc_timeInsight');
+  if (timeInsight) {
+    timeInsight.innerHTML = `<i class="fa-solid fa-lightbulb"></i><span>Motsvarar ${fteEquivalent} heltidstjänster som kan fokusera på proaktivt kundarbete</span>`;
+  }
+
+  // Update Growth section
+  const capacityPercent = Math.round(utilizationRate * 100);
+  updateResult('sc_capacityPercent', capacityPercent + '% utnyttjad');
+  const capacityBar = document.getElementById('sc_capacityBar');
+  if (capacityBar) {
+    capacityBar.style.width = Math.min(100, capacityPercent) + '%';
+    capacityBar.style.background = capacityPercent > 90 ? 'var(--danger)' :
+      capacityPercent > 75 ? 'var(--warn)' :
+        'linear-gradient(90deg, var(--primary), #8b5cf6)';
+  }
+
+  updateResult('sc_maxTickets', maxTicketsWithAi);
+  const maxTicketsContext = document.querySelector('#sc_maxTickets + .growthContext');
+  if (maxTicketsContext) maxTicketsContext.textContent = '+' + growthPercent + '% tillväxtutrymme';
+
+  updateResult('sc_breakeven', breakeven + ' ärenden');
+  updateResult('sc_costPerTicket', costPerTicket + ' kr');
+
+  const costContext = document.getElementById('sc_costPerTicketContext');
+  if (costContext) {
+    costContext.textContent = costComparison > 0 ? costComparison + '% lägre än branschsnitt' :
+      Math.abs(costComparison) + '% högre än branschsnitt';
+  }
+
+  // Update recommendation
+  updateRecommendation(optimalStaff, baselineStaff, savings, projectedSla, targetSla, utilizationRate);
 }
 
 function updateExecKpi(id, value) {
-    const el = document.getElementById(id);
-    if (el) el.textContent = value;
+  const el = document.getElementById(id);
+  if (el) el.textContent = value;
 }
 
 function updateResult(id, value) {
-    const el = document.getElementById(id);
-    if (el) el.textContent = value;
+  const el = document.getElementById(id);
+  if (el) el.textContent = value;
 }
 
 function formatCurrencyShort(value) {
-    return value.toLocaleString('sv-SE') + ' kr';
+  return value.toLocaleString('sv-SE') + ' kr';
 }
 
 function updateRecommendation(optimalStaff, baselineStaff, savings, projectedSla, targetSla, utilization) {
-    const recText = document.getElementById('sc_recText');
-    const recCard = document.getElementById('sc_recommendation');
-    if (!recText) return;
+  const recText = document.getElementById('sc_recText');
+  const recCard = document.getElementById('sc_recommendation');
+  if (!recText) return;
 
-    let text = '';
-    let status = 'info';
+  let text = '';
+  let status = 'info';
 
-    if (optimalStaff < baselineStaff && savings > 0) {
-        text = `Genom att automatisera ${document.getElementById('sc_aiRate')?.value || 40}% av ärendena kan bemanningen reduceras till ${optimalStaff} medarbetare. Detta ger en besparing på ${formatCurrencyShort(savings)} per månad med bibehållen servicekvalitet på ${projectedSla}%.`;
-        status = 'ok';
-    } else if (utilization > 1) {
-        text = `Nuvarande kapacitet är otillräcklig. För att uppnå ${targetSla}% servicekvalitet rekommenderas ${optimalStaff} medarbetare. Överväg att öka automatiseringsgraden för att minska behovet.`;
-        status = 'warn';
-    } else if (utilization < 0.6) {
-        text = `Det finns ledig kapacitet i organisationen. Nuvarande bemanning klarar betydligt fler ärenden, eller så kan bemanningen justeras nedåt för kostnadsoptimering.`;
-        status = 'info';
-    } else {
-        text = `Bemanningen på ${optimalStaff} medarbetare är väl anpassad till nuvarande ärendevolym och automatiseringsgrad. Servicekvaliteten beräknas till ${projectedSla}%.`;
-        status = 'ok';
-    }
+  if (optimalStaff < baselineStaff && savings > 0) {
+    text = `Genom att automatisera ${document.getElementById('sc_aiRate')?.value || 40}% av ärendena kan bemanningen reduceras till ${optimalStaff} medarbetare. Detta ger en besparing på ${formatCurrencyShort(savings)} per månad med bibehållen servicekvalitet på ${projectedSla}%.`;
+    status = 'ok';
+  } else if (utilization > 1) {
+    text = `Nuvarande kapacitet är otillräcklig. För att uppnå ${targetSla}% servicekvalitet rekommenderas ${optimalStaff} medarbetare. Överväg att öka automatiseringsgraden för att minska behovet.`;
+    status = 'warn';
+  } else if (utilization < 0.6) {
+    text = `Det finns ledig kapacitet i organisationen. Nuvarande bemanning klarar betydligt fler ärenden, eller så kan bemanningen justeras nedåt för kostnadsoptimering.`;
+    status = 'info';
+  } else {
+    text = `Bemanningen på ${optimalStaff} medarbetare är väl anpassad till nuvarande ärendevolym och automatiseringsgrad. Servicekvaliteten beräknas till ${projectedSla}%.`;
+    status = 'ok';
+  }
 
-    recText.textContent = text;
+  recText.textContent = text;
 
-    if (recCard) {
-        recCard.className = 'recommendationCard ' + status;
-    }
+  if (recCard) {
+    recCard.className = 'recommendationCard ' + status;
+  }
 }
 
 function exportScenarioReport() {
-    const tickets = document.getElementById('sc_tickets')?.value || 500;
-    const aiRate = document.getElementById('sc_aiRate')?.value || 40;
-    const staffCost = document.getElementById('sc_staffCost')?.value || 45000;
-    const reqStaff = document.getElementById('sc_reqStaff')?.textContent || '-';
-    const totalCost = document.getElementById('sc_totalCost')?.textContent || '-';
-    const savings = document.getElementById('sc_savings')?.textContent || '-';
-    const projectedSla = document.getElementById('sc_projectedSla')?.textContent || '-';
-    const recText = document.getElementById('sc_recText')?.textContent || '';
+  const tickets = document.getElementById('sc_tickets')?.value || 500;
+  const aiRate = document.getElementById('sc_aiRate')?.value || 40;
+  const staffCost = document.getElementById('sc_staffCost')?.value || 45000;
+  const reqStaff = document.getElementById('sc_reqStaff')?.textContent || '-';
+  const totalCost = document.getElementById('sc_totalCost')?.textContent || '-';
+  const savings = document.getElementById('sc_savings')?.textContent || '-';
+  const projectedSla = document.getElementById('sc_projectedSla')?.textContent || '-';
+  const recText = document.getElementById('sc_recText')?.textContent || '';
 
-    const report = `
+  const report = `
 AFFÄRSANALYS - KAPACITETSPLANERING
 ===================================
 Genererad: ${new Date().toLocaleString('sv-SE')}
@@ -5671,15 +5732,35 @@ ${recText}
 Rapporten skapad av AI Kundtjänst
   `.trim();
 
-    const blob = new Blob([report], { type: 'text/plain;charset=utf-8' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `affarsanalys_${new Date().toISOString().split('T')[0]}.txt`;
-    a.click();
-    URL.revokeObjectURL(url);
+  const blob = new Blob([report], { type: 'text/plain;charset=utf-8' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `affarsanalys_${new Date().toISOString().split('T')[0]}.txt`;
+  a.click();
+  URL.revokeObjectURL(url);
 
-    if (typeof toast === 'function') toast('Exporterad', 'Rapporten har laddats ner', 'success');
+  if (typeof toast === 'function') toast('Exporterad', 'Rapporten har laddats ner', 'success');
+}
+
+function shareScenario() {
+  const data = {
+    tickets: document.getElementById('sc_tickets')?.value,
+    aiRate: document.getElementById('sc_aiRate')?.value,
+    staffCost: document.getElementById('sc_staffCost')?.value,
+    recommendation: document.getElementById('sc_recText')?.textContent
+  };
+
+  const shareText = `Affärsanalys: ${data.tickets} ärenden/mån, ${data.aiRate}% AI. Rekommendation: ${data.recommendation?.substring(0, 100)}...`;
+
+  if (navigator.share) {
+    navigator.share({ title: 'Affärsanalys', text: shareText }).catch(() => { });
+  } else {
+    navigator.clipboard.writeText(shareText);
+    if (typeof toast === 'function') toast('Kopierat', 'Analysen kopierades till urklipp', 'success');
+  }
 }
 
 window.initScenarioPlanner = initScenarioPlanner;
+window.shareScenario = shareScenario;
+
