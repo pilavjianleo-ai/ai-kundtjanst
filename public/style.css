@@ -1990,41 +1990,7 @@ input[type="range"].slider::-webkit-slider-thumb:hover {
   box-shadow: 0 0 10px var(--primary);
 }
 
-/* =====================
-   LARGE SCREEN / CASTING OPTIMIZATION
-===================== */
-@media (min-width: 1600px) {
-
-  /* Increase readability for casting/presentations */
-  body {
-    font-size: 16px;
-  }
-
-  .title {
-    font-size: 24px;
-  }
-
-  .msg .bubble {
-    padding: 14px 18px;
-    /* Larger bubbles */
-  }
-
-  .msg {
-    font-size: 16px;
-    max-width: 65%;
-    /* Prevent overly long lines */
-  }
-
-  .sidebar {
-    width: 320px;
-    /* Slightly wider sidebar */
-  }
-
-  /* Spacious grid */
-  .grid2 {
-    gap: 30px;
-  }
-}
+/* Large screen optimizations removed to restore original desktop look */
 
 /* =====================
    MOBILE OPTIMIZATION
