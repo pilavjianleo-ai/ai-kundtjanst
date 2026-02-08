@@ -4296,3 +4296,146 @@ body[data-theme="light"] .messages {
   box-sizing: border-box !important;
   padding: 20px !important;
 }
+
+/* =========================================
+   RESPONSIVE & MOBILE OPTIMIZATIONS
+   ========================================= */
+
+/* Mobile / Tablet (< 900px matching JS logic) */
+@media (max-width: 900px) {
+
+  /* Sidebar Navigation - Hidden by default */
+  .app {
+    flex-direction: column;
+    height: 100vh;
+    overflow: hidden;
+  }
+
+  .sidebar {
+    position: fixed;
+    top: 0;
+    left: 0;
+    bottom: 0;
+    width: 280px;
+    z-index: 2000;
+    transform: translateX(-100%);
+    transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    box-shadow: 5px 0 30px rgba(0, 0, 0, 0.5);
+  }
+
+  .sidebar.active {
+    transform: translateX(0);
+  }
+
+  /* Mobile Menu Button Style */
+  .mobile-menu-btn {
+    background: transparent;
+    border: 1px solid var(--border);
+    color: var(--text);
+    padding: 8px 12px;
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: 18px;
+    display: flex !important;
+    align-items: center;
+    justify-content: center;
+  }
+
+  /* Overlay for mobile menu */
+  .mobile-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.6);
+    z-index: 1999;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.3s;
+    backdrop-filter: blur(4px);
+  }
+
+  .mobile-overlay.active {
+    opacity: 1;
+    pointer-events: auto;
+  }
+
+  /* Main Area Adjustments */
+  .main {
+    width: 100%;
+    padding: 10px;
+    overflow-y: auto;
+  }
+
+  /* Grid Collapse to Single Column */
+  .grid2,
+  .grid3,
+  .grid4 {
+    grid-template-columns: 1fr !important;
+    gap: 15px;
+  }
+
+  .customerProfileLayout {
+    grid-template-columns: 1fr !important;
+  }
+
+  /* Better Chat Inputs on Mobile */
+  .input {
+    font-size: 16px !important;
+    /* Prevent iOS Zoom */
+  }
+
+  /* Ensure content fits without overflow */
+  .view,
+  .card,
+  .panel {
+    max-width: 100%;
+    overflow-x: hidden;
+  }
+
+  /* Allow scrolling for wider elements (tables, charts) */
+  .table-container,
+  .panel,
+  .chart-container {
+    overflow-x: auto;
+  }
+
+  /* Fullscreen Modals */
+  .modalContent {
+    width: 95% !important;
+    margin: 10px;
+    max-height: 85vh;
+    overflow-y: auto;
+    padding: 20px !important;
+  }
+
+  /* Hide non-essential items on small screens */
+  .hide-mobile {
+    display: none !important;
+  }
+}
+
+/* Large Screens (> 1600px) */
+@media (min-width: 1600px) {
+
+  /* Utilize more screen real estate */
+  .view {
+    max-width: 1600px;
+  }
+
+  /* Larger stats for visibility */
+  .statValue {
+    font-size: 32px;
+  }
+
+  /* Messages centered for readability on ultra-wide */
+  .messages {
+    max-width: 1000px;
+    margin: 0 auto;
+    border-left: 1px solid var(--border);
+    border-right: 1px solid var(--border);
+  }
+
+  /* Pipeline columns wider */
+  .pipelineContainer {
+    gap: 24px;
+  }
+}

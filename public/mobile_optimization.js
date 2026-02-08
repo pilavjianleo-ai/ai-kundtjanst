@@ -14,6 +14,14 @@ window.toggleSidebar = function () {
 };
 
 function initMobileMenu() {
+    // Inject overlay for mobile sidebar if not present
+    if (!document.querySelector('.mobile-overlay')) {
+        const ov = document.createElement('div');
+        ov.className = 'mobile-overlay';
+        ov.onclick = window.toggleSidebar;
+        document.body.appendChild(ov);
+    }
+
     const topbars = document.querySelectorAll('.topbar');
     topbars.forEach(tb => {
         const titleContainer = tb.firstElementChild;
