@@ -2629,3 +2629,267 @@ input[type="range"].slider::-webkit-slider-thumb:hover {
         font-size: 22px;
     }
 }
+
+/* =====================
+   SCENARIOPLANERING STYLES
+   Business-focused, Executive-level Design
+===================== */
+
+.scenarioContent {
+  padding: 20px 0;
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+.scenarioSection {
+  background: var(--panel);
+  border-radius: 12px;
+  padding: 24px;
+  border: 1px solid var(--border);
+}
+
+.scenarioSection .sectionHeader {
+  margin-bottom: 20px;
+}
+
+.scenarioSection .sectionHeader h3 {
+  margin: 0 0 4px 0;
+  font-size: 18px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.scenarioSection .sectionHeader h3 i {
+  color: var(--primary);
+}
+
+.scenarioSection .sectionSubtitle {
+  color: var(--muted);
+  font-size: 14px;
+}
+
+/* Executive KPIs */
+.executiveKpis {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 20px;
+}
+
+.execKpiCard {
+  text-align: center;
+  padding: 20px;
+  background: var(--panel2);
+  border-radius: 10px;
+}
+
+.execKpiValue {
+  font-size: 36px;
+  font-weight: 800;
+  margin-bottom: 8px;
+  color: var(--text);
+}
+
+.execKpiValue.status-ok {
+  color: var(--ok);
+}
+
+.execKpiLabel {
+  font-size: 14px;
+  font-weight: 600;
+  margin-bottom: 4px;
+}
+
+.execKpiContext {
+  font-size: 12px;
+  color: var(--muted);
+}
+
+/* Assumptions */
+.assumptionsGrid {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.assumptionCard {
+  padding: 16px 20px;
+  background: var(--panel2);
+  border-radius: 8px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 20px;
+  flex-wrap: wrap;
+}
+
+.assumptionQuestion {
+  flex: 1;
+  min-width: 200px;
+  font-size: 14px;
+  color: var(--text);
+}
+
+.assumptionInput {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  min-width: 250px;
+}
+
+.assumptionInput .slider {
+  flex: 1;
+  min-width: 150px;
+}
+
+.sliderValue {
+  min-width: 100px;
+  text-align: right;
+  font-weight: 700;
+  font-size: 16px;
+  color: var(--primary);
+}
+
+/* Results Grid */
+.resultsGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 16px;
+  margin-bottom: 20px;
+}
+
+.resultCard {
+  display: flex;
+  align-items: flex-start;
+  gap: 16px;
+  padding: 20px;
+  background: var(--panel2);
+  border-radius: 10px;
+  border-left: 4px solid var(--border);
+}
+
+.resultCard.primary {
+  border-left-color: var(--primary);
+  background: linear-gradient(135deg, rgba(76, 125, 255, 0.1), var(--panel2));
+}
+
+.resultCard.status-ok {
+  border-left-color: var(--ok);
+}
+
+.resultCard.status-warn {
+  border-left-color: var(--warn);
+}
+
+.resultIcon {
+  font-size: 24px;
+  color: var(--muted);
+}
+
+.resultCard.primary .resultIcon {
+  color: var(--primary);
+}
+
+.resultCard.status-ok .resultIcon {
+  color: var(--ok);
+}
+
+.resultValue {
+  font-size: 28px;
+  font-weight: 800;
+  margin-bottom: 4px;
+}
+
+.resultLabel {
+  font-size: 14px;
+  font-weight: 500;
+  margin-bottom: 2px;
+}
+
+.resultContext {
+  font-size: 12px;
+  color: var(--muted);
+}
+
+/* AI Value Card */
+.aiValueCard {
+  background: linear-gradient(135deg, rgba(76, 125, 255, 0.08), rgba(139, 92, 246, 0.08));
+  border: 1px solid rgba(76, 125, 255, 0.2);
+  border-radius: 10px;
+  padding: 20px;
+}
+
+.aiValueHeader {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 16px;
+  font-weight: 600;
+  color: var(--primary);
+}
+
+.aiValueStats {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 16px;
+}
+
+.aiStat {
+  text-align: center;
+}
+
+.aiStatValue {
+  font-size: 24px;
+  font-weight: 700;
+  color: var(--primary);
+}
+
+.aiStatLabel {
+  font-size: 12px;
+  color: var(--muted);
+}
+
+/* Recommendation */
+.recommendationCard {
+  display: flex;
+  align-items: flex-start;
+  gap: 20px;
+  padding: 24px;
+  background: linear-gradient(135deg, var(--panel2), var(--panel));
+  border-radius: 12px;
+  border-left: 5px solid var(--primary);
+}
+
+.recommendationCard.ok {
+  border-left-color: var(--ok);
+}
+
+.recommendationCard.warn {
+  border-left-color: var(--warn);
+}
+
+.recIcon {
+  font-size: 32px;
+  color: var(--primary);
+}
+
+.recommendationCard.ok .recIcon {
+  color: var(--ok);
+}
+
+.recommendationCard.warn .recIcon {
+  color: var(--warn);
+}
+
+.recTitle {
+  font-size: 16px;
+  font-weight: 700;
+  margin-bottom: 8px;
+}
+
+.recText {
+  font-size: 15px;
+  line-height: 1.6;
+  color: var(--text);
+}
