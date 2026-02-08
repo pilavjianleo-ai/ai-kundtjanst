@@ -5445,378 +5445,367 @@ Rapporten skapad av AI Kundtjänst
 
 window.initSalesAnalytics = initSalesAnalytics;
 
-/* =====================
-   SCENARIOPLANERING - Business Focused
-   Affärsanalys & Kapacitetsplanering
-===================== */
-
-// Scenario State
-const scenarioState = {
-  workDaysPerMonth: 22,
-  aiCostPerTicket: 2 // SEK per AI-handled ticket
-};
-
 
 /* =====================
    SCENARIOPLANERING V2 - Modes & Favorites
 ===================== */
 
 const scenarioState = {
-    workDaysPerMonth: 22,
-    aiCostPerTicket: 2, // SEK per AI-handled ticket
-    favorites: JSON.parse(localStorage.getItem('scenarioFavorites') || '[]'),
-    onboardingShown: localStorage.getItem('scenarioOnboardingShown') === 'true',
-    currentMode: 'overview'
+  workDaysPerMonth: 22,
+  aiCostPerTicket: 2, // SEK per AI-handled ticket
+  favorites: JSON.parse(localStorage.getItem('scenarioFavorites') || '[]'),
+  onboardingShown: localStorage.getItem('scenarioOnboardingShown') === 'true',
+  currentMode: 'overview'
 };
 
 // Initialize Scenario Planner
 async function initScenarioPlanner() {
-    bindScenarioInputs();
-    bindScenarioExport();
+  bindScenarioInputs();
+  bindScenarioExport();
 
-    // Check onboarding
-    if (!scenarioState.onboardingShown) {
-        document.getElementById('scenarioOnboarding').style.display = 'flex';
+  // Check onboarding
+  if (!scenarioState.onboardingShown) {
+    document.getElementById('scenarioOnboarding').style.display = 'flex';
+  }
+
+  // Load favorites
+  updateFavoriteButtons();
+
+  // Try to load real data
+  try {
+    const slaData = await api("/sla/dashboard?days=30").catch(() => null);
+    if (slaData && slaData.totalTickets) {
+      document.getElementById('sc_tickets').value = slaData.totalTickets;
+      document.getElementById('sc_tickets_val').textContent = slaData.totalTickets;
     }
+  } catch (e) {
+    console.log("Using default scenario values");
+  }
 
-    // Load favorites
-    updateFavoriteButtons();
-
-    // Try to load real data
-    try {
-        const slaData = await api("/sla/dashboard?days=30").catch(() => null);
-        if (slaData && slaData.totalTickets) {
-            document.getElementById('sc_tickets').value = slaData.totalTickets;
-            document.getElementById('sc_tickets_val').textContent = slaData.totalTickets;
-        }
-    } catch (e) {
-        console.log("Using default scenario values");
-    }
-
-    // Initial calc
-    calculateScenario();
+  // Initial calc
+  calculateScenario();
 }
 
 // Mode Switching
 function setScenarioMode(mode) {
-    scenarioState.currentMode = mode;
+  scenarioState.currentMode = mode;
 
-    // Update Tabs
-    document.querySelectorAll('.modeTab').forEach(tab => tab.classList.remove('active'));
-    // Handle special case for buttons ID or just find by onclick
-    const tab = document.querySelector(`.modeTab[onclick*="'${mode}'"]`);
-    if (tab) tab.classList.add('active');
+  // Update Tabs
+  document.querySelectorAll('.modeTab').forEach(tab => tab.classList.remove('active'));
+  // Handle special case for buttons ID or just find by onclick
+  const tab = document.querySelector(`.modeTab[onclick*="'${mode}'"]`);
+  if (tab) tab.classList.add('active');
 
-    // Hide all sections first
-    document.querySelectorAll('.scenarioModeSection').forEach(el => el.style.display = 'none');
+  // Hide all sections first
+  document.querySelectorAll('.scenarioModeSection').forEach(el => el.style.display = 'none');
 
-    // Show selected section
-    const target = document.getElementById(`sc_mode_${mode}`);
-    if (target) {
-        target.style.display = 'block';
-        target.classList.add('fade-in');
-        setTimeout(() => target.classList.remove('fade-in'), 500);
-    }
+  // Show selected section
+  const target = document.getElementById(`sc_mode_${mode}`);
+  if (target) {
+    target.style.display = 'block';
+    target.classList.add('fade-in');
+    setTimeout(() => target.classList.remove('fade-in'), 500);
+  }
 
-    if (mode === 'myView') {
-        renderFavorites();
-    }
+  if (mode === 'myView') {
+    renderFavorites();
+  }
 }
 
 // Favorites System
 function toggleFavorite(id, name) {
-    const index = scenarioState.favorites.findIndex(f => f.id === id);
+  const index = scenarioState.favorites.findIndex(f => f.id === id);
 
-    if (index === -1) {
-        scenarioState.favorites.push({ id, name });
-        if (typeof toast === 'function') toast('Sparat', `${name} har lagts till i Min Vy`, 'success');
-    } else {
-        scenarioState.favorites.splice(index, 1);
-        if (typeof toast === 'function') toast('Borttaget', `${name} har tagits bort från Min Vy`, 'info');
-    }
+  if (index === -1) {
+    scenarioState.favorites.push({ id, name });
+    if (typeof toast === 'function') toast('Sparat', `${name} har lagts till i Min Vy`, 'success');
+  } else {
+    scenarioState.favorites.splice(index, 1);
+    if (typeof toast === 'function') toast('Borttaget', `${name} har tagits bort från Min Vy`, 'info');
+  }
 
-    localStorage.setItem('scenarioFavorites', JSON.stringify(scenarioState.favorites));
-    updateFavoriteButtons();
-    if (scenarioState.currentMode === 'myView') renderFavorites();
+  localStorage.setItem('scenarioFavorites', JSON.stringify(scenarioState.favorites));
+  updateFavoriteButtons();
+  if (scenarioState.currentMode === 'myView') renderFavorites();
 }
 
 function updateFavoriteButtons() {
-    document.querySelectorAll('.favoriteBtn').forEach(btn => {
-        btn.innerHTML = '<i class="fa-regular fa-star"></i>';
-        btn.classList.remove('active');
+  document.querySelectorAll('.favoriteBtn').forEach(btn => {
+    btn.innerHTML = '<i class="fa-regular fa-star"></i>';
+    btn.classList.remove('active');
 
-        const onclick = btn.getAttribute('onclick');
-        if (onclick) {
-            const match = onclick.match(/'([^']+)'/);
-            if (match) {
-                const id = match[1];
-                if (scenarioState.favorites.find(f => f.id === id)) {
-                    btn.innerHTML = '<i class="fa-solid fa-star"></i>';
-                    btn.classList.add('active');
-                }
-            }
+    const onclick = btn.getAttribute('onclick');
+    if (onclick) {
+      const match = onclick.match(/'([^']+)'/);
+      if (match) {
+        const id = match[1];
+        if (scenarioState.favorites.find(f => f.id === id)) {
+          btn.innerHTML = '<i class="fa-solid fa-star"></i>';
+          btn.classList.add('active');
         }
-    });
+      }
+    }
+  });
 }
 
 function renderFavorites() {
-    const container = document.getElementById('sc_favoritesContainer');
-    if (!container) return;
+  const container = document.getElementById('sc_favoritesContainer');
+  if (!container) return;
 
-    container.innerHTML = '';
+  container.innerHTML = '';
 
-    if (scenarioState.favorites.length === 0) {
-        container.innerHTML = `
+  if (scenarioState.favorites.length === 0) {
+    container.innerHTML = `
             <div class="emptyState">
                 <i class="fa-regular fa-star"></i>
                 <p>Du har inte valt några favoriter än. Klicka på stjärnan vid ett KPI för att lägga till det här.</p>
             </div>`;
-        return;
+    return;
+  }
+
+  scenarioState.favorites.forEach(fav => {
+    // We look for elements by ID in the whole document
+    // But since IDs are unique, we find the "source" element.
+    // The source element is likely inside one of the hidden sections.
+
+    // Strategy: We find the closest card container of the element with that ID.
+    // But wait, the ID is on the VALUE element (e.g., sc_currentTickets), not the card.
+    const valEl = document.getElementById(fav.id);
+    const card = valEl?.closest('.execKpiCard, .resultCard, .savingsCard, .growthCard, .timeStat');
+
+    if (card) {
+      const clone = card.cloneNode(true);
+      const favBtn = clone.querySelector('.favoriteBtn');
+      if (favBtn) {
+        favBtn.setAttribute('onclick', `toggleFavorite('${fav.id}', '${fav.name}')`);
+        favBtn.classList.add('active');
+        favBtn.innerHTML = '<i class="fa-solid fa-trash"></i>';
+        favBtn.title = "Ta bort från Min Vy";
+      }
+      container.appendChild(clone);
     }
-
-    scenarioState.favorites.forEach(fav => {
-        // We look for elements by ID in the whole document
-        // But since IDs are unique, we find the "source" element.
-        // The source element is likely inside one of the hidden sections.
-
-        // Strategy: We find the closest card container of the element with that ID.
-        // But wait, the ID is on the VALUE element (e.g., sc_currentTickets), not the card.
-        const valEl = document.getElementById(fav.id);
-        const card = valEl?.closest('.execKpiCard, .resultCard, .savingsCard, .growthCard, .timeStat');
-
-        if (card) {
-            const clone = card.cloneNode(true);
-            const favBtn = clone.querySelector('.favoriteBtn');
-            if (favBtn) {
-                favBtn.setAttribute('onclick', `toggleFavorite('${fav.id}', '${fav.name}')`);
-                favBtn.classList.add('active');
-                favBtn.innerHTML = '<i class="fa-solid fa-trash"></i>';
-                favBtn.title = "Ta bort från Min Vy";
-            }
-            container.appendChild(clone);
-        }
-    });
+  });
 }
 
 // Section Toggling
 function toggleSection(contentId) {
-    const content = document.getElementById(contentId);
-    const header = content.previousElementSibling; // The header
+  const content = document.getElementById(contentId);
+  const header = content.previousElementSibling; // The header
 
-    if (content.style.display === 'none' || content.classList.contains('collapsed')) {
-        content.style.display = 'block';
-        content.classList.remove('collapsed');
-        header.classList.remove('collapsed');
-    } else {
-        content.style.display = 'none';
-        content.classList.add('collapsed');
-        header.classList.add('collapsed');
-    }
+  if (content.style.display === 'none' || content.classList.contains('collapsed')) {
+    content.style.display = 'block';
+    content.classList.remove('collapsed');
+    header.classList.remove('collapsed');
+  } else {
+    content.style.display = 'none';
+    content.classList.add('collapsed');
+    header.classList.add('collapsed');
+  }
 }
 
 // Onboarding
 function closeScenarioOnboarding() {
-    document.getElementById('scenarioOnboarding').style.display = 'none';
-    localStorage.setItem('scenarioOnboardingShown', 'true');
-    scenarioState.onboardingShown = true;
+  document.getElementById('scenarioOnboarding').style.display = 'none';
+  localStorage.setItem('scenarioOnboardingShown', 'true');
+  scenarioState.onboardingShown = true;
 }
 
 function toggleScenarioOnboarding() {
-    document.getElementById('scenarioOnboarding').style.display = 'flex';
+  document.getElementById('scenarioOnboarding').style.display = 'flex';
 }
 
 function bindScenarioInputs() {
-    const inputs = ['sc_tickets', 'sc_aiRate', 'sc_staffCost', 'sc_ticketsPerDay', 'sc_targetSla'];
-    inputs.forEach(id => {
-        const input = document.getElementById(id);
-        if (!input) return;
-        input.oninput = () => {
-            updateSliderValue(id);
-            calculateScenario();
-        };
-    });
+  const inputs = ['sc_tickets', 'sc_aiRate', 'sc_staffCost', 'sc_ticketsPerDay', 'sc_targetSla'];
+  inputs.forEach(id => {
+    const input = document.getElementById(id);
+    if (!input) return;
+    input.oninput = () => {
+      updateSliderValue(id);
+      calculateScenario();
+    };
+  });
 }
 
 function updateSliderValue(id) {
-    const input = document.getElementById(id);
-    const display = document.getElementById(id + '_val');
-    if (!input || !display) return;
-    let value = parseInt(input.value);
-    if (id === 'sc_staffCost') {
-        display.textContent = value.toLocaleString('sv-SE');
-    } else {
-        display.textContent = value;
-    }
+  const input = document.getElementById(id);
+  const display = document.getElementById(id + '_val');
+  if (!input || !display) return;
+  let value = parseInt(input.value);
+  if (id === 'sc_staffCost') {
+    display.textContent = value.toLocaleString('sv-SE');
+  } else {
+    display.textContent = value;
+  }
 }
 
 function bindScenarioExport() {
-    // handled by onclick in HTML
+  // handled by onclick in HTML
 }
 
 function calculateScenario() {
-    // Get inputs
-    const tickets = parseInt(document.getElementById('sc_tickets')?.value || 500);
-    const aiRate = parseInt(document.getElementById('sc_aiRate')?.value || 40) / 100;
-    const staffCost = parseInt(document.getElementById('sc_staffCost')?.value || 45000);
-    const ticketsPerDay = parseInt(document.getElementById('sc_ticketsPerDay')?.value || 12);
-    const targetSla = parseInt(document.getElementById('sc_targetSla')?.value || 90);
+  // Get inputs
+  const tickets = parseInt(document.getElementById('sc_tickets')?.value || 500);
+  const aiRate = parseInt(document.getElementById('sc_aiRate')?.value || 40) / 100;
+  const staffCost = parseInt(document.getElementById('sc_staffCost')?.value || 45000);
+  const ticketsPerDay = parseInt(document.getElementById('sc_ticketsPerDay')?.value || 12);
+  const targetSla = parseInt(document.getElementById('sc_targetSla')?.value || 90);
 
-    // Calculate
-    const manualTickets = Math.round(tickets * (1 - aiRate));
-    const aiTickets = Math.round(tickets * aiRate);
+  // Calculate
+  const manualTickets = Math.round(tickets * (1 - aiRate));
+  const aiTickets = Math.round(tickets * aiRate);
 
-    const ticketsPerStaffPerMonth = ticketsPerDay * scenarioState.workDaysPerMonth;
-    const requiredStaff = Math.ceil(manualTickets / ticketsPerStaffPerMonth);
-    const optimalStaff = Math.max(1, requiredStaff);
+  const ticketsPerStaffPerMonth = ticketsPerDay * scenarioState.workDaysPerMonth;
+  const requiredStaff = Math.ceil(manualTickets / ticketsPerStaffPerMonth);
+  const optimalStaff = Math.max(1, requiredStaff);
 
-    const staffTotalCost = optimalStaff * staffCost;
-    const aiCost = aiTickets * scenarioState.aiCostPerTicket;
-    const totalCost = staffTotalCost + aiCost;
+  const staffTotalCost = optimalStaff * staffCost;
+  const aiCost = aiTickets * scenarioState.aiCostPerTicket;
+  const totalCost = staffTotalCost + aiCost;
 
-    // Calculate baseline (no AI)
-    const baselineStaff = Math.ceil(tickets / ticketsPerStaffPerMonth);
-    const baselineCost = baselineStaff * staffCost;
-    const savings = baselineCost - totalCost;
+  // Calculate baseline (no AI)
+  const baselineStaff = Math.ceil(tickets / ticketsPerStaffPerMonth);
+  const baselineCost = baselineStaff * staffCost;
+  const savings = baselineCost - totalCost;
 
-    // Calculate freed capacity
-    const freedStaff = (baselineStaff - optimalStaff).toFixed(1);
+  // Calculate freed capacity
+  const freedStaff = (baselineStaff - optimalStaff).toFixed(1);
 
-    // Calculate projected SLA
-    const capacity = optimalStaff * ticketsPerStaffPerMonth;
-    const utilizationRate = manualTickets / capacity;
-    let projectedSla = targetSla;
-    if (utilizationRate > 1) {
-        projectedSla = Math.max(70, targetSla - Math.round((utilizationRate - 1) * 30));
-    } else if (utilizationRate < 0.8) {
-        projectedSla = Math.min(99, targetSla + Math.round((0.8 - utilizationRate) * 10));
-    }
+  // Calculate projected SLA
+  const capacity = optimalStaff * ticketsPerStaffPerMonth;
+  const utilizationRate = manualTickets / capacity;
+  let projectedSla = targetSla;
+  if (utilizationRate > 1) {
+    projectedSla = Math.max(70, targetSla - Math.round((utilizationRate - 1) * 30));
+  } else if (utilizationRate < 0.8) {
+    projectedSla = Math.min(99, targetSla + Math.round((0.8 - utilizationRate) * 10));
+  }
 
-    // Update Metrics
-    updateExecKpi('sc_currentTickets', tickets);
-    updateExecKpi('sc_currentCost', formatCurrencyShort(baselineCost));
-    updateExecKpi('sc_currentSla', targetSla + '%');
-    updateExecKpi('sc_currentAi', Math.round(aiRate * 100) + '%');
+  // Update Metrics
+  updateExecKpi('sc_currentTickets', tickets);
+  updateExecKpi('sc_currentCost', formatCurrencyShort(baselineCost));
+  updateExecKpi('sc_currentSla', targetSla + '%');
+  updateExecKpi('sc_currentAi', Math.round(aiRate * 100) + '%');
 
-    updateResult('sc_reqStaff', optimalStaff);
-    updateResult('sc_totalCost', formatCurrencyShort(totalCost));
-    updateResult('sc_savings', formatCurrencyShort(Math.abs(savings)));
-    updateResult('sc_projectedSla', projectedSla + '%');
+  updateResult('sc_reqStaff', optimalStaff);
+  updateResult('sc_totalCost', formatCurrencyShort(totalCost));
+  updateResult('sc_savings', formatCurrencyShort(Math.abs(savings)));
+  updateResult('sc_projectedSla', projectedSla + '%');
 
-    // Update Recommendations/Context
-    const staffCtx = document.getElementById('sc_staffCtx');
-    if (staffCtx) {
-        staffCtx.textContent = utilizationRate > 1 ? "Underbemannat" : utilizationRate < 0.7 ? "Överbemannat" : "Optimal nivå";
-        staffCtx.className = 'resultRecommendation ' + (utilizationRate > 1 ? 'warn' : 'ok');
-    }
+  // Update Recommendations/Context
+  const staffCtx = document.getElementById('sc_staffCtx');
+  if (staffCtx) {
+    staffCtx.textContent = utilizationRate > 1 ? "Underbemannat" : utilizationRate < 0.7 ? "Överbemannat" : "Optimal nivå";
+    staffCtx.className = 'resultRecommendation ' + (utilizationRate > 1 ? 'warn' : 'ok');
+  }
 
-    updateResult('sc_aiTickets', aiTickets);
-    updateResult('sc_aiSaved', freedStaff);
-    updateResult('sc_aiCostSaved', formatCurrencyShort(Math.max(0, savings)));
+  updateResult('sc_aiTickets', aiTickets);
+  updateResult('sc_aiSaved', freedStaff);
+  updateResult('sc_aiCostSaved', formatCurrencyShort(Math.max(0, savings)));
 
-    // Extended Metrics
-    const avgHandleTime = 20;
-    const hoursPerMonth = Math.round((aiTickets * avgHandleTime) / 60);
-    const hoursPerYear = hoursPerMonth * 12;
-    const hoursPerWeek = Math.round(hoursPerMonth / 4.33);
+  // Extended Metrics
+  const avgHandleTime = 20;
+  const hoursPerMonth = Math.round((aiTickets * avgHandleTime) / 60);
+  const hoursPerYear = hoursPerMonth * 12;
+  const hoursPerWeek = Math.round(hoursPerMonth / 4.33);
 
-    const yearSavings = savings * 12;
-    const aiMonthlyCost = 2000;
-    const roi = aiMonthlyCost > 0 ? Math.round((savings / aiMonthlyCost) * 100) : 0;
+  const yearSavings = savings * 12;
+  const aiMonthlyCost = 2000;
+  const roi = aiMonthlyCost > 0 ? Math.round((savings / aiMonthlyCost) * 100) : 0;
 
-    const maxCapacity = optimalStaff * ticketsPerStaffPerMonth;
-    const maxTicketsWithAi = Math.round(maxCapacity / (1 - aiRate));
-    const growthRoom = maxTicketsWithAi - tickets;
-    const growthPercent = Math.round((growthRoom / tickets) * 100);
-    const breakeven = Math.round(maxCapacity * 1.15 / (1 - aiRate));
-    const costPerTicket = Math.round(totalCost / tickets);
-    const industryAvg = 350;
-    const costComparison = Math.round(((industryAvg - costPerTicket) / industryAvg) * 100);
+  const maxCapacity = optimalStaff * ticketsPerStaffPerMonth;
+  const maxTicketsWithAi = Math.round(maxCapacity / (1 - aiRate));
+  const growthRoom = maxTicketsWithAi - tickets;
+  const growthPercent = Math.round((growthRoom / tickets) * 100);
+  const breakeven = Math.round(maxCapacity * 1.15 / (1 - aiRate));
+  const costPerTicket = Math.round(totalCost / tickets);
+  const industryAvg = 350;
+  const costComparison = Math.round(((industryAvg - costPerTicket) / industryAvg) * 100);
 
-    updateResult('sc_yearSavings', formatCurrencyShort(Math.max(0, yearSavings)));
-    updateResult('sc_monthSavings', formatCurrencyShort(Math.max(0, savings)));
-    updateResult('sc_hoursSaved', hoursPerMonth + ' h');
-    updateResult('sc_roiPercent', roi + '%');
+  updateResult('sc_yearSavings', formatCurrencyShort(Math.max(0, yearSavings)));
+  updateResult('sc_monthSavings', formatCurrencyShort(Math.max(0, savings)));
+  updateResult('sc_hoursSaved', hoursPerMonth + ' h');
+  updateResult('sc_roiPercent', roi + '%');
 
-    updateResult('sc_hoursWeek', hoursPerWeek + ' h');
-    updateResult('sc_hoursMonth', hoursPerMonth + ' h');
-    updateResult('sc_hoursYear', hoursPerYear.toLocaleString('sv-SE') + ' h');
+  updateResult('sc_hoursWeek', hoursPerWeek + ' h');
+  updateResult('sc_hoursMonth', hoursPerMonth + ' h');
+  updateResult('sc_hoursYear', hoursPerYear.toLocaleString('sv-SE') + ' h');
 
-    const capacityPercent = Math.round(utilizationRate * 100);
-    updateResult('sc_capacityPercent', capacityPercent + '%');
-    const capacityBar = document.getElementById('sc_capacityBar');
-    if (capacityBar) {
-        capacityBar.style.width = Math.min(100, capacityPercent) + '%';
-        capacityBar.style.background = capacityPercent > 90 ? 'var(--danger)' :
-            capacityPercent > 75 ? 'var(--warn)' :
-                'linear-gradient(90deg, var(--primary), #8b5cf6)';
-    }
+  const capacityPercent = Math.round(utilizationRate * 100);
+  updateResult('sc_capacityPercent', capacityPercent + '%');
+  const capacityBar = document.getElementById('sc_capacityBar');
+  if (capacityBar) {
+    capacityBar.style.width = Math.min(100, capacityPercent) + '%';
+    capacityBar.style.background = capacityPercent > 90 ? 'var(--danger)' :
+      capacityPercent > 75 ? 'var(--warn)' :
+        'linear-gradient(90deg, var(--primary), #8b5cf6)';
+  }
 
-    updateResult('sc_maxTickets', maxTicketsWithAi);
-    updateResult('sc_breakeven', breakeven);
-    updateResult('sc_costPerTicket', costPerTicket + ' kr');
+  updateResult('sc_maxTickets', maxTicketsWithAi);
+  updateResult('sc_breakeven', breakeven);
+  updateResult('sc_costPerTicket', costPerTicket + ' kr');
 
-    // Sticky Summary
-    updateResult('sc_summaryYearSave', formatCurrencyShort(Math.max(0, yearSavings)));
-    updateResult('sc_summaryRoi', roi > 0 ? roi + '%' : '-');
-    updateResult('sc_summaryStaff', optimalStaff + ' st');
+  // Sticky Summary
+  updateResult('sc_summaryYearSave', formatCurrencyShort(Math.max(0, yearSavings)));
+  updateResult('sc_summaryRoi', roi > 0 ? roi + '%' : '-');
+  updateResult('sc_summaryStaff', optimalStaff + ' st');
 
-    // Update Insights
-    const topInsightOverview = document.getElementById('sc_topInsight_overview');
-    if (topInsightOverview) {
-        if (growthPercent > 20) topInsightOverview.textContent = `Verksamheten har ${growthPercent}% tillväxtutrymme med nuvarande AI-stöd.`;
-        else if (utilizationRate > 1) topInsightOverview.textContent = `Varning: Kapacitetsbrist. Öka AI eller bemanning snarast.`;
-        else topInsightOverview.textContent = `Stabil drift. ${Math.round(aiRate * 100)}% AI avlastar ${freedStaff} heltidstjänster.`;
-    }
+  // Update Insights
+  const topInsightOverview = document.getElementById('sc_topInsight_overview');
+  if (topInsightOverview) {
+    if (growthPercent > 20) topInsightOverview.textContent = `Verksamheten har ${growthPercent}% tillväxtutrymme med nuvarande AI-stöd.`;
+    else if (utilizationRate > 1) topInsightOverview.textContent = `Varning: Kapacitetsbrist. Öka AI eller bemanning snarast.`;
+    else topInsightOverview.textContent = `Stabil drift. ${Math.round(aiRate * 100)}% AI avlastar ${freedStaff} heltidstjänster.`;
+  }
 
-    const topInsightOpt = document.getElementById('sc_topInsight_opt');
-    if (topInsightOpt) {
-        topInsightOpt.textContent = `Ökad automatisering kan frigöra ${freedStaff} årsarbetare (+${roi}% ROI).`;
-    }
+  const topInsightOpt = document.getElementById('sc_topInsight_opt');
+  if (topInsightOpt) {
+    topInsightOpt.textContent = `Ökad automatisering kan frigöra ${freedStaff} årsarbetare (+${roi}% ROI).`;
+  }
 
-    // Recommendation logic
-    updateRecommendation(optimalStaff, baselineStaff, savings, projectedSla, targetSla, utilizationRate);
+  // Recommendation logic
+  updateRecommendation(optimalStaff, baselineStaff, savings, projectedSla, targetSla, utilizationRate);
 
-    // If in My View, re-render to update numbers
-    if (scenarioState.currentMode === 'myView') {
-        renderFavorites();
-    }
+  // If in My View, re-render to update numbers
+  if (scenarioState.currentMode === 'myView') {
+    renderFavorites();
+  }
 }
 
 function updateExecKpi(id, value) {
-    const el = document.getElementById(id);
-    if (el) el.textContent = value;
+  const el = document.getElementById(id);
+  if (el) el.textContent = value;
 }
 
 function updateResult(id, value) {
-    const el = document.getElementById(id);
-    if (el) el.textContent = value;
+  const el = document.getElementById(id);
+  if (el) el.textContent = value;
 }
 
 function formatCurrencyShort(value) {
-    return value.toLocaleString('sv-SE') + ' kr';
+  return value.toLocaleString('sv-SE') + ' kr';
 }
 
 function updateRecommendation(optimalStaff, baselineStaff, savings, projectedSla, targetSla, utilization) {
-    const recText = document.getElementById('sc_recText');
-    const recCard = document.getElementById('sc_recommendation');
-    if (!recText) return;
+  const recText = document.getElementById('sc_recText');
+  const recCard = document.getElementById('sc_recommendation');
+  if (!recText) return;
 
-    let text = '';
-    // Simplify logic based on request
-    if (optimalStaff < baselineStaff && savings > 0) {
-        text = `Automatisera mera: ${Math.round(document.getElementById('sc_aiRate')?.value * 100) || 40}% AI sparar ${formatCurrencyShort(savings)}/mån.`;
-    } else if (utilization > 1) {
-        text = `Kritisk nivå: Bemanna upp eller öka AI-graden för att klara SLA.`;
-    } else {
-        text = `Bra balans: Nuvarande nivå är kostnadseffektiv och klarar tillväxt.`;
-    }
+  let text = '';
+  // Simplify logic based on request
+  if (optimalStaff < baselineStaff && savings > 0) {
+    text = `Automatisera mera: ${Math.round(document.getElementById('sc_aiRate')?.value * 100) || 40}% AI sparar ${formatCurrencyShort(savings)}/mån.`;
+  } else if (utilization > 1) {
+    text = `Kritisk nivå: Bemanna upp eller öka AI-graden för att klara SLA.`;
+  } else {
+    text = `Bra balans: Nuvarande nivå är kostnadseffektiv och klarar tillväxt.`;
+  }
 
-    recText.textContent = text;
+  recText.textContent = text;
 }
 
 function exportScenarioReport() {
-    // Keep simplified export
-    alert("Exportfunktionen laddar ner rapport...");
+  // Keep simplified export
+  alert("Exportfunktionen laddar ner rapport...");
 }
 
 // Global exports
