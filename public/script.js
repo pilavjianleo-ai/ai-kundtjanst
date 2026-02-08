@@ -653,6 +653,7 @@ async function sendChat() {
         companyId: state.companyId,
         conversation: state.conversation,
         ticketId: state.activeTicketId || undefined,
+        contactInfo: state.userContactInfo || (sessionStorage.getItem('contactInfo') ? JSON.parse(sessionStorage.getItem('contactInfo')) : undefined)
       },
     });
 

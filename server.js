@@ -167,6 +167,15 @@ const ticketSchema = new mongoose.Schema({
   companyId: { type: String, required: true, index: true },
   status: { type: String, enum: ["open", "pending", "solved"], default: "open" },
   priority: { type: String, enum: ["low", "normal", "high"], default: "normal" },
+  ticketIdInput: { type: String, default: "" }, // user provided reference
+  contactInfo: {
+    name: { type: String, default: "" },
+    email: { type: String, default: "" },
+    phone: { type: String, default: "" },
+    isCompany: { type: Boolean, default: false },
+    orgName: { type: String, default: "" },
+    orgNr: { type: String, default: "" }
+  },
   title: { type: String, default: "" },
   assignedToUserId: { type: mongoose.Schema.Types.ObjectId, ref: "User", default: null },
   agentUserId: { type: mongoose.Schema.Types.ObjectId, ref: "User", default: null },
@@ -659,7 +668,7 @@ app.post("/chat", authenticate, async (req, res) => {
   const log = (msg) => fs.appendFileSync("chat_debug.log", `[${new Date().toISOString()}] ${msg}\n`);
 
   try {
-    const { companyId = "demo", conversation = [], ticketId } = req.body;
+    const { companyId = "demo", conversation = [], ticketId, contactInfo } = req.body;
     log(`START: companyId=${companyId}, ticketId=${ticketId}, user=${req.user?.id}`);
 
     const lastMsgObj = conversation.length > 0 ? conversation[conversation.length - 1] : null;
@@ -682,12 +691,17 @@ app.post("/chat", authenticate, async (req, res) => {
         companyId: companyId || "demo",
         title: lastUserMsg.slice(0, 50),
         messages: [],
-        priority: "normal"
+        priority: "normal",
+        contactInfo: contactInfo || {}
       });
       await ticket.save(); // Save to generate publicTicketId
       console.log(`🆕 Ny ticket skapad: ${ticket.publicTicketId}`);
     } else {
       log("USING EXISTING TICKET");
+      // Update contact info if provided later
+      if (contactInfo && Object.keys(contactInfo).length > 0) {
+        ticket.contactInfo = { ...ticket.contactInfo, ...contactInfo };
+      }
     }
 
     // Safety check messages
