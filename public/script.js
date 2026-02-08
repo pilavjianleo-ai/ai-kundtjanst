@@ -5912,6 +5912,7 @@ function drop(ev) {
       updateDealStageInsideStorage(dealId, stageId);
 
       updatePipelineCounts();
+      if (typeof renderCrmDashboard === 'function') renderCrmDashboard();
       if (typeof toast === 'function') toast('Uppdaterad', 'Affären har flyttats', 'success');
     }
   }
@@ -5981,6 +5982,7 @@ window.deleteDeal = function (id) {
   localStorage.setItem('crmDeals', JSON.stringify(deals));
   if (typeof crmState !== 'undefined') crmState.deals = deals;
   renderPipeline();
+  if (typeof renderCrmDashboard === 'function') renderCrmDashboard();
   if (typeof toast === 'function') toast("Raderad", "Affären har tagits bort.", "success");
 };
 
@@ -6016,6 +6018,7 @@ window.updateDeal = function () {
 
   closeCrmModal('crmEditDealModal');
   renderPipeline();
+  if (typeof renderCrmDashboard === 'function') renderCrmDashboard();
   if (typeof toast === 'function') toast("Uppdaterad", "Affären har sparats.", "success");
 };
 
@@ -6116,6 +6119,7 @@ function saveNewDeal() {
 
 function addDealToPipelineUI(deal) {
   renderPipeline();
+  if (typeof renderCrmDashboard === 'function') renderCrmDashboard();
 }
 
 
