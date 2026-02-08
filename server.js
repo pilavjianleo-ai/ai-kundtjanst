@@ -116,6 +116,7 @@ const userSchema = new mongoose.Schema({
   email: { type: String, default: "", index: true },
   password: { type: String, required: true },
   role: { type: String, default: "user" }, // user | agent | admin
+  companyId: { type: String, default: null, index: true },
   createdAt: { type: Date, default: Date.now },
 });
 const User = mongoose.model("User", userSchema);
@@ -1447,7 +1448,7 @@ app.delete("/admin/companies/:id", authenticate, requireAdmin, async (req, res) 
   try {
     const companyId = req.params.id;
     await Company.findOneAndDelete({ companyId });
-    await User.deleteMany({ companyId });
+    // await User.deleteMany({ companyId }); // REMOVED: DANGEROUS! Users might not have companyId set yet, leading to empty filter {} delete
     await Ticket.deleteMany({ companyId });
     await Document.deleteMany({ companyId });
     res.json({ message: "Bolag och all data raderad" });
