@@ -3249,3 +3249,292 @@ input[type="range"].slider::-webkit-slider-thumb:hover {
 .scenarioSection[id] {
   scroll-margin-top: 80px;
 }
+/* =====================
+   SCENARIO PLANNER V2 - Modes & Favorites
+===================== */
+
+/* Updated Header Panel */
+.scenarioHeaderPanel {
+    position: sticky;
+    top: 0;
+    z-index: 100;
+    background: var(--bg);
+    padding: 10px 0 20px 0;
+    border-bottom: 1px solid var(--border);
+    margin-bottom: 20px;
+}
+
+.scenarioSummaryBar {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 16px;
+    background: var(--panel);
+    padding: 12px 20px;
+    border-radius: 8px;
+    border: 1px solid var(--border);
+}
+
+.summaryStat {
+    display: flex;
+    flex-direction: column;
+}
+
+.summaryStat .label {
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    color: var(--muted);
+}
+
+.summaryStat .value {
+    font-size: 18px;
+    font-weight: 700;
+    color: var(--text);
+}
+
+.summaryStat .value.positive {
+    color: var(--ok);
+}
+
+/* Mode Tabs */
+.scenarioModeTabs {
+    display: flex;
+    gap: 8px;
+    background: var(--panel2);
+    padding: 4px;
+    border-radius: 10px;
+}
+
+.modeTab {
+    flex: 1;
+    padding: 10px;
+    border: none;
+    background: none;
+    border-radius: 8px;
+    font-size: 14px;
+    font-weight: 500;
+    color: var(--muted);
+    cursor: pointer;
+    transition: all 0.2s;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 8px;
+}
+
+.modeTab:hover {
+    background: rgba(255, 255, 255, 0.05);
+    color: var(--text);
+}
+
+.modeTab.active {
+    background: var(--panel);
+    color: var(--primary);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+    font-weight: 600;
+}
+
+/* Top Insight Banner */
+.topInsight {
+    background: linear-gradient(90deg, rgba(76, 125, 255, 0.1), rgba(139, 92, 246, 0.1));
+    border-left: 4px solid var(--primary);
+    padding: 16px 20px;
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    margin-bottom: 24px;
+    color: var(--text);
+    font-weight: 500;
+}
+
+.topInsight i {
+    color: var(--primary);
+    font-size: 20px;
+}
+
+/* Collapsible Sections */
+.sectionHeader.togglable {
+    cursor: pointer;
+    position: relative;
+    padding-right: 40px;
+}
+
+.sectionHeader.togglable:hover h3 {
+    color: var(--primary);
+}
+
+.toggleIcon {
+    position: absolute;
+    right: 0;
+    top: 50%;
+    transform: translateY(-50%);
+    transition: transform 0.3s;
+    color: var(--muted);
+}
+
+.sectionContent.collapsed {
+    display: none;
+}
+
+.sectionHeader.collapsed .toggleIcon {
+    transform: translateY(-50%) rotate(-90deg);
+}
+
+/* Favorites Button */
+.favoriteBtn {
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    background: none;
+    border: none;
+    color: var(--muted);
+    cursor: pointer;
+    opacity: 0;
+    transition: all 0.2s;
+    font-size: 16px;
+    z-index: 5;
+}
+
+.execKpiCard:hover .favoriteBtn,
+.resultCard:hover .favoriteBtn,
+.savingsCard:hover .favoriteBtn,
+.growthCard:hover .favoriteBtn,
+.timeStat:hover .favoriteBtn {
+    opacity: 1;
+}
+
+.favoriteBtn.active {
+    opacity: 1;
+    color: #fbbf24;
+    /* Gold */
+}
+
+.favoriteBtn i.fa-solid {
+    color: #fbbf24;
+}
+
+/* Tooltips */
+.tooltip {
+    color: var(--muted);
+    font-size: 12px;
+    margin-left: 6px;
+    cursor: help;
+    position: relative;
+}
+
+.tooltip:hover::after {
+    content: attr(title);
+    position: absolute;
+    bottom: 100%;
+    left: 50%;
+    transform: translateX(-50%);
+    background: var(--bg);
+    border: 1px solid var(--border);
+    padding: 8px 12px;
+    border-radius: 6px;
+    width: 200px;
+    text-align: center;
+    z-index: 1000;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+    color: var(--text);
+    font-weight: normal;
+    pointer-events: none;
+}
+
+/* Onboarding Modal */
+.onboardingModal {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.8);
+    z-index: 2000;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    backdrop-filter: blur(5px);
+}
+
+.onboardingContent {
+    background: var(--panel);
+    width: 90%;
+    max-width: 600px;
+    border-radius: 16px;
+    padding: 40px;
+    border: 1px solid var(--border);
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+    text-align: center;
+}
+
+.step {
+    margin-bottom: 30px;
+}
+
+.stepIcon {
+    width: 60px;
+    height: 60px;
+    background: var(--panel2);
+    border-radius: 50%;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    margin: 0 auto 16px auto;
+    font-size: 24px;
+    color: var(--primary);
+}
+
+.step h3 {
+    margin-bottom: 8px;
+    font-size: 18px;
+}
+
+.step p {
+    color: var(--muted);
+    font-size: 14px;
+    line-height: 1.6;
+}
+
+/* My View / Favorites Grid */
+.favoritesGrid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+    gap: 20px;
+}
+
+.emptyState {
+    grid-column: 1 / -1;
+    text-align: center;
+    padding: 60px;
+    color: var(--muted);
+    background: var(--panel2);
+    border-radius: 12px;
+    border: 2px dashed var(--border);
+}
+
+.emptyState i {
+    font-size: 48px;
+    margin-bottom: 16px;
+    opacity: 0.5;
+}
+
+/* Advanced Toggle */
+.advancedAssumptionsToggle {
+    text-align: center;
+    color: var(--primary);
+    cursor: pointer;
+    font-size: 13px;
+    padding: 10px;
+    border-top: 1px solid var(--border);
+    margin-top: 10px;
+}
+
+.advancedAssumptionsToggle:hover {
+    text-decoration: underline;
+}
+
+.hidden {
+    display: none;
+}
