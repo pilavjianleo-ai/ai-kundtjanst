@@ -262,14 +262,14 @@ window.openCustomerModal = function (id) {
     if (sidebar) {
         sidebar.innerHTML = `
             <div class="topInfo" style="text-align:center; margin-bottom:20px;">
-                <div class="avatar-large" style="width:80px; height:80px; margin:0 auto 10px; background:var(--panel2); color:var(--primary); font-size:32px; display:flex; align-items:center; justify-content:center; border-radius:50%; border:1px solid var(--border);">
+                <div class="avatar-large" style="width:80px; height:80px; margin:0 auto 10px; background:var(--bg); color:var(--primary); font-size:32px; display:flex; align-items:center; justify-content:center; border-radius:50%; border:1px solid var(--border);">
                     ${c.name.charAt(0)}
                 </div>
                 <h2 style="font-size:20px; margin:0;">${c.name}</h2>
                 <p class="muted">${c.industry || 'Bransch'} • ${c.address?.city || 'Stad'}</p>
                 <div class="pill ${c.status === 'customer' ? 'ok' : 'warn'}" style="margin-top:5px;">${c.status.toUpperCase()}</div>
             </div>
-            <div class="aiInsightBox" style="background:rgba(76, 125, 255, 0.05); padding:15px; border-radius:12px; text-align:center; margin-bottom:15px;">
+            <div class="aiInsightBox" style="background:var(--primary-fade); padding:15px; border-radius:12px; text-align:center; margin-bottom:15px; border:1px solid var(--border);">
                 <div style="font-size:12px; text-transform:uppercase; color:var(--primary); font-weight:bold; margin-bottom:5px;">AI Lead Score</div>
                 <div class="aiScore" style="font-size:32px; font-weight:800; color:var(--primary);">${c.aiScore}</div>
             </div>
@@ -332,7 +332,7 @@ window.openCustomerModal = function (id) {
                 </div>
             </div>
 
-            <div class="panel soft" style="background:rgba(76, 125, 255, 0.03);">
+            <div class="panel soft" style="background:var(--glass);">
                 <div class="panelHead"><b>AI-Konfiguration</b></div>
                 <div class="grid2" style="padding:15px; gap:15px;">
                     <div><label class="small-label">AI Status</label>
