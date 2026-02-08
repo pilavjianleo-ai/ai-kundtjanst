@@ -873,6 +873,40 @@ function filterInboxBySearch() {
   });
 }
 
+
+window.showTicketContactModal = function (ticketId) {
+  const t = state.inboxSelectedTicket;
+  if (!t || t._id !== ticketId) return;
+
+  const modal = document.getElementById('ticketContactModal');
+  const body = document.getElementById('ticketContactBody');
+  if (!modal || !body) return;
+
+  const c = t.contactInfo || {};
+
+  body.innerHTML = `
+        <div style="background:var(--panel2); padding:20px; border-radius:12px; text-align:center; border:1px solid var(--border);">
+             <div style="font-size:32px; width:70px; height:70px; background:var(--bg); border-radius:50%; display:flex; align-items:center; justify-content:center; margin:0 auto 10px; border:1px solid var(--border); color:var(--primary); box-shadow:0 5px 15px rgba(0,0,0,0.1);">
+                ${(c.name || '?').charAt(0).toUpperCase()}
+             </div>
+             <div style="font-size:18px; font-weight:700;">${escapeHtml(c.name || 'Okänd')} ${escapeHtml(c.surname || '')}</div>
+             <div style="font-size:13px; color:var(--muted); margin-top:5px;">${escapeHtml(c.orgName || (c.isCompany ? 'Företag' : 'Privatperson'))}</div>
+             <div class="pill ${c.isCompany ? 'info' : 'muted'}" style="margin-top:8px; display:inline-block;">${c.isCompany ? 'Företagskund' : 'Konsument'}</div>
+        </div>
+        
+        <div class="grid2" style="gap:15px; margin-top:10px;">
+             ${c.email ? `<div style="background:var(--panel2); padding:10px; border-radius:8px; border:1px solid var(--border);"><label class="small-label">E-post</label><div style="font-weight:500;">${escapeHtml(c.email)}</div></div>` : ''}
+             ${c.phone ? `<div style="background:var(--panel2); padding:10px; border-radius:8px; border:1px solid var(--border);"><label class="small-label">Telefon</label><div style="font-weight:500;">${escapeHtml(c.phone)}</div></div>` : ''}
+             ${c.orgNr ? `<div style="background:var(--panel2); padding:10px; border-radius:8px; border:1px solid var(--border);"><label class="small-label">Org.nr</label><div style="font-weight:500;">${escapeHtml(c.orgNr)}</div></div>` : ''}
+             ${c.ticketIdInput ? `<div style="background:var(--panel2); padding:10px; border-radius:8px; border:1px solid var(--border);"><label class="small-label">Referens-ID</label><div style="font-weight:500;">${escapeHtml(c.ticketIdInput)}</div></div>` : ''}
+        </div>
+        
+        ${!c.name && !c.email ? '<div class="alert warning tiny">Ingen kontaktinformation tillgänglig för detta ärende.</div>' : ''}
+    `;
+
+  modal.style.display = 'flex';
+};
+
 async function selectInboxTicket(ticketId) {
   const box = $("ticketDetails");
   if (!box) return;
@@ -901,6 +935,13 @@ async function selectInboxTicket(ticketId) {
                 <span class="pill muted">${escapeHtml(t.publicTicketId)}</span>
                 <span class="pill ${t.status === 'solved' ? 'ok' : t.status === 'high' ? 'danger' : 'info'}">${escapeHtml(t.status)}</span>
                 <span class="muted small">Företag: ${escapeHtml(t.companyId || 'demo')}</span>
+                
+                <!-- CUSTOMER CARD BUTTON -->
+                ${t.contactInfo && (t.contactInfo.name || t.contactInfo.email) ?
+        `<button class="btn ghost tiny" onclick="showTicketContactModal('${t._id}')" style="margin-left:auto; border:1px solid var(--primary-fade); background:var(--bg); color:var(--primary); font-weight:600;">
+                        <i class="fa-solid fa-address-card"></i> Kundkort
+                     </button>`
+        : ''}
               </div>
           </div>
           <button class="btn ghost small" onclick="summarizeTicket('${t._id}')">
@@ -909,21 +950,7 @@ async function selectInboxTicket(ticketId) {
       </div>
       <div id="ticketSummaryContent" class="alert info small" style="display:none; margin-top:10px;"></div>
       
-      ${t.contactInfo && (t.contactInfo.name || t.contactInfo.email) ? `
-        <div class="panel soft" style="margin-top:15px; padding:15px; border-left:3px solid var(--primary); background:var(--panel2);">
-            <div style="font-weight:700; font-size:13px; margin-bottom:12px; color:var(--text); display:flex; align-items:center; gap:8px;">
-                <i class="fa-solid fa-address-card" style="color:var(--primary); font-size:16px;"></i> Kontaktuppgifter
-            </div>
-            <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(140px, 1fr)); gap:12px; font-size:13px;">
-                ${t.contactInfo.name ? `<div><div class="muted tiny" style="margin-bottom:2px;">Namn</div><div style="font-weight:600;">${escapeHtml(t.contactInfo.name)} ${escapeHtml(t.contactInfo.surname || '')}</div></div>` : ''}
-                ${t.contactInfo.email ? `<div><div class="muted tiny" style="margin-bottom:2px;">E-post</div><a href="mailto:${escapeHtml(t.contactInfo.email)}" style="color:var(--primary); text-decoration:none;">${escapeHtml(t.contactInfo.email)}</a></div>` : ''}
-                ${t.contactInfo.phone ? `<div><div class="muted tiny" style="margin-bottom:2px;">Telefon</div><div>${escapeHtml(t.contactInfo.phone)}</div></div>` : ''}
-                ${t.contactInfo.isCompany ? `<div><div class="muted tiny" style="margin-bottom:2px;">Företag</div><div style="font-weight:600;">${escapeHtml(t.contactInfo.orgName || '-')}</div></div>` : ''}
-                ${t.contactInfo.orgNr ? `<div><div class="muted tiny" style="margin-bottom:2px;">Org.nr</div><div>${escapeHtml(t.contactInfo.orgNr)}</div></div>` : ''}
-                ${t.contactInfo.ticketIdInput ? `<div><div class="muted tiny" style="margin-bottom:2px;">Referens</div><div>${escapeHtml(t.contactInfo.ticketIdInput)}</div></div>` : ''}
-            </div>
-        </div>
-      ` : ''}
+      <!-- Contact Info Panel Removed (Replaced by Button/Modal) -->
 
       <div class="divider"></div>
       <div class="messageList" style="max-height:400px; overflow-y:auto;">

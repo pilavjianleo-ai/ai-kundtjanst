@@ -7,7 +7,7 @@
   <title>AI Kundtjänst</title>
 
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
-  <link rel="stylesheet" href="style.css?v=2026.13" />
+  <link rel="stylesheet" href="style.css?v=2026.14" />
 
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
   <script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
@@ -3155,10 +3155,36 @@
       </div>
     </div>
   </div>
-  <script src="script.js?v=2026.13"></script>
-  <script src="mobile_optimization.js?v=2026.13"></script>
-  <script src="crm_enhancements.js?v=2026.13"></script>
-  <script src="contact_logic.js?v=2026.13"></script>
+
+  <!-- Ticket Contact Popup Modal -->
+  <div id="ticketContactModal" class="modal"
+    style="display:none; align-items:center; justify-content:center; z-index:9999;">
+    <div class="modalContent card" style="width:420px; max-width:95%; animation: zoomIn 0.2s ease;">
+      <div class="modalHeader"
+        style="display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid var(--border); padding-bottom:15px; margin-bottom:15px;">
+        <div style="font-weight:700; font-size:16px; display:flex; align-items:center; gap:8px;">
+          <div
+            style="width:32px; height:32px; background:var(--primary-fade); color:var(--primary); border-radius:50%; display:flex; align-items:center; justify-content:center;">
+            <i class="fa-solid fa-address-card"></i>
+          </div>
+          Kundkort
+        </div>
+        <button class="btn ghost icon small"
+          onclick="document.getElementById('ticketContactModal').style.display='none'"><i
+            class="fa-solid fa-times"></i></button>
+      </div>
+      <div id="ticketContactBody" style="display:flex; flex-direction:column; gap:15px;"></div>
+      <div class="modalFooter" style="margin-top:20px; border-top:1px solid var(--border); padding-top:15px;">
+        <button class="btn primary full"
+          onclick="document.getElementById('ticketContactModal').style.display='none'">Stäng</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="script.js?v=2026.14"></script>
+  <script src="mobile_optimization.js?v=2026.14"></script>
+  <script src="crm_enhancements.js?v=2026.14"></script>
+  <script src="contact_logic.js?v=2026.14"></script>
 </body>
 
 </html>
