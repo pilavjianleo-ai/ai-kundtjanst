@@ -62,13 +62,16 @@ body[data-theme="light"] {
   --overlay: rgba(255, 255, 255, 0.8);
 }
 
-/* Enhancements for Light Theme Chat visibility */
+/* Enhancements for Light Theme Chat visibility: Glassy but transparent */
 body[data-theme="light"] .messages {
-  background: #ffffff;
+  background: rgba(255, 255, 255, 0.6);
+  /* Semi-transparent to show gradient */
+  backdrop-filter: blur(12px);
+  /* Strong glass effect */
   box-shadow:
-    0 20px 50px -10px rgba(0, 0, 0, 0.1),
-    inset 0 0 60px rgba(0, 0, 0, 0.02);
-  border: 1px solid rgba(0, 0, 0, 0.06);
+    0 10px 30px -5px rgba(0, 0, 0, 0.05),
+    inset 0 0 20px rgba(255, 255, 255, 0.5);
+  border: 1px solid rgba(255, 255, 255, 0.6);
 }
 
 body[data-theme="light"] .msg.ai .bubble {
@@ -1991,14 +1994,6 @@ input[type="range"].slider::-webkit-slider-thumb:hover {
    LARGE SCREEN / CASTING OPTIMIZATION
 ===================== */
 @media (min-width: 1600px) {
-  .app {
-    max-width: 1800px;
-    margin: 0 auto;
-    border-left: 1px solid var(--border);
-    border-right: 1px solid var(--border);
-    box-shadow: 0 0 100px rgba(0, 0, 0, 0.1);
-    /* Cinematic presentation feel */
-  }
 
   /* Increase readability for casting/presentations */
   body {
@@ -2125,9 +2120,25 @@ input[type="range"].slider::-webkit-slider-thumb:hover {
   }
 
   /* Add padding to bottom of messages so they aren't covered by composer */
+  /* Better mobile flex layout */
+  .view {
+    display: flex;
+    flex-direction: column;
+    height: 100vh;
+  }
+
   .messages {
-    margin-bottom: 70px;
-    height: calc(100vh - 240px);
+    height: auto;
+    flex: 1;
+    margin-bottom: 80px;
+    /* Space for composer */
+  }
+
+  /* Prevent zoom on inputs */
+  input,
+  select,
+  textarea {
+    font-size: 16px !important;
   }
 }
 
