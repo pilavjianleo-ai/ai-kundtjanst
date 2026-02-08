@@ -127,14 +127,23 @@ async function runDeploymentSequence(customerName) {
 
 window.saveNewCustomerExpanded = async function () {
     const name = document.getElementById('custName')?.value?.trim();
-    const email = document.getElementById('custEmail')?.value?.trim();
-    const phone = document.getElementById('custPhone')?.value?.trim();
+    const orgNr = document.getElementById('custOrgNr')?.value?.trim();
     const industry = document.getElementById('custIndustry')?.value?.trim();
     const web = document.getElementById('custWeb')?.value?.trim();
+    const status = document.getElementById('custStatus')?.value || 'customer';
+    const owner = document.getElementById('custOwner')?.value || 'me';
+    const notes = document.getElementById('custNotes')?.value?.trim();
+
+    const contactFirst = document.getElementById('custContactFirst')?.value?.trim();
+    const contactLast = document.getElementById('custContactLast')?.value?.trim();
+    const email = document.getElementById('custEmail')?.value?.trim();
+    const phone = document.getElementById('custPhone')?.value?.trim();
+    const role = document.getElementById('custRole')?.value?.trim();
+
+    const address = document.getElementById('custAddress')?.value?.trim();
     const zip = document.getElementById('custZip')?.value?.trim();
     const city = document.getElementById('custCity')?.value?.trim();
-    const country = document.getElementById('custCountry')?.value?.trim();
-    const orgNr = document.getElementById('custOrgNr')?.value?.trim();
+    const country = document.getElementById('custCountry')?.value || 'SE';
 
     const aiDeploy = document.getElementById('custAiDeploy')?.checked;
     const aiModel = document.getElementById('custAiModel')?.value;
@@ -159,7 +168,7 @@ window.saveNewCustomerExpanded = async function () {
                     phone: phone,
                     industry: industry,
                     orgNr: orgNr,
-                    notes: `Skapad via CRM. Bransch: ${industry}`
+                    notes: notes || `Skapad via CRM. Bransch: ${industry}`
                 }
             });
         }
@@ -171,8 +180,12 @@ window.saveNewCustomerExpanded = async function () {
     const newCustomer = {
         id: companyId,
         name, email, phone, industry, web, orgNr,
-        address: { zip, city, country },
-        status: 'customer',
+        contactName: `${contactFirst} ${contactLast}`.trim(),
+        role,
+        address: { street: address, zip, city, country },
+        status: status,
+        owner: owner,
+        notes: notes,
         value: 0,
         aiScore: Math.floor(Math.random() * 40) + 60,
         aiConfig: aiDeploy ? {
