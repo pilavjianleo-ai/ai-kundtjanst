@@ -102,6 +102,10 @@ async function api(path, { method = "GET", body, auth = true } = {}) {
   } catch { }
 
   if (!res.ok) {
+    if (res.status === 401 && auth) {
+      console.warn("Session ogiltig eller utgången (401). Loggar ut...");
+      if (typeof doLogout === 'function') doLogout();
+    }
     const msg = data?.error || `Serverfel (${res.status})`;
     throw new Error(msg);
   }
@@ -5453,376 +5457,376 @@ window.initSalesAnalytics = initSalesAnalytics;
 ===================== */
 
 const scenarioState = {
-    workDaysPerMonth: 22,
-    aiCostPerTicket: 2,
-    favorites: JSON.parse(localStorage.getItem('scenarioFavorites') || '[]'),
-    onboardingShown: localStorage.getItem('scenarioOnboardingShown') === 'true',
-    currentMode: 'overview',
-    timeHorizon: 12 // Months (default: 1 Year)
+  workDaysPerMonth: 22,
+  aiCostPerTicket: 2,
+  favorites: JSON.parse(localStorage.getItem('scenarioFavorites') || '[]'),
+  onboardingShown: localStorage.getItem('scenarioOnboardingShown') === 'true',
+  currentMode: 'overview',
+  timeHorizon: 12 // Months (default: 1 Year)
 };
 
 // Initialize Scenario Planner
 async function initScenarioPlanner() {
-    bindScenarioInputs();
-    bindScenarioExport();
+  bindScenarioInputs();
+  bindScenarioExport();
 
-    // Check onboarding
-    if (!scenarioState.onboardingShown) {
-        document.getElementById('scenarioOnboarding').style.display = 'flex';
+  // Check onboarding
+  if (!scenarioState.onboardingShown) {
+    document.getElementById('scenarioOnboarding').style.display = 'flex';
+  }
+
+  // Load favorites
+  updateFavoriteButtons();
+
+  // Set default time filter active
+  setScenarioTime(12);
+
+  // Try to load real data
+  try {
+    const slaData = await api("/sla/dashboard?days=30").catch(() => null);
+    if (slaData && slaData.totalTickets) {
+      document.getElementById('sc_tickets').value = slaData.totalTickets;
+      document.getElementById('sc_tickets_val').textContent = slaData.totalTickets;
     }
+  } catch (e) {
+    console.log("Using default scenario values");
+  }
 
-    // Load favorites
-    updateFavoriteButtons();
-
-    // Set default time filter active
-    setScenarioTime(12);
-
-    // Try to load real data
-    try {
-        const slaData = await api("/sla/dashboard?days=30").catch(() => null);
-        if (slaData && slaData.totalTickets) {
-            document.getElementById('sc_tickets').value = slaData.totalTickets;
-            document.getElementById('sc_tickets_val').textContent = slaData.totalTickets;
-        }
-    } catch (e) {
-        console.log("Using default scenario values");
-    }
-
-    // Initial calc
-    calculateScenario();
+  // Initial calc
+  calculateScenario();
 }
 
 function setScenarioTime(months) {
-    scenarioState.timeHorizon = months;
+  scenarioState.timeHorizon = months;
 
-    // Update active class
-    document.querySelectorAll('.timeFilterBtn').forEach(btn => btn.classList.remove('active'));
-    document.getElementById(`tf_${months}`)?.classList.add('active');
+  // Update active class
+  document.querySelectorAll('.timeFilterBtn').forEach(btn => btn.classList.remove('active'));
+  document.getElementById(`tf_${months}`)?.classList.add('active');
 
-    // Update labels
-    let label = months + " Mån";
-    if (months === 12) label = "1 År";
-    if (months === 36) label = "3 År";
+  // Update labels
+  let label = months + " Mån";
+  if (months === 12) label = "1 År";
+  if (months === 36) label = "3 År";
 
-    updateText('summary_save_label', `Besparing (${label})`);
-    updateText('summary_time_label', `Sparad Tid (${label})`);
+  updateText('summary_save_label', `Besparing (${label})`);
+  updateText('summary_time_label', `Sparad Tid (${label})`);
 
-    // If overview hero cards exist
-    updateText('hero_money_label', `Besparing (${label})`);
-    updateText('hero_time_label', `Sparad Tid (${label})`);
+  // If overview hero cards exist
+  updateText('hero_money_label', `Besparing (${label})`);
+  updateText('hero_time_label', `Sparad Tid (${label})`);
 
-    // Recalculate
-    calculateScenario();
+  // Recalculate
+  calculateScenario();
 }
 
 function updateText(id, text) {
-    const el = document.getElementById(id);
-    if (el) el.textContent = text;
+  const el = document.getElementById(id);
+  if (el) el.textContent = text;
 }
 
 // Mode Switching
 function setScenarioMode(mode) {
-    scenarioState.currentMode = mode;
+  scenarioState.currentMode = mode;
 
-    document.querySelectorAll('.modeTab').forEach(tab => tab.classList.remove('active'));
-    // Simple ID based toggle
-    const btn = document.getElementById(`tab_${mode}`);
-    if (btn) btn.classList.add('active');
+  document.querySelectorAll('.modeTab').forEach(tab => tab.classList.remove('active'));
+  // Simple ID based toggle
+  const btn = document.getElementById(`tab_${mode}`);
+  if (btn) btn.classList.add('active');
 
-    // Hide all sections first
-    document.querySelectorAll('.scenarioModeSection').forEach(el => el.style.display = 'none');
+  // Hide all sections first
+  document.querySelectorAll('.scenarioModeSection').forEach(el => el.style.display = 'none');
 
-    // Show selected section
-    const target = document.getElementById(`sc_mode_${mode}`);
-    if (target) {
-        target.style.display = 'block';
-        target.classList.add('fade-in');
-        setTimeout(() => target.classList.remove('fade-in'), 500);
-    }
+  // Show selected section
+  const target = document.getElementById(`sc_mode_${mode}`);
+  if (target) {
+    target.style.display = 'block';
+    target.classList.add('fade-in');
+    setTimeout(() => target.classList.remove('fade-in'), 500);
+  }
 
-    if (mode === 'myView') {
-        renderFavorites();
-    }
+  if (mode === 'myView') {
+    renderFavorites();
+  }
 }
 
 // Favorites System
 function toggleFavorite(id, name) {
-    const index = scenarioState.favorites.findIndex(f => f.id === id);
+  const index = scenarioState.favorites.findIndex(f => f.id === id);
 
-    if (index === -1) {
-        scenarioState.favorites.push({ id, name });
-        if (typeof toast === 'function') toast('Sparat', `${name} har lagts till i Min Vy`, 'success');
-    } else {
-        scenarioState.favorites.splice(index, 1);
-        if (typeof toast === 'function') toast('Borttaget', `${name} har tagits bort från Min Vy`, 'info');
-    }
+  if (index === -1) {
+    scenarioState.favorites.push({ id, name });
+    if (typeof toast === 'function') toast('Sparat', `${name} har lagts till i Min Vy`, 'success');
+  } else {
+    scenarioState.favorites.splice(index, 1);
+    if (typeof toast === 'function') toast('Borttaget', `${name} har tagits bort från Min Vy`, 'info');
+  }
 
-    localStorage.setItem('scenarioFavorites', JSON.stringify(scenarioState.favorites));
-    updateFavoriteButtons();
-    if (scenarioState.currentMode === 'myView') renderFavorites();
+  localStorage.setItem('scenarioFavorites', JSON.stringify(scenarioState.favorites));
+  updateFavoriteButtons();
+  if (scenarioState.currentMode === 'myView') renderFavorites();
 }
 
 function updateFavoriteButtons() {
-    document.querySelectorAll('.favoriteBtn').forEach(btn => {
-        btn.innerHTML = '<i class="fa-regular fa-star"></i>';
-        btn.classList.remove('active');
+  document.querySelectorAll('.favoriteBtn').forEach(btn => {
+    btn.innerHTML = '<i class="fa-regular fa-star"></i>';
+    btn.classList.remove('active');
 
-        const onclick = btn.getAttribute('onclick');
-        if (onclick) {
-            const match = onclick.match(/'([^']+)'/);
-            if (match) {
-                const id = match[1];
-                if (scenarioState.favorites.find(f => f.id === id)) {
-                    btn.innerHTML = '<i class="fa-solid fa-star"></i>';
-                    btn.classList.add('active');
-                }
-            }
+    const onclick = btn.getAttribute('onclick');
+    if (onclick) {
+      const match = onclick.match(/'([^']+)'/);
+      if (match) {
+        const id = match[1];
+        if (scenarioState.favorites.find(f => f.id === id)) {
+          btn.innerHTML = '<i class="fa-solid fa-star"></i>';
+          btn.classList.add('active');
         }
-    });
+      }
+    }
+  });
 }
 
 function renderFavorites() {
-    const container = document.getElementById('sc_favoritesContainer');
-    if (!container) return;
+  const container = document.getElementById('sc_favoritesContainer');
+  if (!container) return;
 
-    container.innerHTML = '';
+  container.innerHTML = '';
 
-    if (scenarioState.favorites.length === 0) {
-        container.innerHTML = `
+  if (scenarioState.favorites.length === 0) {
+    container.innerHTML = `
             <div class="emptyState">
                 <i class="fa-regular fa-star"></i>
                 <p>Du har inte valt några favoriter än. Klicka på stjärnan vid ett KPI för att lägga till det här.</p>
             </div>`;
-        return;
+    return;
+  }
+
+  scenarioState.favorites.forEach(fav => {
+    const valEl = document.getElementById(fav.id);
+    const card = valEl?.closest('.execKpiCard, .resultCard, .savingsCard, .growthCard, .timeStat, .heroCard');
+
+    if (card) {
+      const clone = card.cloneNode(true);
+      // Remove hero-specific layout classes if needed, but grid adapts
+      const favBtn = clone.querySelector('.favoriteBtn');
+      if (favBtn) {
+        favBtn.setAttribute('onclick', `toggleFavorite('${fav.id}', '${fav.name}')`);
+        favBtn.classList.add('active');
+        favBtn.innerHTML = '<i class="fa-solid fa-trash"></i>';
+        favBtn.title = "Ta bort från Min Vy";
+      }
+      container.appendChild(clone);
     }
-
-    scenarioState.favorites.forEach(fav => {
-        const valEl = document.getElementById(fav.id);
-        const card = valEl?.closest('.execKpiCard, .resultCard, .savingsCard, .growthCard, .timeStat, .heroCard');
-
-        if (card) {
-            const clone = card.cloneNode(true);
-            // Remove hero-specific layout classes if needed, but grid adapts
-            const favBtn = clone.querySelector('.favoriteBtn');
-            if (favBtn) {
-                favBtn.setAttribute('onclick', `toggleFavorite('${fav.id}', '${fav.name}')`);
-                favBtn.classList.add('active');
-                favBtn.innerHTML = '<i class="fa-solid fa-trash"></i>';
-                favBtn.title = "Ta bort från Min Vy";
-            }
-            container.appendChild(clone);
-        }
-    });
+  });
 }
 
 // Section Toggling
 function toggleSection(contentId) {
-    const content = document.getElementById(contentId);
-    const header = content.previousElementSibling;
+  const content = document.getElementById(contentId);
+  const header = content.previousElementSibling;
 
-    if (content.style.display === 'none' || content.classList.contains('collapsed')) {
-        content.style.display = 'block';
-        content.classList.remove('collapsed');
-        header.classList.remove('collapsed');
-    } else {
-        content.style.display = 'none';
-        content.classList.add('collapsed');
-        header.classList.add('collapsed');
-    }
+  if (content.style.display === 'none' || content.classList.contains('collapsed')) {
+    content.style.display = 'block';
+    content.classList.remove('collapsed');
+    header.classList.remove('collapsed');
+  } else {
+    content.style.display = 'none';
+    content.classList.add('collapsed');
+    header.classList.add('collapsed');
+  }
 }
 
 // Onboarding
 function closeScenarioOnboarding() {
-    document.getElementById('scenarioOnboarding').style.display = 'none';
-    localStorage.setItem('scenarioOnboardingShown', 'true');
-    scenarioState.onboardingShown = true;
+  document.getElementById('scenarioOnboarding').style.display = 'none';
+  localStorage.setItem('scenarioOnboardingShown', 'true');
+  scenarioState.onboardingShown = true;
 }
 
 function toggleScenarioOnboarding() {
-    document.getElementById('scenarioOnboarding').style.display = 'flex';
+  document.getElementById('scenarioOnboarding').style.display = 'flex';
 }
 
 function bindScenarioInputs() {
-    const inputs = ['sc_tickets', 'sc_aiRate', 'sc_staffCost', 'sc_ticketsPerDay', 'sc_targetSla'];
-    inputs.forEach(id => {
-        const input = document.getElementById(id);
-        if (!input) return;
-        input.oninput = () => {
-            updateSliderValue(id);
-            calculateScenario();
-        };
-    });
+  const inputs = ['sc_tickets', 'sc_aiRate', 'sc_staffCost', 'sc_ticketsPerDay', 'sc_targetSla'];
+  inputs.forEach(id => {
+    const input = document.getElementById(id);
+    if (!input) return;
+    input.oninput = () => {
+      updateSliderValue(id);
+      calculateScenario();
+    };
+  });
 }
 
 function updateSliderValue(id) {
-    const input = document.getElementById(id);
-    const display = document.getElementById(id + '_val');
-    if (!input || !display) return;
-    let value = parseInt(input.value);
-    if (id === 'sc_staffCost') {
-        display.textContent = value.toLocaleString('sv-SE');
-    } else {
-        display.textContent = value;
-    }
+  const input = document.getElementById(id);
+  const display = document.getElementById(id + '_val');
+  if (!input || !display) return;
+  let value = parseInt(input.value);
+  if (id === 'sc_staffCost') {
+    display.textContent = value.toLocaleString('sv-SE');
+  } else {
+    display.textContent = value;
+  }
 }
 
 function bindScenarioExport() {
-    // handled by onclick in HTML
+  // handled by onclick in HTML
 }
 
 function calculateScenario() {
-    // Get inputs
-    const tickets = parseInt(document.getElementById('sc_tickets')?.value || 500);
-    const aiRate = parseInt(document.getElementById('sc_aiRate')?.value || 40) / 100;
-    const staffCost = parseInt(document.getElementById('sc_staffCost')?.value || 45000);
-    const ticketsPerDay = parseInt(document.getElementById('sc_ticketsPerDay')?.value || 12);
-    const targetSla = parseInt(document.getElementById('sc_targetSla')?.value || 90);
+  // Get inputs
+  const tickets = parseInt(document.getElementById('sc_tickets')?.value || 500);
+  const aiRate = parseInt(document.getElementById('sc_aiRate')?.value || 40) / 100;
+  const staffCost = parseInt(document.getElementById('sc_staffCost')?.value || 45000);
+  const ticketsPerDay = parseInt(document.getElementById('sc_ticketsPerDay')?.value || 12);
+  const targetSla = parseInt(document.getElementById('sc_targetSla')?.value || 90);
 
-    // Core Metrics
-    const manualTickets = Math.round(tickets * (1 - aiRate));
-    const aiTickets = Math.round(tickets * aiRate);
+  // Core Metrics
+  const manualTickets = Math.round(tickets * (1 - aiRate));
+  const aiTickets = Math.round(tickets * aiRate);
 
-    const ticketsPerStaffPerMonth = ticketsPerDay * scenarioState.workDaysPerMonth;
-    const requiredStaff = Math.ceil(manualTickets / ticketsPerStaffPerMonth);
-    const optimalStaff = Math.max(1, requiredStaff);
+  const ticketsPerStaffPerMonth = ticketsPerDay * scenarioState.workDaysPerMonth;
+  const requiredStaff = Math.ceil(manualTickets / ticketsPerStaffPerMonth);
+  const optimalStaff = Math.max(1, requiredStaff);
 
-    const staffTotalCost = optimalStaff * staffCost;
-    const aiCost = aiTickets * scenarioState.aiCostPerTicket;
-    const totalCost = staffTotalCost + aiCost;
+  const staffTotalCost = optimalStaff * staffCost;
+  const aiCost = aiTickets * scenarioState.aiCostPerTicket;
+  const totalCost = staffTotalCost + aiCost;
 
-    // Baseline (No AI)
-    const baselineStaff = Math.ceil(tickets / ticketsPerStaffPerMonth);
-    const baselineCost = baselineStaff * staffCost;
-    const monthlySavings = baselineCost - totalCost;
+  // Baseline (No AI)
+  const baselineStaff = Math.ceil(tickets / ticketsPerStaffPerMonth);
+  const baselineCost = baselineStaff * staffCost;
+  const monthlySavings = baselineCost - totalCost;
 
-    // Freed Capacity
-    const freedStaff = (baselineStaff - optimalStaff).toFixed(1);
+  // Freed Capacity
+  const freedStaff = (baselineStaff - optimalStaff).toFixed(1);
 
-    // SLA Projection
-    const capacity = optimalStaff * ticketsPerStaffPerMonth;
-    const utilizationRate = manualTickets / capacity;
-    let projectedSla = targetSla;
-    if (utilizationRate > 1) {
-        projectedSla = Math.max(70, targetSla - Math.round((utilizationRate - 1) * 30));
-    } else if (utilizationRate < 0.8) {
-        projectedSla = Math.min(99, targetSla + Math.round((0.8 - utilizationRate) * 10));
-    }
+  // SLA Projection
+  const capacity = optimalStaff * ticketsPerStaffPerMonth;
+  const utilizationRate = manualTickets / capacity;
+  let projectedSla = targetSla;
+  if (utilizationRate > 1) {
+    projectedSla = Math.max(70, targetSla - Math.round((utilizationRate - 1) * 30));
+  } else if (utilizationRate < 0.8) {
+    projectedSla = Math.min(99, targetSla + Math.round((0.8 - utilizationRate) * 10));
+  }
 
-    // -- TIME HORIZON CALCULATIONS --
-    const months = scenarioState.timeHorizon;
-    const periodSavings = monthlySavings * months;
+  // -- TIME HORIZON CALCULATIONS --
+  const months = scenarioState.timeHorizon;
+  const periodSavings = monthlySavings * months;
 
-    // Time calculations
-    const avgHandleTime = 20; // minutes
-    const hoursPerMonth = Math.round((aiTickets * avgHandleTime) / 60);
-    const periodHours = hoursPerMonth * months;
+  // Time calculations
+  const avgHandleTime = 20; // minutes
+  const hoursPerMonth = Math.round((aiTickets * avgHandleTime) / 60);
+  const periodHours = hoursPerMonth * months;
 
-    // ROI
-    const aiMonthlyCost = 2000;
-    const roi = aiMonthlyCost > 0 ? Math.round((monthlySavings / aiMonthlyCost) * 100) : 0;
+  // ROI
+  const aiMonthlyCost = 2000;
+  const roi = aiMonthlyCost > 0 ? Math.round((monthlySavings / aiMonthlyCost) * 100) : 0;
 
-    // --- UPDATE UI ---
+  // --- UPDATE UI ---
 
-    // 1. HERO CARDS (Overview)
-    // Money
-    updateResult('hero_money_val', formatCurrencyShort(Math.max(0, periodSavings)));
-    // Time
-    updateResult('hero_time_val', periodHours.toLocaleString('sv-SE') + " h");
-    updateResult('hero_fte_val', freedStaff);
-    // Volume (monthly * period?) usually people want monthly volume, but let's show period volume if filter is > 1 month?
-    // No, "AI-hanterade ärenden" usually means "Capacity/Volume". Let's show Monthly Volume usually, OR Total Volume over period.
-    // "Besparing (3 år)" implies TOTAL money. So "AI-ärenden" might imply TOTAL ärenden handled?
-    // Let's stick to Monthly Volume for Hero if it says "AI-hanterade ärenden". BUT the user wants visualization of "hur många ärenden den sparar företaget".
-    // "Sparar företaget" -> Cumulative.
-    const periodTickets = aiTickets * months;
-    updateResult('hero_vol_val', periodTickets.toLocaleString('sv-SE'));
-    updateResult('hero_vol_label', `AI-ärenden (${months} mån)`); // Update label to be clear
+  // 1. HERO CARDS (Overview)
+  // Money
+  updateResult('hero_money_val', formatCurrencyShort(Math.max(0, periodSavings)));
+  // Time
+  updateResult('hero_time_val', periodHours.toLocaleString('sv-SE') + " h");
+  updateResult('hero_fte_val', freedStaff);
+  // Volume (monthly * period?) usually people want monthly volume, but let's show period volume if filter is > 1 month?
+  // No, "AI-hanterade ärenden" usually means "Capacity/Volume". Let's show Monthly Volume usually, OR Total Volume over period.
+  // "Besparing (3 år)" implies TOTAL money. So "AI-ärenden" might imply TOTAL ärenden handled?
+  // Let's stick to Monthly Volume for Hero if it says "AI-hanterade ärenden". BUT the user wants visualization of "hur många ärenden den sparar företaget".
+  // "Sparar företaget" -> Cumulative.
+  const periodTickets = aiTickets * months;
+  updateResult('hero_vol_val', periodTickets.toLocaleString('sv-SE'));
+  updateResult('hero_vol_label', `AI-ärenden (${months} mån)`); // Update label to be clear
 
-    // Quality (constant)
-    updateResult('sc_currentSla', projectedSla + '%');
+  // Quality (constant)
+  updateResult('sc_currentSla', projectedSla + '%');
 
-    // 2. STICKY SUMMARY (Dynamic)
-    updateResult('sc_summaryYearSave', formatCurrencyShort(Math.max(0, periodSavings)));
-    updateResult('sc_summaryTime', periodHours.toLocaleString('sv-SE') + " h");
-    updateResult('sc_summaryRoi', roi + '%');
+  // 2. STICKY SUMMARY (Dynamic)
+  updateResult('sc_summaryYearSave', formatCurrencyShort(Math.max(0, periodSavings)));
+  updateResult('sc_summaryTime', periodHours.toLocaleString('sv-SE') + " h");
+  updateResult('sc_summaryRoi', roi + '%');
 
-    // 3. LEGACY / DETAILED SECTIONS
-    updateExecKpi('sc_currentTickets', tickets);
-    updateResult('sc_currentCost', formatCurrencyShort(baselineCost));
-    updateResult('sc_currentAi', Math.round(aiRate * 100) + '%');
+  // 3. LEGACY / DETAILED SECTIONS
+  updateExecKpi('sc_currentTickets', tickets);
+  updateResult('sc_currentCost', formatCurrencyShort(baselineCost));
+  updateResult('sc_currentAi', Math.round(aiRate * 100) + '%');
 
-    updateResult('sc_reqStaff', optimalStaff);
-    updateResult('sc_totalCost', formatCurrencyShort(totalCost));
-    updateResult('sc_savings', formatCurrencyShort(Math.max(0, monthlySavings)));
-    updateResult('sc_projectedSla', projectedSla + '%');
+  updateResult('sc_reqStaff', optimalStaff);
+  updateResult('sc_totalCost', formatCurrencyShort(totalCost));
+  updateResult('sc_savings', formatCurrencyShort(Math.max(0, monthlySavings)));
+  updateResult('sc_projectedSla', projectedSla + '%');
 
-    // Savings Section (Finance)
-    updateResult('sc_yearSavings', formatCurrencyShort(Math.max(0, monthlySavings * 12)));
-    updateResult('sc_monthSavings', formatCurrencyShort(Math.max(0, monthlySavings)));
-    updateResult('sc_roiPercent', roi + '%');
-    updateResult('sc_costPerTicket', Math.round(totalCost / tickets) + ' kr');
+  // Savings Section (Finance)
+  updateResult('sc_yearSavings', formatCurrencyShort(Math.max(0, monthlySavings * 12)));
+  updateResult('sc_monthSavings', formatCurrencyShort(Math.max(0, monthlySavings)));
+  updateResult('sc_roiPercent', roi + '%');
+  updateResult('sc_costPerTicket', Math.round(totalCost / tickets) + ' kr');
 
-    // Time Section
-    updateResult('sc_hoursWeek', Math.round(hoursPerMonth / 4.33) + ' h');
-    updateResult('sc_hoursMonth', hoursPerMonth + ' h');
+  // Time Section
+  updateResult('sc_hoursWeek', Math.round(hoursPerMonth / 4.33) + ' h');
+  updateResult('sc_hoursMonth', hoursPerMonth + ' h');
 
-    // Growth Section
-    const maxCapacity = optimalStaff * ticketsPerStaffPerMonth;
-    const maxTicketsWithAi = Math.round(maxCapacity / (1 - aiRate));
-    updateResult('sc_maxTickets', maxTicketsWithAi);
-    updateResult('sc_breakeven', Math.round(maxCapacity * 1.15 / (1 - aiRate)));
+  // Growth Section
+  const maxCapacity = optimalStaff * ticketsPerStaffPerMonth;
+  const maxTicketsWithAi = Math.round(maxCapacity / (1 - aiRate));
+  updateResult('sc_maxTickets', maxTicketsWithAi);
+  updateResult('sc_breakeven', Math.round(maxCapacity * 1.15 / (1 - aiRate)));
 
-    const capacityPercent = Math.round(utilizationRate * 100);
-    const capacityBar = document.getElementById('sc_capacityBar');
-    if (capacityBar) {
-        updateResult('sc_capacityPercent', capacityPercent + '%');
-        capacityBar.style.width = Math.min(100, capacityPercent) + '%';
-        capacityBar.style.background = capacityPercent > 90 ? 'var(--danger)' :
-            capacityPercent > 75 ? 'var(--warn)' :
-                'linear-gradient(90deg, var(--primary), #8b5cf6)';
-    }
+  const capacityPercent = Math.round(utilizationRate * 100);
+  const capacityBar = document.getElementById('sc_capacityBar');
+  if (capacityBar) {
+    updateResult('sc_capacityPercent', capacityPercent + '%');
+    capacityBar.style.width = Math.min(100, capacityPercent) + '%';
+    capacityBar.style.background = capacityPercent > 90 ? 'var(--danger)' :
+      capacityPercent > 75 ? 'var(--warn)' :
+        'linear-gradient(90deg, var(--primary), #8b5cf6)';
+  }
 
-    // Recommendation
-    updateRecommendation(optimalStaff, baselineStaff, monthlySavings, projectedSla, targetSla, utilizationRate);
+  // Recommendation
+  updateRecommendation(optimalStaff, baselineStaff, monthlySavings, projectedSla, targetSla, utilizationRate);
 
-    if (scenarioState.currentMode === 'myView') {
-        renderFavorites();
-    }
+  if (scenarioState.currentMode === 'myView') {
+    renderFavorites();
+  }
 }
 
 function updateExecKpi(id, value) {
-    const el = document.getElementById(id);
-    if (el) el.textContent = value;
+  const el = document.getElementById(id);
+  if (el) el.textContent = value;
 }
 
 function updateResult(id, value) {
-    const el = document.getElementById(id);
-    if (el) el.textContent = value;
+  const el = document.getElementById(id);
+  if (el) el.textContent = value;
 }
 
 function formatCurrencyShort(value) {
-    return value.toLocaleString('sv-SE') + ' kr';
+  return value.toLocaleString('sv-SE') + ' kr';
 }
 
 function updateRecommendation(optimalStaff, baselineStaff, savings, projectedSla, targetSla, utilization) {
-    const recText = document.getElementById('sc_recText');
-    const recCard = document.getElementById('sc_recommendation');
-    if (!recText) return;
+  const recText = document.getElementById('sc_recText');
+  const recCard = document.getElementById('sc_recommendation');
+  if (!recText) return;
 
-    let text = '';
-    if (optimalStaff < baselineStaff && savings > 0) {
-        text = `Strategi: Behåll ${Math.round(document.getElementById('sc_aiRate')?.value * 100) || 40}% AI. Det sparar ${formatCurrencyShort(savings)}/månad och frigör resurser för tillväxt.`;
-    } else if (utilization > 1) {
-        text = `Agera: Kapacitetsbrist! Öka AI-graden eller anställ 1 person för att säkra SLA.`;
-    } else {
-        text = `Status: Verksamheten är optimerad. Kostnaden är låg och kapacitet finns för att växa.`;
-    }
+  let text = '';
+  if (optimalStaff < baselineStaff && savings > 0) {
+    text = `Strategi: Behåll ${Math.round(document.getElementById('sc_aiRate')?.value * 100) || 40}% AI. Det sparar ${formatCurrencyShort(savings)}/månad och frigör resurser för tillväxt.`;
+  } else if (utilization > 1) {
+    text = `Agera: Kapacitetsbrist! Öka AI-graden eller anställ 1 person för att säkra SLA.`;
+  } else {
+    text = `Status: Verksamheten är optimerad. Kostnaden är låg och kapacitet finns för att växa.`;
+  }
 
-    recText.textContent = text;
+  recText.textContent = text;
 }
 
 function exportScenarioReport() {
-    alert("Exportfunktionen laddar ner rapport...");
+  alert("Exportfunktionen laddar ner rapport...");
 }
 
 // Global exports
@@ -5836,25 +5840,25 @@ window.toggleScenarioOnboarding = toggleScenarioOnboarding;
 
 
 function togglePasswordVisibility(inputId) {
-    const input = document.getElementById(inputId);
-    if (!input) return;
-    
-    const btn = event.currentTarget;
-    const icon = btn.querySelector('i');
-    
-    if (input.type === 'password') {
-        input.type = 'text';
-        if (icon) {
-            icon.classList.remove('fa-eye');
-            icon.classList.add('fa-eye-slash');
-        }
-    } else {
-        input.type = 'password';
-        if (icon) {
-            icon.classList.remove('fa-eye-slash');
-            icon.classList.add('fa-eye');
-        }
+  const input = document.getElementById(inputId);
+  if (!input) return;
+
+  const btn = event.currentTarget;
+  const icon = btn.querySelector('i');
+
+  if (input.type === 'password') {
+    input.type = 'text';
+    if (icon) {
+      icon.classList.remove('fa-eye');
+      icon.classList.add('fa-eye-slash');
     }
+  } else {
+    input.type = 'password';
+    if (icon) {
+      icon.classList.remove('fa-eye-slash');
+      icon.classList.add('fa-eye');
+    }
+  }
 }
 
 window.togglePasswordVisibility = togglePasswordVisibility;
@@ -5864,77 +5868,77 @@ window.togglePasswordVisibility = togglePasswordVisibility;
 ===================== */
 
 function setCrmTab(tabId) {
-    document.querySelectorAll('.crmTabContent').forEach(el => el.style.display = 'none');
-    
-    const content = document.getElementById('crm_' + tabId);
-    if(content) content.style.display = 'block';
-    
-    document.querySelectorAll('.crmNavBtn').forEach(btn => btn.classList.remove('active'));
-    
-    const btn = document.getElementById('tab_crm_' + tabId);
-    if(btn) btn.classList.add('active');
+  document.querySelectorAll('.crmTabContent').forEach(el => el.style.display = 'none');
+
+  const content = document.getElementById('crm_' + tabId);
+  if (content) content.style.display = 'block';
+
+  document.querySelectorAll('.crmNavBtn').forEach(btn => btn.classList.remove('active'));
+
+  const btn = document.getElementById('tab_crm_' + tabId);
+  if (btn) btn.classList.add('active');
 }
 
 function allowDrop(ev) {
-    ev.preventDefault();
+  ev.preventDefault();
 }
 
 function drag(ev) {
-    ev.dataTransfer.setData("text", ev.target.id);
-    ev.target.style.opacity = '0.5';
+  ev.dataTransfer.setData("text", ev.target.id);
+  ev.target.style.opacity = '0.5';
 }
 
 function drop(ev) {
-    ev.preventDefault();
-    var data = ev.dataTransfer.getData("text");
-    var el = document.getElementById(data);
-    
-    if (el) {
-        el.style.opacity = '1';
-        var target = ev.target.closest('.pipelineBody');
-        if (target) {
-            target.appendChild(el);
-            updatePipelineCounts();
-            
-            // Show toast
-            if(typeof toast === 'function') toast('Uppdaterad', 'Affren har flyttats', 'success');
-        }
+  ev.preventDefault();
+  var data = ev.dataTransfer.getData("text");
+  var el = document.getElementById(data);
+
+  if (el) {
+    el.style.opacity = '1';
+    var target = ev.target.closest('.pipelineBody');
+    if (target) {
+      target.appendChild(el);
+      updatePipelineCounts();
+
+      // Show toast
+      if (typeof toast === 'function') toast('Uppdaterad', 'Affren har flyttats', 'success');
     }
+  }
 }
 
 function updatePipelineCounts() {
-    document.querySelectorAll('.pipelineColumn').forEach(col => {
-        const count = col.querySelectorAll('.dealCard').length;
-        const badge = col.querySelector('.stageCount');
-        if (badge) badge.textContent = count;
-    });
+  document.querySelectorAll('.pipelineColumn').forEach(col => {
+    const count = col.querySelectorAll('.dealCard').length;
+    const badge = col.querySelector('.stageCount');
+    if (badge) badge.textContent = count;
+  });
 }
 
 function openCustomerModal(name) {
-    const modal = document.getElementById('crmCustomerModal');
-    if(modal) {
-        modal.style.display = 'flex';
-        // Mock title update
-        const title = document.getElementById('crmModalCustomerName');
-        if(title && name) title.textContent = name;
-        
-        // Mock specific data if needed
-    }
+  const modal = document.getElementById('crmCustomerModal');
+  if (modal) {
+    modal.style.display = 'flex';
+    // Mock title update
+    const title = document.getElementById('crmModalCustomerName');
+    if (title && name) title.textContent = name;
+
+    // Mock specific data if needed
+  }
 }
 
 function openDealModal() {
-    if(typeof toast === 'function') toast('Info', 'Skapa affr-funktionen kommer snart', 'info');
+  if (typeof toast === 'function') toast('Info', 'Skapa affr-funktionen kommer snart', 'info');
 }
 
 // Close modal logic
-document.addEventListener('click', function(e) {
-    if (e.target.id === 'crmCloseModalBtn' || e.target.closest('#crmCloseModalBtn')) {
-        const m = document.getElementById('crmCustomerModal');
-        if(m) m.style.display = 'none';
-    }
-    if (e.target.id === 'crmCustomerModal') {
-        e.target.style.display = 'none';
-    }
+document.addEventListener('click', function (e) {
+  if (e.target.id === 'crmCloseModalBtn' || e.target.closest('#crmCloseModalBtn')) {
+    const m = document.getElementById('crmCustomerModal');
+    if (m) m.style.display = 'none';
+  }
+  if (e.target.id === 'crmCustomerModal') {
+    e.target.style.display = 'none';
+  }
 });
 
 // Expose to window
@@ -5954,77 +5958,77 @@ window.openDealModal = openDealModal;
 
 // Enhanced State with persistence
 const crmState = {
-    customers: JSON.parse(localStorage.getItem('crmCustomers') || '[]'),
-    deals: JSON.parse(localStorage.getItem('crmDeals') || '[]'),
+  customers: JSON.parse(localStorage.getItem('crmCustomers') || '[]'),
+  deals: JSON.parse(localStorage.getItem('crmDeals') || '[]'),
 };
 
 // --- MODAL CONTROLLERS ---
 
 function openDealModal() {
-    const modal = document.getElementById('crmAddDealModal');
-    if (modal) {
-        // Populate Companies
-        const dl = document.getElementById('companyList');
-        if (dl && crmState.customers.length > 0) {
-            dl.innerHTML = crmState.customers.map(c => `<option value="${c.name}">`).join('');
-        }
-        modal.style.display = 'flex';
+  const modal = document.getElementById('crmAddDealModal');
+  if (modal) {
+    // Populate Companies
+    const dl = document.getElementById('companyList');
+    if (dl && crmState.customers.length > 0) {
+      dl.innerHTML = crmState.customers.map(c => `<option value="${c.name}">`).join('');
     }
+    modal.style.display = 'flex';
+  }
 }
 
 function saveNewDeal() {
-    const name = document.getElementById('dealName')?.value;
-    const company = document.getElementById('dealCompany')?.value;
-    const value = document.getElementById('dealValue')?.value;
-    const stage = document.getElementById('dealStage')?.value || 'new';
+  const name = document.getElementById('dealName')?.value;
+  const company = document.getElementById('dealCompany')?.value;
+  const value = document.getElementById('dealValue')?.value;
+  const stage = document.getElementById('dealStage')?.value || 'new';
 
-    if (!name || !company) {
-        if (typeof toast === 'function') toast('Fel', 'Fyll i namn och företag', 'error');
-        return;
-    }
+  if (!name || !company) {
+    if (typeof toast === 'function') toast('Fel', 'Fyll i namn och företag', 'error');
+    return;
+  }
 
-    const deal = {
-        id: 'd' + Date.now(),
-        name,
-        company,
-        value: parseInt(value) || 0,
-        stage,
-        created: new Date().toISOString()
-    };
+  const deal = {
+    id: 'd' + Date.now(),
+    name,
+    company,
+    value: parseInt(value) || 0,
+    stage,
+    created: new Date().toISOString()
+  };
 
-    crmState.deals.push(deal);
-    localStorage.setItem('crmDeals', JSON.stringify(crmState.deals));
+  crmState.deals.push(deal);
+  localStorage.setItem('crmDeals', JSON.stringify(crmState.deals));
 
-    closeCrmModal('crmAddDealModal');
+  closeCrmModal('crmAddDealModal');
 
-    // Add to UI immediately if in pipeline view
-    addDealToPipelineUI(deal);
+  // Add to UI immediately if in pipeline view
+  addDealToPipelineUI(deal);
 
-    if (typeof toast === 'function') toast('Sparat', 'Affär skapad', 'success');
+  if (typeof toast === 'function') toast('Sparat', 'Affär skapad', 'success');
 }
 
 function addDealToPipelineUI(deal) {
-    const col = document.querySelector(`.pipelineBody`); // Simplified, assumption
-    // We need to find the right column based on stage interactively?
-    // Since stage IDs in HTML correspond to columns...
-    // Let's re-render pipeline if possible, or append.
-    // My pipeline HTML is static for now. Ideally, renderPipeline() clears and rebuilds.
+  const col = document.querySelector(`.pipelineBody`); // Simplified, assumption
+  // We need to find the right column based on stage interactively?
+  // Since stage IDs in HTML correspond to columns...
+  // Let's re-render pipeline if possible, or append.
+  // My pipeline HTML is static for now. Ideally, renderPipeline() clears and rebuilds.
 
-    // Find the column by index or logic. 
-    // Manual mapping for now:
-    let colIndex = 0;
-    if (deal.stage === 'qualified') colIndex = 1;
-    if (deal.stage === 'proposal') colIndex = 2;
-    if (deal.stage === 'negotiation') colIndex = 3;
+  // Find the column by index or logic. 
+  // Manual mapping for now:
+  let colIndex = 0;
+  if (deal.stage === 'qualified') colIndex = 1;
+  if (deal.stage === 'proposal') colIndex = 2;
+  if (deal.stage === 'negotiation') colIndex = 3;
 
-    const cols = document.querySelectorAll('.pipelineBody');
-    if (cols[colIndex]) {
-        const div = document.createElement('div');
-        div.className = 'dealCard';
-        div.draggable = true;
-        div.id = deal.id;
-        div.ondragstart = (e) => drag(e);
-        div.innerHTML = `
+  const cols = document.querySelectorAll('.pipelineBody');
+  if (cols[colIndex]) {
+    const div = document.createElement('div');
+    div.className = 'dealCard';
+    div.draggable = true;
+    div.id = deal.id;
+    div.ondragstart = (e) => drag(e);
+    div.innerHTML = `
             <div class="dealCompany">${deal.company}</div>
             <div class="dealValue">${deal.value.toLocaleString()} kr</div>
             <div class="dealFooter">
@@ -6032,98 +6036,98 @@ function addDealToPipelineUI(deal) {
                 <div class="dealOwner">AI</div>
             </div>
         `;
-        cols[colIndex].appendChild(div);
+    cols[colIndex].appendChild(div);
 
-        // Update count
-        const header = cols[colIndex].parentElement.querySelector('.stageCount');
-        if (header) header.textContent = parseInt(header.textContent) + 1;
-    }
+    // Update count
+    const header = cols[colIndex].parentElement.querySelector('.stageCount');
+    if (header) header.textContent = parseInt(header.textContent) + 1;
+  }
 }
 
 
 function openAddCustomerModal() {
-    const modal = document.getElementById('crmAddCustomerModal');
-    if (modal) modal.style.display = 'flex';
+  const modal = document.getElementById('crmAddCustomerModal');
+  if (modal) modal.style.display = 'flex';
 }
 
 function saveNewCustomer() {
-    const name = document.getElementById('custName')?.value;
-    const industry = document.getElementById('custIndustry')?.value;
-    const contact = document.getElementById('custContactName')?.value;
-    const email = document.getElementById('custEmail')?.value;
-    const aiDeploy = document.getElementById('custAiDeploy')?.checked;
+  const name = document.getElementById('custName')?.value;
+  const industry = document.getElementById('custIndustry')?.value;
+  const contact = document.getElementById('custContactName')?.value;
+  const email = document.getElementById('custEmail')?.value;
+  const aiDeploy = document.getElementById('custAiDeploy')?.checked;
 
-    if (!name) {
-        if (typeof toast === 'function') toast('Fel', 'Företagsnamn krävs', 'error');
-        return;
-    }
+  if (!name) {
+    if (typeof toast === 'function') toast('Fel', 'Företagsnamn krävs', 'error');
+    return;
+  }
 
-    const customer = {
-        id: 'c' + Date.now(),
-        name,
-        industry,
-        contact,
-        email,
-        aiConfig: aiDeploy ? { status: 'active', model: 'gpt-4o', created: new Date().toISOString() } : null,
-        created: new Date().toISOString()
-    };
+  const customer = {
+    id: 'c' + Date.now(),
+    name,
+    industry,
+    contact,
+    email,
+    aiConfig: aiDeploy ? { status: 'active', model: 'gpt-4o', created: new Date().toISOString() } : null,
+    created: new Date().toISOString()
+  };
 
-    if (aiDeploy) {
-        const overlay = document.getElementById('aiDeployOverlay');
-        const text = document.getElementById('aiDeployText');
-        const sub = document.getElementById('aiDeploySub');
+  if (aiDeploy) {
+    const overlay = document.getElementById('aiDeployOverlay');
+    const text = document.getElementById('aiDeployText');
+    const sub = document.getElementById('aiDeploySub');
 
-        if (overlay) overlay.style.display = 'flex';
+    if (overlay) overlay.style.display = 'flex';
 
-        // Progress simulation
-        setTimeout(() => { if (text) text.textContent = "Skapar AI-kunskapsbas..."; if (sub) sub.textContent = "Hämtar data..."; }, 1000);
-        setTimeout(() => { if (text) text.textContent = "Konfigurerar agent..."; if (sub) sub.textContent = "Tränar modell..."; }, 2500);
-        setTimeout(() => {
-            if (overlay) overlay.style.display = 'none';
-            finalizeCustomerSave(customer);
-        }, 4000);
-    } else {
-        finalizeCustomerSave(customer);
-    }
+    // Progress simulation
+    setTimeout(() => { if (text) text.textContent = "Skapar AI-kunskapsbas..."; if (sub) sub.textContent = "Hämtar data..."; }, 1000);
+    setTimeout(() => { if (text) text.textContent = "Konfigurerar agent..."; if (sub) sub.textContent = "Tränar modell..."; }, 2500);
+    setTimeout(() => {
+      if (overlay) overlay.style.display = 'none';
+      finalizeCustomerSave(customer);
+    }, 4000);
+  } else {
+    finalizeCustomerSave(customer);
+  }
 }
 
 function finalizeCustomerSave(customer) {
-    crmState.customers.push(customer);
-    localStorage.setItem('crmCustomers', JSON.stringify(crmState.customers));
+  crmState.customers.push(customer);
+  localStorage.setItem('crmCustomers', JSON.stringify(crmState.customers));
 
-    closeCrmModal('crmAddCustomerModal');
-    renderCustomerList();
+  closeCrmModal('crmAddCustomerModal');
+  renderCustomerList();
 
-    if (typeof toast === 'function') toast('Klar', `Kund tillagd${customer.aiConfig ? ' med AI-agent' : ''}`, 'success');
+  if (typeof toast === 'function') toast('Klar', `Kund tillagd${customer.aiConfig ? ' med AI-agent' : ''}`, 'success');
 
-    // Reset form
-    document.getElementById('custName').value = '';
-    // ... reset others
+  // Reset form
+  document.getElementById('custName').value = '';
+  // ... reset others
 }
 
 function closeCrmModal(id) {
-    const el = document.getElementById(id);
-    if (el) el.style.display = 'none';
+  const el = document.getElementById(id);
+  if (el) el.style.display = 'none';
 }
 
 // --- RENDERERS ---
 
 function renderCustomerList() {
-    const tbody = document.getElementById('crmAnalyticsTable');
-    if (!tbody) return;
+  const tbody = document.getElementById('crmAnalyticsTable');
+  if (!tbody) return;
 
-    // Merge default persistence if empty
-    let displayList = crmState.customers;
-    if (displayList.length === 0) {
-        // Show demo rows from HTML if localStorage is empty?
-        // Or keep empty. Let's keep empty state handling.
-        // But the user might want to see the demo data from the HTML initially.
-        // If we clear HTML on load, usage might be confused.
-        // Let's append to existing if we detect they are static? No, clear and render is safer.
-    }
+  // Merge default persistence if empty
+  let displayList = crmState.customers;
+  if (displayList.length === 0) {
+    // Show demo rows from HTML if localStorage is empty?
+    // Or keep empty. Let's keep empty state handling.
+    // But the user might want to see the demo data from the HTML initially.
+    // If we clear HTML on load, usage might be confused.
+    // Let's append to existing if we detect they are static? No, clear and render is safer.
+  }
 
-    if (displayList.length > 0) {
-        tbody.innerHTML = displayList.map(c => `
+  if (displayList.length > 0) {
+    tbody.innerHTML = displayList.map(c => `
             <tr onclick="openCustomerModal('${c.id}')" style="cursor:pointer; border-bottom:1px solid var(--border);">
                 <td style="padding:12px;"><b>${c.name}</b><br><span class="muted small">${c.industry || '-'}</span></td>
                 <td style="padding:12px;">${c.contact || '-'}<br><span class="muted small">${c.email || '-'}</span></td>
@@ -6138,45 +6142,45 @@ function renderCustomerList() {
                 </td>
             </tr>
         `).join('');
-    }
+  }
 }
 
 function deleteCustomer(id, event) {
-    event.stopPropagation();
-    if (confirm("Ta bort kund?")) {
-        crmState.customers = crmState.customers.filter(c => c.id !== id);
-        localStorage.setItem('crmCustomers', JSON.stringify(crmState.customers));
-        renderCustomerList();
-    }
+  event.stopPropagation();
+  if (confirm("Ta bort kund?")) {
+    crmState.customers = crmState.customers.filter(c => c.id !== id);
+    localStorage.setItem('crmCustomers', JSON.stringify(crmState.customers));
+    renderCustomerList();
+  }
 }
 
 // Override previous openCustomerModal to handle dynamic data
 function openCustomerModal(idOrName) {
-    // Try to find in state first
-    let customer = crmState.customers.find(c => c.id === idOrName || c.name === idOrName);
+  // Try to find in state first
+  let customer = crmState.customers.find(c => c.id === idOrName || c.name === idOrName);
 
-    // Fallback for static demo rows in HTML (name based)
-    if (!customer && typeof idOrName === 'string') {
-        // Mock a customer object based on the name clicked in static HTML
-        if (idOrName.includes('TechCorp')) customer = { name: 'TechCorp AB', industry: 'IT', contact: 'Maria A', email: 'maria@techcorp.se', aiConfig: { status: 'active' } };
-        else if (idOrName.includes('Norrland')) customer = { name: 'Norrland Transport', industry: 'Logistik', contact: 'Per P', email: 'per@norrland.se', aiConfig: null };
-    }
+  // Fallback for static demo rows in HTML (name based)
+  if (!customer && typeof idOrName === 'string') {
+    // Mock a customer object based on the name clicked in static HTML
+    if (idOrName.includes('TechCorp')) customer = { name: 'TechCorp AB', industry: 'IT', contact: 'Maria A', email: 'maria@techcorp.se', aiConfig: { status: 'active' } };
+    else if (idOrName.includes('Norrland')) customer = { name: 'Norrland Transport', industry: 'Logistik', contact: 'Per P', email: 'per@norrland.se', aiConfig: null };
+  }
 
-    if (!customer) return; // Should allow creating new one? No.
+  if (!customer) return; // Should allow creating new one? No.
 
-    const modal = document.getElementById('crmCustomerModal');
-    if (!modal) return;
+  const modal = document.getElementById('crmCustomerModal');
+  if (!modal) return;
 
-    modal.style.display = 'flex';
+  modal.style.display = 'flex';
 
-    // Reset content to view mode
-    renderCustomerModalContent(customer, modal);
+  // Reset content to view mode
+  renderCustomerModalContent(customer, modal);
 }
 
 function renderCustomerModalContent(customer, modal) {
-    const body = document.getElementById('crmModalBody');
+  const body = document.getElementById('crmModalBody');
 
-    body.innerHTML = `
+  body.innerHTML = `
         <div class="customerProfileLayout">
             <div class="customerSidebar" style="border-right:1px solid var(--border);">
                 <div class="topInfo" style="text-align:center; margin-bottom:20px;">
@@ -6233,14 +6237,14 @@ function renderCustomerModalContent(customer, modal) {
         </div>
     `;
 
-    // Update Header 
-    const title = document.getElementById('crmModalCustomerName');
-    if (title) title.textContent = customer.name;
+  // Update Header 
+  const title = document.getElementById('crmModalCustomerName');
+  if (title) title.textContent = customer.name;
 
-    // Bind Edit Button
-    const editBtn = modal.querySelector('.modalActions .btn'); // The first button is Edit based on HTML structure
-    // Actually, I need to be careful not to break close button.
-    // The previous HTML had a specific edit button.
+  // Bind Edit Button
+  const editBtn = modal.querySelector('.modalActions .btn'); // The first button is Edit based on HTML structure
+  // Actually, I need to be careful not to break close button.
+  // The previous HTML had a specific edit button.
 }
 
 
@@ -6255,8 +6259,8 @@ window.deleteCustomer = deleteCustomer;
 
 // Auto-render on load
 document.addEventListener('DOMContentLoaded', () => {
-    // If we are on customers tab, render.
-    renderCustomerList();
+  // If we are on customers tab, render.
+  renderCustomerList();
 });
 
 
@@ -6268,111 +6272,111 @@ document.addEventListener('DOMContentLoaded', () => {
 
 // Tab Switching in Modal
 function setModalTab(tabId, btn) {
-    const modal = btn.closest('.modalContent');
-    if (!modal) return;
-    modal.querySelectorAll('.modalTabContent').forEach(t => t.style.display = 'none');
-    modal.querySelectorAll('.tabBtn').forEach(b => b.classList.remove('active'));
+  const modal = btn.closest('.modalContent');
+  if (!modal) return;
+  modal.querySelectorAll('.modalTabContent').forEach(t => t.style.display = 'none');
+  modal.querySelectorAll('.tabBtn').forEach(b => b.classList.remove('active'));
 
-    const target = modal.querySelector('#' + tabId);
-    if (target) target.style.display = 'block';
-    btn.classList.add('active');
+  const target = modal.querySelector('#' + tabId);
+  if (target) target.style.display = 'block';
+  btn.classList.add('active');
 }
 
 function saveNewCustomerExpanded() {
-    // Basic Info
-    const name = document.getElementById('custName')?.value;
-    const org = document.getElementById('custOrg')?.value;
-    const industry = document.getElementById('custIndustry')?.value;
-    const web = document.getElementById('custWeb')?.value;
-    const status = document.getElementById('custStatus')?.value;
-    const owner = document.getElementById('custOwner')?.value;
-    const notes = document.getElementById('custNotes')?.value;
+  // Basic Info
+  const name = document.getElementById('custName')?.value;
+  const org = document.getElementById('custOrg')?.value;
+  const industry = document.getElementById('custIndustry')?.value;
+  const web = document.getElementById('custWeb')?.value;
+  const status = document.getElementById('custStatus')?.value;
+  const owner = document.getElementById('custOwner')?.value;
+  const notes = document.getElementById('custNotes')?.value;
 
-    // Contact
-    const first = document.getElementById('custContactFirst')?.value;
-    const last = document.getElementById('custContactLast')?.value;
-    const email = document.getElementById('custEmail')?.value;
-    const phone = document.getElementById('custPhone')?.value;
-    const role = document.getElementById('custRole')?.value;
+  // Contact
+  const first = document.getElementById('custContactFirst')?.value;
+  const last = document.getElementById('custContactLast')?.value;
+  const email = document.getElementById('custEmail')?.value;
+  const phone = document.getElementById('custPhone')?.value;
+  const role = document.getElementById('custRole')?.value;
 
-    const contactName = (first || last) ? `${first || ''} ${last || ''}`.trim() : '';
+  const contactName = (first || last) ? `${first || ''} ${last || ''}`.trim() : '';
 
-    // Address
-    const address = document.getElementById('custAddress')?.value;
-    const zip = document.getElementById('custZip')?.value;
-    const city = document.getElementById('custCity')?.value;
-    const country = document.getElementById('custCountry')?.value;
+  // Address
+  const address = document.getElementById('custAddress')?.value;
+  const zip = document.getElementById('custZip')?.value;
+  const city = document.getElementById('custCity')?.value;
+  const country = document.getElementById('custCountry')?.value;
 
-    // AI
-    const aiDeploy = document.getElementById('custAiDeploy')?.checked;
-    const aiModel = document.getElementById('custAiModel')?.value;
-    const aiLang = document.getElementById('custAiLang')?.value;
+  // AI
+  const aiDeploy = document.getElementById('custAiDeploy')?.checked;
+  const aiModel = document.getElementById('custAiModel')?.value;
+  const aiLang = document.getElementById('custAiLang')?.value;
 
-    if (!name) {
-        if (typeof toast === 'function') toast('Fel', 'Företagsnamn krävs', 'error');
-        else alert("Företagsnamn krävs");
-        return;
-    }
+  if (!name) {
+    if (typeof toast === 'function') toast('Fel', 'Företagsnamn krävs', 'error');
+    else alert("Företagsnamn krävs");
+    return;
+  }
 
-    const customer = {
-        id: 'c' + Date.now(),
-        name,
-        org,
-        industry,
-        web,
-        status,
-        owner,
-        notes,
-        contact: contactName,
-        email,
-        phone,
-        role,
-        address: {
-            street: address,
-            zip,
-            city,
-            country
-        },
-        aiConfig: aiDeploy ? {
-            status: 'active',
-            model: aiModel,
-            lang: aiLang,
-            created: new Date().toISOString(),
-            apiKey: 'sk-proj-' + Math.random().toString(36).substring(7)
-        } : null,
-        created: new Date().toISOString()
-    };
+  const customer = {
+    id: 'c' + Date.now(),
+    name,
+    org,
+    industry,
+    web,
+    status,
+    owner,
+    notes,
+    contact: contactName,
+    email,
+    phone,
+    role,
+    address: {
+      street: address,
+      zip,
+      city,
+      country
+    },
+    aiConfig: aiDeploy ? {
+      status: 'active',
+      model: aiModel,
+      lang: aiLang,
+      created: new Date().toISOString(),
+      apiKey: 'sk-proj-' + Math.random().toString(36).substring(7)
+    } : null,
+    created: new Date().toISOString()
+  };
 
-    if (aiDeploy) {
-        const overlay = document.getElementById('aiDeployOverlay');
-        const text = document.getElementById('aiDeployText');
-        const sub = document.getElementById('aiDeploySub');
+  if (aiDeploy) {
+    const overlay = document.getElementById('aiDeployOverlay');
+    const text = document.getElementById('aiDeployText');
+    const sub = document.getElementById('aiDeploySub');
 
-        if (overlay) overlay.style.display = 'flex';
+    if (overlay) overlay.style.display = 'flex';
 
-        // Extended Simulation
-        setTimeout(() => { if (text) text.textContent = "Analyserar webbplats..."; if (sub) sub.textContent = web ? `Skannar ${web}...` : "Hämtar branschdata..."; }, 1500);
-        setTimeout(() => { if (text) text.textContent = "Skapar kunskapsmodell..."; if (sub) sub.textContent = `Modell: ${aiModel}`; }, 3500);
-        setTimeout(() => { if (text) text.textContent = "Genererar API-nycklar..."; if (sub) sub.textContent = "Sätter upp säkerhetspolicy..."; }, 5500);
-        setTimeout(() => {
-            if (overlay) overlay.style.display = 'none';
-            finalizeCustomerSave(customer);
-        }, 7000);
-    } else {
-        finalizeCustomerSave(customer);
-    }
+    // Extended Simulation
+    setTimeout(() => { if (text) text.textContent = "Analyserar webbplats..."; if (sub) sub.textContent = web ? `Skannar ${web}...` : "Hämtar branschdata..."; }, 1500);
+    setTimeout(() => { if (text) text.textContent = "Skapar kunskapsmodell..."; if (sub) sub.textContent = `Modell: ${aiModel}`; }, 3500);
+    setTimeout(() => { if (text) text.textContent = "Genererar API-nycklar..."; if (sub) sub.textContent = "Sätter upp säkerhetspolicy..."; }, 5500);
+    setTimeout(() => {
+      if (overlay) overlay.style.display = 'none';
+      finalizeCustomerSave(customer);
+    }, 7000);
+  } else {
+    finalizeCustomerSave(customer);
+  }
 }
 
 // Override renderCustomerModalContent to show rich data
 function renderCustomerModalContent(customer, modal) {
-    const body = document.getElementById('crmModalBody');
-    const initials = customer.name.substring(0, 2).toUpperCase();
+  const body = document.getElementById('crmModalBody');
+  const initials = customer.name.substring(0, 2).toUpperCase();
 
-    // Safety check for address
-    const street = customer.address?.street || '';
-    const city = customer.address?.city || '';
+  // Safety check for address
+  const street = customer.address?.street || '';
+  const city = customer.address?.city || '';
 
-    body.innerHTML = `
+  body.innerHTML = `
         <div class="customerProfileLayout">
             <!-- SIDEBAR -->
             <div class="customerSidebar" style="border-right:1px solid var(--border); overflow-y:auto; max-height:100%;">
@@ -6469,12 +6473,12 @@ function renderCustomerModalContent(customer, modal) {
         </div>
     `;
 
-    // Update Header 
-    const title = document.getElementById('crmModalCustomerName');
-    if (title) title.textContent = customer.name;
+  // Update Header 
+  const title = document.getElementById('crmModalCustomerName');
+  if (title) title.textContent = customer.name;
 
-    // Update Action Buttons?
-    // Could add Edit button action here
+  // Update Action Buttons?
+  // Could add Edit button action here
 }
 
 window.setModalTab = setModalTab;
@@ -6493,159 +6497,159 @@ const crmActivities = JSON.parse(localStorage.getItem('crmActivities') || '[]');
 
 // Override openDealModal to support Advanced options
 function openDealModal() {
-    const modal = document.getElementById('crmAddDealModal');
-    if (!modal) return;
+  const modal = document.getElementById('crmAddDealModal');
+  if (!modal) return;
 
-    // Clear form
-    if (document.getElementById('dealName')) document.getElementById('dealName').value = '';
-    if (document.getElementById('dealValue')) document.getElementById('dealValue').value = '';
-    if (document.getElementById('dealCompanyInput')) document.getElementById('dealCompanyInput').value = '';
+  // Clear form
+  if (document.getElementById('dealName')) document.getElementById('dealName').value = '';
+  if (document.getElementById('dealValue')) document.getElementById('dealValue').value = '';
+  if (document.getElementById('dealCompanyInput')) document.getElementById('dealCompanyInput').value = '';
 
-    // Populate DataList for Companies
-    const dl = document.getElementById('dealCompanyList');
-    if (dl && crmState.customers.length > 0) {
-        dl.innerHTML = crmState.customers.map(c => `<option value="${c.name}">`).join('');
-    }
+  // Populate DataList for Companies
+  const dl = document.getElementById('dealCompanyList');
+  if (dl && crmState.customers.length > 0) {
+    dl.innerHTML = crmState.customers.map(c => `<option value="${c.name}">`).join('');
+  }
 
-    modal.style.display = 'flex';
+  modal.style.display = 'flex';
 }
 
 function filterCompanyList(input) {
-    // Client side filter handled by browser datalist natively
+  // Client side filter handled by browser datalist natively
 }
 
 function saveNewDealAdvanced() {
-    const name = document.getElementById('dealName')?.value;
-    const company = document.getElementById('dealCompanyInput')?.value; // Using input not select
-    const value = document.getElementById('dealValue')?.value;
-    const stage = document.getElementById('dealStage')?.value;
-    const prob = document.getElementById('dealProb')?.value;
-    const closeDate = document.getElementById('dealCloseDate')?.value;
-    const type = document.getElementById('dealType')?.value;
-    const owner = document.getElementById('dealOwner')?.value;
-    const desc = document.getElementById('dealDesc')?.value;
-    const nextStep = document.getElementById('dealNextStep')?.value;
+  const name = document.getElementById('dealName')?.value;
+  const company = document.getElementById('dealCompanyInput')?.value; // Using input not select
+  const value = document.getElementById('dealValue')?.value;
+  const stage = document.getElementById('dealStage')?.value;
+  const prob = document.getElementById('dealProb')?.value;
+  const closeDate = document.getElementById('dealCloseDate')?.value;
+  const type = document.getElementById('dealType')?.value;
+  const owner = document.getElementById('dealOwner')?.value;
+  const desc = document.getElementById('dealDesc')?.value;
+  const nextStep = document.getElementById('dealNextStep')?.value;
 
-    if (!name || !company) {
-        if (typeof toast === 'function') toast('Fel', 'Fyll i namn och företag', 'error');
-        else alert("Fyll i namn och företag");
-        return;
-    }
+  if (!name || !company) {
+    if (typeof toast === 'function') toast('Fel', 'Fyll i namn och företag', 'error');
+    else alert("Fyll i namn och företag");
+    return;
+  }
 
-    // Find linked customer ID if possible
-    const linkedCustomer = crmState.customers.find(c => c.name === company);
-    const customerId = linkedCustomer ? linkedCustomer.id : null;
+  // Find linked customer ID if possible
+  const linkedCustomer = crmState.customers.find(c => c.name === company);
+  const customerId = linkedCustomer ? linkedCustomer.id : null;
 
-    const deal = {
-        id: 'd' + Date.now(),
-        name,
-        company,
-        customerId,
-        value: parseInt(value) || 0,
-        stage,
-        probability: parseInt(prob),
-        closeDate,
-        type,
-        owner,
-        description: desc,
-        nextStep,
-        created: new Date().toISOString()
-    };
+  const deal = {
+    id: 'd' + Date.now(),
+    name,
+    company,
+    customerId,
+    value: parseInt(value) || 0,
+    stage,
+    probability: parseInt(prob),
+    closeDate,
+    type,
+    owner,
+    description: desc,
+    nextStep,
+    created: new Date().toISOString()
+  };
 
-    crmState.deals.push(deal);
-    localStorage.setItem('crmDeals', JSON.stringify(crmState.deals));
+  crmState.deals.push(deal);
+  localStorage.setItem('crmDeals', JSON.stringify(crmState.deals));
 
-    closeCrmModal('crmAddDealModal');
+  closeCrmModal('crmAddDealModal');
 
-    // Log creation activity automatically
-    logActivity({
-        type: 'system',
-        subject: 'Affär skapad',
-        description: `Affär "${name}" värd ${value} kr skapad i fas ${stage}.`,
-        targetId: customerId || deal.id, // Log on customer if found, else deal
-        date: new Date().toISOString(),
-        status: 'done'
-    });
+  // Log creation activity automatically
+  logActivity({
+    type: 'system',
+    subject: 'Affär skapad',
+    description: `Affär "${name}" värd ${value} kr skapad i fas ${stage}.`,
+    targetId: customerId || deal.id, // Log on customer if found, else deal
+    date: new Date().toISOString(),
+    status: 'done'
+  });
 
-    // Update UI
-    addDealToPipelineUI(deal);
-    if (typeof toast === 'function') toast('Sparat', 'Affär skapad', 'success');
+  // Update UI
+  addDealToPipelineUI(deal);
+  if (typeof toast === 'function') toast('Sparat', 'Affär skapad', 'success');
 }
 
 // --- ACTIVITY LOGIC ---
 
 function openActivityModal(targetId) { // Customer ID or Deal ID
-    const modal = document.getElementById('crmLogActivityModal');
-    if (!modal) return;
+  const modal = document.getElementById('crmLogActivityModal');
+  if (!modal) return;
 
-    document.getElementById('actTargetId').value = targetId || '';
-    modal.style.display = 'flex';
-    // Set default date to today
-    document.getElementById('actDate').valueAsDate = new Date();
+  document.getElementById('actTargetId').value = targetId || '';
+  modal.style.display = 'flex';
+  // Set default date to today
+  document.getElementById('actDate').valueAsDate = new Date();
 }
 
 function setActivityType(type, btn) {
-    document.getElementById('actType').value = type;
-    document.querySelectorAll('.activityTypeBtn').forEach(b => b.classList.remove('active'));
-    btn.classList.add('active');
+  document.getElementById('actType').value = type;
+  document.querySelectorAll('.activityTypeBtn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
 }
 
 function saveActivity() {
-    const type = document.getElementById('actType').value;
-    const subject = document.getElementById('actSubject').value;
-    const desc = document.getElementById('actDesc').value;
-    const date = document.getElementById('actDate').value;
-    const status = document.getElementById('actStatus').value;
-    const targetId = document.getElementById('actTargetId').value;
+  const type = document.getElementById('actType').value;
+  const subject = document.getElementById('actSubject').value;
+  const desc = document.getElementById('actDesc').value;
+  const date = document.getElementById('actDate').value;
+  const status = document.getElementById('actStatus').value;
+  const targetId = document.getElementById('actTargetId').value;
 
-    if (!subject) { alert("Ange ämne"); return; }
+  if (!subject) { alert("Ange ämne"); return; }
 
-    const activity = {
-        id: 'act' + Date.now(),
-        type,
-        subject,
-        description: desc,
-        date,
-        status,
-        targetId, // Link to customer
-        created: new Date().toISOString()
-    };
+  const activity = {
+    id: 'act' + Date.now(),
+    type,
+    subject,
+    description: desc,
+    date,
+    status,
+    targetId, // Link to customer
+    created: new Date().toISOString()
+  };
 
-    crmActivities.push(activity);
-    localStorage.setItem('crmActivities', JSON.stringify(crmActivities));
+  crmActivities.push(activity);
+  localStorage.setItem('crmActivities', JSON.stringify(crmActivities));
 
-    closeCrmModal('crmLogActivityModal');
+  closeCrmModal('crmLogActivityModal');
 
-    // If we are viewing a customer, refresh the timeline
-    if (targetId) {
-        // Refresh modal content if open
-        const currentModal = document.getElementById('crmCustomerModal');
-        if (currentModal && currentModal.style.display !== 'none') {
-            const customer = crmState.customers.find(c => c.id === targetId);
-            if (customer) renderCustomerModalContent(customer, currentModal);
-        }
+  // If we are viewing a customer, refresh the timeline
+  if (targetId) {
+    // Refresh modal content if open
+    const currentModal = document.getElementById('crmCustomerModal');
+    if (currentModal && currentModal.style.display !== 'none') {
+      const customer = crmState.customers.find(c => c.id === targetId);
+      if (customer) renderCustomerModalContent(customer, currentModal);
     }
+  }
 
-    if (typeof toast === 'function') toast('Loggad', 'Aktivitet sparad', 'success');
+  if (typeof toast === 'function') toast('Loggad', 'Aktivitet sparad', 'success');
 }
 
 function logActivity(act) {
-    crmActivities.push({ ...act, id: 'act' + Date.now() });
-    localStorage.setItem('crmActivities', JSON.stringify(crmActivities));
+  crmActivities.push({ ...act, id: 'act' + Date.now() });
+  localStorage.setItem('crmActivities', JSON.stringify(crmActivities));
 }
 
 // Override renderCustomerModalContent again to include Activity Listing and Log Button
 function renderCustomerModalContent(customer, modal) {
-    const body = document.getElementById('crmModalBody');
-    const initials = customer.name.substring(0, 2).toUpperCase();
+  const body = document.getElementById('crmModalBody');
+  const initials = customer.name.substring(0, 2).toUpperCase();
 
-    // Get Activities for this customer
-    const activities = crmActivities.filter(a => a.targetId === customer.id).sort((a, b) => new Date(b.created) - new Date(a.created));
+  // Get Activities for this customer
+  const activities = crmActivities.filter(a => a.targetId === customer.id).sort((a, b) => new Date(b.created) - new Date(a.created));
 
-    // Safety
-    const city = customer.address?.city || 'Ingen ort';
+  // Safety
+  const city = customer.address?.city || 'Ingen ort';
 
-    body.innerHTML = `
+  body.innerHTML = `
         <div class="customerProfileLayout">
             <!-- SIDEBAR SAME AS BEFORE -->
             <div class="customerSidebar" style="border-right:1px solid var(--border); overflow-y:auto; max-height:100%;">
@@ -6726,18 +6730,18 @@ function renderCustomerModalContent(customer, modal) {
         </div>
     `;
 
-    // Update Header 
-    const title = document.getElementById('crmModalCustomerName');
-    if (title) title.textContent = customer.name;
+  // Update Header 
+  const title = document.getElementById('crmModalCustomerName');
+  if (title) title.textContent = customer.name;
 }
 
 function translateType(t) {
-    if (t === 'call') return 'Samtal';
-    if (t === 'meeting') return 'Möte';
-    if (t === 'email') return 'E-post';
-    if (t === 'task') return 'Uppgift';
-    if (t === 'system') return 'System';
-    return t;
+  if (t === 'call') return 'Samtal';
+  if (t === 'meeting') return 'Möte';
+  if (t === 'email') return 'E-post';
+  if (t === 'task') return 'Uppgift';
+  if (t === 'system') return 'System';
+  return t;
 }
 
 // Expose
@@ -6753,7 +6757,7 @@ window.filterCompanyList = filterCompanyList;
 
 
 /* HOTFIX */
-window.openAddCustomerModal = function() { console.log('OPENING CUSTOMER MODAL'); const modal = document.getElementById('crmAddCustomerModal'); if(modal) { modal.style.display = 'flex'; if(window.setModalTab && modal.querySelector('#modalTabBasic')) { const btn = modal.querySelector('.tabBtn'); if(btn) window.setModalTab('modalTabBasic', btn); } } else { alert('Kunde inte ppna formulr (ID saknas)'); } };
+window.openAddCustomerModal = function () { console.log('OPENING CUSTOMER MODAL'); const modal = document.getElementById('crmAddCustomerModal'); if (modal) { modal.style.display = 'flex'; if (window.setModalTab && modal.querySelector('#modalTabBasic')) { const btn = modal.querySelector('.tabBtn'); if (btn) window.setModalTab('modalTabBasic', btn); } } else { alert('Kunde inte ppna formulr (ID saknas)'); } };
 document.getElementById('addCustomerBtn').onclick = window.openAddCustomerModal;
 
 
@@ -6765,24 +6769,24 @@ document.getElementById('addCustomerBtn').onclick = window.openAddCustomerModal;
    HOTFIX: SAFE RENDER (Crash Prevention)
 ===================== */
 window.renderCustomerModalContent = function (customer, modal) {
-    const body = document.getElementById('crmModalBody');
-    if (!body || !customer) return;
+  const body = document.getElementById('crmModalBody');
+  if (!body || !customer) return;
 
-    // Safety checks
-    const name = customer.name || 'Okänd Kund';
-    const initials = name.substring(0, 2).toUpperCase();
-    const city = (customer.address && customer.address.city) ? customer.address.city : 'Ingen ort';
+  // Safety checks
+  const name = customer.name || 'Okänd Kund';
+  const initials = name.substring(0, 2).toUpperCase();
+  const city = (customer.address && customer.address.city) ? customer.address.city : 'Ingen ort';
 
-    // AI Config Safety
-    let aiSection = '';
-    if (customer.aiConfig) {
-        const model = customer.aiConfig.model || 'Standard';
-        let apiKeyDisplay = 'Genereras...';
-        if (customer.aiConfig.apiKey && typeof customer.aiConfig.apiKey === 'string') {
-            apiKeyDisplay = customer.aiConfig.apiKey.substring(0, 8) + '...';
-        }
+  // AI Config Safety
+  let aiSection = '';
+  if (customer.aiConfig) {
+    const model = customer.aiConfig.model || 'Standard';
+    let apiKeyDisplay = 'Genereras...';
+    if (customer.aiConfig.apiKey && typeof customer.aiConfig.apiKey === 'string') {
+      apiKeyDisplay = customer.aiConfig.apiKey.substring(0, 8) + '...';
+    }
 
-        aiSection = `
+    aiSection = `
         <div class="aiInsightBox">
             <div style="font-size:12px; text-transform:uppercase; color:var(--primary); font-weight:bold; margin-bottom:5px; display:flex; justify-content:space-between;">
                 <span>AI Status</span> <span style="font-size:16px;">🟢</span>
@@ -6793,14 +6797,14 @@ window.renderCustomerModalContent = function (customer, modal) {
                 <b>API Key:</b> ${apiKeyDisplay}
             </div>
         </div>`;
-    }
+  }
 
-    // Activities Safety (assuming crmActivities exists globally)
-    const activities = (window.crmActivities || [])
-        .filter(a => a.targetId === customer.id)
-        .sort((a, b) => new Date(b.created) - new Date(a.created));
+  // Activities Safety (assuming crmActivities exists globally)
+  const activities = (window.crmActivities || [])
+    .filter(a => a.targetId === customer.id)
+    .sort((a, b) => new Date(b.created) - new Date(a.created));
 
-    body.innerHTML = `
+  body.innerHTML = `
         <div class="customerProfileLayout">
             <!-- SIDEBAR -->
             <div class="customerSidebar" style="border-right:1px solid var(--border); overflow-y:auto; max-height:100%;">
@@ -6856,7 +6860,7 @@ window.renderCustomerModalContent = function (customer, modal) {
         </div>
     `;
 
-    const title = document.getElementById('crmModalCustomerName');
-    if (title) title.textContent = name;
+  const title = document.getElementById('crmModalCustomerName');
+  if (title) title.textContent = name;
 }
 
