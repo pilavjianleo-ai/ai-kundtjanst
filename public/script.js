@@ -7,6 +7,21 @@
 
 const $ = (id) => document.getElementById(id);
 
+// Toggle password visibility
+function togglePasswordVisibility(inputId) {
+  const input = document.getElementById(inputId);
+  const btn = input?.parentElement?.querySelector('button i');
+  if (!input) return;
+  if (input.type === 'password') {
+    input.type = 'text';
+    if (btn) btn.className = 'fa-solid fa-eye-slash';
+  } else {
+    input.type = 'password';
+    if (btn) btn.className = 'fa-solid fa-eye';
+  }
+}
+
+
 const state = {
   apiBase: "",
   token: localStorage.getItem("token") || "",
