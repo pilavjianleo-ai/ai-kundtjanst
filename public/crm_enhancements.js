@@ -1,6 +1,6 @@
 /* =====================
    CRM ENHANCEMENTS V8: COMPLETE DATA SYNC & EDIT
-===================== */
+   ===================== */
 
 /**
  * Sync CRM Customers (AI Active) to Chat Dropdown
@@ -19,7 +19,6 @@ function updateChatCategoriesFromCRM() {
             const opt = document.createElement('option');
             opt.value = c.id;
             opt.innerText = c.name + " (AI)";
-            opt.setAttribute('data-origin', 'crm');
             select.appendChild(opt);
         }
     });
@@ -34,7 +33,6 @@ window.toggleAccordion = function (id) {
     if (el) {
         const isHidden = el.style.display === 'none';
         el.style.display = isHidden ? 'block' : 'none';
-        // Improved animation feel
         if (isHidden) {
             el.animate([{ opacity: 0, transform: 'translateY(-5px)' }, { opacity: 1, transform: 'translateY(0)' }], { duration: 200, easing: 'ease-out' });
         }
@@ -57,7 +55,6 @@ function renderCrmDashboard() {
     const openDeals = deals.filter(d => d.stage !== 'won' && d.stage !== 'lost').length;
     const totalCustomers = customers.length;
 
-    // Sum of all customer monthly values
     const monthlyRevenue = customers.reduce((sum, c) => sum + (parseFloat(c.value) || 0), 0);
 
     const cards = document.querySelectorAll('.crmStatCard');
@@ -71,7 +68,6 @@ function renderCrmDashboard() {
         const val3 = cards[2].querySelector('.crmStatValue');
         if (val3) val3.innerText = totalCustomers + " st";
 
-        // Update the new Monthly Revenue card
         const revEl = document.getElementById('crmMonthlyRevenue');
         if (revEl) {
             revEl.innerText = new Intl.NumberFormat('sv-SE', { style: 'currency', currency: 'SEK' }).format(monthlyRevenue);
@@ -80,40 +76,45 @@ function renderCrmDashboard() {
 
     const feed = document.querySelector('.activityTimeline');
     if (feed) {
-        const sorted = activities.sort((a, b) => new Date(b.created) - new Date(a.created)).slice(0, 15);
+        const sorted = activities.sort((a, b) => new Date(b.created) - new Date(a.created)).slice(0, 20);
         if (sorted.length > 0) {
-            feed.innerHTML = sorted.map((a, index) => {
+            const listItemsHtml = sorted.map((a, index) => {
                 let iconClass = "fa-info-circle";
+                if (a.type === 'chat') iconClass = "fa-comment-dots";
+                if (a.type === 'ticket') iconClass = "fa-ticket";
                 if (a.type === 'success') iconClass = "fa-check-circle";
                 if (a.type === 'warning') iconClass = "fa-exclamation-triangle";
-
-                const uid = `act-${index}`;
-
                 return `
-                <div class="activityItem accordion-item" style="border:1px solid var(--border); border-radius:10px; margin-bottom:8px; background:var(--panel2); overflow:hidden; box-shadow:0 2px 5px rgba(0,0,0,0.02);">
-                    <div class="accordion-header" onclick="toggleAccordion('${uid}')" style="padding:14px; display:flex; align-items:center; gap:12px; cursor:pointer; transition:background 0.2s;">
-                        <div style="width:32px; height:32px; border-radius:50%; background:var(--panel); display:flex; align-items:center; justify-content:center; border:1px solid var(--border); flex-shrink:0;">
-                            <i class="fa-solid ${iconClass}" style="font-size:14px; color:var(--primary);"></i>
-                        </div>
-                        <div style="flex:1; font-weight:600; font-size:13px; display:flex; flex-direction:column;">
-                            <span style="color:var(--text); letter-spacing:0.3px;">${a.type?.toUpperCase() || 'SYSTEM'}</span>
-                            <span style="font-size:11px; color:var(--muted); font-weight:400; margin-top:2px;">${new Date(a.created).toLocaleDateString('sv-SE')}</span>
-                        </div>
-                        <div style="display:flex; align-items:center; gap:8px;">
-                             <span style="font-size:11px; color:var(--muted); opacity:0.7;">Visa mer</span>
-                             <i class="fa-solid fa-chevron-down accordion-icon" id="icon-${uid}" style="font-size:12px; color:var(--muted); transition:transform 0.3s ease;"></i>
+                <div class="activityItem" style="display:flex; align-items:flex-start; gap:12px; margin-bottom:12px; padding-bottom:12px; border-bottom:1px solid var(--border);">
+                    <div style="width:28px; height:28px; border-radius:50%; background:var(--panel2); display:flex; align-items:center; justify-content:center; border:1px solid var(--border); flex-shrink:0;">
+                        <i class="fa-solid ${iconClass}" style="font-size:12px; color:var(--primary);"></i>
+                    </div>
+                    <div style="flex:1;">
+                        <div style="font-weight:600; font-size:13px; color:var(--text);">${a.subject}</div>
+                        <div style="font-size:11px; color:var(--muted); margin-top:3px;">
+                            ${new Date(a.created).toLocaleString('sv-SE')} • ${a.type?.toUpperCase()}
                         </div>
                     </div>
-                    <div id="${uid}" class="accordion-content" style="display:none; padding:15px; border-top:1px solid var(--border); background:var(--glass); font-size:13px; line-height:1.5; color:var(--text);">
-                        <div style="background:var(--bg); padding:10px; border-radius:8px; border:1px solid var(--border);">
-                           ${a.subject}
+                </div>`;
+            }).join('');
+
+            feed.innerHTML = `
+                <div class="accordion-item" style="border:1px solid var(--border); border-radius:12px; background:var(--panel2); overflow:hidden; box-shadow:0 4px 12px rgba(0,0,0,0.03);">
+                    <div class="accordion-header" onclick="toggleAccordion('crmTimelineBody')" style="padding:15px; display:flex; align-items:center; justify-content:space-between; cursor:pointer; background:var(--panel); transition:all 0.2s;">
+                        <div style="display:flex; align-items:center; gap:10px; font-weight:700; color:var(--text); font-size:14px;">
+                            <i class="fa-solid fa-clock-rotate-left" style="color:var(--primary);"></i> 
+                            Senaste Händelser
                         </div>
-                        <div style="margin-top:8px; font-size:11px; color:var(--muted); text-align:right; display:flex; justify-content:flex-end; align-items:center; gap:5px;">
-                            <i class="fa-regular fa-clock"></i> ${new Date(a.created).toLocaleString('sv-SE')}
+                        <div style="display:flex; align-items:center; gap:10px;">
+                            <span class="pill muted" style="font-size:10px; background:var(--bg); border:1px solid var(--border);">${sorted.length} st</span>
+                            <i class="fa-solid fa-chevron-down accordion-icon" id="icon-crmTimelineBody" style="font-size:12px; transition:transform 0.3s; color:var(--muted);"></i>
                         </div>
+                    </div>
+                    <div id="crmTimelineBody" class="accordion-content" style="display:none; padding:15px; max-height:420px; overflow-y:auto; background:var(--bg);">
+                        ${listItemsHtml}
                     </div>
                 </div>
-            `}).join('');
+            `;
         } else {
             feed.innerHTML = `<div class="muted center" style="padding:20px; font-size:13px;">Inga aktiviteter loggade än.</div>`;
         }
@@ -430,7 +431,6 @@ window.saveCustomerEdits = async function (id) {
 
     const c = customers[cIndex];
 
-    // Update local object
     c.name = document.getElementById('editCustName').value.trim();
     c.email = document.getElementById('editCustEmail').value.trim();
     c.phone = document.getElementById('editCustPhone').value.trim();
@@ -440,7 +440,6 @@ window.saveCustomerEdits = async function (id) {
     c.value = parseFloat(document.getElementById('editCustValue').value) || 0;
     c.status = document.getElementById('editCustStatus').value;
 
-    // Contact details
     const fName = document.getElementById('editCustContactFirst')?.value?.trim() || '';
     const lName = document.getElementById('editCustContactLast')?.value?.trim() || '';
     c.contactFirst = fName;
@@ -458,7 +457,6 @@ window.saveCustomerEdits = async function (id) {
     c.aiConfig.model = document.getElementById('editCustAiModel').value;
     c.aiConfig.lang = document.getElementById('editCustAiLang').value;
 
-    // Sync to Backend
     try {
         if (typeof api === 'function' && state.token) {
             await api(`/admin/companies/${id}`, {
@@ -489,9 +487,6 @@ window.saveCustomerEdits = async function (id) {
     window.closeCrmModal('crmCustomerModal');
 };
 
-/**
- * Jump to KB Manager for specific customer
- */
 window.goToCustomerKB = function (companyId) {
     window.closeCrmModal('crmCustomerModal');
     if (typeof showView === 'function') {
@@ -513,7 +508,6 @@ window.goToCustomerKB = function (companyId) {
 window.deleteCustomer = async function (id) {
     if (!confirm('VARNING: Detta kommer att radera kunden och ALL tillhörande data (biljetter, dokument, AI-inställningar) permanent från hela systemet. Vill du fortsätta?')) return;
 
-    // 1. Delete from Backend (Real sync)
     try {
         if (typeof api === 'function' && state.token) {
             await api(`/admin/companies/${id}`, {
@@ -526,12 +520,10 @@ window.deleteCustomer = async function (id) {
         toast("System-fel", "Kunde inte radera från backend, men tar bort lokalt.", "warning");
     }
 
-    // 2. Delete from Local CRM
     let customers = JSON.parse(localStorage.getItem('crmCustomers') || '[]');
     customers = customers.filter(c => c.id !== id);
     localStorage.setItem('crmCustomers', JSON.stringify(customers));
 
-    // 3. Update UI
     renderCustomerList();
     renderCrmDashboard();
     updateChatCategoriesFromCRM();

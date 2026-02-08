@@ -928,23 +928,23 @@ async function selectInboxTicket(ticketId) {
 
     // Render details
     box.innerHTML = `
-      <div class="row" style="justify-content:space-between; align-items:flex-start;">
-          <div>
-              <b>${escapeHtml(t.title || "Ticket")}</b><br>
-              <div class="row gap small" style="margin-top:5px;">
-                <span class="pill muted">${escapeHtml(t.publicTicketId)}</span>
-                <span class="pill ${t.status === 'solved' ? 'ok' : t.status === 'high' ? 'danger' : 'info'}">${escapeHtml(t.status)}</span>
-                <span class="muted small">Företag: ${escapeHtml(t.companyId || 'demo')}</span>
+      <div class="row" style="justify-content:space-between; align-items:flex-start; margin-bottom:15px;">
+          <div style="flex:1;">
+              <div style="font-size:18px; font-weight:700; color:var(--text); margin-bottom:6px;">${escapeHtml(t.title || "Ärende")}</div>
+              <div style="display:flex; align-items:center; flex-wrap:wrap; gap:8px;">
+                <span class="pill muted">#${escapeHtml(t.publicTicketId)}</span>
+                <span class="pill ${t.status === 'solved' ? 'ok' : t.status === 'high' ? 'danger' : 'info'}">${escapeHtml(t.status?.toUpperCase())}</span>
+                <span class="muted small"><i class="fa-solid fa-building" style="font-size:10px;"></i> ${escapeHtml(t.companyId || 'demo')}</span>
                 
-                <!-- CUSTOMER CARD BUTTON -->
-                ${t.contactInfo && (t.contactInfo.name || t.contactInfo.email) ?
-        `<button class="btn ghost tiny" onclick="showTicketContactModal('${t._id}')" style="margin-left:auto; border:1px solid var(--primary-fade); background:var(--bg); color:var(--primary); font-weight:600;">
-                        <i class="fa-solid fa-address-card"></i> Kundkort
-                     </button>`
-        : ''}
+                <!-- CUSTOMER CARD BUTTON - More prominent placement -->
+                <button class="btn ${t.contactInfo && (t.contactInfo.name || t.contactInfo.email) ? 'primary' : 'ghost'} tiny" 
+                        onclick="showTicketContactModal('${t._id}')" 
+                        style="margin-left:10px; padding:4px 10px; border-radius:6px; font-size:11px;">
+                    <i class="fa-solid fa-address-card"></i> Kundkort
+                </button>
               </div>
           </div>
-          <button class="btn ghost small" onclick="summarizeTicket('${t._id}')">
+          <button class="btn ghost small" onclick="summarizeTicket('${t._id}')" style="white-space:nowrap;">
               <i class="fa-solid fa-wand-magic-sparkles"></i> AI Sammanfatta
           </button>
       </div>

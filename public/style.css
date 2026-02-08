@@ -4413,28 +4413,12 @@ body[data-theme="light"] .messages {
   }
 }
 
-/* Large Screens (> 1600px) */
-@media (min-width: 1600px) {
-
-  /* Utilize more screen real estate */
-  .view {
-    max-width: 1600px;
-  }
-
-  /* Larger stats for visibility */
+/* Large Screens (> 1800px) - ONLY subtle adjustments, no layout breaking */
+@media (min-width: 1800px) {
   .statValue {
     font-size: 32px;
   }
 
-  /* Messages centered for readability on ultra-wide */
-  .messages {
-    max-width: 1000px;
-    margin: 0 auto;
-    border-left: 1px solid var(--border);
-    border-right: 1px solid var(--border);
-  }
-
-  /* Pipeline columns wider */
   .pipelineContainer {
     gap: 24px;
   }
