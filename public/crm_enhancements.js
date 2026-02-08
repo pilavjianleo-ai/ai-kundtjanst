@@ -134,6 +134,7 @@ window.saveNewCustomerExpanded = async function () {
     const zip = document.getElementById('custZip')?.value?.trim();
     const city = document.getElementById('custCity')?.value?.trim();
     const country = document.getElementById('custCountry')?.value?.trim();
+    const orgNr = document.getElementById('custOrgNr')?.value?.trim();
 
     const aiDeploy = document.getElementById('custAiDeploy')?.checked;
     const aiModel = document.getElementById('custAiModel')?.value;
@@ -157,6 +158,7 @@ window.saveNewCustomerExpanded = async function () {
                     contactEmail: email,
                     phone: phone,
                     industry: industry,
+                    orgNr: orgNr,
                     notes: `Skapad via CRM. Bransch: ${industry}`
                 }
             });
@@ -168,7 +170,7 @@ window.saveNewCustomerExpanded = async function () {
 
     const newCustomer = {
         id: companyId,
-        name, email, phone, industry, web,
+        name, email, phone, industry, web, orgNr,
         address: { zip, city, country },
         status: 'customer',
         value: 0,
@@ -220,7 +222,7 @@ window.renderCustomerList = function () {
         return `
         <tr onclick="openCustomerModal('${c.id}')" style="cursor:pointer; border-bottom:1px solid var(--border);">
             <td style="padding:12px;"><b>${c.name}</b><br><span class="muted small">${c.industry || '-'}</span></td>
-            <td style="padding:12px;">${c.email || '-'}<br><span class="muted small">${c.phone || ''}</span></td>
+            <td style="padding:12px;"><b>${c.email || '-'}</b><br><span class="muted small">${c.phone || ''} ${c.orgNr ? '• ' + c.orgNr : ''}</span></td>
             <td style="padding:12px;"><span class="${statusClass}">${c.status?.toUpperCase() || 'P'}</span></td>
             <td style="padding:12px; text-align:right;">${new Intl.NumberFormat('sv-SE', { style: 'currency', currency: 'SEK', maximumSignificantDigits: 3 }).format(c.value || 0)}</td>
             <td style="padding:12px; text-align:center;"><span style="color:${scoreColor}; font-weight:bold;">${c.aiScore || '-'}</span></td>
@@ -272,6 +274,7 @@ window.openCustomerModal = function (id) {
                     <div><label class="small-label">Företagsnamn</label><input type="text" id="editCustName" class="input" value="${c.name || ''}"></div>
                     <div><label class="small-label">E-post</label><input type="text" id="editCustEmail" class="input" value="${c.email || ''}"></div>
                     <div><label class="small-label">Telefon</label><input type="text" id="editCustPhone" class="input" value="${c.phone || ''}"></div>
+                    <div><label class="small-label">Org.nr</label><input type="text" id="editCustOrgNr" class="input" value="${c.orgNr || ''}"></div>
                     <div><label class="small-label">Webbplats</label><input type="text" id="editCustWeb" class="input" value="${c.web || ''}"></div>
                     <div><label class="small-label">Bransch</label><input type="text" id="editCustIndustry" class="input" value="${c.industry || ''}"></div>
                     <div><label class="small-label">Värde (SEK)</label><input type="number" id="editCustValue" class="input" value="${c.value || 0}"></div>
@@ -341,6 +344,7 @@ window.saveCustomerEdits = async function (id) {
     c.name = document.getElementById('editCustName').value.trim();
     c.email = document.getElementById('editCustEmail').value.trim();
     c.phone = document.getElementById('editCustPhone').value.trim();
+    c.orgNr = document.getElementById('editCustOrgNr').value.trim();
     c.web = document.getElementById('editCustWeb').value.trim();
     c.industry = document.getElementById('editCustIndustry').value.trim();
     c.value = parseFloat(document.getElementById('editCustValue').value) || 0;
@@ -366,6 +370,7 @@ window.saveCustomerEdits = async function (id) {
                     contactEmail: c.email,
                     phone: c.phone,
                     industry: c.industry,
+                    orgNr: c.orgNr,
                     status: c.aiConfig.status === 'active' ? 'active' : 'inactive',
                     notes: `Uppdaterad via CRM. Värde: ${c.value}. Modell: ${c.aiConfig.model}`
                 }
