@@ -629,8 +629,10 @@ async function switchCompany(newCompanyId) {
 
 async function bootstrapAfterLogin() {
   showView("chatView", "openChatView");
-  resetConversation();
-  renderSuggestions(["Hur fungerar det?", "Vilka priser har ni?", "Skapa konto"]);
+
+  // Reuse switchCompany logic to show Intro Card and trigger Contact Form consistently
+  // This replaces the old logic that showed buttons below the chat
+  await switchCompany(state.companyId || 'demo');
 }
 
 /* =========================
