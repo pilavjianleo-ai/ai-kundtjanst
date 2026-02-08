@@ -1102,7 +1102,12 @@
               <div class="crmStatValue">12 st</div>
               <div class="crmStatTrend up">3 heta just nu</div>
             </div>
-            <div class="crmStatCard" style="border: 1px solid var(--primary); background: rgba(76, 125, 255, 0.05);">
+            <div class="crmStatCard">
+              <div class="crmStatTitle">Månatlig Intäkt (MRR) <i class="fa-solid fa-chart-line"></i></div>
+              <div class="crmStatValue" id="crmMonthlyRevenue">0 kr</div>
+              <div class="crmStatTrend ok">Total kundbas</div>
+            </div>
+            <div class="crmStatCard" style="border: 1px solid var(--primary); background: var(--primary-fade);">
               <div class="crmStatTitle" style="color:var(--primary);">AI Insight <i class="fa-solid fa-robot"></i>
               </div>
               <div style="font-size:14px; font-weight:500;">"Du har 5 affärer som stannat av i 'Förhandling'. Skicka
@@ -1263,6 +1268,14 @@
                   </td>
                 </tr>
               </tbody>
+              <tfoot id="crmTableFooter" style="background: var(--panel2); font-weight: bold;">
+                <tr>
+                  <td colspan="3" style="padding: 12px; text-align: right;">Total månadsintäkt:</td>
+                  <td id="crmTotalValueFooter" style="padding: 12px; text-align: right; color: var(--primary);">0 kr
+                  </td>
+                  <td colspan="2"></td>
+                </tr>
+              </tfoot>
             </table>
           </div>
         </div>

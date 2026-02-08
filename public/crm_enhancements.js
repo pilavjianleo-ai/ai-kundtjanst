@@ -40,6 +40,9 @@ function renderCrmDashboard() {
     const openDeals = deals.filter(d => d.stage !== 'won' && d.stage !== 'lost').length;
     const totalCustomers = customers.length;
 
+    // Sum of all customer monthly values
+    const monthlyRevenue = customers.reduce((sum, c) => sum + (parseFloat(c.value) || 0), 0);
+
     const cards = document.querySelectorAll('.crmStatCard');
     if (cards.length >= 3) {
         const val1 = cards[0].querySelector('.crmStatValue');
@@ -50,6 +53,12 @@ function renderCrmDashboard() {
 
         const val3 = cards[2].querySelector('.crmStatValue');
         if (val3) val3.innerText = totalCustomers + " st";
+
+        // Update the new Monthly Revenue card
+        const revEl = document.getElementById('crmMonthlyRevenue');
+        if (revEl) {
+            revEl.innerText = new Intl.NumberFormat('sv-SE', { style: 'currency', currency: 'SEK' }).format(monthlyRevenue);
+        }
     }
 
     const feed = document.querySelector('.activityTimeline');
@@ -227,10 +236,15 @@ window.renderCustomerList = function () {
 
     if (customers.length === 0) {
         tbody.innerHTML = `<tr><td colspan="6" class="muted center" style="padding:20px;">Inga kunder.</td></tr>`;
+        const footer = document.getElementById('crmTotalValueFooter');
+        if (footer) footer.innerText = '0 kr';
         return;
     }
 
+    let totalValue = 0;
     tbody.innerHTML = customers.map(c => {
+        const val = parseFloat(c.value) || 0;
+        totalValue += val;
         let scoreColor = c.aiScore > 80 ? 'var(--success)' : (c.aiScore > 50 ? 'orange' : 'var(--text-muted)');
         let statusClass = 'pill ' + (c.status === 'customer' ? 'ok' : (c.status === 'lead' ? 'warn' : 'muted'));
 
@@ -239,13 +253,18 @@ window.renderCustomerList = function () {
             <td style="padding:12px;"><b>${c.name}</b><br><span class="muted small">${c.industry || '-'}</span></td>
             <td style="padding:12px;"><b>${c.email || '-'}</b><br><span class="muted small">${c.phone || ''} ${c.orgNr ? '• ' + c.orgNr : ''}</span></td>
             <td style="padding:12px;"><span class="${statusClass}">${c.status?.toUpperCase() || 'P'}</span></td>
-            <td style="padding:12px; text-align:right;">${new Intl.NumberFormat('sv-SE', { style: 'currency', currency: 'SEK', maximumSignificantDigits: 3 }).format(c.value || 0)}</td>
+            <td style="padding:12px; text-align:right;">${new Intl.NumberFormat('sv-SE', { style: 'currency', currency: 'SEK', maximumSignificantDigits: 3 }).format(val)}</td>
             <td style="padding:12px; text-align:center;"><span style="color:${scoreColor}; font-weight:bold;">${c.aiScore || '-'}</span></td>
             <td style="padding:12px; text-align:right;">
                 <button class="btn ghost small icon" onclick="event.stopPropagation(); deleteCustomer('${c.id}')"><i class="fa-solid fa-trash" style="color:var(--danger);"></i></button>
             </td>
         </tr>`;
     }).join('');
+
+    const footer = document.getElementById('crmTotalValueFooter');
+    if (footer) {
+        footer.innerText = new Intl.NumberFormat('sv-SE', { style: 'currency', currency: 'SEK' }).format(totalValue);
+    }
 };
 
 window.openCustomerModal = function (id) {
