@@ -181,7 +181,9 @@ window.saveNewCustomerExpanded = async function () {
         id: companyId,
         name, email, phone, industry, web, orgNr,
         contactName: `${contactFirst} ${contactLast}`.trim(),
-        role,
+        contactFirst: contactFirst || '',
+        contactLast: contactLast || '',
+        role: role || '',
         address: { street: address, zip, city, country },
         status: status,
         owner: owner,
@@ -280,14 +282,28 @@ window.openCustomerModal = function (id) {
 
     const main = modal.querySelector('.customerMain');
     if (main) {
+        // Fallback for old data without separate first/last names
+        let firstName = c.contactFirst || '';
+        let lastName = c.contactLast || '';
+        if (!firstName && !lastName && c.contactName) {
+            const parts = c.contactName.split(' ');
+            firstName = parts[0] || '';
+            lastName = parts.slice(1).join(' ') || '';
+        }
+
         main.innerHTML = `
             <div class="panel soft" style="margin-bottom:20px;">
                 <div class="panelHead"><b>Profil & Kontakt</b></div>
                 <div class="grid2" style="padding:15px; gap:15px;">
                     <div><label class="small-label">Företagsnamn</label><input type="text" id="editCustName" class="input" value="${c.name || ''}"></div>
+                    <div><label class="small-label">Org.nr</label><input type="text" id="editCustOrgNr" class="input" value="${c.orgNr || ''}"></div>
+                    
+                    <div><label class="small-label">Förnamn (Kontakt)</label><input type="text" id="editCustContactFirst" class="input" value="${firstName}"></div>
+                    <div><label class="small-label">Efternamn (Kontakt)</label><input type="text" id="editCustContactLast" class="input" value="${lastName}"></div>
+                    <div><label class="small-label">Roll/Titel</label><input type="text" id="editCustRole" class="input" value="${c.role || ''}"></div>
+
                     <div><label class="small-label">E-post</label><input type="text" id="editCustEmail" class="input" value="${c.email || ''}"></div>
                     <div><label class="small-label">Telefon</label><input type="text" id="editCustPhone" class="input" value="${c.phone || ''}"></div>
-                    <div><label class="small-label">Org.nr</label><input type="text" id="editCustOrgNr" class="input" value="${c.orgNr || ''}"></div>
                     <div><label class="small-label">Webbplats</label><input type="text" id="editCustWeb" class="input" value="${c.web || ''}"></div>
                     <div><label class="small-label">Bransch</label><input type="text" id="editCustIndustry" class="input" value="${c.industry || ''}"></div>
                     <div><label class="small-label">Värde (SEK)</label><input type="number" id="editCustValue" class="input" value="${c.value || 0}"></div>
@@ -362,6 +378,14 @@ window.saveCustomerEdits = async function (id) {
     c.industry = document.getElementById('editCustIndustry').value.trim();
     c.value = parseFloat(document.getElementById('editCustValue').value) || 0;
     c.status = document.getElementById('editCustStatus').value;
+
+    // Contact details
+    const fName = document.getElementById('editCustContactFirst')?.value?.trim() || '';
+    const lName = document.getElementById('editCustContactLast')?.value?.trim() || '';
+    c.contactFirst = fName;
+    c.contactLast = lName;
+    c.contactName = `${fName} ${lName}`.trim();
+    c.role = document.getElementById('editCustRole')?.value?.trim() || '';
 
     if (!c.address) c.address = {};
     c.address.zip = document.getElementById('editCustZip').value.trim();
