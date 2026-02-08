@@ -4266,3 +4266,33 @@ input[type="range"].slider::-webkit-slider-thumb:hover {
 #crmAnalyticsTable tr:hover {
   background: var(--panel2);
 }
+
+/* Layout Consistency Fixes */
+.messages {
+  box-sizing: border-box !important;
+}
+
+/* Custom Scrollbar for consistency */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(128, 128, 128, 0.4);
+  border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(128, 128, 128, 0.6);
+}
+
+/* Ensure padding is perfectly consistent across themes */
+body[data-theme="light"] .messages {
+  box-sizing: border-box !important;
+  padding: 20px !important;
+}
