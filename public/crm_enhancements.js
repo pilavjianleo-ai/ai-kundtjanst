@@ -26,6 +26,23 @@ function updateChatCategoriesFromCRM() {
 }
 
 /**
+ * Helper for Accordion UI
+ */
+window.toggleAccordion = function (id) {
+    const el = document.getElementById(id);
+    const icon = document.getElementById('icon-' + id);
+    if (el) {
+        const isHidden = el.style.display === 'none';
+        el.style.display = isHidden ? 'block' : 'none';
+        // Improved animation feel
+        if (isHidden) {
+            el.animate([{ opacity: 0, transform: 'translateY(-5px)' }, { opacity: 1, transform: 'translateY(0)' }], { duration: 200, easing: 'ease-out' });
+        }
+        if (icon) icon.style.transform = isHidden ? 'rotate(180deg)' : 'rotate(0deg)';
+    }
+};
+
+/**
  * Render CRM Dashboard Stats
  */
 function renderCrmDashboard() {
@@ -65,19 +82,36 @@ function renderCrmDashboard() {
     if (feed) {
         const sorted = activities.sort((a, b) => new Date(b.created) - new Date(a.created)).slice(0, 15);
         if (sorted.length > 0) {
-            feed.innerHTML = sorted.map(a => {
+            feed.innerHTML = sorted.map((a, index) => {
                 let iconClass = "fa-info-circle";
-                if (a.type === 'chat') iconClass = "fa-comment-dots";
-                if (a.type === 'ticket') iconClass = "fa-ticket";
                 if (a.type === 'success') iconClass = "fa-check-circle";
+                if (a.type === 'warning') iconClass = "fa-exclamation-triangle";
+
+                const uid = `act-${index}`;
 
                 return `
-                <div class="activityItem ${a.type || 'info'}" style="position:relative; padding-left:35px; margin-bottom:15px; border-left:2px solid var(--border);">
-                    <div style="position:absolute; left:-11px; top:0; width:22px; height:22px; background:var(--panel); border:1px solid var(--border); border-radius:50%; display:flex; align-items:center; justify-content:center; z-index:2;">
-                        <i class="fa-solid ${iconClass}" style="font-size:10px;"></i>
+                <div class="activityItem accordion-item" style="border:1px solid var(--border); border-radius:10px; margin-bottom:8px; background:var(--panel2); overflow:hidden; box-shadow:0 2px 5px rgba(0,0,0,0.02);">
+                    <div class="accordion-header" onclick="toggleAccordion('${uid}')" style="padding:14px; display:flex; align-items:center; gap:12px; cursor:pointer; transition:background 0.2s;">
+                        <div style="width:32px; height:32px; border-radius:50%; background:var(--panel); display:flex; align-items:center; justify-content:center; border:1px solid var(--border); flex-shrink:0;">
+                            <i class="fa-solid ${iconClass}" style="font-size:14px; color:var(--primary);"></i>
+                        </div>
+                        <div style="flex:1; font-weight:600; font-size:13px; display:flex; flex-direction:column;">
+                            <span style="color:var(--text); letter-spacing:0.3px;">${a.type?.toUpperCase() || 'SYSTEM'}</span>
+                            <span style="font-size:11px; color:var(--muted); font-weight:400; margin-top:2px;">${new Date(a.created).toLocaleDateString('sv-SE')}</span>
+                        </div>
+                        <div style="display:flex; align-items:center; gap:8px;">
+                             <span style="font-size:11px; color:var(--muted); opacity:0.7;">Visa mer</span>
+                             <i class="fa-solid fa-chevron-down accordion-icon" id="icon-${uid}" style="font-size:12px; color:var(--muted); transition:transform 0.3s ease;"></i>
+                        </div>
                     </div>
-                    <div class="activityMeta">${new Date(a.created).toLocaleString('sv-SE')} • ${a.type?.toUpperCase() || 'SYSTEM'}</div>
-                    <div style="font-size:13px; font-weight:500;">${a.subject}</div>
+                    <div id="${uid}" class="accordion-content" style="display:none; padding:15px; border-top:1px solid var(--border); background:var(--glass); font-size:13px; line-height:1.5; color:var(--text);">
+                        <div style="background:var(--bg); padding:10px; border-radius:8px; border:1px solid var(--border);">
+                           ${a.subject}
+                        </div>
+                        <div style="margin-top:8px; font-size:11px; color:var(--muted); text-align:right; display:flex; justify-content:flex-end; align-items:center; gap:5px;">
+                            <i class="fa-regular fa-clock"></i> ${new Date(a.created).toLocaleString('sv-SE')}
+                        </div>
+                    </div>
                 </div>
             `}).join('');
         } else {
