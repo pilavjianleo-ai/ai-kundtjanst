@@ -4,6 +4,7 @@
   --panel2: #101426;
   --text: #e8eaf3;
   --muted: #a6abc6;
+  --text-muted: #a6abc6;
   --border: rgba(255, 255, 255, 0.08);
   --shadow: 0 12px 40px rgba(0, 0, 0, 0.35);
 
@@ -12,36 +13,48 @@
   --glass-border: rgba(255, 255, 255, 0.06);
 
   --primary: #4c7dff;
-  --primary2: #3b66e6;
   --primary-fade: rgba(76, 125, 255, 0.12);
-  --overlay: rgba(0, 0, 0, 0.6);
-  --danger: #ff4d4d;
+  --primary2: #3b66e6;
+
+  --success: #37d67a;
+  --success-fade: rgba(55, 214, 122, 0.12);
   --warn: #ffb020;
+  --warn-fade: rgba(255, 176, 32, 0.12);
+  --danger: #ff4d4d;
+  --danger-fade: rgba(255, 77, 77, 0.12);
   --ok: #37d67a;
 
+  --overlay: rgba(0, 0, 0, 0.7);
   --radius: 16px;
 }
 
 body[data-theme="light"] {
-  --bg: #f8fafc;
+  --bg: #f5f7fa;
   --panel: #ffffff;
-  --panel2: #f1f5f9;
-  --text: #0f172a;
-  --muted: #64748b;
-  --border: rgba(15, 23, 42, 0.12);
-  --shadow: 0 8px 30px rgba(0, 0, 0, 0.04);
+  --panel2: #edf2f7;
+  --text: #1a202c;
+  --muted: #718096;
+  --text-muted: #718096;
+  --border: rgba(0, 0, 0, 0.08);
+  --shadow: 0 4px 20px rgba(0, 0, 0, 0.03);
 
-  --glass: rgba(15, 23, 42, 0.03);
-  --glass-high: rgba(15, 23, 42, 0.06);
-  --glass-border: rgba(15, 23, 42, 0.08);
+  --glass: rgba(0, 0, 0, 0.02);
+  --glass-high: rgba(0, 0, 0, 0.04);
+  --glass-border: rgba(0, 0, 0, 0.06);
 
-  --primary: #4c7dff;
-  --primary2: #3861fb;
-  --primary-fade: rgba(76, 125, 255, 0.10);
-  --overlay: rgba(255, 255, 255, 0.6);
-  --danger: #ef4444;
-  --warn: #f59e0b;
-  --ok: #10b981;
+  --primary: #3182ce;
+  --primary-fade: rgba(49, 130, 206, 0.1);
+  --primary2: #2b6cb0;
+
+  --success: #38a169;
+  --success-fade: rgba(56, 161, 105, 0.1);
+  --warn: #d69e2e;
+  --warn-fade: rgba(214, 158, 46, 0.1);
+  --danger: #e53e3e;
+  --danger-fade: rgba(229, 62, 62, 0.1);
+  --ok: #38a169;
+
+  --overlay: rgba(255, 255, 255, 0.85);
 }
 
 * {
@@ -179,7 +192,7 @@ body[data-theme="light"] ::-webkit-scrollbar-thumb {
 /* Sidebar */
 .sidebar {
   width: 280px;
-  background: linear-gradient(180deg, var(--panel), var(--panel2));
+  background: var(--panel2);
   border-right: 1px solid var(--border);
   padding: 16px;
   display: flex;
@@ -264,8 +277,8 @@ body[data-theme="dark"] .menuBtn:hover {
 }
 
 .menuBtn.hasNotif {
-  border-color: rgba(255, 176, 32, 0.45);
-  box-shadow: 0 0 0 2px rgba(255, 176, 32, 0.12);
+  border-color: var(--warn);
+  box-shadow: 0 0 0 2px var(--warn-fade);
 }
 
 .notifDot {
@@ -434,8 +447,9 @@ body[data-theme="light"] .btn.secondary {
 }
 
 .btn.danger {
-  background: rgba(255, 77, 77, 0.14);
-  border-color: rgba(255, 77, 77, 0.35);
+  background: var(--danger-fade);
+  border-color: var(--danger);
+  color: var(--danger);
 }
 
 .btn.ghost {
@@ -463,12 +477,13 @@ body[data-theme="light"] .btn.secondary {
   border: 1px solid var(--border);
   border-radius: 12px;
   padding: 10px 12px;
-  background: rgba(255, 255, 255, 0.03);
+  background: var(--glass);
 }
 
 .alert.error {
-  border-color: rgba(255, 77, 77, 0.4);
-  background: rgba(255, 77, 77, 0.10);
+  border-color: var(--danger);
+  background: var(--danger-fade);
+  color: var(--danger);
 }
 
 /* Topbar */
@@ -572,11 +587,11 @@ body[data-theme="light"] .btn.secondary {
 }
 
 .msg.user .bubble {
-  background: linear-gradient(135deg, var(--primary), #3b66e6);
+  background: linear-gradient(135deg, var(--primary), var(--primary2));
   border-color: rgba(255, 255, 255, 0.1);
   color: white;
   border-bottom-right-radius: 4px;
-  box-shadow: 0 8px 20px rgba(76, 125, 255, 0.2);
+  box-shadow: 0 4px 15px var(--primary-fade);
 }
 
 .msg.ai .bubble {
@@ -769,18 +784,18 @@ body[data-theme="light"] .btn.secondary {
 }
 
 .ticketMsg.user {
-  border-color: rgba(76, 125, 255, 0.28);
-  background: rgba(76, 125, 255, 0.10);
+  border-color: var(--primary);
+  background: var(--primary-fade);
 }
 
 .ticketMsg.agent {
-  border-color: rgba(55, 214, 122, 0.25);
-  background: rgba(55, 214, 122, 0.08);
+  border-color: var(--success);
+  background: var(--success-fade);
 }
 
 .ticketMsg.ai {
-  border-color: rgba(255, 176, 32, 0.22);
-  background: rgba(255, 176, 32, 0.06);
+  border-color: var(--warn);
+  background: var(--warn-fade);
 }
 
 .ticketMsgBody {
@@ -3492,7 +3507,7 @@ input[type="range"].slider::-webkit-slider-thumb:hover {
   border-radius: 16px;
   padding: 40px;
   border: 1px solid var(--border);
-  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+  box-shadow: var(--shadow);
   text-align: center;
 }
 
@@ -3609,7 +3624,7 @@ input[type="range"].slider::-webkit-slider-thumb:hover {
 .timeFilterBtn.active {
   background: var(--bg);
   color: var(--text);
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  box-shadow: 0 1px 3px var(--glass-border);
 }
 
 .timeFilterBtn:hover:not(.active) {
@@ -3634,7 +3649,7 @@ input[type="range"].slider::-webkit-slider-thumb:hover {
 
 .heroCard:hover {
   transform: translateY(-2px);
-  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.1);
+  box-shadow: var(--shadow);
 }
 
 .heroCard.money {
@@ -3882,18 +3897,21 @@ input[type="range"].slider::-webkit-slider-thumb:hover {
 }
 
 .tag-hot {
-  background: rgba(255, 99, 71, 0.1);
-  color: tomato;
+  background: var(--danger-fade);
+  color: var(--danger);
+  border: 1px solid rgba(255, 0, 0, 0.1);
 }
 
 .tag-warm {
-  background: rgba(255, 165, 0, 0.1);
-  color: orange;
+  background: var(--warn-fade);
+  color: var(--warn);
+  border: 1px solid rgba(255, 165, 0, 0.1);
 }
 
 .tag-cold {
-  background: rgba(100, 149, 237, 0.1);
-  color: cornflowerblue;
+  background: var(--primary-fade);
+  color: var(--primary);
+  border: 1px solid rgba(0, 0, 255, 0.1);
 }
 
 .dealOwner {
@@ -3932,8 +3950,8 @@ input[type="range"].slider::-webkit-slider-thumb:hover {
 }
 
 .aiInsightBox {
-  background: linear-gradient(135deg, rgba(76, 125, 255, 0.1) 0%, rgba(139, 92, 246, 0.1) 100%);
-  border: 1px solid rgba(76, 125, 255, 0.2);
+  background: linear-gradient(135deg, var(--primary-fade) 0%, var(--glass-high) 100%);
+  border: 1px solid var(--primary-fade);
   border-radius: 8px;
   padding: 12px;
   margin-bottom: 16px;
@@ -4011,19 +4029,19 @@ input[type="range"].slider::-webkit-slider-thumb:hover {
 }
 
 .pill.ok {
-  background: rgba(55, 214, 122, 0.1);
+  background: var(--success-fade);
   color: var(--success);
-  border-color: rgba(55, 214, 122, 0.3);
+  border-color: var(--border);
 }
 
 .pill.warn {
-  background: rgba(255, 176, 32, 0.1);
+  background: var(--warn-fade);
   color: var(--warn);
-  border-color: rgba(255, 176, 32, 0.3);
+  border-color: var(--border);
 }
 
 .pill.muted {
-  background: rgba(255, 255, 255, 0.05);
+  background: var(--glass);
   color: var(--muted);
 }
 
