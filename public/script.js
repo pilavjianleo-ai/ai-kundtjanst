@@ -5474,6 +5474,39 @@ async function initScenarioPlanner() {
 
   // Initial calculation
   calculateScenario();
+  setupScenarioObserver();
+}
+
+// Navigation helpers
+function scrollToSection(id) {
+  const el = document.getElementById(id);
+  if (el) {
+    // Add offset for sticky header
+    const y = el.getBoundingClientRect().top + window.scrollY - 140;
+    window.scrollTo({ top: y, behavior: 'smooth' });
+  }
+}
+
+function setupScenarioObserver() {
+  const observer = new IntersectionObserver((entries) => {
+    entries.forEach(entry => {
+      if (entry.isIntersecting) {
+        // Remove active class from all nav buttons
+        document.querySelectorAll('.scenarioNavBtn').forEach(btn => btn.classList.remove('active'));
+
+        // Add active class to corresponding button
+        const id = entry.target.id;
+        const btn = document.querySelector(`.scenarioNavBtn[onclick="scrollToSection('${id}')"]`);
+        if (btn) btn.classList.add('active');
+      }
+    });
+  }, { threshold: 0.3 }); // Trigger when 30% visible
+
+  // Observe all scenario sections
+  ['sc_executive', 'sc_assumptions', 'sc_results', 'sc_savings', 'sc_growth', 'sc_time', 'sc_rec'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) observer.observe(el);
+  });
 }
 
 function bindScenarioInputs() {
@@ -5649,8 +5682,14 @@ function calculateScenario() {
       Math.abs(costComparison) + '% högre än branschsnitt';
   }
 
+
   // Update recommendation
   updateRecommendation(optimalStaff, baselineStaff, savings, projectedSla, targetSla, utilizationRate);
+
+  // Update Sticky Summary
+  updateResult('sc_summaryYearSave', formatCurrencyShort(Math.max(0, yearSavings)));
+  updateResult('sc_summaryRoi', roi + '%');
+  updateResult('sc_summaryStaff', optimalStaff + ' personer');
 }
 
 function updateExecKpi(id, value) {
@@ -5764,3 +5803,5 @@ function shareScenario() {
 window.initScenarioPlanner = initScenarioPlanner;
 window.shareScenario = shareScenario;
 
+window.exportScenarioReport = exportScenarioReport;
+window.scrollToSection = scrollToSection;

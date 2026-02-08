@@ -3041,3 +3041,211 @@ input[type="range"].slider::-webkit-slider-thumb:hover {
     grid-template-columns: repeat(2, 1fr);
   }
 }
+
+/* =====================
+   SCENARIO PLANNER - Enhanced UX
+===================== */
+
+/* Section numbering and improved headers */
+.scenarioSection {
+  position: relative;
+  margin-bottom: 0;
+}
+
+.scenarioSection::before {
+  content: '';
+  display: none;
+}
+
+.scenarioSection .sectionHeader {
+  border-bottom: 1px solid var(--border);
+  padding-bottom: 16px;
+}
+
+.scenarioSection .sectionHeader h3 {
+  font-size: 16px;
+  letter-spacing: 0.5px;
+}
+
+/* Quick navigation bar */
+.scenarioNav {
+  display: flex;
+  gap: 8px;
+  padding: 16px 0;
+  margin: 0 0 20px 0;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+.scenarioNavBtn {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 16px;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: all 0.2s;
+  font-size: 13px;
+  color: var(--text);
+}
+
+.scenarioNavBtn:hover {
+  background: var(--panel2);
+  border-color: var(--primary);
+}
+
+.scenarioNavBtn.active {
+  background: rgba(76, 125, 255, 0.1);
+  border-color: var(--primary);
+  color: var(--primary);
+}
+
+.scenarioNavBtn i {
+  font-size: 14px;
+}
+
+/* Improved section spacing */
+.scenarioContent {
+  gap: 20px;
+}
+
+.scenarioSection {
+  padding: 20px;
+  transition: all 0.2s;
+}
+
+.scenarioSection:hover {
+  box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+}
+
+/* Executive summary - hero style */
+.scenarioSection.executive {
+  background: linear-gradient(135deg, var(--panel), var(--panel2));
+  border: 2px solid var(--border);
+}
+
+.executiveKpis {
+  gap: 16px;
+}
+
+.execKpiCard {
+  padding: 24px 16px;
+  border-radius: 12px;
+  transition: transform 0.2s;
+}
+
+.execKpiCard:hover {
+  transform: translateY(-2px);
+}
+
+/* Assumptions - cleaner cards */
+.assumptionCard {
+  border-left: 3px solid var(--primary);
+  background: var(--panel);
+  border-radius: 0 8px 8px 0;
+}
+
+/* Results - emphasized cards */
+.resultsGrid {
+  gap: 12px;
+}
+
+.resultCard {
+  padding: 16px;
+  border-radius: 8px;
+}
+
+/* Dividers between major sections */
+.scenarioSection.savings,
+.scenarioSection.growth,
+.scenarioSection.time {
+  border-top: 3px solid var(--panel2);
+}
+
+/* Compact time grid */
+.timeGrid {
+  gap: 12px;
+}
+
+.timeStat {
+  padding: 16px;
+  border-radius: 8px;
+}
+
+.timeValue {
+  font-size: 24px;
+}
+
+/* Growth cards */
+.growthGrid {
+  gap: 12px;
+}
+
+.growthCard {
+  padding: 16px;
+  border-radius: 8px;
+}
+
+/* Recommendation - standout */
+.scenarioSection.recommendation {
+  background: linear-gradient(135deg, rgba(76, 125, 255, 0.05), rgba(139, 92, 246, 0.05));
+  border: 2px solid var(--primary);
+}
+
+.recommendationCard {
+  padding: 20px;
+}
+
+/* Sticky summary bar */
+.scenarioSummaryBar {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  background: var(--panel);
+  border-bottom: 1px solid var(--border);
+  padding: 12px 20px;
+  margin: -20px -20px 20px -20px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.summaryStats {
+  display: flex;
+  gap: 24px;
+  flex-wrap: wrap;
+}
+
+.summaryStat {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.summaryStat .label {
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.summaryStat .value {
+  font-size: 16px;
+  font-weight: 700;
+}
+
+.summaryStat .value.positive {
+  color: var(--ok);
+}
+
+/* Smooth scrolling for navigation */
+.scenarioContent {
+  scroll-behavior: smooth;
+}
+
+.scenarioSection[id] {
+  scroll-margin-top: 80px;
+}

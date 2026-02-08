@@ -1915,9 +1915,51 @@
 
     <!-- MAIN CONTENT -->
     <div class="scenarioContent">
+<!-- STICKY SUMMARY BAR -->
+<div class="scenarioSummaryBar">
+    <div class="summaryStats">
+        <div class="summaryStat">
+            <span class="label">Besparing/år:</span>
+            <span class="value positive" id="sc_summaryYearSave">810 000 kr</span>
+        </div>
+        <div class="summaryStat">
+            <span class="label">ROI:</span>
+            <span class="value positive" id="sc_summaryRoi">340%</span>
+        </div>
+        <div class="summaryStat">
+            <span class="label">Bemanning:</span>
+            <span class="value" id="sc_summaryStaff">3 personer</span>
+        </div>
+    </div>
+</div>
+
+<!-- QUICK NAVIGATION -->
+<nav class="scenarioNav">
+    <button class="scenarioNavBtn active" onclick="scrollToSection('sc_executive')">
+        <i class="fa-solid fa-chart-pie"></i> Översikt
+    </button>
+    <button class="scenarioNavBtn" onclick="scrollToSection('sc_assumptions')">
+        <i class="fa-solid fa-sliders"></i> Antaganden
+    </button>
+    <button class="scenarioNavBtn" onclick="scrollToSection('sc_results')">
+        <i class="fa-solid fa-chart-line"></i> Resultat
+    </button>
+    <button class="scenarioNavBtn" onclick="scrollToSection('sc_savings')">
+        <i class="fa-solid fa-piggy-bank"></i> Besparingar
+    </button>
+    <button class="scenarioNavBtn" onclick="scrollToSection('sc_growth')">
+        <i class="fa-solid fa-rocket"></i> Tillväxt
+    </button>
+    <button class="scenarioNavBtn" onclick="scrollToSection('sc_time')">
+        <i class="fa-solid fa-clock"></i> Tid
+    </button>
+    <button class="scenarioNavBtn" onclick="scrollToSection('sc_rec')">
+        <i class="fa-solid fa-lightbulb"></i> Beslut
+    </button>
+</nav>
 
         <!-- SEKTION 1: AFFÄRSÖVERSIKT (Executive Summary) -->
-        <div class="scenarioSection executive">
+        <div id="sc_executive" class="scenarioSection executive">
             <div class="sectionHeader">
                 <h3><i class="fa-solid fa-chart-pie"></i> Nulägesöversikt</h3>
                 <span class="sectionSubtitle">Hur ser verksamheten ut just nu?</span>
@@ -1947,7 +1989,7 @@
         </div>
 
         <!-- SEKTION 2: AFFÄRSANTAGANDEN -->
-        <div class="scenarioSection assumptions">
+        <div id="sc_assumptions" class="scenarioSection assumptions">
             <div class="sectionHeader">
                 <h3><i class="fa-solid fa-sliders"></i> Affärsantaganden</h3>
                 <span class="sectionSubtitle">Justera för att se påverkan på verksamheten</span>
@@ -1994,7 +2036,7 @@
         </div>
 
         <!-- SEKTION 3: AFFÄRSEFFEKT -->
-        <div class="scenarioSection results">
+        <div id="sc_results" class="scenarioSection results">
             <div class="sectionHeader">
                 <h3><i class="fa-solid fa-chart-line"></i> Affärseffekt</h3>
                 <span class="sectionSubtitle">Vad betyder detta för verksamheten?</span>
@@ -2058,7 +2100,7 @@
         </div>
 
 <!-- SEKTION 4: BESPARINGSÖVERSIKT -->
-<div class="scenarioSection savings">
+<div id="sc_savings" class="scenarioSection savings">
     <div class="sectionHeader">
         <h3><i class="fa-solid fa-piggy-bank"></i> Total besparing</h3>
         <span class="sectionSubtitle">Vad sparar verksamheten med AI-automatisering?</span>
@@ -2089,7 +2131,7 @@
 </div>
 
 <!-- SEKTION 5: TILLVÄXT & SKALBARHET -->
-<div class="scenarioSection growth">
+<div id="sc_growth" class="scenarioSection growth">
     <div class="sectionHeader">
         <h3><i class="fa-solid fa-chart-line"></i> Tillväxt & skalbarhet</h3>
         <span class="sectionSubtitle">Hur klarar verksamheten ökad efterfrågan?</span>
@@ -2121,7 +2163,7 @@
 </div>
 
 <!-- SEKTION 6: TIDSBESPARING -->
-<div class="scenarioSection time">
+<div id="sc_time" class="scenarioSection time">
     <div class="sectionHeader">
         <h3><i class="fa-solid fa-hourglass-half"></i> Tidsbesparing</h3>
         <span class="sectionSubtitle">Tid som frigörs för värdeskapande arbete</span>
@@ -2150,7 +2192,7 @@
     </div>
 </div>
         <!-- SEKTION 7: REKOMMENDATION -->
-        <div class="scenarioSection recommendation">
+        <div id="sc_rec" class="scenarioSection recommendation">
             <div class="recommendationCard" id="sc_recommendation">
                 <div class="recIcon"><i class="fa-solid fa-lightbulb"></i></div>
                 <div class="recContent">
