@@ -902,6 +902,20 @@ async function selectInboxTicket(ticketId) {
           </button>
       </div>
       <div id="ticketSummaryContent" class="alert info small" style="display:none; margin-top:10px;"></div>
+      
+      ${t.contactInfo && (t.contactInfo.name || t.contactInfo.email) ? `
+        <div class="alert info tiny" style="margin-top:10px; border-left:4px solid var(--primary); background:var(--bg);">
+            <div style="font-weight:bold; margin-bottom:8px; display:flex; align-items:center; gap:6px; color:var(--primary);"><i class="fa-solid fa-address-card"></i> Kontaktuppgifter</div>
+            <div style="display:grid; grid-template-columns:1fr 1fr; gap:8px; font-size:13px;">
+                ${t.contactInfo.name ? `<div><span class="muted">Namn:</span> <br><b>${escapeHtml(t.contactInfo.name)} ${escapeHtml(t.contactInfo.surname || '')}</b></div>` : ''}
+                ${t.contactInfo.email ? `<div><span class="muted">E-post:</span> <br><a href="mailto:${escapeHtml(t.contactInfo.email)}">${escapeHtml(t.contactInfo.email)}</a></div>` : ''}
+                ${t.contactInfo.phone ? `<div><span class="muted">Tel:</span> <br>${escapeHtml(t.contactInfo.phone)}</div>` : ''}
+                ${t.contactInfo.isCompany ? `<div><span class="muted">Företag:</span> <br>${escapeHtml(t.contactInfo.orgName || '-')} <span class="muted tiny">(${escapeHtml(t.contactInfo.orgNr || '-')})</span></div>` : ''}
+                ${t.contactInfo.ticketIdInput ? `<div><span class="muted">Ref-ID:</span> <br>${escapeHtml(t.contactInfo.ticketIdInput)}</div>` : ''}
+            </div>
+        </div>
+      ` : ''}
+
       <div class="divider"></div>
       <div class="messageList" style="max-height:400px; overflow-y:auto;">
         ${msgs || "<div class='muted small'>Inga meddelanden ännu.</div>"}
