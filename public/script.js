@@ -5815,3 +5815,27 @@ window.toggleFavorite = toggleFavorite;
 window.toggleSection = toggleSection;
 window.closeScenarioOnboarding = closeScenarioOnboarding;
 window.toggleScenarioOnboarding = toggleScenarioOnboarding;
+
+function togglePasswordVisibility(inputId) {
+    const input = document.getElementById(inputId);
+    if (!input) return;
+    
+    const btn = event.currentTarget;
+    const icon = btn.querySelector('i');
+    
+    if (input.type === 'password') {
+        input.type = 'text';
+        if (icon) {
+            icon.classList.remove('fa-eye');
+            icon.classList.add('fa-eye-slash');
+        }
+    } else {
+        input.type = 'password';
+        if (icon) {
+            icon.classList.remove('fa-eye-slash');
+            icon.classList.add('fa-eye');
+        }
+    }
+}
+
+window.togglePasswordVisibility = togglePasswordVisibility;
