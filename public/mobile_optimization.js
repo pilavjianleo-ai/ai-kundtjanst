@@ -48,7 +48,15 @@ window.setChatInput = function (text) {
     const input = document.getElementById("messageInput");
     if (input) {
         input.value = text;
+        // Optionally focus, but sending immediately makes focus less important (though good for keyboard users if send fails)
         input.focus();
+
+        // Auto-send immediately as requested
+        if (typeof sendChat === 'function') {
+            sendChat();
+        } else if (window.sendChat) {
+            window.sendChat();
+        }
     }
 };
 
