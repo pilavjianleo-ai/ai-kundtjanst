@@ -5944,3 +5944,317 @@ window.drop = drop;
 window.openCustomerModal = openCustomerModal;
 window.openDealModal = openDealModal;
 
+
+
+
+/* =====================
+   CRM 2.0 LOGIC (AI POWERED)
+===================== */
+
+// Enhanced State with persistence
+const crmState = {
+    customers: JSON.parse(localStorage.getItem('crmCustomers') || '[]'),
+    deals: JSON.parse(localStorage.getItem('crmDeals') || '[]'),
+};
+
+// --- MODAL CONTROLLERS ---
+
+function openDealModal() {
+    const modal = document.getElementById('crmAddDealModal');
+    if (modal) {
+        // Populate Companies
+        const dl = document.getElementById('companyList');
+        if (dl && crmState.customers.length > 0) {
+            dl.innerHTML = crmState.customers.map(c => `<option value="${c.name}">`).join('');
+        }
+        modal.style.display = 'flex';
+    }
+}
+
+function saveNewDeal() {
+    const name = document.getElementById('dealName')?.value;
+    const company = document.getElementById('dealCompany')?.value;
+    const value = document.getElementById('dealValue')?.value;
+    const stage = document.getElementById('dealStage')?.value || 'new';
+
+    if (!name || !company) {
+        if (typeof toast === 'function') toast('Fel', 'Fyll i namn och företag', 'error');
+        return;
+    }
+
+    const deal = {
+        id: 'd' + Date.now(),
+        name,
+        company,
+        value: parseInt(value) || 0,
+        stage,
+        created: new Date().toISOString()
+    };
+
+    crmState.deals.push(deal);
+    localStorage.setItem('crmDeals', JSON.stringify(crmState.deals));
+
+    closeCrmModal('crmAddDealModal');
+
+    // Add to UI immediately if in pipeline view
+    addDealToPipelineUI(deal);
+
+    if (typeof toast === 'function') toast('Sparat', 'Affär skapad', 'success');
+}
+
+function addDealToPipelineUI(deal) {
+    const col = document.querySelector(`.pipelineBody`); // Simplified, assumption
+    // We need to find the right column based on stage interactively?
+    // Since stage IDs in HTML correspond to columns...
+    // Let's re-render pipeline if possible, or append.
+    // My pipeline HTML is static for now. Ideally, renderPipeline() clears and rebuilds.
+
+    // Find the column by index or logic. 
+    // Manual mapping for now:
+    let colIndex = 0;
+    if (deal.stage === 'qualified') colIndex = 1;
+    if (deal.stage === 'proposal') colIndex = 2;
+    if (deal.stage === 'negotiation') colIndex = 3;
+
+    const cols = document.querySelectorAll('.pipelineBody');
+    if (cols[colIndex]) {
+        const div = document.createElement('div');
+        div.className = 'dealCard';
+        div.draggable = true;
+        div.id = deal.id;
+        div.ondragstart = (e) => drag(e);
+        div.innerHTML = `
+            <div class="dealCompany">${deal.company}</div>
+            <div class="dealValue">${deal.value.toLocaleString()} kr</div>
+            <div class="dealFooter">
+                <div class="dealTags"><span class="dealTag tag-hot">NY</span></div>
+                <div class="dealOwner">AI</div>
+            </div>
+        `;
+        cols[colIndex].appendChild(div);
+
+        // Update count
+        const header = cols[colIndex].parentElement.querySelector('.stageCount');
+        if (header) header.textContent = parseInt(header.textContent) + 1;
+    }
+}
+
+
+function openAddCustomerModal() {
+    const modal = document.getElementById('crmAddCustomerModal');
+    if (modal) modal.style.display = 'flex';
+}
+
+function saveNewCustomer() {
+    const name = document.getElementById('custName')?.value;
+    const industry = document.getElementById('custIndustry')?.value;
+    const contact = document.getElementById('custContactName')?.value;
+    const email = document.getElementById('custEmail')?.value;
+    const aiDeploy = document.getElementById('custAiDeploy')?.checked;
+
+    if (!name) {
+        if (typeof toast === 'function') toast('Fel', 'Företagsnamn krävs', 'error');
+        return;
+    }
+
+    const customer = {
+        id: 'c' + Date.now(),
+        name,
+        industry,
+        contact,
+        email,
+        aiConfig: aiDeploy ? { status: 'active', model: 'gpt-4o', created: new Date().toISOString() } : null,
+        created: new Date().toISOString()
+    };
+
+    if (aiDeploy) {
+        const overlay = document.getElementById('aiDeployOverlay');
+        const text = document.getElementById('aiDeployText');
+        const sub = document.getElementById('aiDeploySub');
+
+        if (overlay) overlay.style.display = 'flex';
+
+        // Progress simulation
+        setTimeout(() => { if (text) text.textContent = "Skapar AI-kunskapsbas..."; if (sub) sub.textContent = "Hämtar data..."; }, 1000);
+        setTimeout(() => { if (text) text.textContent = "Konfigurerar agent..."; if (sub) sub.textContent = "Tränar modell..."; }, 2500);
+        setTimeout(() => {
+            if (overlay) overlay.style.display = 'none';
+            finalizeCustomerSave(customer);
+        }, 4000);
+    } else {
+        finalizeCustomerSave(customer);
+    }
+}
+
+function finalizeCustomerSave(customer) {
+    crmState.customers.push(customer);
+    localStorage.setItem('crmCustomers', JSON.stringify(crmState.customers));
+
+    closeCrmModal('crmAddCustomerModal');
+    renderCustomerList();
+
+    if (typeof toast === 'function') toast('Klar', `Kund tillagd${customer.aiConfig ? ' med AI-agent' : ''}`, 'success');
+
+    // Reset form
+    document.getElementById('custName').value = '';
+    // ... reset others
+}
+
+function closeCrmModal(id) {
+    const el = document.getElementById(id);
+    if (el) el.style.display = 'none';
+}
+
+// --- RENDERERS ---
+
+function renderCustomerList() {
+    const tbody = document.getElementById('crmAnalyticsTable');
+    if (!tbody) return;
+
+    // Merge default persistence if empty
+    let displayList = crmState.customers;
+    if (displayList.length === 0) {
+        // Show demo rows from HTML if localStorage is empty?
+        // Or keep empty. Let's keep empty state handling.
+        // But the user might want to see the demo data from the HTML initially.
+        // If we clear HTML on load, usage might be confused.
+        // Let's append to existing if we detect they are static? No, clear and render is safer.
+    }
+
+    if (displayList.length > 0) {
+        tbody.innerHTML = displayList.map(c => `
+            <tr onclick="openCustomerModal('${c.id}')" style="cursor:pointer; border-bottom:1px solid var(--border);">
+                <td style="padding:12px;"><b>${c.name}</b><br><span class="muted small">${c.industry || '-'}</span></td>
+                <td style="padding:12px;">${c.contact || '-'}<br><span class="muted small">${c.email || '-'}</span></td>
+                <td style="padding:12px;">${c.aiConfig ? '<span class="pill ok">AI Aktiv</span>' : '<span class="pill">Ingen AI</span>'}</td>
+                <td style="padding:12px; text-align:right;">-</td>
+                <td style="padding:12px; text-align:center;">
+                    ${c.aiConfig ? '92' : '-'}
+                </td>
+                <td style="padding:12px; text-align:right;">
+                    <button class="btn ghost small icon"><i class="fa-solid fa-pen"></i></button>
+                    <button class="btn ghost small icon" onclick="deleteCustomer('${c.id}', event)"><i class="fa-solid fa-trash"></i></button>
+                </td>
+            </tr>
+        `).join('');
+    }
+}
+
+function deleteCustomer(id, event) {
+    event.stopPropagation();
+    if (confirm("Ta bort kund?")) {
+        crmState.customers = crmState.customers.filter(c => c.id !== id);
+        localStorage.setItem('crmCustomers', JSON.stringify(crmState.customers));
+        renderCustomerList();
+    }
+}
+
+// Override previous openCustomerModal to handle dynamic data
+function openCustomerModal(idOrName) {
+    // Try to find in state first
+    let customer = crmState.customers.find(c => c.id === idOrName || c.name === idOrName);
+
+    // Fallback for static demo rows in HTML (name based)
+    if (!customer && typeof idOrName === 'string') {
+        // Mock a customer object based on the name clicked in static HTML
+        if (idOrName.includes('TechCorp')) customer = { name: 'TechCorp AB', industry: 'IT', contact: 'Maria A', email: 'maria@techcorp.se', aiConfig: { status: 'active' } };
+        else if (idOrName.includes('Norrland')) customer = { name: 'Norrland Transport', industry: 'Logistik', contact: 'Per P', email: 'per@norrland.se', aiConfig: null };
+    }
+
+    if (!customer) return; // Should allow creating new one? No.
+
+    const modal = document.getElementById('crmCustomerModal');
+    if (!modal) return;
+
+    modal.style.display = 'flex';
+
+    // Reset content to view mode
+    renderCustomerModalContent(customer, modal);
+}
+
+function renderCustomerModalContent(customer, modal) {
+    const body = document.getElementById('crmModalBody');
+
+    body.innerHTML = `
+        <div class="customerProfileLayout">
+            <div class="customerSidebar" style="border-right:1px solid var(--border);">
+                <div class="topInfo" style="text-align:center; margin-bottom:20px;">
+                    <div class="avatar-large" style="width:80px; height:80px; margin:0 auto 10px; background:#e0e7ff; color:var(--primary); font-size:32px; display:flex; align-items:center; justify-content:center; border-radius:50%;">${customer.name.substring(0, 2).toUpperCase()}</div>
+                    <h2 style="font-size:20px; margin:0;">${customer.name}</h2>
+                    <p class="muted">${customer.industry || 'Okänd bransch'} • Stockholm</p>
+                    <div class="pill ${customer.aiConfig ? 'ok' : 'warn'}" style="margin-top:5px;">${customer.aiConfig ? 'AI Aktiv' : 'Ingen AI'}</div>
+                </div>
+                
+                ${customer.aiConfig ? `
+                <div class="aiInsightBox">
+                    <div style="font-size:12px; text-transform:uppercase; color:var(--primary); font-weight:bold; margin-bottom:5px;">AI Status</div>
+                    <div class="aiScore">ONLINE</div>
+                    <p style="font-size:12px; margin-top:5px;">Agenten hanterar inkommande frågor.</p>
+                    <button class="btn primary small full" style="margin-top:10px;">Konfigurera Agent</button>
+                </div>` : ''}
+
+                <div class="contactInfoList" style="margin-top:20px;">
+                    <div style="margin-bottom:10px;">
+                        <label style="font-size:11px; text-transform:uppercase;">Kontaktperson</label>
+                        <div><i class="fa-solid fa-user" style="width:20px; color:var(--text-muted);"></i> ${customer.contact || '-'}</div>
+                    </div>
+                    <div style="margin-bottom:10px;">
+                        <label style="font-size:11px; text-transform:uppercase;">E-post</label>
+                        <div><i class="fa-solid fa-envelope" style="width:20px; color:var(--text-muted);"></i> ${customer.email || '-'}</div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="customerMain" style="padding:20px;">
+                <div class="crmNav" style="margin-bottom:20px;">
+                    <button class="crmNavBtn active">Tidslinje</button>
+                    <button class="crmNavBtn">Affärer</button>
+                    <button class="crmNavBtn">Ärenden</button>
+                    ${customer.aiConfig ? '<button class="crmNavBtn" style="color:var(--primary);"><i class="fa-solid fa-robot"></i> AI-Logg</button>' : ''}
+                </div>
+                
+                <div class="activityTimeline">
+                    <div class="activityItem meeting">
+                        <div class="activityMeta">Idag • System</div>
+                        <div>Kundprofil öppnad.</div>
+                    </div>
+                    ${customer.aiConfig ? `
+                    <div class="activityItem call">
+                        <div class="activityMeta">Nyss • AI System</div>
+                        <div>AI-agent driftsatt och redo.</div>
+                    </div>` : ''}
+                     <div class="activityItem email">
+                        <div class="activityMeta">Registrering</div>
+                        <div>Kund registrerad i systemet.</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    `;
+
+    // Update Header 
+    const title = document.getElementById('crmModalCustomerName');
+    if (title) title.textContent = customer.name;
+
+    // Bind Edit Button
+    const editBtn = modal.querySelector('.modalActions .btn'); // The first button is Edit based on HTML structure
+    // Actually, I need to be careful not to break close button.
+    // The previous HTML had a specific edit button.
+}
+
+
+// Expose
+window.openDealModal = openDealModal;
+window.saveNewDeal = saveNewDeal;
+window.openAddCustomerModal = openAddCustomerModal;
+window.saveNewCustomer = saveNewCustomer;
+window.closeCrmModal = closeCrmModal;
+window.openCustomerModal = openCustomerModal;
+window.deleteCustomer = deleteCustomer;
+
+// Auto-render on load
+document.addEventListener('DOMContentLoaded', () => {
+    // If we are on customers tab, render.
+    renderCustomerList();
+});
+

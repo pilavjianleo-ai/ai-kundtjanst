@@ -2740,6 +2740,128 @@
   </div>
 
   <script src="script.js"></script>
+<!-- MODAL: ADD DEAL -->
+<div id="crmAddDealModal" class="modal" style="display: none;">
+    <div class="modalContent" style="max-width: 500px;">
+        <div class="modalHeader">
+            <h3><i class="fa-solid fa-briefcase"></i> Ny Affär</h3>
+            <button class="btn ghost small" onclick="closeCrmModal('crmAddDealModal')"><i
+                    class="fa-solid fa-times"></i></button>
+        </div>
+        <div class="modalBody">
+            <label>Affärens namn</label>
+            <input id="dealName" class="input" placeholder="T.ex. Q3 Licenser" />
+
+            <label>Företag</label>
+            <input id="dealCompany" class="input" placeholder="Sök företag..." list="companyList" />
+            <datalist id="companyList">
+                <!-- Populated by JS -->
+            </datalist>
+
+            <div class="row gap">
+                <div class="col">
+                    <label>Värde (kr)</label>
+                    <input id="dealValue" type="number" class="input" placeholder="0" />
+                </div>
+                <div class="col">
+                    <label>Sannolikhet (%)</label>
+                    <input id="dealProb" type="number" class="input" value="50" />
+                </div>
+            </div>
+
+            <label>Pipeline Fas</label>
+            <select id="dealStage" class="input">
+                <option value="new">Nytt Lead</option>
+                <option value="qualified">Kvalificerad</option>
+                <option value="proposal">Offert Skickad</option>
+                <option value="negotiation">Förhandling</option>
+            </select>
+
+            <button class="btn primary full" onclick="saveNewDeal()" style="margin-top:20px;">
+                <i class="fa-solid fa-plus"></i> Skapa Affär
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- MODAL: ADD CUSTOMER (COMPANY) -->
+<div id="crmAddCustomerModal" class="modal" style="display: none;">
+    <div class="modalContent" style="max-width: 600px;">
+        <div class="modalHeader">
+            <h3><i class="fa-solid fa-building"></i> Ny Företagskund</h3>
+            <button class="btn ghost small" onclick="closeCrmModal('crmAddCustomerModal')"><i
+                    class="fa-solid fa-times"></i></button>
+        </div>
+        <div class="modalBody">
+            <div class="row gap">
+                <div class="col">
+                    <label>Företagsnamn</label>
+                    <input id="custName" class="input" placeholder="T.ex. TechCorp AB" />
+                </div>
+                <div class="col">
+                    <label>Organisationsnummer</label>
+                    <input id="custOrg" class="input" placeholder="556XXX-XXXX" />
+                </div>
+            </div>
+
+            <label>Bransch</label>
+            <select id="custIndustry" class="input">
+                <option value="IT">IT & Teknik</option>
+                <option value="Retail">Handel / E-handel</option>
+                <option value="Service">Tjänsteföretag</option>
+                <option value="Other">Annat</option>
+            </select>
+
+            <div class="divider">Kontaktperson</div>
+            <div class="row gap">
+                <div class="col">
+                    <label>Namn</label>
+                    <input id="custContactName" class="input" placeholder="Förnamn Efternamn" />
+                </div>
+                <div class="col">
+                    <label>Roll</label>
+                    <input id="custContactRole" class="input" placeholder="VD, Inköpare..." />
+                </div>
+            </div>
+            <div class="row gap">
+                <div class="col">
+                    <label>E-post</label>
+                    <input id="custEmail" class="input" placeholder="namn@foretag.se" />
+                </div>
+                <div class="col">
+                    <label>Telefon</label>
+                    <input id="custPhone" class="input" placeholder="07X-XXXXXXX" />
+                </div>
+            </div>
+
+            <div class="aiSetupBox"
+                style="background:rgba(76, 125, 255, 0.05); border:1px dashed var(--primary); padding:15px; border-radius:8px; margin-top:20px;">
+                <div class="row gap" style="align-items:center;">
+                    <input type="checkbox" id="custAiDeploy" checked style="width:20px; height:20px;" />
+                    <div>
+                        <b style="color:var(--primary);">Aktivera AI Kundtjänst direkt</b>
+                        <div class="muted small">Skapar en dedikerad AI-agent för detta företag.</div>
+                    </div>
+                </div>
+            </div>
+
+            <button class="btn primary full" onclick="saveNewCustomer()" style="margin-top:20px;">
+                <i class="fa-solid fa-robot"></i> Spara & Konfigurera
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- AI DEPLOYMENT OVERLAY (Fake Loader) -->
+<div id="aiDeployOverlay" class="modal"
+    style="display:none; align-items:center; justify-content:center; background:rgba(0,0,0,0.8);">
+    <div style="text-align:center; color:white;">
+        <i class="fa-solid fa-circle-notch fa-spin"
+            style="font-size:48px; color:var(--primary); margin-bottom:20px;"></i>
+        <h2 id="aiDeployText">Konfigurerar AI-agent...</h2>
+        <div id="aiDeploySub" class="muted">Analyserar företagsdata</div>
+    </div>
+</div>
 </body>
 
 </html>
