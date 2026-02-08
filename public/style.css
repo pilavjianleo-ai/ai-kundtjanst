@@ -3651,3 +3651,289 @@ input[type="range"].slider::-webkit-slider-thumb:hover {
     font-weight: 900;
 }
 
+
+
+/* CRM 2.0 STYLES */
+
+/* CRM Navigation (Sub-tabs) */
+.crmNav {
+    display: flex;
+    gap: 20px;
+    border-bottom: 1px solid var(--border);
+    margin-bottom: 20px;
+    padding-bottom: 10px;
+}
+
+.crmNavBtn {
+    background: transparent;
+    border: none;
+    color: var(--text-muted);
+    font-weight: 500;
+    font-size: 14px;
+    cursor: pointer;
+    padding: 5px 0;
+    position: relative;
+    transition: color 0.2s;
+}
+
+.crmNavBtn.active {
+    color: var(--primary);
+}
+
+.crmNavBtn.active::after {
+    content: '';
+    position: absolute;
+    bottom: -11px;
+    left: 0;
+    width: 100%;
+    height: 2px;
+    background: var(--primary);
+}
+
+.crmNavBtn:hover {
+    color: var(--text);
+}
+
+/* CRM Dashboard Grid */
+.crmDashGrid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+    gap: 16px;
+    margin-bottom: 24px;
+}
+
+.crmStatCard {
+    background: var(--panel2);
+    border-radius: 12px;
+    padding: 20px;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    border: 1px solid var(--border);
+}
+
+.crmStatTitle {
+    font-size: 13px;
+    color: var(--text-muted);
+    margin-bottom: 8px;
+    display: flex;
+    justify-content: space-between;
+}
+
+.crmStatValue {
+    font-size: 24px;
+    font-weight: 700;
+    color: var(--text);
+}
+
+.crmStatTrend {
+    font-size: 12px;
+    margin-top: 5px;
+}
+
+.crmStatTrend.up {
+    color: var(--success);
+}
+
+.crmStatTrend.down {
+    color: var(--danger);
+}
+
+/* PIPELINE (KANBAN) */
+.pipelineContainer {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    /* 4 Stages */
+    gap: 16px;
+    height: calc(100vh - 250px);
+    overflow-x: auto;
+}
+
+.pipelineColumn {
+    background: var(--panel2);
+    border-radius: 12px;
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    min-width: 280px;
+}
+
+.pipelineHeader {
+    padding: 16px;
+    border-bottom: 1px solid var(--border);
+    font-weight: 600;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.stageCount {
+    background: var(--bg);
+    padding: 2px 8px;
+    border-radius: 12px;
+    font-size: 12px;
+    color: var(--text-muted);
+}
+
+.pipelineBody {
+    padding: 12px;
+    overflow-y: auto;
+    flex: 1;
+}
+
+.dealCard {
+    background: var(--panel);
+    border-radius: 8px;
+    padding: 12px;
+    margin-bottom: 12px;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+    border: 1px solid var(--border);
+    cursor: grab;
+    transition: transform 0.2s, box-shadow 0.2s;
+    position: relative;
+}
+
+.dealCard:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+
+.dealValue {
+    font-weight: 700;
+    font-size: 15px;
+    margin-bottom: 4px;
+}
+
+.dealCompany {
+    font-size: 13px;
+    color: var(--text-muted);
+    margin-bottom: 8px;
+}
+
+.dealFooter {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-top: 8px;
+    font-size: 12px;
+}
+
+.dealTags {
+    display: flex;
+    gap: 4px;
+}
+
+.dealTag {
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-size: 10px;
+    text-transform: uppercase;
+    font-weight: 600;
+}
+
+.tag-hot {
+    background: rgba(255, 99, 71, 0.1);
+    color: tomato;
+}
+
+.tag-warm {
+    background: rgba(255, 165, 0, 0.1);
+    color: orange;
+}
+
+.tag-cold {
+    background: rgba(100, 149, 237, 0.1);
+    color: cornflowerblue;
+}
+
+.dealOwner {
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    background: var(--primary);
+    color: white;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 10px;
+}
+
+/* CUSTOMER 360 VIEW (Enhanced) */
+.customerProfileLayout {
+    display: grid;
+    grid-template-columns: 300px 1fr;
+    gap: 24px;
+    height: 100%;
+}
+
+.customerSidebar {
+    background: var(--panel2);
+    border-radius: 12px;
+    padding: 20px;
+    height: fit-content;
+}
+
+.customerMain {
+    background: var(--panel);
+    border-radius: 12px;
+    padding: 20px;
+    border: 1px solid var(--border);
+    overflow-y: auto;
+}
+
+.aiInsightBox {
+    background: linear-gradient(135deg, rgba(76, 125, 255, 0.1) 0%, rgba(139, 92, 246, 0.1) 100%);
+    border: 1px solid rgba(76, 125, 255, 0.2);
+    border-radius: 8px;
+    padding: 12px;
+    margin-bottom: 16px;
+}
+
+.aiScore {
+    font-size: 32px;
+    font-weight: 800;
+    color: var(--primary);
+    line-height: 1;
+}
+
+.activityTimeline {
+    position: relative;
+    padding-left: 20px;
+    border-left: 2px solid var(--border);
+    margin-top: 20px;
+}
+
+.activityItem {
+    margin-bottom: 20px;
+    position: relative;
+}
+
+.activityItem::before {
+    content: '';
+    position: absolute;
+    left: -26px;
+    top: 0;
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    background: var(--text-muted);
+    border: 2px solid var(--panel);
+}
+
+.activityItem.call::before {
+    background: #10b981;
+}
+
+.activityItem.email::before {
+    background: #3b82f6;
+}
+
+.activityItem.meeting::before {
+    background: #f59e0b;
+}
+
+.activityMeta {
+    font-size: 12px;
+    color: var(--text-muted);
+    margin-bottom: 4px;
+}

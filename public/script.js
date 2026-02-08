@@ -5857,3 +5857,90 @@ function togglePasswordVisibility(inputId) {
 }
 
 window.togglePasswordVisibility = togglePasswordVisibility;
+
+/* =====================
+   CRM 2.0 LOGIC
+===================== */
+
+function setCrmTab(tabId) {
+    document.querySelectorAll('.crmTabContent').forEach(el => el.style.display = 'none');
+    
+    const content = document.getElementById('crm_' + tabId);
+    if(content) content.style.display = 'block';
+    
+    document.querySelectorAll('.crmNavBtn').forEach(btn => btn.classList.remove('active'));
+    
+    const btn = document.getElementById('tab_crm_' + tabId);
+    if(btn) btn.classList.add('active');
+}
+
+function allowDrop(ev) {
+    ev.preventDefault();
+}
+
+function drag(ev) {
+    ev.dataTransfer.setData("text", ev.target.id);
+    ev.target.style.opacity = '0.5';
+}
+
+function drop(ev) {
+    ev.preventDefault();
+    var data = ev.dataTransfer.getData("text");
+    var el = document.getElementById(data);
+    
+    if (el) {
+        el.style.opacity = '1';
+        var target = ev.target.closest('.pipelineBody');
+        if (target) {
+            target.appendChild(el);
+            updatePipelineCounts();
+            
+            // Show toast
+            if(typeof toast === 'function') toast('Uppdaterad', 'Affären har flyttats', 'success');
+        }
+    }
+}
+
+function updatePipelineCounts() {
+    document.querySelectorAll('.pipelineColumn').forEach(col => {
+        const count = col.querySelectorAll('.dealCard').length;
+        const badge = col.querySelector('.stageCount');
+        if (badge) badge.textContent = count;
+    });
+}
+
+function openCustomerModal(name) {
+    const modal = document.getElementById('crmCustomerModal');
+    if(modal) {
+        modal.style.display = 'flex';
+        // Mock title update
+        const title = document.getElementById('crmModalCustomerName');
+        if(title && name) title.textContent = name;
+        
+        // Mock specific data if needed
+    }
+}
+
+function openDealModal() {
+    if(typeof toast === 'function') toast('Info', 'Skapa affär-funktionen kommer snart', 'info');
+}
+
+// Close modal logic
+document.addEventListener('click', function(e) {
+    if (e.target.id === 'crmCloseModalBtn' || e.target.closest('#crmCloseModalBtn')) {
+        const m = document.getElementById('crmCustomerModal');
+        if(m) m.style.display = 'none';
+    }
+    if (e.target.id === 'crmCustomerModal') {
+        e.target.style.display = 'none';
+    }
+});
+
+// Expose to window
+window.setCrmTab = setCrmTab;
+window.allowDrop = allowDrop;
+window.drag = drag;
+window.drop = drop;
+window.openCustomerModal = openCustomerModal;
+window.openDealModal = openDealModal;
+
