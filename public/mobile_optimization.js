@@ -6,7 +6,6 @@ window.toggleSidebar = function () {
     if (sb) sb.classList.toggle('active');
     if (ov) ov.classList.toggle('active');
 
-    // Prevent background scrolling when menu represents overlay
     if (document.body.style.overflow === 'hidden') {
         document.body.style.overflow = '';
     } else {
@@ -22,10 +21,9 @@ function initMobileMenu() {
             const btn = document.createElement('button');
             btn.className = 'mobile-menu-btn';
             btn.innerHTML = '<i class="fa-solid fa-bars"></i>';
-            btn.type = 'button'; // Prevent form submission
+            btn.type = 'button';
             btn.onclick = window.toggleSidebar;
 
-            // Style container to show button inline
             titleContainer.style.display = 'flex';
             titleContainer.style.alignItems = 'center';
             titleContainer.style.gap = '10px';
@@ -34,7 +32,6 @@ function initMobileMenu() {
         }
     });
 
-    // Close menu on click (mobile)
     document.querySelectorAll('.menuBtn').forEach(btn => {
         btn.addEventListener('click', () => {
             if (window.innerWidth <= 900) {
@@ -46,11 +43,9 @@ function initMobileMenu() {
     });
 }
 
-// Ensure init runs
 if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', initMobileMenu);
 } else {
-    // If loaded late, run immediately
     initMobileMenu();
 }
 
@@ -61,18 +56,41 @@ function renderEmptyChatState() {
     if (!container) return;
 
     // Only render if seemingly empty (no real messages)
-    // Check for .msg class children
     if (container.querySelector(".msg")) return;
 
-    // Render the welcome screen styling matching user request
+    // Determine Company Name dynamically
+    let companyName = "Din AI Assistent";
+
+    // Try to get from UI first (most accurate reflection of user selection)
+    const categorySelect = document.getElementById("categorySelect");
+    if (categorySelect && categorySelect.selectedOptions.length > 0) {
+        let text = categorySelect.selectedOptions[0].text;
+        // If format is "slug - Name", extract Name
+        if (text.includes(" - ")) {
+            const parts = text.split(" - ");
+            if (parts.length > 1) text = parts.slice(1).join(" - ");
+        }
+        // If format is "Name (id)", extract Name
+        if (text.includes(" (")) {
+            text = text.split(" (")[0];
+        }
+
+        if (text && text.trim()) companyName = text.trim();
+    } else if (typeof state !== 'undefined' && state.currentCompany) {
+        // Fallback to internal state
+        companyName = state.currentCompany.name || state.currentCompany.id;
+    } else if (typeof state !== 'undefined' && state.companyId) {
+        companyName = state.companyId === 'demo' ? 'EFFEKT Sverige AB' : state.companyId;
+    }
+
     container.innerHTML = `
     <div style="display:flex; flex-direction:column; align-items:center; justify-content:center; height:100%; text-align:center; color:var(--text); padding:20px;">
       <div style="width:72px; height:72px; background:linear-gradient(135deg, var(--primary), var(--primary2)); border-radius:24px; display:flex; align-items:center; justify-content:center; margin-bottom:24px; box-shadow:0 12px 30px var(--primary-fade); animation: float 6s ease-in-out infinite;">
         <i class="fa-solid fa-robot" style="font-size:36px; color:white;"></i>
       </div>
-      <h2 style="margin:0 0 12px 0; font-size:24px; font-weight:800; color:var(--text);">Välkommen till EFFEKT Sverige AB</h2>
+      <h2 style="margin:0 0 12px 0; font-size:24px; font-weight:800; color:var(--text);">Välkommen till ${companyName}</h2>
       <p style="max-width:420px; line-height:1.6; color:var(--muted); font-size:15px; margin-bottom:30px;">
-        Jag är din intelligenta assistent för EFFEKT Sverige AB, redo att hjälpa dig dygnet runt. Hur kan jag underlätta för dig idag?
+        Jag är din intelligenta assistent för ${companyName}, redo att hjälpa dig dygnet runt. Hur kan jag underlätta för dig idag?
       </p>
       
       <div class="suggestionChips" style="display:flex; gap:10px; flex-wrap:wrap; justify-content:center;">
@@ -105,11 +123,20 @@ document.addEventListener("DOMContentLoaded", () => {
     // Initial check
     setTimeout(renderEmptyChatState, 200);
 
-    // Also check when clearing chat (if clear button exists)
+    // Check when clearing chat
     const clearBtn = document.getElementById("clearChatBtn");
     if (clearBtn) {
         clearBtn.addEventListener("click", () => {
             setTimeout(renderEmptyChatState, 200);
+        });
+    }
+
+    // Check when changing company
+    const categorySelect = document.getElementById("categorySelect");
+    if (categorySelect) {
+        categorySelect.addEventListener("change", () => {
+            // Wait for main script to potentially load new chat or clear it
+            setTimeout(renderEmptyChatState, 500);
         });
     }
 });
