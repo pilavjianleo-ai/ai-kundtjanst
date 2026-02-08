@@ -6258,3 +6258,224 @@ document.addEventListener('DOMContentLoaded', () => {
     renderCustomerList();
 });
 
+
+
+
+/* =====================
+   CRM 3.0 LOGIC (ENTERPRISE DATA)
+===================== */
+
+// Tab Switching in Modal
+function setModalTab(tabId, btn) {
+    const modal = btn.closest('.modalContent');
+    if (!modal) return;
+    modal.querySelectorAll('.modalTabContent').forEach(t => t.style.display = 'none');
+    modal.querySelectorAll('.tabBtn').forEach(b => b.classList.remove('active'));
+
+    const target = modal.querySelector('#' + tabId);
+    if (target) target.style.display = 'block';
+    btn.classList.add('active');
+}
+
+function saveNewCustomerExpanded() {
+    // Basic Info
+    const name = document.getElementById('custName')?.value;
+    const org = document.getElementById('custOrg')?.value;
+    const industry = document.getElementById('custIndustry')?.value;
+    const web = document.getElementById('custWeb')?.value;
+    const status = document.getElementById('custStatus')?.value;
+    const owner = document.getElementById('custOwner')?.value;
+    const notes = document.getElementById('custNotes')?.value;
+
+    // Contact
+    const first = document.getElementById('custContactFirst')?.value;
+    const last = document.getElementById('custContactLast')?.value;
+    const email = document.getElementById('custEmail')?.value;
+    const phone = document.getElementById('custPhone')?.value;
+    const role = document.getElementById('custRole')?.value;
+
+    const contactName = (first || last) ? `${first || ''} ${last || ''}`.trim() : '';
+
+    // Address
+    const address = document.getElementById('custAddress')?.value;
+    const zip = document.getElementById('custZip')?.value;
+    const city = document.getElementById('custCity')?.value;
+    const country = document.getElementById('custCountry')?.value;
+
+    // AI
+    const aiDeploy = document.getElementById('custAiDeploy')?.checked;
+    const aiModel = document.getElementById('custAiModel')?.value;
+    const aiLang = document.getElementById('custAiLang')?.value;
+
+    if (!name) {
+        if (typeof toast === 'function') toast('Fel', 'Företagsnamn krävs', 'error');
+        else alert("Företagsnamn krävs");
+        return;
+    }
+
+    const customer = {
+        id: 'c' + Date.now(),
+        name,
+        org,
+        industry,
+        web,
+        status,
+        owner,
+        notes,
+        contact: contactName,
+        email,
+        phone,
+        role,
+        address: {
+            street: address,
+            zip,
+            city,
+            country
+        },
+        aiConfig: aiDeploy ? {
+            status: 'active',
+            model: aiModel,
+            lang: aiLang,
+            created: new Date().toISOString(),
+            apiKey: 'sk-proj-' + Math.random().toString(36).substring(7)
+        } : null,
+        created: new Date().toISOString()
+    };
+
+    if (aiDeploy) {
+        const overlay = document.getElementById('aiDeployOverlay');
+        const text = document.getElementById('aiDeployText');
+        const sub = document.getElementById('aiDeploySub');
+
+        if (overlay) overlay.style.display = 'flex';
+
+        // Extended Simulation
+        setTimeout(() => { if (text) text.textContent = "Analyserar webbplats..."; if (sub) sub.textContent = web ? `Skannar ${web}...` : "Hämtar branschdata..."; }, 1500);
+        setTimeout(() => { if (text) text.textContent = "Skapar kunskapsmodell..."; if (sub) sub.textContent = `Modell: ${aiModel}`; }, 3500);
+        setTimeout(() => { if (text) text.textContent = "Genererar API-nycklar..."; if (sub) sub.textContent = "Sätter upp säkerhetspolicy..."; }, 5500);
+        setTimeout(() => {
+            if (overlay) overlay.style.display = 'none';
+            finalizeCustomerSave(customer);
+        }, 7000);
+    } else {
+        finalizeCustomerSave(customer);
+    }
+}
+
+// Override renderCustomerModalContent to show rich data
+function renderCustomerModalContent(customer, modal) {
+    const body = document.getElementById('crmModalBody');
+    const initials = customer.name.substring(0, 2).toUpperCase();
+
+    // Safety check for address
+    const street = customer.address?.street || '';
+    const city = customer.address?.city || '';
+
+    body.innerHTML = `
+        <div class="customerProfileLayout">
+            <!-- SIDEBAR -->
+            <div class="customerSidebar" style="border-right:1px solid var(--border); overflow-y:auto; max-height:100%;">
+                <div class="topInfo" style="text-align:center; margin-bottom:20px;">
+                    <div class="avatar-large" style="width:80px; height:80px; margin:0 auto 10px; background:#e0e7ff; color:var(--primary); font-size:32px; display:flex; align-items:center; justify-content:center; border-radius:50%;">${initials}</div>
+                    <h2 style="font-size:20px; margin:0;">${customer.name}</h2>
+                    <p class="muted">${customer.industry || 'Okänd bransch'} • ${city || 'Ingen ort'}</p>
+                    <div class="pill ${customer.aiConfig ? 'ok' : (customer.status === 'prospect' ? 'warn' : 'info')}" style="margin-top:5px;">
+                        ${customer.status === 'prospect' ? 'Prospekt' : (customer.status === 'churn' ? 'Avslutad' : 'Aktiv Kund')}
+                    </div>
+                </div>
+                
+                ${customer.aiConfig ? `
+                <div class="aiInsightBox">
+                    <div style="font-size:12px; text-transform:uppercase; color:var(--primary); font-weight:bold; margin-bottom:5px; display:flex; justify-content:space-between;">
+                        <span>AI Status</span> <span style="font-size:16px;">🟢</span>
+                    </div>
+                    <div class="aiScore">ONLINE</div>
+                    <div style="font-size:11px; margin-top:5px; color:var(--text-muted);">
+                        <b>Modell:</b> ${customer.aiConfig.model}<br>
+                        <b>API Key:</b> ${customer.aiConfig.apiKey.substring(0, 8)}...
+                    </div>
+                    <button class="btn primary small full" style="margin-top:10px;">Hantera Agent</button>
+                </div>` : ''}
+
+                <div class="contactInfoList" style="margin-top:20px;">
+                    <h5 style="text-transform:uppercase; color:var(--text-muted); font-size:11px; margin-bottom:10px;">Kontaktperson</h5>
+                    <div style="margin-bottom:10px;">
+                        <div style="font-weight:600;">${customer.contact || '-'}</div>
+                        <div class="muted small">${customer.role || 'Ingen roll angiven'}</div>
+                    </div>
+                    <div style="margin-bottom:10px; display:flex; align-items:center; gap:8px;">
+                        <i class="fa-solid fa-envelope muted"></i> 
+                        <a href="mailto:${customer.email}" class="link small">${customer.email || '-'}</a>
+                    </div>
+                    <div style="margin-bottom:10px; display:flex; align-items:center; gap:8px;">
+                        <i class="fa-solid fa-phone muted"></i> 
+                        <a href="tel:${customer.phone}" class="link small">${customer.phone || '-'}</a>
+                    </div>
+                    
+                    <h5 style="text-transform:uppercase; color:var(--text-muted); font-size:11px; margin:20px 0 10px;">Företagsinfo</h5>
+                    <div class="infoRow small"><span class="muted">Org.nr:</span> <span>${customer.org || '-'}</span></div>
+                    <div class="infoRow small"><span class="muted">Webb:</span> <a href="${customer.web}" target="_blank">${customer.web || '-'}</a></div>
+                    
+                    <h5 style="text-transform:uppercase; color:var(--text-muted); font-size:11px; margin:20px 0 10px;">Adress</h5>
+                     <div class="small muted">
+                        ${street ? street + '<br>' : ''}
+                        ${customer.address?.zip || ''} ${city}<br>
+                        ${customer.address?.country || ''}
+                     </div>
+                </div>
+            </div>
+            
+            <!-- MAIN CONTENT -->
+            <div class="customerMain" style="padding:20px; display:flex; flex-direction:column;">
+                <div class="crmNav" style="margin-bottom:20px; flex-shrink:0;">
+                    <button class="crmNavBtn active">Översikt</button>
+                    <button class="crmNavBtn">Aktivitetslogg</button>
+                    <button class="crmNavBtn">Anteckningar</button>
+                    <button class="crmNavBtn">Affärer</button>
+                    <button class="crmNavBtn">Ärenden</button>
+                </div>
+                
+                <div style="flex:1; overflow-y:auto;">
+                    <!-- NOTES SECTION -->
+                    ${customer.notes ? `
+                    <div class="panel" style="background:#fff9c4; color:#5f5a36; border:1px solid #eab308; margin-bottom:20px;">
+                        <div style="font-weight:bold; font-size:12px; margin-bottom:5px;"><i class="fa-solid fa-note-sticky"></i> Anteckning</div>
+                        ${customer.notes}
+                    </div>` : ''}
+
+                    <!-- TIMELINE -->
+                    <h4 style="margin-bottom:15px;">Tidslinje</h4>
+                    <div class="activityTimeline">
+                        <div class="activityItem meeting">
+                            <div class="activityMeta">Idag • System</div>
+                            <div>Kundprofil öppnad av dig.</div>
+                        </div>
+                        ${customer.aiConfig ? `
+                        <div class="activityItem call">
+                            <div class="activityMeta">Nyss • AI System</div>
+                            <div><b>AI-agent driftsatt</b><br>
+                             Konfigurerad med modell ${customer.aiConfig.model} (${customer.aiConfig.lang || 'sv'}).<br>
+                             Webbplatsanalys slutförd.
+                            </div>
+                        </div>` : ''}
+                         <div class="activityItem email">
+                            <div class="activityMeta">${new Date(customer.created).toLocaleDateString()} • System</div>
+                            <div>Kund registrerad i systemet.</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    `;
+
+    // Update Header 
+    const title = document.getElementById('crmModalCustomerName');
+    if (title) title.textContent = customer.name;
+
+    // Update Action Buttons?
+    // Could add Edit button action here
+}
+
+window.setModalTab = setModalTab;
+window.saveNewCustomerExpanded = saveNewCustomerExpanded;
+

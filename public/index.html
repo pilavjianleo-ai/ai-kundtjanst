@@ -2784,75 +2784,196 @@
     </div>
 </div>
 
-<!-- MODAL: ADD CUSTOMER (COMPANY) -->
+<!-- MODAL: ADD CUSTOMER (FULL ENTERPRISE) -->
 <div id="crmAddCustomerModal" class="modal" style="display: none;">
-    <div class="modalContent" style="max-width: 600px;">
-        <div class="modalHeader">
+    <div class="modalContent" style="max-width: 850px; height: 85vh; display:flex; flex-direction:column; padding:0;">
+        <div class="modalHeader" style="padding: 20px; border-bottom: 1px solid var(--border);">
             <h3><i class="fa-solid fa-building"></i> Ny Företagskund</h3>
             <button class="btn ghost small" onclick="closeCrmModal('crmAddCustomerModal')"><i
                     class="fa-solid fa-times"></i></button>
         </div>
-        <div class="modalBody">
-            <div class="row gap">
-                <div class="col">
-                    <label>Företagsnamn</label>
-                    <input id="custName" class="input" placeholder="T.ex. TechCorp AB" />
+
+        <!-- Tabs for Modal -->
+        <div class="tabs" style="border-bottom:1px solid var(--border); padding:0 20px; background:var(--panel2);">
+            <button class="tabBtn active" onclick="setModalTab('modalTabBasic', this)"
+                style="padding: 15px 20px;">Grunduppgifter</button>
+            <button class="tabBtn" onclick="setModalTab('modalTabContact', this)" style="padding: 15px 20px;">Kontakt &
+                Adress</button>
+            <button class="tabBtn" onclick="setModalTab('modalTabAi', this)" style="padding: 15px 20px;">AI &
+                System</button>
+        </div>
+
+        <div class="modalBody" style="flex:1; overflow-y:auto; padding:20px;">
+
+            <!-- TAB: BASIC -->
+            <div id="modalTabBasic" class="modalTabContent">
+                <div class="grid2 gap">
+                    <div class="col">
+                        <label>Företagsnamn *</label>
+                        <input id="custName" class="input" placeholder="T.ex. TechCorp AB" />
+                    </div>
+                    <div class="col">
+                        <label>Organisationsnummer</label>
+                        <input id="custOrg" class="input" placeholder="556XXX-XXXX" />
+                    </div>
+                </div>
+
+                <div class="grid2 gap">
+                    <div class="col">
+                        <label>Bransch</label>
+                        <select id="custIndustry" class="input">
+                            <option value="">Välj...</option>
+                            <option value="IT">IT & Teknik</option>
+                            <option value="Retail">Handel / E-handel</option>
+                            <option value="Construction">Bygg & Fastighet</option>
+                            <option value="Service">Tjänsteföretag</option>
+                            <option value="Finance">Bank & Finans</option>
+                            <option value="Public">Offentlig Sektor</option>
+                            <option value="Other">Annat</option>
+                        </select>
+                    </div>
+                    <div class="col">
+                        <label>Webbplats</label>
+                        <input id="custWeb" class="input" placeholder="https://..." />
+                    </div>
+                </div>
+
+                <div class="grid2 gap">
+                    <div class="col">
+                        <label>Status</label>
+                        <select id="custStatus" class="input">
+                            <option value="prospect">Prospekt (Lead)</option>
+                            <option value="customer" selected>Aktiv Kund</option>
+                            <option value="inactive">Inaktiv</option>
+                            <option value="churn">Före detta Kund</option>
+                        </select>
+                    </div>
+                    <div class="col">
+                        <label>Kontoägare (Säljare)</label>
+                        <select id="custOwner" class="input">
+                            <option value="me">Jag (Nuvarande användare)</option>
+                            <option value="unassigned">Ej tilldelad</option>
+                        </select>
+                    </div>
+                </div>
+
+                <label>Interna Anteckningar</label>
+                <textarea id="custNotes" class="input" style="height:100px; resize:none;"
+                    placeholder="Kort beskrivning av verksamheten, behov och historik..."></textarea>
+            </div>
+
+            <!-- TAB: CONTACT & ADDRESS -->
+            <div id="modalTabContact" class="modalTabContent" style="display:none;">
+                <h4
+                    style="margin-bottom:15px; border-bottom:1px solid var(--border); padding-bottom:5px; color:var(--primary);">
+                    Primär Kontaktperson</h4>
+                <div class="grid2 gap">
+                    <div class="col">
+                        <label>Förnamn</label>
+                        <input id="custContactFirst" class="input" />
+                    </div>
+                    <div class="col">
+                        <label>Efternamn</label>
+                        <input id="custContactLast" class="input" />
+                    </div>
+                </div>
+                <div class="grid2 gap">
+                    <div class="col">
+                        <label>E-post *</label>
+                        <input id="custEmail" type="email" class="input" placeholder="namn@foretag.se" />
+                    </div>
+                    <div class="col">
+                        <label>Telefon / Mobil</label>
+                        <input id="custPhone" class="input" placeholder="+46..." />
+                    </div>
                 </div>
                 <div class="col">
-                    <label>Organisationsnummer</label>
-                    <input id="custOrg" class="input" placeholder="556XXX-XXXX" />
+                    <label>Befattning / Roll</label>
+                    <input id="custRole" class="input" placeholder="T.ex. VD, IT-chef, Inköpare" />
+                </div>
+
+                <h4
+                    style="margin:25px 0 15px; border-bottom:1px solid var(--border); padding-bottom:5px; color:var(--primary);">
+                    Besöks- & Fakturaadress</h4>
+                <div class="col">
+                    <label>Gatuadress</label>
+                    <input id="custAddress" class="input" placeholder="Storgatan 1" />
+                </div>
+                <div class="grid2 gap">
+                    <div class="col">
+                        <label>Postnummer</label>
+                        <input id="custZip" class="input" style="width:120px;" placeholder="123 45" />
+                    </div>
+                    <div class="col">
+                        <label>Ort</label>
+                        <input id="custCity" class="input" placeholder="Stockholm" />
+                    </div>
+                </div>
+                <div class="col">
+                    <label>Land</label>
+                    <select id="custCountry" class="input">
+                        <option value="SE" selected>Sverige</option>
+                        <option value="NO">Norge</option>
+                        <option value="DK">Danmark</option>
+                        <option value="FI">Finland</option>
+                        <option value="Other">Annat</option>
+                    </select>
                 </div>
             </div>
 
-            <label>Bransch</label>
-            <select id="custIndustry" class="input">
-                <option value="IT">IT & Teknik</option>
-                <option value="Retail">Handel / E-handel</option>
-                <option value="Service">Tjänsteföretag</option>
-                <option value="Other">Annat</option>
-            </select>
+            <!-- TAB: AI & SYSTEM -->
+            <div id="modalTabAi" class="modalTabContent" style="display:none;">
+                <div class="aiSetupBox"
+                    style="background:rgba(76, 125, 255, 0.05); border:1px dashed var(--primary); padding:20px; border-radius:8px;">
+                    <div class="row gap" style="align-items:flex-start;">
+                        <input type="checkbox" id="custAiDeploy" checked
+                            style="width:20px; height:20px; margin-top:5px; accent-color:var(--primary);" />
+                        <div>
+                            <b style="color:var(--primary); font-size:16px;">Aktivera AI Kundtjänst (Auto-Deploy) 🤖</b>
+                            <p class="muted" style="margin-top:5px; line-height:1.5;">
+                                När du sparar kunden kommer systemet automatiskt att:
+                            <ul style="margin-top:8px; padding-left:20px; font-size:13px; color:var(--text-muted);">
+                                <li>Skapa en dedikerad AI-agent för <span class="highlight">detta företag</span>.</li>
+                                <li>Generera en unik API-nyckel för integration.</li>
+                                <li>Indexera deras webbplats (om angiven) för kunskapsbasen.</li>
+                                <li>Sätta upp en standard "Support"-bot som kan svara på frågor direkt.</li>
+                            </ul>
+                            </p>
+                        </div>
+                    </div>
+                </div>
 
-            <div class="divider">Kontaktperson</div>
-            <div class="row gap">
-                <div class="col">
-                    <label>Namn</label>
-                    <input id="custContactName" class="input" placeholder="Förnamn Efternamn" />
-                </div>
-                <div class="col">
-                    <label>Roll</label>
-                    <input id="custContactRole" class="input" placeholder="VD, Inköpare..." />
-                </div>
-            </div>
-            <div class="row gap">
-                <div class="col">
-                    <label>E-post</label>
-                    <input id="custEmail" class="input" placeholder="namn@foretag.se" />
-                </div>
-                <div class="col">
-                    <label>Telefon</label>
-                    <input id="custPhone" class="input" placeholder="07X-XXXXXXX" />
-                </div>
-            </div>
-
-            <div class="aiSetupBox"
-                style="background:rgba(76, 125, 255, 0.05); border:1px dashed var(--primary); padding:15px; border-radius:8px; margin-top:20px;">
-                <div class="row gap" style="align-items:center;">
-                    <input type="checkbox" id="custAiDeploy" checked style="width:20px; height:20px;" />
-                    <div>
-                        <b style="color:var(--primary);">Aktivera AI Kundtjänst direkt</b>
-                        <div class="muted small">Skapar en dedikerad AI-agent för detta företag.</div>
+                <div class="grid2 gap" style="margin-top:20px;">
+                    <div class="col">
+                        <label>AI-Modell</label>
+                        <select id="custAiModel" class="input">
+                            <option value="gpt-4o">GPT-4o (Rekommenderad)</option>
+                            <option value="gpt-4-turbo">GPT-4 Turbo</option>
+                            <option value="gpt-3.5-turbo">GPT-3.5 Turbo (Snabbast)</option>
+                        </select>
+                    </div>
+                    <div class="col">
+                        <label>Språkstöd</label>
+                        <select id="custAiLang" class="input">
+                            <option value="sv">Svenska (Primärt)</option>
+                            <option value="en">Engelska</option>
+                            <option value="multi">Flerspråkig (Auto-detect)</option>
+                        </select>
                     </div>
                 </div>
             </div>
 
-            <button class="btn primary full" onclick="saveNewCustomer()" style="margin-top:20px;">
-                <i class="fa-solid fa-robot"></i> Spara & Konfigurera
+        </div>
+
+        <div class="modalFooter"
+            style="padding:20px; border-top:1px solid var(--border); display:flex; justify-content:flex-end; gap:10px; background:var(--panel);">
+            <button class="btn ghost" onclick="closeCrmModal('crmAddCustomerModal')">Avbryt</button>
+            <button class="btn primary" onclick="saveNewCustomerExpanded()">
+                <i class="fa-solid fa-check"></i> Spara Kund & Konfigurera
             </button>
         </div>
     </div>
-</div>
-
-<!-- AI DEPLOYMENT OVERLAY (Fake Loader) -->
+</div><!-- AI DEPLOYMENT OVERLAY (Fake Loader) -->
 <div id="aiDeployOverlay" class="modal"
     style="display:none; align-items:center; justify-content:center; background:rgba(0,0,0,0.8);">
     <div style="text-align:center; color:white;">
