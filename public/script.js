@@ -5877,6 +5877,8 @@ function setCrmTab(tabId) {
 
   const btn = document.getElementById('tab_crm_' + tabId);
   if (btn) btn.classList.add('active');
+
+  if (tabId === 'pipeline') renderPipeline();
 }
 
 function allowDrop(ev) {
@@ -5898,21 +5900,119 @@ function drop(ev) {
     var target = ev.target.closest('.pipelineBody');
     if (target) {
       target.appendChild(el);
-      updatePipelineCounts();
 
-      // Show toast
-      if (typeof toast === 'function') toast('Uppdaterad', 'Affren har flyttats', 'success');
+      // Sync State & Stage
+      const dealId = data;
+      const stageId = target.id.replace('pipelineBody-', '');
+      updateDealStageInsideStorage(dealId, stageId);
+
+      updatePipelineCounts();
+      if (typeof toast === 'function') toast('Uppdaterad', 'Affären har flyttats', 'success');
     }
+  }
+}
+
+function updateDealStageInsideStorage(id, stage) {
+  let deals = JSON.parse(localStorage.getItem('crmDeals') || '[]');
+  const idx = deals.findIndex(d => d.id === id);
+  if (idx !== -1) {
+    deals[idx].stage = stage;
+    localStorage.setItem('crmDeals', JSON.stringify(deals));
+    if (typeof crmState !== 'undefined') crmState.deals = deals;
   }
 }
 
 function updatePipelineCounts() {
   document.querySelectorAll('.pipelineColumn').forEach(col => {
-    const count = col.querySelectorAll('.dealCard').length;
+    const body = col.querySelector('.pipelineBody');
     const badge = col.querySelector('.stageCount');
-    if (badge) badge.textContent = count;
+    if (badge && body) {
+      badge.textContent = body.querySelectorAll('.dealCard').length;
+    }
   });
 }
+
+function renderPipeline() {
+  const stages = ['new', 'qualified', 'proposal', 'negotiation'];
+  stages.forEach(s => {
+    const body = document.getElementById('pipelineBody-' + s);
+    if (body) body.innerHTML = '';
+  });
+
+  const deals = JSON.parse(localStorage.getItem('crmDeals') || '[]');
+  deals.forEach(deal => {
+    const body = document.getElementById('pipelineBody-' + deal.stage);
+    if (body) {
+      const card = document.createElement('div');
+      card.className = 'dealCard';
+      card.draggable = true;
+      card.id = deal.id;
+      card.ondragstart = drag;
+      card.innerHTML = `
+                <div style="display:flex; justify-content:space-between; align-items:flex-start;">
+                    <div class="dealCompany"><b>${deal.company}</b></div>
+                    <div style="display:flex; gap:5px;">
+                        <button class="btn ghost small icon" onclick="openEditDealModal('${deal.id}')" title="Redigera"><i class="fa-solid fa-pen" style="font-size:10px;"></i></button>
+                        <button class="btn ghost small icon" onclick="deleteDeal('${deal.id}')" title="Ta bort"><i class="fa-solid fa-trash" style="color:var(--danger); font-size:10px;"></i></button>
+                    </div>
+                </div>
+                <div class="dealName small muted" style="margin-bottom:5px;">${deal.name}</div>
+                <div class="dealValue" style="font-weight:bold; color:var(--primary);">${new Intl.NumberFormat('sv-SE', { style: 'currency', currency: 'SEK', maximumSignificantDigits: 3 }).format(deal.value || 0)}</div>
+                <div class="dealFooter" style="margin-top:10px; display:flex; justify-content:space-between; align-items:center;">
+                    <div class="dealTags"><span class="dealTag tag-hot" style="font-size:9px;">${deal.type?.toUpperCase() || 'NY'}</span></div>
+                    <div class="dealOwner" style="font-size:10px; opacity:0.7;">👤 ${deal.owner === 'me' ? 'MIG' : 'TEAM'}</div>
+                </div>
+            `;
+      body.appendChild(card);
+    }
+  });
+  updatePipelineCounts();
+}
+
+window.deleteDeal = function (id) {
+  if (!confirm('Vill du verkligen radera denna affär?')) return;
+  let deals = JSON.parse(localStorage.getItem('crmDeals') || '[]');
+  deals = deals.filter(d => d.id !== id);
+  localStorage.setItem('crmDeals', JSON.stringify(deals));
+  if (typeof crmState !== 'undefined') crmState.deals = deals;
+  renderPipeline();
+  if (typeof toast === 'function') toast("Raderad", "Affären har tagits bort.", "success");
+};
+
+window.openEditDealModal = function (id) {
+  const deals = JSON.parse(localStorage.getItem('crmDeals') || '[]');
+  const deal = deals.find(d => d.id === id);
+  if (!deal) return;
+
+  document.getElementById('editDealId').value = deal.id;
+  document.getElementById('editDealName').value = deal.name;
+  document.getElementById('editDealCompany').value = deal.company;
+  document.getElementById('editDealValue').value = deal.value;
+  document.getElementById('editDealStage').value = deal.stage;
+  document.getElementById('editDealDesc').value = deal.description || '';
+
+  const modal = document.getElementById('crmEditDealModal');
+  if (modal) modal.style.display = 'flex';
+};
+
+window.updateDeal = function () {
+  const id = document.getElementById('editDealId').value;
+  let deals = JSON.parse(localStorage.getItem('crmDeals') || '[]');
+  const idx = deals.findIndex(d => d.id === id);
+  if (idx === -1) return;
+
+  deals[idx].name = document.getElementById('editDealName').value;
+  deals[idx].value = parseInt(document.getElementById('editDealValue').value) || 0;
+  deals[idx].stage = document.getElementById('editDealStage').value;
+  deals[idx].description = document.getElementById('editDealDesc').value;
+
+  localStorage.setItem('crmDeals', JSON.stringify(deals));
+  if (typeof crmState !== 'undefined') crmState.deals = deals;
+
+  closeCrmModal('crmEditDealModal');
+  renderPipeline();
+  if (typeof toast === 'function') toast("Uppdaterad", "Affären har sparats.", "success");
+};
 
 function openCustomerModal(name) {
   const modal = document.getElementById('crmCustomerModal');
@@ -5926,9 +6026,7 @@ function openCustomerModal(name) {
   }
 }
 
-function openDealModal() {
-  if (typeof toast === 'function') toast('Info', 'Skapa affr-funktionen kommer snart', 'info');
-}
+
 
 // Close modal logic
 document.addEventListener('click', function (e) {
@@ -5948,6 +6046,7 @@ window.drag = drag;
 window.drop = drop;
 window.openCustomerModal = openCustomerModal;
 window.openDealModal = openDealModal;
+window.renderPipeline = renderPipeline;
 
 
 
@@ -5968,10 +6067,13 @@ function openDealModal() {
   const modal = document.getElementById('crmAddDealModal');
   if (modal) {
     // Populate Companies
-    const dl = document.getElementById('companyList');
-    if (dl && crmState.customers.length > 0) {
-      dl.innerHTML = crmState.customers.map(c => `<option value="${c.name}">`).join('');
+    const dl = document.getElementById('dealCompanyList');
+    const customers = JSON.parse(localStorage.getItem('crmCustomers') || '[]');
+    if (dl && customers.length > 0) {
+      dl.innerHTML = customers.map(c => `<option value="${c.name}">`).join('');
     }
+    const nameInput = document.getElementById('dealName');
+    if (nameInput) nameInput.value = '';
     modal.style.display = 'flex';
   }
 }
@@ -6008,40 +6110,7 @@ function saveNewDeal() {
 }
 
 function addDealToPipelineUI(deal) {
-  const col = document.querySelector(`.pipelineBody`); // Simplified, assumption
-  // We need to find the right column based on stage interactively?
-  // Since stage IDs in HTML correspond to columns...
-  // Let's re-render pipeline if possible, or append.
-  // My pipeline HTML is static for now. Ideally, renderPipeline() clears and rebuilds.
-
-  // Find the column by index or logic. 
-  // Manual mapping for now:
-  let colIndex = 0;
-  if (deal.stage === 'qualified') colIndex = 1;
-  if (deal.stage === 'proposal') colIndex = 2;
-  if (deal.stage === 'negotiation') colIndex = 3;
-
-  const cols = document.querySelectorAll('.pipelineBody');
-  if (cols[colIndex]) {
-    const div = document.createElement('div');
-    div.className = 'dealCard';
-    div.draggable = true;
-    div.id = deal.id;
-    div.ondragstart = (e) => drag(e);
-    div.innerHTML = `
-            <div class="dealCompany">${deal.company}</div>
-            <div class="dealValue">${deal.value.toLocaleString()} kr</div>
-            <div class="dealFooter">
-                <div class="dealTags"><span class="dealTag tag-hot">NY</span></div>
-                <div class="dealOwner">AI</div>
-            </div>
-        `;
-    cols[colIndex].appendChild(div);
-
-    // Update count
-    const header = cols[colIndex].parentElement.querySelector('.stageCount');
-    if (header) header.textContent = parseInt(header.textContent) + 1;
-  }
+  renderPipeline();
 }
 
 
@@ -6537,7 +6606,8 @@ function saveNewDealAdvanced() {
   }
 
   // Find linked customer ID if possible
-  const linkedCustomer = crmState.customers.find(c => c.name === company);
+  const customers = JSON.parse(localStorage.getItem('crmCustomers') || '[]');
+  const linkedCustomer = customers.find(c => c.name === company);
   const customerId = linkedCustomer ? linkedCustomer.id : null;
 
   const deal = {
@@ -6572,7 +6642,7 @@ function saveNewDealAdvanced() {
   });
 
   // Update UI
-  addDealToPipelineUI(deal);
+  renderPipeline();
   if (typeof toast === 'function') toast('Sparat', 'Affär skapad', 'success');
 }
 
