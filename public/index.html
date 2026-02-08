@@ -1285,8 +1285,8 @@
             <div class="modalHeader">
               <h3><i class="fa-solid fa-building"></i> <span id="crmModalCustomerName">Kunddetaljer</span></h3>
               <div class="modalActions">
-                <button class="btn ghost small"><i class="fa-solid fa-pen"></i> Redigera</button>
-                <button id="crmCloseModalBtn" class="btn ghost small"><i class="fa-solid fa-times"></i></button>
+                <button id="crmCloseModalBtn" class="btn ghost small" onclick="closeCrmModal('crmCustomerModal')"><i
+                    class="fa-solid fa-times"></i></button>
               </div>
             </div>
             <div class="modalBody" id="crmModalBody" style="padding:0; flex:1; overflow:hidden;">
@@ -3078,10 +3078,14 @@
   </div><!-- AI DEPLOYMENT OVERLAY (Fake Loader) -->
   <div id="aiDeployOverlay" class="modal"
     style="display:none; align-items:center; justify-content:center; background:rgba(0,0,0,0.8);">
-    <div style="text-align:center; color:white;">
+    <div style="text-align:center; color:white; width:300px;">
       <i class="fa-solid fa-circle-notch fa-spin" style="font-size:48px; color:var(--primary); margin-bottom:20px;"></i>
-      <h2 id="aiDeployText">Konfigurerar AI-agent...</h2>
-      <div id="aiDeploySub" class="muted">Analyserar företagsdata</div>
+      <h2 id="aiDeployText" style="margin-bottom:10px;">Konfigurerar AI-agent...</h2>
+      <div id="aiDeploySub" class="muted" style="margin-bottom:15px;">Analyserar företagsdata</div>
+      <div style="width:100%; height:4px; background:rgba(255,255,255,0.1); border-radius:2px; overflow:hidden;">
+        <div id="aiDeployBar" style="width:0%; height:100%; background:var(--primary); transition: width 0.5s ease;">
+        </div>
+      </div>
     </div>
   </div>
   <script src="script.js"></script>

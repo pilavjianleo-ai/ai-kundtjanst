@@ -3663,9 +3663,10 @@ function initSocket() {
   const socket = io();
 
   socket.on("ticketUpdate", (data) => {
-    if (state.currentView === "inboxView") {
-      loadInboxTickets();
-    }
+    if (state.currentView === "inboxView") loadInboxTickets();
+    if (state.currentView === "slaView" && typeof loadSlaDashboard === "function") loadSlaDashboard();
+    if (state.currentView === "adminView" && typeof loadAdminDiagnostics === "function") loadAdminDiagnostics();
+    if (typeof renderCrmDashboard === "function") renderCrmDashboard();
   });
 
   socket.on("newImportantTicket", (data) => {
@@ -5896,7 +5897,7 @@ function drop(ev) {
             updatePipelineCounts();
             
             // Show toast
-            if(typeof toast === 'function') toast('Uppdaterad', 'Affären har flyttats', 'success');
+            if(typeof toast === 'function') toast('Uppdaterad', 'Affren har flyttats', 'success');
         }
     }
 }
@@ -5922,7 +5923,7 @@ function openCustomerModal(name) {
 }
 
 function openDealModal() {
-    if(typeof toast === 'function') toast('Info', 'Skapa affär-funktionen kommer snart', 'info');
+    if(typeof toast === 'function') toast('Info', 'Skapa affr-funktionen kommer snart', 'info');
 }
 
 // Close modal logic
@@ -6752,7 +6753,7 @@ window.filterCompanyList = filterCompanyList;
 
 
 /* HOTFIX */
-window.openAddCustomerModal = function() { console.log('OPENING CUSTOMER MODAL'); const modal = document.getElementById('crmAddCustomerModal'); if(modal) { modal.style.display = 'flex'; if(window.setModalTab && modal.querySelector('#modalTabBasic')) { const btn = modal.querySelector('.tabBtn'); if(btn) window.setModalTab('modalTabBasic', btn); } } else { alert('Kunde inte öppna formulär (ID saknas)'); } };
+window.openAddCustomerModal = function() { console.log('OPENING CUSTOMER MODAL'); const modal = document.getElementById('crmAddCustomerModal'); if(modal) { modal.style.display = 'flex'; if(window.setModalTab && modal.querySelector('#modalTabBasic')) { const btn = modal.querySelector('.tabBtn'); if(btn) window.setModalTab('modalTabBasic', btn); } } else { alert('Kunde inte ppna formulr (ID saknas)'); } };
 document.getElementById('addCustomerBtn').onclick = window.openAddCustomerModal;
 
 

@@ -1,34 +1,28 @@
 /* =====================
-   CRM ENHANCEMENTS V5: INTEGRATION & DASHBOARD & SYNC
+   CRM ENHANCEMENTS V6: FULL INTEGRATION & SYNC
 ===================== */
 
 /**
  * Sync CRM Customers (AI Active) to Chat Dropdown
- * Robust function that checks for duplicates and ensures persistence.
  */
 function updateChatCategoriesFromCRM() {
     const select = document.getElementById('categorySelect');
     if (!select) return;
 
-    // 1. Get Active AI Customers
     const customers = JSON.parse(localStorage.getItem('crmCustomers') || '[]');
     const aiCustomers = customers.filter(c => c.aiConfig && c.aiConfig.status === 'active');
 
-    // 2. Check if options already exist to prevent flickering
     const existingOptions = Array.from(select.options).map(o => o.value);
 
     aiCustomers.forEach(c => {
-        if (!existingOptions.includes(c.name)) {
+        if (!existingOptions.includes(c.id) && !existingOptions.includes(c.name)) {
             const opt = document.createElement('option');
-            opt.value = c.name;
+            opt.value = c.id;
             opt.innerText = c.name + " (AI)";
             opt.setAttribute('data-origin', 'crm');
             select.appendChild(opt);
         }
     });
-
-    // 3. (Optional) Remove old CRM options if customer was deleted?
-    // We skip this for now to avoid accidental removal of system categories if names match
 }
 
 /**
@@ -42,42 +36,41 @@ function renderCrmDashboard() {
     const customers = JSON.parse(localStorage.getItem('crmCustomers') || '[]');
     const activities = JSON.parse(localStorage.getItem('crmActivities') || '[]');
 
-    // Stats Calculations
     const totalValue = deals.reduce((sum, d) => sum + (d.value || 0), 0);
     const openDeals = deals.filter(d => d.stage !== 'won' && d.stage !== 'lost').length;
     const totalCustomers = customers.length;
 
-    // DOM Updates
     const cards = document.querySelectorAll('.crmStatCard');
     if (cards.length >= 3) {
-        // Pipeline
         const val1 = cards[0].querySelector('.crmStatValue');
         if (val1) val1.innerText = new Intl.NumberFormat('sv-SE', { style: 'currency', currency: 'SEK', maximumSignificantDigits: 3 }).format(totalValue);
 
-        // Open Deals
         const val2 = cards[1].querySelector('.crmStatValue');
         if (val2) val2.innerText = openDeals + " st";
-
-        // Customers
-        const title3 = cards[2].querySelector('.crmStatTitle');
-        if (title3) title3.innerHTML = 'Totalt Antal Kunder <i class="fa-solid fa-users"></i>';
 
         const val3 = cards[2].querySelector('.crmStatValue');
         if (val3) val3.innerText = totalCustomers + " st";
     }
 
-    // Activity Feed (Log)
     const feed = document.querySelector('.activityTimeline');
     if (feed) {
-        const sorted = activities.sort((a, b) => new Date(b.created) - new Date(a.created)).slice(0, 8);
-
+        const sorted = activities.sort((a, b) => new Date(b.created) - new Date(a.created)).slice(0, 15);
         if (sorted.length > 0) {
-            feed.innerHTML = sorted.map(a => `
-                <div class="activityItem ${a.type || 'info'}" style="padding-left:20px; border-left:2px solid var(--border); margin-bottom:10px;">
-                    <div class="activityMeta" style="font-size:11px; color:var(--text-muted);">${new Date(a.created).toLocaleString()} • ${a.type || 'Info'}</div>
-                    <div style="font-size:13px;">${a.subject}</div>
+            feed.innerHTML = sorted.map(a => {
+                let iconClass = "fa-info-circle";
+                if (a.type === 'chat') iconClass = "fa-comment-dots";
+                if (a.type === 'ticket') iconClass = "fa-ticket";
+                if (a.type === 'success') iconClass = "fa-check-circle";
+
+                return `
+                <div class="activityItem ${a.type || 'info'}" style="position:relative; padding-left:35px; margin-bottom:15px; border-left:2px solid var(--border);">
+                    <div style="position:absolute; left:-11px; top:0; width:22px; height:22px; background:var(--panel); border:1px solid var(--border); border-radius:50%; display:flex; align-items:center; justify-content:center; z-index:2;">
+                        <i class="fa-solid ${iconClass}" style="font-size:10px;"></i>
+                    </div>
+                    <div class="activityMeta">${new Date(a.created).toLocaleString('sv-SE')} • ${a.type?.toUpperCase() || 'SYSTEM'}</div>
+                    <div style="font-size:13px; font-weight:500;">${a.subject}</div>
                 </div>
-            `).join('');
+            `}).join('');
         } else {
             feed.innerHTML = `<div class="muted center" style="padding:20px; font-size:13px;">Inga aktiviteter loggade än.</div>`;
         }
@@ -98,40 +91,88 @@ function logCrmActivity(subject, type = 'system') {
     renderCrmDashboard();
 }
 
+/**
+ * Enhanced Loader for AI Deployment
+ */
+async function runDeploymentSequence(customerName) {
+    const overlay = document.getElementById('aiDeployOverlay');
+    const text = document.getElementById('aiDeployText');
+    const sub = document.getElementById('aiDeploySub');
+    const bar = document.getElementById('aiDeployBar');
+    if (!overlay) return;
+
+    overlay.style.display = 'flex';
+    if (bar) bar.style.width = '0%';
+
+    const steps = [
+        { t: "Initierar backend...", s: `Registrerar ${customerName} i databasen`, p: '20%' },
+        { t: "Konfigurerar AI-modell...", s: "Optimerar GPT-4o för kundservice", p: '40%' },
+        { t: "Skapar kunskapsbas...", s: "Förbereder vektor-databas för KB", p: '65%' },
+        { t: "Aktiverar Chat-widget...", s: "Genererar unika API-nycklar", p: '85%' },
+        { t: "Slutför installation...", s: "Nästan klar...", p: '100%' }
+    ];
+
+    for (let i = 0; i < steps.length; i++) {
+        text.innerText = steps[i].t;
+        sub.innerText = steps[i].s;
+        if (bar) bar.style.width = steps[i].p;
+        await new Promise(r => setTimeout(r, 700));
+    }
+
+    await new Promise(r => setTimeout(r, 300));
+    overlay.style.display = 'none';
+}
+
 // === OVERRIDES & INTEGRATION ===
 
-// 1. Save Customer Logic
-window.saveNewCustomerExpanded = function () {
-    const name = document.getElementById('custName')?.value;
-    const email = document.getElementById('custEmail')?.value;
-    const phone = document.getElementById('custPhone')?.value;
-    const industry = document.getElementById('custIndustry')?.value;
-    const web = document.getElementById('custWeb')?.value;
-    const zip = document.getElementById('custZip')?.value;
-    const city = document.getElementById('custCity')?.value;
-    const country = document.getElementById('custCountry')?.value;
+window.saveNewCustomerExpanded = async function () {
+    const name = document.getElementById('custName')?.value?.trim();
+    const email = document.getElementById('custEmail')?.value?.trim();
+    const phone = document.getElementById('custPhone')?.value?.trim();
+    const industry = document.getElementById('custIndustry')?.value?.trim();
+    const web = document.getElementById('custWeb')?.value?.trim();
+    const zip = document.getElementById('custZip')?.value?.trim();
+    const city = document.getElementById('custCity')?.value?.trim();
+    const country = document.getElementById('custCountry')?.value?.trim();
 
-    // AI Config
     const aiDeploy = document.getElementById('custAiDeploy')?.checked;
     const aiModel = document.getElementById('custAiModel')?.value;
     const aiLang = document.getElementById('custAiLang')?.value;
 
     if (!name) {
-        alert("Företagsnamn krävs!");
+        toast("Fel", "Företagsnamn krävs!", "error");
         return;
     }
 
+    const companyId = name.toLowerCase().replace(/[^a-z0-9]/g, '-').slice(0, 30);
+
+    // Create in Backend (The "Real" Company)
+    try {
+        if (typeof api === 'function' && state.token) {
+            await api("/admin/companies", {
+                method: "POST",
+                body: {
+                    displayName: name,
+                    companyId: companyId,
+                    contactEmail: email,
+                    phone: phone,
+                    industry: industry,
+                    notes: `Skapad via CRM. Bransch: ${industry}`
+                }
+            });
+        }
+    } catch (e) {
+        console.error("Backend creation failed:", e.message);
+        toast("System-notis", "Kunde inte registrera i backend, men sparar lokalt.", "warning");
+    }
+
     const newCustomer = {
-        id: 'cust_' + Date.now(),
-        name,
-        email,
-        phone,
-        industry,
-        web,
+        id: companyId,
+        name, email, phone, industry, web,
         address: { zip, city, country },
         status: 'customer',
         value: 0,
-        aiScore: Math.floor(Math.random() * 40) + 60, // Better score for new customers
+        aiScore: Math.floor(Math.random() * 40) + 60,
         aiConfig: aiDeploy ? {
             status: 'active',
             model: aiModel,
@@ -141,42 +182,26 @@ window.saveNewCustomerExpanded = function () {
         created: new Date().toISOString()
     };
 
-    // Save
     const customers = JSON.parse(localStorage.getItem('crmCustomers') || '[]');
     customers.push(newCustomer);
     localStorage.setItem('crmCustomers', JSON.stringify(customers));
 
-    // Log
-    logCrmActivity(`Ny kund registrerad: ${name}`, 'success');
+    logCrmActivity(`Ny kund och systembolag skapat: ${name}`, 'success');
 
-    // Feedback UI
     if (aiDeploy) {
-        const overlay = document.getElementById('aiDeployOverlay');
-        if (overlay) {
-            overlay.style.display = 'flex';
-            setTimeout(() => {
-                overlay.style.display = 'none';
-                if (window.closeCrmModal) window.closeCrmModal('crmAddCustomerModal');
-
-                // FORCE UPDATE
-                updateChatCategoriesFromCRM();
-                renderCrmDashboard();
-                if (window.renderCustomerList) window.renderCustomerList();
-
-                alert(`Kund ${name} skapad och AI-agent aktiverad! Du kan nu välja dem i chatten.`);
-            }, 1500);
-            return;
-        }
+        await runDeploymentSequence(name);
     }
 
     if (window.closeCrmModal) window.closeCrmModal('crmAddCustomerModal');
+
+    if (typeof loadCompanies === 'function') await loadCompanies();
     updateChatCategoriesFromCRM();
     renderCrmDashboard();
     if (window.renderCustomerList) window.renderCustomerList();
-    alert(`Kund ${name} skapad!`);
+
+    toast("Klart!", `Kund ${name} är nu skapad och integrerad.`, "success");
 };
 
-// 2. Customer List Render
 window.renderCustomerList = function () {
     const tbody = document.getElementById('crmAnalyticsTable');
     if (!tbody) return;
@@ -184,7 +209,7 @@ window.renderCustomerList = function () {
     const customers = JSON.parse(localStorage.getItem('crmCustomers') || '[]');
 
     if (customers.length === 0) {
-        tbody.innerHTML = `<tr><td colspan="6" class="muted center" style="padding:20px;">Inga kunder hittades. Skapa en ny kund för att komma igång.</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="6" class="muted center" style="padding:20px;">Inga kunder.</td></tr>`;
         return;
     }
 
@@ -195,8 +220,8 @@ window.renderCustomerList = function () {
         return `
         <tr onclick="openCustomerModal('${c.id}')" style="cursor:pointer; border-bottom:1px solid var(--border);">
             <td style="padding:12px;"><b>${c.name}</b><br><span class="muted small">${c.industry || '-'}</span></td>
-            <td style="padding:12px;">${c.contactName || c.email || '-'}<br><span class="muted small">${c.phone || ''}</span></td>
-            <td style="padding:12px;"><span class="${statusClass}">${c.status || 'Potentiell'}</span></td>
+            <td style="padding:12px;">${c.email || '-'}<br><span class="muted small">${c.phone || ''}</span></td>
+            <td style="padding:12px;"><span class="${statusClass}">${c.status?.toUpperCase() || 'P'}</span></td>
             <td style="padding:12px; text-align:right;">${new Intl.NumberFormat('sv-SE', { style: 'currency', currency: 'SEK', maximumSignificantDigits: 3 }).format(c.value || 0)}</td>
             <td style="padding:12px; text-align:center;"><span style="color:${scoreColor}; font-weight:bold;">${c.aiScore || '-'}</span></td>
             <td style="padding:12px; text-align:right;">
@@ -206,36 +231,108 @@ window.renderCustomerList = function () {
     }).join('');
 };
 
+window.openCustomerModal = function (id) {
+    const modal = document.getElementById('crmCustomerModal');
+    if (!modal) return;
+
+    const customers = JSON.parse(localStorage.getItem('crmCustomers') || '[]');
+    const c = customers.find(c => c.id === id);
+    if (!c) return;
+
+    document.getElementById('crmModalCustomerName').innerText = c.name;
+
+    const sidebar = modal.querySelector('.customerSidebar');
+    if (sidebar) {
+        sidebar.innerHTML = `
+            <div class="topInfo" style="text-align:center; margin-bottom:20px;">
+                <div class="avatar-large" style="width:80px; height:80px; margin:0 auto 10px; background:var(--panel2); color:var(--primary); font-size:32px; display:flex; align-items:center; justify-content:center; border-radius:50%; border:1px solid var(--border);">
+                    ${c.name.charAt(0)}
+                </div>
+                <h2 style="font-size:20px; margin:0;">${c.name}</h2>
+                <p class="muted">${c.industry || 'Bransch'} • ${c.address?.city || 'Stad'}</p>
+                <div class="pill ${c.status === 'customer' ? 'ok' : 'warn'}" style="margin-top:5px;">${c.status.toUpperCase()}</div>
+            </div>
+            <div class="aiInsightBox" style="background:rgba(76, 125, 255, 0.05); padding:15px; border-radius:12px; text-align:center;">
+                <div style="font-size:12px; text-transform:uppercase; color:var(--primary); font-weight:bold; margin-bottom:5px;">AI Lead Score</div>
+                <div class="aiScore" style="font-size:32px; font-weight:800; color:var(--primary);">${c.aiScore}</div>
+            </div>
+            <div style="margin-top:20px;">
+                <button class="btn primary full" onclick="saveCustomerEdits('${c.id}')"><i class="fa-solid fa-save"></i> SPARA ÄNDRINGAR</button>
+            </div>
+        `;
+    }
+
+    const main = modal.querySelector('.customerMain');
+    if (main) {
+        main.innerHTML = `
+            <div class="panel soft" style="margin-bottom:20px;">
+                <div class="panelHead"><b>Kontakt & Info</b></div>
+                <div class="grid2" style="padding:15px; gap:15px;">
+                    <div><label class="small-label">E-post</label><input type="text" id="editCustEmail" class="input" value="${c.email || ''}"></div>
+                    <div><label class="small-label">Telefon</label><input type="text" id="editCustPhone" class="input" value="${c.phone || ''}"></div>
+                    <div><label class="small-label">Webbplats</label><input type="text" id="editCustWeb" class="input" value="${c.web || ''}"></div>
+                    <div><label class="small-label">Bransch</label><input type="text" id="editCustIndustry" class="input" value="${c.industry || ''}"></div>
+                </div>
+            </div>
+            <div class="panel soft">
+                <div class="panelHead"><b>Systeminställningar</b></div>
+                <div class="grid2" style="padding:15px; gap:15px;">
+                    <div><label class="small-label">Stad</label><input type="text" id="editCustCity" class="input" value="${c.address?.city || ''}"></div>
+                    <div><label class="small-label">Värde (SEK)</label><input type="number" id="editCustValue" class="input" value="${c.value || 0}"></div>
+                    <div><label class="small-label">AI Status</label>
+                        <select id="editCustAiStatus" class="input">
+                            <option value="active" ${c.aiConfig?.status === 'active' ? 'selected' : ''}>Aktiv</option>
+                            <option value="inactive" ${c.aiConfig?.status === 'inactive' ? 'selected' : ''}>Inaktiv</option>
+                        </select>
+                    </div>
+                    <div><label class="small-label">Kundtyp</label>
+                        <select id="editCustStatus" class="input">
+                            <option value="customer" ${c.status === 'customer' ? 'selected' : ''}>Kund</option>
+                            <option value="lead" ${c.status === 'lead' ? 'selected' : ''}>Lead</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+        `;
+    }
+    modal.style.display = 'flex';
+};
+
+window.saveCustomerEdits = function (id) {
+    let customers = JSON.parse(localStorage.getItem('crmCustomers') || '[]');
+    let cIndex = customers.findIndex(c => c.id === id);
+    if (cIndex === -1) return;
+
+    const c = customers[cIndex];
+    c.email = document.getElementById('editCustEmail').value;
+    c.phone = document.getElementById('editCustPhone').value;
+    c.web = document.getElementById('editCustWeb').value;
+    c.industry = document.getElementById('editCustIndustry').value;
+    c.address.city = document.getElementById('editCustCity').value;
+    c.value = parseFloat(document.getElementById('editCustValue').value) || 0;
+    c.status = document.getElementById('editCustStatus').value;
+
+    if (!c.aiConfig) c.aiConfig = {};
+    c.aiConfig.status = document.getElementById('editCustAiStatus').value;
+
+    localStorage.setItem('crmCustomers', JSON.stringify(customers));
+    toast("Uppdaterad", `Uppgifter sparade för ${c.name}.`, "success");
+    logCrmActivity(`Uppdaterade ${c.name}`, 'info');
+
+    renderCustomerList();
+    renderCrmDashboard();
+    updateChatCategoriesFromCRM();
+    window.closeCrmModal('crmCustomerModal');
+};
+
 window.deleteCustomer = function (id) {
     if (!confirm('Ta bort kund?')) return;
     let customers = JSON.parse(localStorage.getItem('crmCustomers') || '[]');
     customers = customers.filter(c => c.id !== id);
     localStorage.setItem('crmCustomers', JSON.stringify(customers));
-
     renderCustomerList();
     renderCrmDashboard();
-    updateChatCategoriesFromCRM(); // Make sure to remove from dropdown next sync
-
-    // Also remove from dropdown immediately
-    const select = document.getElementById('categorySelect');
-    // Force refresh by reloading items, but since we cannot easily reload from script.js logic without fetching,
-    // we simply rely on the interval or page refresh for clean removal from dropdown, 
-    // OR we iterate and remove the specific option.
-    Array.from(select.options).forEach(opt => {
-        if (opt.value === id || opt.innerText.includes(id)) { // Loose match
-            // Difficult to match by ID if value is Name. 
-            // We rely on next sync.
-        }
-    });
-};
-
-window.openCustomerModal = function (id) {
-    const modal = document.getElementById('crmCustomerModal');
-    if (!modal) return;
-    const customers = JSON.parse(localStorage.getItem('crmCustomers') || '[]');
-    const c = customers.find(c => c.id === id) || { name: 'Okänd' };
-    document.getElementById('crmModalCustomerName').innerText = c.name;
-    modal.style.display = 'flex';
+    updateChatCategoriesFromCRM();
 };
 
 window.closeCrmModal = function (id) {
@@ -248,26 +345,17 @@ window.openAddCustomerModal = function () {
     if (m) m.style.display = 'flex';
 };
 
-// === CHAT INTEGRATION ===
-// Hook into sendBtn to log activity
 document.addEventListener('DOMContentLoaded', () => {
-    // Initial Load
     updateChatCategoriesFromCRM();
     renderCrmDashboard();
     if (window.renderCustomerList) window.renderCustomerList();
+    setInterval(() => updateChatCategoriesFromCRM(), 3000);
 
-    // Aggressive Polling to ensure Dropdown is synced (every 3s)
-    setInterval(() => {
-        updateChatCategoriesFromCRM();
-    }, 3000);
-
-    // Chat Event Hook
     const sendBtn = document.getElementById('sendBtn');
     if (sendBtn) {
         sendBtn.addEventListener('click', () => {
             const input = document.getElementById('messageInput');
             if (input && input.value.trim().length > 0) {
-                // Log that a chat happened
                 logCrmActivity(`Chatt-meddelande skickat`, 'chat');
             }
         });
@@ -276,7 +364,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const newTicketBtn = document.getElementById('newTicketBtn');
     if (newTicketBtn) {
         newTicketBtn.addEventListener('click', () => {
-            logCrmActivity(`Nytt ärende skapat via Chatt`, 'ticket');
+            logCrmActivity(`Nytt ärende via Chatt`, 'ticket');
         });
     }
 });
