@@ -28,7 +28,7 @@
   --radius: 16px;
 }
 
-body[data-theme=\"light\"] {
+body[data-theme="light"] {
   --bg: #fafaf9;
   --panel: #ffffff;
   --panel2: #f5f5f4;
@@ -263,11 +263,11 @@ body[data-theme="light"] ::-webkit-scrollbar-thumb {
   background: var(--glass-high);
 }
 
-body[data-theme=\"light\"] .menuBtn:hover {
+body[data-theme="light"] .menuBtn:hover {
   background: var(--panel2);
 }
 
-body[data-theme=\"dark\"] .menuBtn:hover {
+body[data-theme="dark"] .menuBtn:hover {
   background: rgba(255, 255, 255, 0.03);
 }
 
@@ -358,7 +358,7 @@ label {
   transition: all 0.2s;
 }
 
-body[data-theme=\"light\"] .input {
+body[data-theme="light"] .input {
   background: #ffffff;
   border-color: rgba(120, 113, 108, 0.15);
 }
@@ -428,13 +428,13 @@ body[data-theme=\"light\"] .input {
   background: var(--glass-high);
 }
 
-body[data-theme=\"light\"] .btn {
+body[data-theme="light"] .btn {
   background: var(--panel);
   border-color: var(--border);
   box-shadow: none;
 }
 
-body[data-theme=\"light\"] .btn:hover {
+body[data-theme="light"] .btn:hover {
   background: var(--panel2);
   border-color: var(--border);
 }
