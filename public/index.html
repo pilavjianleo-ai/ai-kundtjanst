@@ -1917,221 +1917,223 @@
 <!-- MAIN CONTENT -->
 <div class="scenarioContent">
 
-    <!-- VIEW MODE SELECTOR & SUMMARY -->
-    <div class="scenarioHeaderPanel">
-        <!-- Sticky Summary -->
-        <div class="scenarioSummaryBar">
-            <div class="summaryStats">
-                <div class="summaryStat primary">
-                    <span class="label">Besparing/år</span>
-                    <span class="value positive" id="sc_summaryYearSave">810 000 kr</span>
-                </div>
-                <div class="summaryStat warning">
-                    <span class="label">ROI</span>
-                    <span class="value positive" id="sc_summaryRoi">340%</span>
-                </div>
-                <div class="summaryStat neutral">
-                    <span class="label">Bemanning</span>
-                    <span class="value" id="sc_summaryStaff">3 personer</span>
-                </div>
-            </div>
-            <div class="topbarActions">
-                <button class="btn ghost small" onclick="toggleScenarioOnboarding()">
-                    <i class="fa-solid fa-circle-question"></i> Hjälp
-                </button>
-                <button class="btn ghost small" onclick="exportScenarioReport()">
-                    <i class="fa-solid fa-download"></i> Exportera
-                </button>
-            </div>
-        </div>
-
-        <!-- Mode Tabs -->
-        <div class="scenarioModeTabs">
-            <button class="modeTab active" onclick="setScenarioMode('overview')" id="tab_overview">
-                <i class="fa-solid fa-chart-pie"></i> Översikt
-            </button>
-            <button class="modeTab" onclick="setScenarioMode('optimization')" id="tab_optimization">
-                <i class="fa-solid fa-rocket"></i> Optimering
-            </button>
-            <button class="modeTab" onclick="setScenarioMode('strategy')" id="tab_strategy">
-                <i class="fa-solid fa-chess"></i> Strategi
-            </button>
-            <button class="modeTab" onclick="setScenarioMode('myView')" id="tab_myView">
-                <i class="fa-solid fa-star"></i> Min Vy
-            </button>
-        </div>
-    </div>
-
-    <!-- ONBOARDING MODAL -->
-    <div id="scenarioOnboarding" class="onboardingModal" style="display:none;">
-        <div class="onboardingContent">
-            <div class="step" data-step="1">
-                <div class="stepIcon"><i class="fa-solid fa-sliders"></i></div>
-                <h3>1. Justera antaganden</h3>
-                <p>Börja med att ställa in reglagen under "Antaganden" så de matchar din verksamhet.</p>
-            </div>
-            <div class="step" data-step="2">
-                <div class="stepIcon"><i class="fa-solid fa-star"></i></div>
-                <h3>2. Välj dina favoriter</h3>
-                <p>Klicka på stjärnan vid ett nyckeltal för att spara det till "Min Vy" för snabb åtkomst.</p>
-            </div>
-            <div class="step" data-step="3">
-                <div class="stepIcon"><i class="fa-solid fa-lightbulb"></i></div>
-                <h3>3. Fatta beslut</h3>
-                <p>Följ rekommendationerna längst ner för att optimera bemanning och kostnader.</p>
-            </div>
-            <button class="btn primary full" onclick="closeScenarioOnboarding()">Jag förstår, kör igång!</button>
-        </div>
-    </div>
-
-    <!-- MY VIEW (Favorites) -->
-    <div id="sc_mode_myView" class="scenarioModeSection" style="display:none;">
-        <div class="sectionHeader">
-            <h3><i class="fa-solid fa-star"></i> Min Dashboard</h3>
-            <span class="sectionSubtitle">Dina utvalda mätvärden för snabba beslut</span>
-        </div>
-        <div id="sc_favoritesContainer" class="favoritesGrid">
-            <!-- Dynamically populated -->
-            <div class="emptyState">
-                <i class="fa-regular fa-star"></i>
-                <p>Du har inte valt några favoriter än. Klicka på stjärnan vid ett KPI för att lägga till det här.</p>
+<!-- VIEW MODE SELECTOR & SUMMARY -->
+<div class="scenarioHeaderPanel">
+    <div class="headerTopRow"
+        style="display:flex; justify-content:space-between; align-items:center; margin-bottom:15px;">
+        <h2 style="margin:0; font-size:20px;">Scenario & Prognos</h2>
+        <div class="scenarioTimeFilter">
+            <span class="filterLabel">Prognosperiod:</span>
+            <div class="segmentedControl">
+                <button class="timeFilterBtn" onclick="setScenarioTime(1)" id="tf_1">1 Mån</button>
+                <button class="timeFilterBtn active" onclick="setScenarioTime(12)" id="tf_12">1 År</button>
+                <button class="timeFilterBtn" onclick="setScenarioTime(36)" id="tf_36">3 År</button>
             </div>
         </div>
     </div>
 
-    <!-- OVERVIEW MODE -->
-    <div id="sc_mode_overview" class="scenarioModeSection">
-        <!-- SEKTION 1: AFFÄRSÖVERSIKT (Executive Summary) -->
-        <div id="sc_executive" class="scenarioSection executive">
-            <div class="sectionHeader togglable" onclick="toggleSection('sc_executive_content')">
-                <h3><i class="fa-solid fa-chart-pie"></i> Nulägesöversikt</h3>
-                <span class="sectionSubtitle">Hur ser verksamheten ut just nu?</span>
-                <i class="fa-solid fa-chevron-down toggleIcon"></i>
+    <!-- Sticky Summary with Dynamic Time -->
+    <div class="scenarioSummaryBar">
+        <div class="summaryStats">
+            <div class="summaryStat primary">
+                <span class="label" id="summary_save_label">Besparing (1 år)</span>
+                <span class="value positive giant" id="sc_summaryYearSave">810 000 kr</span>
             </div>
-            <!-- Top Insight Banner -->
-            <div class="topInsight">
-                <i class="fa-solid fa-lightbulb"></i>
-                <span id="sc_topInsight_overview">Verksamheten har 32% tillväxtutrymme med nuvarande AI-stöd.</span>
+            <div class="summaryStat warning">
+                <span class="label" id="summary_time_label">Sparad Tid</span>
+                <span class="value" id="sc_summaryTime">4 000 h</span>
             </div>
-            <div id="sc_executive_content" class="sectionContent">
-                <div class="executiveKpis">
-                    <div class="execKpiCard primary">
-                        <button class="favoriteBtn" onclick="toggleFavorite('sc_currentTickets', 'Ärenden/mån')"><i
-                                class="fa-regular fa-star"></i></button>
-                        <div class="execKpiValue" id="sc_currentTickets">500</div>
-                        <div class="execKpiLabel">Ärenden per månad <i class="fa-solid fa-circle-info tooltip"
-                                title="Antal inkommande supportärenden per månad"></i></div>
-                        <div class="execKpiContext">Volym</div>
-                    </div>
-                    <div class="execKpiCard primary">
-                        <button class="favoriteBtn" onclick="toggleFavorite('sc_currentCost', 'Månadskostnad')"><i
-                                class="fa-regular fa-star"></i></button>
-                        <div class="execKpiValue" id="sc_currentCost">125 000 kr</div>
-                        <div class="execKpiLabel">Operativ kostnad <i class="fa-solid fa-circle-info tooltip"
-                                title="Total kostnad för personal och drift"></i></div>
-                        <div class="execKpiContext">Per månad</div>
-                    </div>
-                    <div class="execKpiCard status-ok">
-                        <button class="favoriteBtn" onclick="toggleFavorite('sc_currentSla', 'Servicekvalitet')"><i
-                                class="fa-regular fa-star"></i></button>
-                        <div class="execKpiValue" id="sc_currentSla">92%</div>
-                        <div class="execKpiLabel">Servicekvalitet <i class="fa-solid fa-circle-info tooltip"
-                                title="Procentandel ärenden lösta inom tidsmål"></i></div>
-                        <div class="execKpiContext">SLA</div>
-                    </div>
-                    <div class="execKpiCard">
-                        <button class="favoriteBtn" onclick="toggleFavorite('sc_currentAi', 'Automatisering')"><i
-                                class="fa-regular fa-star"></i></button>
-                        <div class="execKpiValue" id="sc_currentAi">40%</div>
-                        <div class="execKpiLabel">Automatiseringsgrad <i class="fa-solid fa-circle-info tooltip"
-                                title="Andel ärenden som hanteras helt av AI"></i></div>
-                        <div class="execKpiContext">AI-andel</div>
-                    </div>
-                </div>
+            <div class="summaryStat ok">
+                <span class="label">ROI</span>
+                <span class="value positive" id="sc_summaryRoi">340%</span>
             </div>
         </div>
+        <div class="topbarActions">
+            <button class="btn ghost small" onclick="toggleScenarioOnboarding()">
+                <i class="fa-solid fa-circle-question"></i> Hjälp
+            </button>
+            <button class="btn ghost small" onclick="exportScenarioReport()">
+                <i class="fa-solid fa-download"></i> Rapport
+            </button>
+        </div>
+    </div>
 
-        <!-- SEKTION 2: AFFÄRSANTAGANDEN -->
-        <div id="sc_assumptions" class="scenarioSection assumptions">
-            <div class="sectionHeader togglable" onclick="toggleSection('sc_assumptions_content')">
-                <h3><i class="fa-solid fa-sliders"></i> Affärsantaganden</h3>
-                <span class="sectionSubtitle">Justera för att simulera framtiden</span>
-                <i class="fa-solid fa-chevron-down toggleIcon"></i>
-            </div>
-            <div id="sc_assumptions_content" class="sectionContent">
-                <div class="assumptionsGrid">
+    <!-- Mode Tabs -->
+    <div class="scenarioModeTabs">
+        <button class="modeTab active" onclick="setScenarioMode('overview')" id="tab_overview">
+            <i class="fa-solid fa-chart-pie"></i> Översikt
+        </button>
+        <button class="modeTab" onclick="setScenarioMode('optimization')" id="tab_optimization">
+            <i class="fa-solid fa-rocket"></i> Optimering
+        </button>
+        <button class="modeTab" onclick="setScenarioMode('strategy')" id="tab_strategy">
+            <i class="fa-solid fa-chess"></i> Strategi
+        </button>
+        <button class="modeTab" onclick="setScenarioMode('myView')" id="tab_myView">
+            <i class="fa-solid fa-star"></i> Min Vy
+        </button>
+    </div>
+</div>
+
+<!-- ONBOARDING MODAL -->
+<div id="scenarioOnboarding" class="onboardingModal" style="display:none;">
+    <div class="onboardingContent">
+        <div class="step" data-step="1">
+            <div class="stepIcon"><i class="fa-solid fa-sliders"></i></div>
+            <h3>1. Justera antaganden</h3>
+            <p>Ställ in reglagen för att matcha din verksamhet.</p>
+        </div>
+        <div class="step" data-step="2">
+            <div class="stepIcon"><i class="fa-solid fa-clock"></i></div>
+            <h3>2. Välj tidsperiod</h3>
+            <p>Använd filtret "1 Mån / 1 År / 3 År" för att se långsiktig effekt.</p>
+        </div>
+        <div class="step" data-step="3">
+            <div class="stepIcon"><i class="fa-solid fa-star"></i></div>
+            <h3>3. Spara favoriter</h3>
+            <p>Stjärnmarkera dina viktigaste nyckeltal till "Min Vy".</p>
+        </div>
+        <button class="btn primary full" onclick="closeScenarioOnboarding()">Jag förstår, kör igång!</button>
+    </div>
+</div>
+
+<!-- MY VIEW (Favorites) -->
+<div id="sc_mode_myView" class="scenarioModeSection" style="display:none;">
+    <div class="sectionHeader">
+        <h3><i class="fa-solid fa-star"></i> Min Dashboard</h3>
+        <span class="sectionSubtitle">Dina utvalda mätvärden</span>
+    </div>
+    <div id="sc_favoritesContainer" class="favoritesGrid">
+        <div class="emptyState">
+            <i class="fa-regular fa-star"></i>
+            <p>Du har inte valt några favoriter än.</p>
+        </div>
+    </div>
+</div>
+
+<!-- OVERVIEW MODE -->
+<div id="sc_mode_overview" class="scenarioModeSection">
+
+    <!-- HERO METRICS GRID -->
+    <div class="heroMetricsGrid">
+        <!-- Card 1: MONEY -->
+        <div class="heroCard money">
+            <button class="favoriteBtn" onclick="toggleFavorite('sc_yearSavings', 'Total Besparing')"><i
+                    class="fa-regular fa-star"></i></button>
+            <div class="heroIcon"><i class="fa-solid fa-sack-dollar"></i></div>
+            <div class="heroLabel" id="hero_money_label">Besparing (1 år)</div>
+            <div class="heroValue" id="hero_money_val">810 000 kr</div>
+            <div class="heroSub" id="hero_money_sub">Minskad driftskostnad</div>
+        </div>
+
+        <!-- Card 2: TIME -->
+        <div class="heroCard time">
+            <button class="favoriteBtn" onclick="toggleFavorite('sc_hoursSaved', 'Sparad Tid')"><i
+                    class="fa-regular fa-star"></i></button>
+            <div class="heroIcon"><i class="fa-solid fa-clock"></i></div>
+            <div class="heroLabel" id="hero_time_label">Sparad Tid (1 år)</div>
+            <div class="heroValue" id="hero_time_val">4 000 h</div>
+            <div class="heroSub" id="hero_time_sub">Motsvarar <span id="hero_fte_val">2.5</span> heltidstjänster</div>
+        </div>
+
+        <!-- Card 3: VOLUME -->
+        <div class="heroCard vol">
+            <button class="favoriteBtn" onclick="toggleFavorite('sc_aiTickets', 'AI-ärenden')"><i
+                    class="fa-regular fa-star"></i></button>
+            <div class="heroIcon"><i class="fa-solid fa-robot"></i></div>
+            <div class="heroLabel" id="hero_vol_label">AI-hanterade ärenden</div>
+            <div class="heroValue" id="hero_vol_val">2 400</div>
+            <div class="heroSub">Automatiserade ärenden</div>
+        </div>
+
+        <!-- Card 4: QUALITY -->
+        <div class="heroCard quality">
+            <button class="favoriteBtn" onclick="toggleFavorite('sc_currentSla', 'Servicekvalitet')"><i
+                    class="fa-regular fa-star"></i></button>
+            <div class="heroIcon"><i class="fa-solid fa-heart"></i></div>
+            <div class="heroLabel">Servicekvalitet</div>
+            <div class="heroValue" id="sc_currentSla">92%</div>
+            <div class="heroSub active">Uppnår SLA-mål</div>
+        </div>
+    </div>
+
+    <!-- SEKTION 2: AFFÄRSANTAGANDEN (Simplified) -->
+    <div id="sc_assumptions" class="scenarioSection assumptions">
+        <div class="sectionHeader togglable" onclick="toggleSection('sc_assumptions_content')">
+            <h3><i class="fa-solid fa-sliders"></i> Justera simulering</h3>
+            <span class="sectionSubtitle">Dra i reglagen för att se effekten direkt</span>
+            <i class="fa-solid fa-chevron-down toggleIcon"></i>
+        </div>
+        <div id="sc_assumptions_content" class="sectionContent">
+            <div class="assumptionsGrid">
+                <div class="assumptionCard">
+                    <div class="assumptionQuestion">Ärenden / månad</div>
+                    <div class="assumptionInput">
+                        <input type="range" id="sc_tickets" class="slider" min="100" max="5000" value="500" step="50">
+                        <div class="sliderValue"><span id="sc_tickets_val">500</span> st</div>
+                    </div>
+                </div>
+                <div class="assumptionCard">
+                    <div class="assumptionQuestion">AI-grad (%)</div>
+                    <div class="assumptionInput">
+                        <input type="range" id="sc_aiRate" class="slider" min="0" max="95" value="40" step="5">
+                        <div class="sliderValue"><span id="sc_aiRate_val">40</span>%</div>
+                    </div>
+                </div>
+                <div class="assumptionCard">
+                    <div class="assumptionQuestion">Personalkostnad / mån</div>
+                    <div class="assumptionInput">
+                        <input type="range" id="sc_staffCost" class="slider" min="25000" max="80000" value="45000"
+                            step="1000">
+                        <div class="sliderValue"><span id="sc_staffCost_val">45 000</span> kr</div>
+                    </div>
+                </div>
+
+                <div class="advancedAssumptionsToggle"
+                    onclick="document.getElementById('advancedAssumptions').classList.toggle('hidden')">
+                    <i class="fa-solid fa-cog"></i> Visa fler inställningar
+                </div>
+                <div id="advancedAssumptions" class="hidden">
                     <div class="assumptionCard">
-                        <div class="assumptionQuestion">Hur många kundärenden hanterar verksamheten per månad?</div>
+                        <div class="assumptionQuestion">Ärenden per handläggare / dag</div>
                         <div class="assumptionInput">
-                            <input type="range" id="sc_tickets" class="slider" min="100" max="2500" value="500"
-                                step="50">
-                            <div class="sliderValue"><span id="sc_tickets_val">500</span> st</div>
+                            <input type="range" id="sc_ticketsPerDay" class="slider" min="5" max="50" value="12"
+                                step="1">
+                            <div class="sliderValue"><span id="sc_ticketsPerDay_val">12</span> st</div>
                         </div>
                     </div>
                     <div class="assumptionCard">
-                        <div class="assumptionQuestion">Hur stor andel av arbetet kan automatiseras utan att påverka
-                            kvalitet?</div>
+                        <div class="assumptionQuestion">Mål för Service Level (SLA)</div>
                         <div class="assumptionInput">
-                            <input type="range" id="sc_aiRate" class="slider" min="0" max="90" value="40" step="5">
-                            <div class="sliderValue"><span id="sc_aiRate_val">40</span>%</div>
+                            <input type="range" id="sc_targetSla" class="slider" min="80" max="99" value="90" step="1">
+                            <div class="sliderValue"><span id="sc_targetSla_val">90</span>%</div>
                         </div>
-                    </div>
-                    <div class="assumptionCard">
-                        <div class="assumptionQuestion">Vad kostar en medarbetare per månad (inkl. sociala avgifter)?
-                        </div>
-                        <div class="assumptionInput">
-                            <input type="range" id="sc_staffCost" class="slider" min="25000" max="80000" value="45000"
-                                step="1000">
-                            <div class="sliderValue"><span id="sc_staffCost_val">45 000</span> kr</div>
-                        </div>
-                    </div>
-                    <!-- Collapsed advanced assumptions -->
-                    <div class="advancedAssumptionsToggle"
-                        onclick="document.getElementById('advancedAssumptions').classList.toggle('hidden')">
-                        <i class="fa-solid fa-cog"></i> Visa avancerade inställningar
-                    </div>
-                    <div id="advancedAssumptions" class="hidden">
-                        <div class="assumptionCard">
-                            <div class="assumptionQuestion">Hur många ärenden klarar en medarbetare per dag?</div>
-                            <div class="assumptionInput">
-                                <input type="range" id="sc_ticketsPerDay" class="slider" min="5" max="40" value="12"
-                                    step="1">
-                                <div class="sliderValue"><span id="sc_ticketsPerDay_val">12</span> st</div>
-                            </div>
-                        </div>
-                        <div class="assumptionCard">
-                            <div class="assumptionQuestion">Vilken servicenivå (SLA) eftersträvas?</div>
-                            <div class="assumptionInput">
-                                <input type="range" id="sc_targetSla" class="slider" min="80" max="99" value="90"
-                                    step="1">
-                                <div class="sliderValue"><span id="sc_targetSla_val">90</span>%</div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        <!-- SEKTION 7: REKOMMENDATION (Always visible in Overview) -->
-        <div id="sc_rec" class="scenarioSection recommendation">
-            <div class="recommendationCard" id="sc_recommendation">
-                <div class="recIcon"><i class="fa-solid fa-lightbulb"></i></div>
-                <div class="recContent">
-                    <div class="recTitle">Rekommenderat beslut</div>
-                    <div class="recText" id="sc_recText">
-                        Baserat på nuvarande förutsättningar är optimal bemanning 3 medarbetare. Detta säkerställer god
-                        servicekvalitet samtidigt som kostnaden optimeras.
-                    </div>
-                    <div class="actionButtons small">
-                        <button class="btn primary small">Genomför analys</button>
-                        <button class="btn ghost small">Skapa handlingsplan</button>
                     </div>
                 </div>
             </div>
         </div>
     </div>
 
-    <!-- OPTIMIZATION MODE -->
+    <!-- SEKTION 7: REKOMMENDATION (Action Oriented) -->
+    <div id="sc_rec" class="scenarioSection recommendation">
+        <div class="recommendationCard" id="sc_recommendation">
+            <div class="recIcon"><i class="fa-solid fa-check-double"></i></div>
+            <div class="recContent">
+                <div class="recTitle">Rekommendation</div>
+                <div class="recText" id="sc_recText">
+                    Analysera...
+                </div>
+                <!-- Hidden hidden inputs for calculation reference -->
+                <div style="display:none">
+                    <span id="sc_yearSavings"></span>
+                    <span id="sc_hoursSaved"></span>
+                    <span id="sc_aiTickets"></span>
+                    <span id="sc_currentCost"></span>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>    <!-- OPTIMIZATION MODE -->
     <div id="sc_mode_optimization" class="scenarioModeSection" style="display:none;">
         <div class="topInsight">
             <i class="fa-solid fa-arrow-trend-up"></i>

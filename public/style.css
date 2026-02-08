@@ -3538,3 +3538,116 @@ input[type="range"].slider::-webkit-slider-thumb:hover {
 .hidden {
     display: none;
 }
+
+/* SCENARIO V3 - Hero & Filters */
+.headerTopRow {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 20px;
+}
+
+.scenarioTimeFilter {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.filterLabel {
+    font-size: 13px;
+    color: var(--text-muted);
+    font-weight: 500;
+}
+
+.segmentedControl {
+    background: var(--panel2);
+    border-radius: 8px;
+    padding: 2px;
+    display: flex;
+    gap: 2px;
+}
+
+.timeFilterBtn {
+    background: transparent;
+    border: none;
+    padding: 6px 12px;
+    border-radius: 6px;
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--text-muted);
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.timeFilterBtn.active {
+    background: var(--bg);
+    color: var(--text);
+    box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+}
+
+.timeFilterBtn:hover:not(.active) {
+    color: var(--text);
+}
+
+.heroMetricsGrid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 16px;
+    margin-bottom: 24px;
+}
+
+.heroCard {
+    background: var(--panel);
+    border-radius: 12px;
+    padding: 20px;
+    position: relative;
+    border: 1px solid var(--border);
+    transition: transform 0.2s, box-shadow 0.2s;
+}
+
+.heroCard:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 20px rgba(0,0,0,0.1);
+}
+
+.heroCard.money { border-bottom: 3px solid var(--success); }
+.heroCard.time { border-bottom: 3px solid var(--primary); }
+.heroCard.vol { border-bottom: 3px solid var(--info); }
+.heroCard.quality { border-bottom: 3px solid #8b5cf6; }
+
+.heroIcon {
+    font-size: 24px;
+    margin-bottom: 12px;
+    opacity: 0.8;
+}
+
+.heroCard.money .heroIcon { color: var(--success); }
+.heroCard.time .heroIcon { color: var(--primary); }
+.heroCard.vol .heroIcon { color: var(--info); }
+.heroCard.quality .heroIcon { color: #8b5cf6; }
+
+.heroLabel {
+    font-size: 13px;
+    color: var(--text-muted);
+    margin-bottom: 4px;
+    font-weight: 500;
+}
+
+.heroValue {
+    font-size: 28px;
+    font-weight: 800;
+    color: var(--text);
+    letter-spacing: -0.5px;
+    margin-bottom: 4px;
+}
+
+.heroSub {
+    font-size: 12px;
+    color: var(--text-muted);
+}
+
+.scenarioSummaryBar .summaryStat .value.giant {
+    font-size: 24px;
+    font-weight: 900;
+}
+
