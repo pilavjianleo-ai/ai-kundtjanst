@@ -630,9 +630,10 @@ async function switchCompany(newCompanyId) {
 async function bootstrapAfterLogin() {
   showView("chatView", "openChatView");
 
-  // Reuse switchCompany logic to show Intro Card and trigger Contact Form consistently
-  // This replaces the old logic that showed buttons below the chat
-  await switchCompany(state.companyId || 'demo');
+  // Force update to ensure Intro Card renders (bypass early return in switchCompany)
+  const current = state.companyId || 'demo';
+  state.companyId = null;
+  await switchCompany(current);
 }
 
 /* =========================
