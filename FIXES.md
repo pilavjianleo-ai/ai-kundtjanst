@@ -72,6 +72,7 @@
 - ✅ **CRM Panel UI** - Återställt Kundkortet som en utfällbar accordion inom sektionen "Senaste Händelser".
 - ✅ **Agent Inbox** - Åtgärdat saknad "Kundkort"-knapp genom att rensa dubbla funktionsdefinitioner i `script.js`.
 - ✅ **Responsivitet** - Säkerställt att desktop-layouten är orörd genom att isolera mobiloptimeringar till specifika media queries.
+- ✅ **AI Kostnadsanalys** - Implementerat ett avancerat verktyg för att beräkna LLM-kostnader (GPT-5/GPT-4) med verkliga SEK-priser för input/output och automatisk marginalberäkning per kund.
 - ✅ **Cache Management** - Bumpat versionering till `v=2026.16` i `index.html` för att säkerställa att ändringar slår igenom.
 
 ---
