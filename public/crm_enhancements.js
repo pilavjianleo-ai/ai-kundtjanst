@@ -444,32 +444,16 @@ window.calculateAiMargins = function () {
     // 5. INTÄKTER & MARGINAL
     // ==========================================
 
-    // Robust parser för valuta/nummer
-    const parseCurrency = (val) => {
-        if (!val) return 0;
-        if (typeof val === 'number') return val;
-        // Rensa bort allt utom siffror, punkt och minus, ersätt komma med punkt om det behövs
-        const clean = val.toString().replace(/\s/g, '').replace(',', '.').replace(/[^0-9.-]/g, '');
-        return parseFloat(clean) || 0;
-    };
-
     // Hämta Månadsintäkt (Netto exkl moms)
     let monthly_revenue_exkl_moms = 0;
 
-    // Säkerställ att vi har kunder
-    const customers = (window.crmState?.customers && window.crmState.customers.length > 0)
-        ? window.crmState.customers
-        : JSON.parse(localStorage.getItem('crmCustomers') || '[]');
-
     if (customerId === 'all') {
-        const totalArr = customers.reduce((sum, c) => sum + parseCurrency(c.value), 0);
+        const totalArr = customers.reduce((sum, c) => sum + (parseFloat(c.value) || 0), 0);
         monthly_revenue_exkl_moms = totalArr / 12; // ARR -> MRR
     } else {
-        // Försök matcha exakt ID first, sen loose match
-        const cust = customers.find(x => x.id.toString() === customerId.toString());
+        const cust = customers.find(x => x.id == customerId);
         // value antas vara ARR (Annual Recurring Revenue)
-        const arr = parseCurrency(cust?.value);
-        monthly_revenue_exkl_moms = arr / 12;
+        monthly_revenue_exkl_moms = (parseFloat(cust?.value) || 0) / 12;
     }
 
     const gross_margin_value = monthly_revenue_exkl_moms - monthly_llm_cost_sek;
