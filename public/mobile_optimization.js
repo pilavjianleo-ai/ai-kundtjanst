@@ -22,26 +22,8 @@ function initMobileMenu() {
         document.body.appendChild(ov);
     }
 
-    const topbars = document.querySelectorAll('.topbar');
-    topbars.forEach(tb => {
-        const titleContainer = tb.firstElementChild;
-        // Check for existing menu toggle (either our manual one or legacy one)
-        if (titleContainer && !titleContainer.querySelector('.mobile-menu-btn') && !titleContainer.querySelector('.menu-toggle')) {
-            const btn = document.createElement('button');
-            // Use existing styles!
-            btn.className = 'btn ghost icon menu-toggle mobile-menu-btn';
-            btn.innerHTML = '<i class="fa-solid fa-bars"></i>';
-            btn.type = 'button';
-            btn.onclick = window.toggleSidebar;
-
-            titleContainer.style.display = 'flex';
-            titleContainer.style.alignItems = 'center';
-            titleContainer.style.gap = '10px';
-
-            titleContainer.insertBefore(btn, titleContainer.firstChild);
-        }
-    });
-
+    // Dynamic topbar injection removed in favor of static .mobile-header in index.html for better stability.
+    // This prevents double buttons or inconsistent placement across views.
     document.querySelectorAll('.menuBtn').forEach(btn => {
         btn.addEventListener('click', () => {
             if (window.innerWidth <= 768) {

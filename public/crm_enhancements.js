@@ -14,9 +14,11 @@ if (typeof window.crmState === 'undefined') {
 /**
  * SYNC CRM DATA WITH BACKEND (Multi-device support)
  */
-window.syncCrmData = async function () {
+window.syncCrmData = async function (manual = false) {
     if (!window.api || !window.state || !window.state.token) return;
-    const companyId = window.state.companyId || (window.state.user ? window.state.user.companyId : 'demo');
+    const companyId = window.state.companyId || (window.state.me ? window.state.me.companyId : 'demo');
+
+    if (manual) console.log("🔄 Manual Sync initiated...");
 
     try {
         const data = await api(`/crm/sync?companyId=${companyId}`);
@@ -24,7 +26,6 @@ window.syncCrmData = async function () {
             // Priority: Backend data overwrites local if exists, ensuring sync
             if (data.customers) {
                 localStorage.setItem('crmCustomers', JSON.stringify(data.customers));
-                // Update global state if it exists
                 if (typeof crmState !== 'undefined') crmState.customers = data.customers;
             }
             if (data.deals) {
@@ -33,18 +34,23 @@ window.syncCrmData = async function () {
             }
             if (data.activities) {
                 localStorage.setItem('crmActivities', JSON.stringify(data.activities));
+                if (typeof crmState !== 'undefined') crmState.activities = data.activities;
             }
 
             console.log("✅ CRM data synkad från molnet.");
+            if (manual && typeof toast === 'function') toast("Synkad", "All data är nu uppdaterad från molnet", "success");
 
-            // Re-render all CRM components
+            // Re-render ALL crm views
             if (typeof renderCrmDashboard === 'function') renderCrmDashboard();
             if (typeof renderCustomerList === 'function') renderCustomerList();
             if (typeof renderPipeline === 'function') renderPipeline();
+            if (typeof calculateAiMargins === 'function') calculateAiMargins();
+
             updateChatCategoriesFromCRM();
         }
     } catch (e) {
         console.error("CRM Sync Error:", e.message);
+        if (manual && typeof toast === 'function') toast("Sync Fel", e.message, "error");
     }
 };
 
@@ -52,8 +58,8 @@ window.syncCrmData = async function () {
  * PUSH CRM DATA TO BACKEND
  */
 window.pushCrmToBackend = async function (type) {
-    if (!window.api || !window.state || !window.state.token || !window.state.user) return;
-    const companyId = window.state.companyId || (window.state.user ? window.state.user.companyId : 'demo');
+    if (!window.api || !window.state || !window.state.token || !window.state.me) return;
+    const companyId = window.state.companyId || (window.state.me ? window.state.me.companyId : 'demo');
 
     try {
         if (type === 'customers' || !type) {
@@ -82,6 +88,13 @@ window.pushCrmToBackend = async function (type) {
         console.error("Cloud Push Failed:", e.message);
     }
 };
+
+// Auto-sync when window gains focus
+window.addEventListener('focus', () => {
+    if (window.state && window.state.token) {
+        window.syncCrmData();
+    }
+});
 
 /**
  * Sync CRM Customers (AI Active) to Chat Dropdown
@@ -315,20 +328,31 @@ window.calculateAiMargins = function () {
 
     // 6. REVENUE & MARGIN (DEL 8)
     const customers = window.crmState?.customers || [];
+    const deals = window.crmState?.deals || [];
     let gross_revenue = 0;
     let isCategory = false;
 
     if (customerId === 'all') {
-        gross_revenue = customers.reduce((sum, c) => sum + (parseFloat(c.value) || 0), 0);
+        // ALWAYS use 'Total Value' from deals as the primary baseline for Category analysis
+        // This is what the user specifically asked for.
+        const dealsValue = deals.reduce((sum, d) => sum + (parseFloat(d.value) || 0), 0);
+        gross_revenue = dealsValue;
         isCategory = true;
     } else {
         const c = customers.find(x => x.id == customerId);
+        // For individual customer, check their specific value OR won deals associated with them
+        const customerDeals = deals.filter(d => d.company === c?.name);
+        const dealsValue = customerDeals.reduce((sum, d) => sum + (parseFloat(d.value) || 0), 0);
+
         gross_revenue = c ? (parseFloat(c.value) || 0) : 0;
+        // If customer has no fixed value, use their pipeline value
+        if (gross_revenue === 0) gross_revenue = dealsValue;
     }
 
     let isDemo = false;
-    if (gross_revenue === 0 && customers.length === 0) {
-        gross_revenue = 4990;
+    if (gross_revenue === 0) {
+        // Fallback to average plan value if no data exists to show something useful
+        gross_revenue = 4995;
         isDemo = true;
     }
 
@@ -373,6 +397,10 @@ window.calculateAiMargins = function () {
         document.getElementById('breakGpt5').innerText = fmt(monthly_chats * share_std * costB_usd * AI_CONFIG.exchange_rate);
     if (document.getElementById('breakGpt4'))
         document.getElementById('breakGpt4').innerText = fmt(monthly_chats * share_adv * costC_usd * AI_CONFIG.exchange_rate);
+
+    // Update exchange rate label if exists
+    const rateLabel = document.getElementById('resExchRate');
+    if (rateLabel) rateLabel.innerText = AI_CONFIG.exchange_rate.toFixed(2);
 
     console.log("TRACE:", { daily: chats_per_day, monthly: monthly_chats, cost_per_chat_sek: avg_cost_sek, profit: profit_val });
 };

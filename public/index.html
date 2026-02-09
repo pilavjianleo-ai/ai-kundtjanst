@@ -15,8 +15,22 @@
 
 <body data-theme="light">
   <div class="app">
+    <!-- Mobil Header (Visas endast < 768px) -->
+    <div class="mobile-header">
+      <button class="menu-toggle" onclick="toggleSidebar()">
+        <i class="fa-solid fa-bars"></i>
+      </button>
+      <div class="mobile-logo">
+        <i class="fa-solid fa-headset"></i> AI Kundtjänst
+      </div>
+    </div>
+
     <div class="mobile-overlay" onclick="toggleSidebar()"></div>
     <aside class="sidebar">
+      <!-- Stäng-knapp för mobil -->
+      <button class="sidebar-close" onclick="toggleSidebar()">
+        <i class="fa-solid fa-xmark"></i>
+      </button>
       <div class="brand">
         <div class="logo"><i class="fa-solid fa-headset"></i></div>
         <div class="brandText">
@@ -1082,15 +1096,18 @@
       <section id="customerAdminView" class="view" style="display:none;">
         <div class="topbar">
           <div>
-            <div class="title">CRM & Försäljning</div>
-            <div class="subtitle muted">Hantera kunder, affärer och pipeline på ett ställe.</div>
+            <div class="title">CRM & Kundhantering</div>
+            <div class="subtitle muted">Hantera affärer, kunder och AI-marginaler i realtid.</div>
           </div>
           <div class="topbarActions">
-            <button id="addDealBtn" class="btn primary" onclick="openDealModal()">
-              <i class="fa-solid fa-plus"></i> Ny Affär
+            <button class="btn ghost" onclick="syncCrmData(true)">
+              <i class="fa-solid fa-cloud-arrow-down"></i> Synka nu
             </button>
-            <button id="addCustomerBtn" class="btn ghost" onclick="openAddCustomerModal()">
-              <i class="fa-solid fa-user-plus"></i> Ny Kund
+            <button class="btn secondary" onclick="openAddCustomerModal()">
+              <i class="fa-solid fa-plus"></i> Ny Kund
+            </button>
+            <button class="btn primary" onclick="openDealModal()">
+              <i class="fa-solid fa-file-invoice-dollar"></i> Ny Affär
             </button>
           </div>
         </div>
@@ -1410,7 +1427,7 @@
               <div class="divider" style="margin:20px 0;"></div>
               <div style="display:flex; justify-content:space-between; font-size:12px;" class="muted">
                 <span>Snittkostnad per chatt: <b id="resAvgChatCost" style="color:var(--text);">0 kr</b></span>
-                <span>Växelkurs USD/SEK: <b>11.50</b></span>
+                <span>Växelkurs USD/SEK: <b id="resExchRate">10.80</b></span>
               </div>
 
               <div style="margin-top:25px;">
