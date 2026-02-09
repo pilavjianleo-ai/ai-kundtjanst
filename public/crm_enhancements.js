@@ -1129,7 +1129,7 @@ document.addEventListener('DOMContentLoaded', () => {
     updateChatCategoriesFromCRM();
     renderCrmDashboard();
     if (window.renderCustomerList) window.renderCustomerList();
-    setInterval(() => updateChatCategoriesFromCRM(), 3000);
+    setInterval(() => updateChatCategoriesFromCRM(), 15000); // Optimized to 15s to reduce lag
 
     const sendBtn = document.getElementById('sendBtn');
     if (sendBtn) {

@@ -6313,7 +6313,7 @@ function saveNewDeal() {
 }
 
 function addDealToPipelineUI(deal) {
-  renderPipeline();
+  if (typeof renderPipeline === 'function') renderPipeline();
   if (typeof renderCrmDashboard === 'function') renderCrmDashboard();
 }
 
