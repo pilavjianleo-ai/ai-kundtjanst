@@ -347,172 +347,152 @@ window.syncAiSplits = function (source) {
 window.calculateAiMargins = function () {
     const customerId = document.getElementById('aiCostCustomerSelect')?.value || 'all';
 
-    // READ USER INPUTS
-    const volume_input = parseFloat(document.getElementById('aiCostVolume')?.value || 100);
-    const tokens_input = parseFloat(document.getElementById('aiCostTokens')?.value || 1500);
+    // 1. INDATA (CONFIGURATION & INPUTS)
 
-    // Read Model Split from Sliders (User adjustable)
-    let valMini = parseInt(document.getElementById('splitMini')?.value || 70);
-    let valGpt5 = parseInt(document.getElementById('splitGpt5')?.value || 25);
-    let valGpt4 = parseInt(document.getElementById('splitGpt4')?.value || 5);
+    // Volym: Chattar per dag
+    const chats_per_day = parseFloat(document.getElementById('aiCostVolume')?.value || 100);
+    const days_per_month = 30;
 
-    const auto = document.getElementById('aiAutoRouting')?.checked;
+    // Tokens: Fördelning Input/Output (Enligt spec: 500/500 eller input)
+    const total_tokens = parseFloat(document.getElementById('aiCostTokens')?.value || 1000);
+    const avg_input_tokens = total_tokens * 0.5;
+    const avg_output_tokens = total_tokens * 0.5;
 
-    // Normalize to ensure strict 100% sum if user drags weirdly (optional safety, or just trust inputs)
-    // For now, trust inputs but use them as weights
-    const totalSplit = valMini + valGpt5 + valGpt4;
-    const SHARE_MINI = valMini / 100;
-    const SHARE_STD = valGpt5 / 100;
-    const SHARE_ADV = valGpt4 / 100;
-
-    const MOMS_SATS = 0.25;
-
-    // 2. KOSTNADER (Hämta från config)
-    const exch = AI_CONFIG.exchange_rate || 11.5;
-    const p = AI_CONFIG.model_prices;
-
-    // Hjälpfunktion: Kostnad per chatt för en modell
-    const getCostPerChat = (modelPrice) => {
-        // Pris i USD per 1M tokens. Snitt av in/ut.
-        const avgPriceUsdPerMillion = (modelPrice.in + modelPrice.out) / 2;
-        // (Tokens / 1M) * Pris * Växelkurs
-        return (tokens_input / 1000000) * avgPriceUsdPerMillion * exch;
+    // Valuta
+    // Använd global AI_CONFIG eller fallbacks
+    const exch = (typeof AI_CONFIG !== 'undefined' && AI_CONFIG.exchange_rate) ? AI_CONFIG.exchange_rate : 11.5;
+    const p = (typeof AI_CONFIG !== 'undefined' && AI_CONFIG.model_prices) ? AI_CONFIG.model_prices : {
+        mini: { in: 0.15, out: 0.60 },
+        standard: { in: 2.50, out: 10.00 },
+        advanced: { in: 5.00, out: 15.00 }
     };
 
-    const cost_mini = getCostPerChat(p.mini);
-    const cost_std = getCostPerChat(p.standard);
-    const cost_adv = getCostPerChat(p.advanced);
+    // Routing (Andelar)
+    let sMini = parseInt(document.getElementById('splitMini')?.value || 70);
+    let sStd = parseInt(document.getElementById('splitGpt5')?.value || 25);
+    let sAdv = parseInt(document.getElementById('splitGpt4')?.value || 5);
 
-    // 3A. VIKTAD LLM-KOSTNAD PER CHATT (EXKL. MOMS)
-    // Cost based on user selected split
-    const cost_per_chat_sek = (SHARE_MINI * cost_mini) +
-        (SHARE_STD * cost_std) +
-        (SHARE_ADV * cost_adv);
-
-    // 4. DATAHÄMTNING (KATEGORI / KUND)
+    // Kundspecifik Override
     const customers = window.crmState?.customers || [];
-    let total_revenue_exkl_moms = 0;
-    let total_chattar_manad = volume_input * 30; // Månadsvolym baserat på input
-
-    // Kundspecifik modellpolicy
     if (customerId !== 'all') {
         const cust = customers.find(x => x.id == customerId);
-        if (cust?.aiConfig?.modelPolicy && typeof cust.aiConfig.modelPolicy === 'object') {
+        if (cust?.aiConfig?.modelPolicy) {
             const mp = cust.aiConfig.modelPolicy;
-            if (typeof mp.mini === 'number' && typeof mp.std === 'number' && typeof mp.adv === 'number') {
-                valMini = mp.mini; valGpt5 = mp.std; valGpt4 = mp.adv;
-                const sMini = document.getElementById('splitMini');
-                const sStd = document.getElementById('splitGpt5');
-                const sAdv = document.getElementById('splitGpt4');
-                if (sMini) sMini.value = valMini;
-                if (sStd) sStd.value = valGpt5;
-                if (sAdv) sAdv.value = valGpt4;
+            if (typeof mp.mini === 'number') {
+                sMini = mp.mini;
+                sStd = mp.std;
+                sAdv = mp.adv;
+                // Uppdatera UI sliders för att visa kundens inställning
+                ['splitMini', 'splitGpt5', 'splitGpt4'].forEach((id, i) => {
+                    const el = document.getElementById(id);
+                    if (el) el.value = [sMini, sStd, sAdv][i];
+                });
             }
         }
     }
 
+    // Normalisera andelar till 0.0 - 1.0
+    const share_mini = sMini / 100;
+    const share_std = sStd / 100;
+    const share_adv = sAdv / 100;
+
+    // 2. KOSTNAD PER CHATT (PER MODELL)
+    // Formel: ((Input / 1M) * PrisIn + (Output / 1M) * PrisOut) * Växelkurs
+    const calculateModelCost = (priceStruct) => {
+        const cost_in = (avg_input_tokens / 1000000) * priceStruct.in;
+        const cost_out = (avg_output_tokens / 1000000) * priceStruct.out;
+        return (cost_in + cost_out) * exch; // SEK
+    };
+
+    const cost_mini_sek = calculateModelCost(p.mini);
+    const cost_std_sek = calculateModelCost(p.standard);
+    const cost_adv_sek = calculateModelCost(p.advanced);
+
+    // 3. VIKTAD SNITTKOSTNAD (ROUTING)
+    const weighted_avg_cost_sek =
+        (cost_mini_sek * share_mini) +
+        (cost_std_sek * share_std) +
+        (cost_adv_sek * share_adv);
+
+    // 4. MÅNADSKOSTNAD LLM
+    const monthly_chats = chats_per_day * days_per_month;
+    const monthly_llm_cost_sek = monthly_chats * weighted_avg_cost_sek;
+
+    // 5. INTÄKTER (MÅNAD)
+    // Vi konverterar ARR (Årsvärde) till Månadsvärde
+    let monthly_revenue_exkl_moms = 0;
     if (customerId === 'all') {
-        // "Hela kategorin" = SUMMERING av alla kunders värden
-        total_revenue_exkl_moms = customers.reduce((sum, c) => sum + (parseFloat(c.value) || 0), 0);
+        const totalArr = customers.reduce((sum, c) => sum + (parseFloat(c.value) || 0), 0);
+        monthly_revenue_exkl_moms = totalArr / 12;
     } else {
-        const c = customers.find(x => x.id == customerId);
-        total_revenue_exkl_moms = parseFloat(c?.value || 0);
+        const cust = customers.find(x => x.id == customerId);
+        monthly_revenue_exkl_moms = (parseFloat(cust?.value) || 0) / 12;
     }
 
-    // 5. BERÄKNINGAR (Enligt spec)
+    const MOMS_SATS = 0.25;
+    const monthly_revenue_inkl_moms = monthly_revenue_exkl_moms * (1 + MOMS_SATS);
 
-    // C. Total LLM-kostnad (EXKL. moms)
-    const total_llm_cost = cost_per_chat_sek * total_chattar_manad;
+    // 6. MARGINAL (BRUTTO)
+    const margin_value_sek = monthly_revenue_exkl_moms - monthly_llm_cost_sek;
 
-    // D. Intäkt
-    const intakt_exkl_moms = total_revenue_exkl_moms;
-    const moms_belopp = intakt_exkl_moms * MOMS_SATS;
-    // Brutto Intäkt (mot kund) = Intäkt exkl moms + moms
-    const intakt_inkl_moms = intakt_exkl_moms + moms_belopp;
-
-    // E. Brutto & Netto (Enligt user def: Brutto=Intäkt, Netto=Vinst)
-    const marginal_sek = intakt_exkl_moms - total_llm_cost;
-
-    // F. Marginal % (Baseras ALLTID på exkl. moms)
-    let marginal_procent = 0;
-    if (intakt_exkl_moms > 0) {
-        marginal_procent = (marginal_sek / intakt_exkl_moms) * 100;
+    let margin_percent = 0;
+    if (monthly_revenue_exkl_moms > 0) {
+        margin_percent = (margin_value_sek / monthly_revenue_exkl_moms) * 100;
     }
 
-    // Marginal-skydd: om auto-routing aktiv och marginalen < tröskel, justera fördelning
-    const MARGIN_MIN = 20;
-    if (auto && marginal_procent < MARGIN_MIN) {
-        // Flytta 5% från dyrare modeller till mini, upp till 3 iterationer
-        let iter = 0;
-        while (marginal_procent < MARGIN_MIN && iter < 3) {
-            if (valGpt4 > 0) { valGpt4 = Math.max(0, valGpt4 - 5); valMini = Math.min(100, valMini + 5); }
-            else if (valGpt5 > 0) { valGpt5 = Math.max(0, valGpt5 - 5); valMini = Math.min(100, valMini + 5); }
-            iter++;
-            const sMini = document.getElementById('splitMini');
-            const sStd = document.getElementById('splitGpt5');
-            const sAdv = document.getElementById('splitGpt4');
-            if (sMini) sMini.value = valMini;
-            if (sStd) sStd.value = valGpt5;
-            if (sAdv) sAdv.value = valGpt4;
-            const SHARE_MINI2 = valMini / 100, SHARE_STD2 = valGpt5 / 100, SHARE_ADV2 = valGpt4 / 100;
-            const cost_per_chat2 = (SHARE_MINI2 * cost_mini) + (SHARE_STD2 * cost_std) + (SHARE_ADV2 * cost_adv);
-            const total_llm_cost2 = cost_per_chat2 * total_chattar_manad;
-            const marginal_sek2 = intakt_exkl_moms - total_llm_cost2;
-            marginal_procent = intakt_exkl_moms > 0 ? (marginal_sek2 / intakt_exkl_moms) * 100 : 0;
-        }
-    }
-
-    // 6. UPDATE UI
-    const fmt = (v) => new Intl.NumberFormat('sv-SE', { style: 'currency', currency: 'SEK' }).format(v);
+    // 7. UI UPPDATERING
+    const fmt = (v) => new Intl.NumberFormat('sv-SE', { style: 'currency', currency: 'SEK', maximumFractionDigits: 0 }).format(v);
+    const fmtDec = (v) => new Intl.NumberFormat('sv-SE', { style: 'currency', currency: 'SEK', minimumFractionDigits: 2 }).format(v);
     const fmtPct = (v) => v.toFixed(1) + '%';
-
-    // Update Text Elements
     const setTxt = (id, val) => { const el = document.getElementById(id); if (el) el.innerText = val; };
 
-    // Mappa mot UI-elementen
-    setTxt('resGrossRevenue', fmt(intakt_inkl_moms)); // UI Label: "Brutto Intäkt (Inkl. moms)"
-    setTxt('resNetRevenue', fmt(intakt_exkl_moms));   // UI Label: "Netto Intäkt (Exkl. moms)"
-    setTxt('resAiCost', fmt(total_llm_cost));
-    setTxt('resMarginValue', fmt(marginal_sek));      // UI Label: "Netto Vinst (Månad)"
-    setTxt('resMarginPercentBox', fmtPct(marginal_procent)); // UI Label: "Bruttomarginal (%)"
+    // Uppdatera rubriker till Månad
+    const labelTitle = document.querySelector('#resMarginValue')?.previousElementSibling;
+    if (labelTitle) labelTitle.innerText = "Netto Vinst (Månad)";
+    const labelCost = document.querySelector('#resAiCost')?.previousElementSibling;
+    if (labelCost) labelCost.innerText = "Total LLM Kostnad (Månad)";
 
-    setTxt('resAvgChatCost', cost_per_chat_sek.toFixed(2) + ' kr');
+    setTxt('resGrossRevenue', fmt(monthly_revenue_inkl_moms));
+    setTxt('resNetRevenue', fmt(monthly_revenue_exkl_moms));
+    setTxt('resAiCost', fmt(monthly_llm_cost_sek));
+    setTxt('resMarginValue', fmt(margin_value_sek));
+    setTxt('resMarginPercentBox', fmtPct(margin_percent));
+
+    setTxt('resAvgChatCost', fmtDec(weighted_avg_cost_sek));
     setTxt('resExchRate', exch.toFixed(2));
 
-    // Update UI Count
     const countEl = document.getElementById('ui_count');
-    if (countEl) countEl.innerText = total_chattar_manad.toLocaleString();
+    if (countEl) countEl.innerText = monthly_chats.toLocaleString() + " /mån";
 
-    // UPDATE SLIDER LABELS ONLY (Do NOT force values)
-    setTxt('valMini', valMini + '%');
-    setTxt('valGpt5', valGpt5 + '%');
-    setTxt('valGpt4', valGpt4 + '%');
+    // Sliders Labels
+    setTxt('valMini', sMini + '%');
+    setTxt('valGpt5', sStd + '%');
+    setTxt('valGpt4', sAdv + '%');
 
-    // Color coding for margin
+    // Färgsättning
     const pctBox = document.getElementById('resMarginPercentBox');
     if (pctBox) {
-        pctBox.style.color = marginal_procent > 20 ? 'var(--ok)' : (marginal_procent > 0 ? 'var(--warn)' : 'var(--danger)');
+        pctBox.style.color = margin_percent > 20 ? 'var(--ok)' : (margin_percent > 0 ? 'var(--warn)' : 'var(--danger)');
     }
 
+    // Varningsmeddelanden
     const note = document.getElementById('marginNote');
     if (note) {
-        if (totalSplit !== 100) {
-            note.innerText = `OBS: Summan är ${totalSplit}% (Bör vara 100%)`;
+        const totalShare = sMini + sStd + sAdv;
+        if (totalShare !== 100) {
+            note.innerText = `OBS: Summan är ${totalShare}% (Måste vara 100%)`;
             note.style.color = 'var(--warn)';
         } else {
-            note.innerText = `Marginal beräknad på Netto Intäkt (Exkl. moms)`;
+            note.innerText = `Beräknat på Månadsbasis (ARR / 12)`;
             note.style.color = 'var(--muted)';
         }
     }
-    const warnEl = document.getElementById('marginWarning');
-    if (warnEl) {
-        warnEl.style.display = marginal_procent < MARGIN_MIN ? 'block' : 'none';
-    }
 
-    // Breakdown costs
-    setTxt('breakMini', fmt(total_chattar_manad * (valMini / 100) * cost_mini));
-    setTxt('breakGpt5', fmt(total_chattar_manad * (valGpt5 / 100) * cost_std));
-    setTxt('breakGpt4', fmt(total_chattar_manad * (valGpt4 / 100) * cost_adv));
+    // Kostnadsfördelning (Visualisering av snittkostnad per modell-andel)
+    // Visa hur stor del av månadskostnaden som går till varje modell
+    setTxt('breakMini', fmt(monthly_chats * share_mini * cost_mini_sek));
+    setTxt('breakGpt5', fmt(monthly_chats * share_std * cost_std_sek));
+    setTxt('breakGpt4', fmt(monthly_chats * share_adv * cost_adv_sek));
 };
 
 // Kundspecifik modellpolicy setter
