@@ -791,6 +791,8 @@ window.renderCustomerList = function () {
     if (!tbody) return;
 
     let customers = JSON.parse(localStorage.getItem('crmCustomers') || '[]');
+    // Fix: Remove undefined/corrupt entries from view
+    customers = customers.filter(c => c && c.name && c.name !== 'undefined');
 
     // FILTER BY CURRENT COMPANY CONTEXT
     const activeCompanyId = window.state?.companyId;
