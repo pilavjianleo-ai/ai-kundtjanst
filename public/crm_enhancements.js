@@ -141,13 +141,23 @@ window.syncAiSplits = function (source) {
     const gpt5Val = parseInt(document.getElementById('splitGpt5').value);
     const gpt4Val = parseInt(document.getElementById('splitGpt4').value);
 
-    // Simple normalization to 100%
-    let total = miniVal + gpt5Val + gpt4Val;
-    if (total === 0) return;
+    const total = miniVal + gpt5Val + gpt4Val;
 
     document.getElementById('valMini').innerText = miniVal + '%';
     document.getElementById('valGpt5').innerText = gpt5Val + '%';
     document.getElementById('valGpt4').innerText = gpt4Val + '%';
+
+    // Visual indicator if not 100%
+    const note = document.getElementById('marginNote');
+    if (note) {
+        if (total !== 100) {
+            note.innerText = `OBS! Fördelningen är ${total}%. Måste vara 100% för korrekt routing.`;
+            note.style.color = 'var(--danger)';
+        } else {
+            note.innerText = 'Beräknat efter viktad LLM-routing';
+            note.style.color = 'var(--muted)';
+        }
+    }
 
     calculateAiMargins();
 };
