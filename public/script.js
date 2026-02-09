@@ -6529,11 +6529,32 @@ window.deleteCustomer = deleteCustomer;
 
 // Auto-render on load
 document.addEventListener('DOMContentLoaded', () => {
-  // Trigger Sync
+  // Trigger Initial Sync
   if (typeof syncCrmData === 'function') {
     console.log("Auto-syncing CRM on page load...");
     syncCrmData();
   }
+
+  // REAL-TIME SYNC POLLING (30s)
+  // Ensures cross-device consistency as per user requirements
+  setInterval(async () => {
+    if (state.token && (state.me?.role === 'admin' || state.me?.role === 'agent')) {
+      console.log("🔄 Background Sync: Fetching latest cloud data...");
+      if (typeof syncCrmData === 'function') await syncCrmData();
+      if (typeof loadInboxTickets === 'function' && state.currentView === 'inboxView') await loadInboxTickets();
+    }
+  }, 30000);
+
+  // MASTER LAYOUT ENFORCEMENT
+  // Resets mobile-only states if window is resized/rotated above 768px
+  window.addEventListener('resize', () => {
+    if (window.innerWidth > 768) {
+      document.querySelector('.sidebar')?.classList.remove('active');
+      document.querySelector('.mobile-overlay')?.classList.remove('active');
+      document.body.style.overflow = '';
+    }
+  });
+
   // If we are on customers tab, render.
   renderCustomerList();
 });

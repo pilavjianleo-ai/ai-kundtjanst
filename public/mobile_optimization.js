@@ -44,7 +44,7 @@ function initMobileMenu() {
 
     document.querySelectorAll('.menuBtn').forEach(btn => {
         btn.addEventListener('click', () => {
-            if (window.innerWidth <= 900) {
+            if (window.innerWidth <= 768) {
                 document.querySelector('.sidebar')?.classList.remove('active');
                 document.querySelector('.mobile-overlay')?.classList.remove('active');
                 document.body.style.overflow = '';
