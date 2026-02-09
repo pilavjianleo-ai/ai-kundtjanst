@@ -1596,6 +1596,52 @@ app.delete("/admin/kb/bulk-delete", authenticate, requireAdmin, async (req, res)
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
+/* =====================
+   ADMIN: USER MANAGEMENT
+===================== */
+
+// List Users
+app.get("/admin/users", authenticate, requireAdmin, async (req, res) => {
+  try {
+    const users = await User.find({}).select("-password").sort({ createdAt: -1 });
+    res.json(users);
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// Create User (Admin)
+app.post("/admin/users", authenticate, requireAdmin, async (req, res) => {
+  try {
+    const { username, password, role, companyId, email } = req.body;
+    if (!username || !password) return res.status(400).json({ error: "Användarnamn/lösenord krävs" });
+
+    const existing = await User.findOne({ username });
+    if (existing) return res.status(400).json({ error: "Användarnamnet upptaget" });
+
+    const user = new User({
+      username,
+      password: await bcrypt.hash(password, 10),
+      role: role || "user",
+      companyId: companyId || null,
+      email: email || ""
+    });
+
+    await user.save();
+    res.json({ message: "Användare skapad", user: { id: user._id, username: user.username } });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// Delete User
+app.delete("/admin/users/:id", authenticate, requireAdmin, async (req, res) => {
+  try {
+    const { id } = req.params;
+    if (id === req.user.id) return res.status(400).json({ error: "Du kan inte radera dig själv" });
+
+    await User.findByIdAndDelete(id);
+    // Optionally delete tickets assigned to this user?? No, keep history.
+    res.json({ message: "Användare raderad" });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
 app.get("/sla/agents", authenticate, requireAgent, async (req, res) => {
   try {
     const { days = 30 } = req.query;
