@@ -447,18 +447,26 @@ window.calculateAiMargins = function () {
     // Hämta Månadsintäkt (Netto exkl moms)
     let monthly_revenue_exkl_moms = 0;
 
+    // Enkel hjälpfunktion för att städa bort mellanslag i belopp (t.ex "24 000" -> 24000)
+    const cleanVal = (v) => {
+        if (typeof v === 'number') return v;
+        if (typeof v === 'string') return parseFloat(v.replace(/\s/g, '').replace(',', '.')) || 0;
+        return 0;
+    };
+
     if (customerId === 'all') {
-        const totalArr = customers.reduce((sum, c) => sum + (parseFloat(c.value) || 0), 0);
+        const totalArr = customers.reduce((sum, c) => sum + cleanVal(c.value), 0);
         monthly_revenue_exkl_moms = totalArr / 12; // ARR -> MRR
     } else {
         const cust = customers.find(x => x.id == customerId);
         // value antas vara ARR (Annual Recurring Revenue)
-        monthly_revenue_exkl_moms = (parseFloat(cust?.value) || 0) / 12;
+        monthly_revenue_exkl_moms = cleanVal(cust?.value) / 12;
     }
 
     const gross_margin_value = monthly_revenue_exkl_moms - monthly_llm_cost_sek;
 
     let gross_margin_percent = 0;
+
     if (monthly_revenue_exkl_moms > 0) {
         gross_margin_percent = (gross_margin_value / monthly_revenue_exkl_moms) * 100;
     }
