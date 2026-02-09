@@ -2078,11 +2078,17 @@ async function deleteCompany(companyId, displayName) {
 /* =========================
    CRM - Full Customer Management
  ========================= */
-let crmData = {
-  customers: [],
-  activities: [],
+/* =========================
+   CRM - Full Customer Management
+ ========================= */
+window.crmState = window.crmState || {
+  customers: JSON.parse(localStorage.getItem('crmCustomers') || '[]'),
+  deals: JSON.parse(localStorage.getItem('crmDeals') || '[]'),
+  activities: JSON.parse(localStorage.getItem('crmActivities') || '[]'),
   stats: {}
 };
+window.crmActivities = window.crmState.activities; // Alias
+let crmData = window.crmState; // Alias for legacy code compatibility
 
 async function refreshCustomers() {
   try {
@@ -2114,6 +2120,9 @@ async function refreshCustomers() {
 
     // Generate activity log from recent tickets and changes
     crmData.activities = generateCrmActivities(tickets, crmData.customers);
+
+    // Trigger Sync for CRM 2.0 data as well
+    if (typeof syncCrmData === 'function') await syncCrmData();
 
     // Render all CRM sections
     renderCrmOverview();
@@ -6091,12 +6100,11 @@ function drop(ev) {
 }
 
 function updateDealStageInsideStorage(id, stage) {
-  let deals = JSON.parse(localStorage.getItem('crmDeals') || '[]');
+  let deals = window.crmState.deals;
   const idx = deals.findIndex(d => d.id === id);
   if (idx !== -1) {
     deals[idx].stage = stage;
     localStorage.setItem('crmDeals', JSON.stringify(deals));
-    if (typeof crmState !== 'undefined') crmState.deals = deals;
     if (typeof pushCrmToBackend === 'function') pushCrmToBackend('deals');
     renderPipeline();
     if (typeof renderCrmDashboard === 'function') renderCrmDashboard();
@@ -6242,11 +6250,8 @@ window.renderPipeline = renderPipeline;
    CRM 2.0 LOGIC (AI POWERED)
 ===================== */
 
-// Enhanced State with persistence
-const crmState = {
-  customers: JSON.parse(localStorage.getItem('crmCustomers') || '[]'),
-  deals: JSON.parse(localStorage.getItem('crmDeals') || '[]'),
-};
+// CRM State is already initialized globally at the top of the script
+// window.crmState is the source of truth for sync.
 
 // --- MODAL CONTROLLERS ---
 
@@ -6255,7 +6260,7 @@ function openDealModal() {
   if (modal) {
     // Populate Companies
     const dl = document.getElementById('dealCompanyList');
-    const customers = JSON.parse(localStorage.getItem('crmCustomers') || '[]');
+    const customers = window.crmState.customers;
     if (dl && customers.length > 0) {
       dl.innerHTML = customers.map(c => `<option value="${c.name}">`).join('');
     }
@@ -6285,8 +6290,8 @@ function saveNewDeal() {
     created: new Date().toISOString()
   };
 
-  crmState.deals.push(deal);
-  localStorage.setItem('crmDeals', JSON.stringify(crmState.deals));
+  window.crmState.deals.push(deal);
+  localStorage.setItem('crmDeals', JSON.stringify(window.crmState.deals));
   if (typeof pushCrmToBackend === 'function') pushCrmToBackend('deals');
 
   closeCrmModal('crmAddDealModal');
@@ -6350,8 +6355,9 @@ function saveNewCustomer() {
 }
 
 function finalizeCustomerSave(customer) {
-  crmState.customers.push(customer);
-  localStorage.setItem('crmCustomers', JSON.stringify(crmState.customers));
+  if (!window.crmState.customers) window.crmState.customers = [];
+  window.crmState.customers.push(customer);
+  localStorage.setItem('crmCustomers', JSON.stringify(window.crmState.customers));
   if (typeof pushCrmToBackend === 'function') pushCrmToBackend('customers');
 
   closeCrmModal('crmAddCustomerModal');
@@ -6376,7 +6382,7 @@ function renderCustomerList() {
   if (!tbody) return;
 
   // Merge default persistence if empty
-  let displayList = crmState.customers;
+  let displayList = window.crmState.customers;
   if (displayList.length === 0) {
     // Show demo rows from HTML if localStorage is empty?
     // Or keep empty. Let's keep empty state handling.
@@ -6407,8 +6413,8 @@ function renderCustomerList() {
 function deleteCustomer(id, event) {
   event.stopPropagation();
   if (confirm("Ta bort kund?")) {
-    crmState.customers = crmState.customers.filter(c => c.id !== id);
-    localStorage.setItem('crmCustomers', JSON.stringify(crmState.customers));
+    window.crmState.customers = window.crmState.customers.filter(c => c.id !== id);
+    localStorage.setItem('crmCustomers', JSON.stringify(window.crmState.customers));
     if (typeof pushCrmToBackend === 'function') pushCrmToBackend('customers');
     renderCustomerList();
   }
@@ -6417,7 +6423,7 @@ function deleteCustomer(id, event) {
 // Override previous openCustomerModal to handle dynamic data
 function openCustomerModal(idOrName) {
   // Try to find in state first
-  let customer = crmState.customers.find(c => c.id === idOrName || c.name === idOrName);
+  let customer = window.crmState.customers.find(c => c.id === idOrName || c.name === idOrName);
 
   // Fallback for static demo rows in HTML (name based)
   if (!customer && typeof idOrName === 'string') {
@@ -6519,6 +6525,11 @@ window.deleteCustomer = deleteCustomer;
 
 // Auto-render on load
 document.addEventListener('DOMContentLoaded', () => {
+  // Trigger Sync
+  if (typeof syncCrmData === 'function') {
+    console.log("Auto-syncing CRM on page load...");
+    syncCrmData();
+  }
   // If we are on customers tab, render.
   renderCustomerList();
 });
@@ -6749,9 +6760,10 @@ window.saveNewCustomerExpanded = saveNewCustomerExpanded;
 
 /* =====================
    CRM 4.0 LOGIC (ENTERPRISE DEPTH)
-===================== */
-
-const crmActivities = JSON.parse(localStorage.getItem('crmActivities') || '[]');
+ ===================== */
+// Use window.crmState.activities
+const crmActivities = window.crmState.activities;
+window.crmActivities = crmActivities;
 
 // --- DEAL LOGIC ---
 
@@ -6817,8 +6829,9 @@ function saveNewDealAdvanced() {
     created: new Date().toISOString()
   };
 
-  crmState.deals.push(deal);
-  localStorage.setItem('crmDeals', JSON.stringify(crmState.deals));
+  window.crmState.deals.push(deal);
+  localStorage.setItem('crmDeals', JSON.stringify(window.crmState.deals));
+  if (typeof pushCrmToBackend === 'function') pushCrmToBackend('deals');
 
   closeCrmModal('crmAddDealModal');
 
@@ -6876,8 +6889,8 @@ function saveActivity() {
     created: new Date().toISOString()
   };
 
-  crmActivities.push(activity);
-  localStorage.setItem('crmActivities', JSON.stringify(crmActivities));
+  window.crmState.activities.push(activity);
+  localStorage.setItem('crmActivities', JSON.stringify(window.crmState.activities));
   if (typeof pushCrmToBackend === 'function') pushCrmToBackend('activities');
 
   closeCrmModal('crmLogActivityModal');

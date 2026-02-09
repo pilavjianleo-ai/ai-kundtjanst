@@ -15,12 +15,8 @@ if (typeof window.crmState === 'undefined') {
  * SYNC CRM DATA WITH BACKEND (Multi-device support)
  */
 window.syncCrmData = async function () {
-    if (!window.api || !window.state || !window.state.token || !window.state.user) {
-        console.log("Sync skipped: No auth state");
-        return;
-    }
-
-    const companyId = window.state.user.companyId || 'demo';
+    if (!window.api || !window.state || !window.state.token) return;
+    const companyId = window.state.companyId || (window.state.user ? window.state.user.companyId : 'demo');
 
     try {
         const data = await api(`/crm/sync?companyId=${companyId}`);
@@ -57,7 +53,7 @@ window.syncCrmData = async function () {
  */
 window.pushCrmToBackend = async function (type) {
     if (!window.api || !window.state || !window.state.token || !window.state.user) return;
-    const companyId = window.state.user.companyId || 'demo';
+    const companyId = window.state.companyId || (window.state.user ? window.state.user.companyId : 'demo');
 
     try {
         if (type === 'customers' || !type) {
