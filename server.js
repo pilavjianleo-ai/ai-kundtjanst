@@ -239,11 +239,16 @@ const CrmCustomer = mongoose.model("CrmCustomer", crmCustomerSchema);
 const crmDealSchema = new mongoose.Schema({
   companyId: { type: String, required: true, index: true },
   id: { type: String, required: true },
+  name: { type: String, default: "" },
   company: { type: String, required: true },
   value: { type: Number, default: 0 },
   stage: { type: String, default: "new" },
-  tags: [String],
-  owner: { type: String, default: "MP" },
+  probability: { type: Number, default: 50 },
+  closeDate: { type: String, default: "" },
+  type: { type: String, default: "ny" },
+  owner: { type: String, default: "me" },
+  description: { type: String, default: "" },
+  nextStep: { type: String, default: "" },
   createdAt: { type: Date, default: Date.now }
 });
 crmDealSchema.index({ companyId: 1, id: 1 }, { unique: true });
@@ -251,10 +256,16 @@ const CrmDeal = mongoose.model("CrmDeal", crmDealSchema);
 
 const crmActivitySchema = new mongoose.Schema({
   companyId: { type: String, required: true, index: true },
-  subject: { type: String, required: true },
+  id: { type: String, required: true },
   type: { type: String, default: "info" },
+  subject: { type: String, required: true },
+  description: { type: String, default: "" },
+  date: { type: String, default: "" },
+  status: { type: String, default: "done" },
+  targetId: { type: String, default: "" },
   created: { type: Date, default: Date.now }
 });
+crmActivitySchema.index({ companyId: 1, id: 1 }, { unique: true });
 const CrmActivity = mongoose.model("CrmActivity", crmActivitySchema);
 
 // Run database fixes and index cleanup after models are defined
@@ -2288,11 +2299,16 @@ app.post("/crm/activities/sync", authenticate, async (req, res) => {
     const { companyId, activities } = req.body;
     if (!companyId || !Array.isArray(activities)) return res.status(400).json({ error: "Invalid data" });
 
-    if (activities.length > 0) {
-      await CrmActivity.insertMany(activities.map(a => ({ ...a, companyId })), { ordered: false }).catch(() => { });
-    }
+    const ops = activities.map(a => ({
+      updateOne: {
+        filter: { companyId, id: a.id },
+        update: { ...a, companyId },
+        upsert: true
+      }
+    }));
 
-    res.json({ message: "Aktiviteter loggade" });
+    if (ops.length > 0) await CrmActivity.bulkWrite(ops);
+    res.json({ message: "Aktiviteter synkade" });
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 

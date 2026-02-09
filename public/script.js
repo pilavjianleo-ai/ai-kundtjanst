@@ -4007,7 +4007,7 @@ async function generateSimulation() {
 
     const result = await api("/simulator/generate", {
       method: "POST",
-      body: JSON.stringify(payload)
+      body: payload
     });
 
     if (result.success && result.imageUrl) {
@@ -6097,6 +6097,9 @@ function updateDealStageInsideStorage(id, stage) {
     deals[idx].stage = stage;
     localStorage.setItem('crmDeals', JSON.stringify(deals));
     if (typeof crmState !== 'undefined') crmState.deals = deals;
+    if (typeof pushCrmToBackend === 'function') pushCrmToBackend('deals');
+    renderPipeline();
+    if (typeof renderCrmDashboard === 'function') renderCrmDashboard();
   }
 }
 
@@ -6150,11 +6153,15 @@ function renderPipeline() {
 window.deleteDeal = function (id) {
   if (!confirm('Vill du verkligen radera denna affär?')) return;
   let deals = JSON.parse(localStorage.getItem('crmDeals') || '[]');
-  deals = deals.filter(d => d.id !== id);
-  localStorage.setItem('crmDeals', JSON.stringify(deals));
-  if (typeof crmState !== 'undefined') crmState.deals = deals;
-  renderPipeline();
-  if (typeof renderCrmDashboard === 'function') renderCrmDashboard();
+  const idx = deals.findIndex(d => d.id === id);
+  if (idx !== -1) {
+    deals.splice(idx, 1);
+    localStorage.setItem('crmDeals', JSON.stringify(deals));
+    if (typeof crmState !== 'undefined') crmState.deals = deals;
+    if (typeof pushCrmToBackend === 'function') pushCrmToBackend('deals');
+    renderPipeline();
+    if (typeof renderCrmDashboard === 'function') renderCrmDashboard();
+  }
   if (typeof toast === 'function') toast("Raderad", "Affären har tagits bort.", "success");
 };
 
@@ -6280,6 +6287,7 @@ function saveNewDeal() {
 
   crmState.deals.push(deal);
   localStorage.setItem('crmDeals', JSON.stringify(crmState.deals));
+  if (typeof pushCrmToBackend === 'function') pushCrmToBackend('deals');
 
   closeCrmModal('crmAddDealModal');
 
@@ -6344,6 +6352,7 @@ function saveNewCustomer() {
 function finalizeCustomerSave(customer) {
   crmState.customers.push(customer);
   localStorage.setItem('crmCustomers', JSON.stringify(crmState.customers));
+  if (typeof pushCrmToBackend === 'function') pushCrmToBackend('customers');
 
   closeCrmModal('crmAddCustomerModal');
   renderCustomerList();
@@ -6400,6 +6409,7 @@ function deleteCustomer(id, event) {
   if (confirm("Ta bort kund?")) {
     crmState.customers = crmState.customers.filter(c => c.id !== id);
     localStorage.setItem('crmCustomers', JSON.stringify(crmState.customers));
+    if (typeof pushCrmToBackend === 'function') pushCrmToBackend('customers');
     renderCustomerList();
   }
 }
@@ -6868,6 +6878,7 @@ function saveActivity() {
 
   crmActivities.push(activity);
   localStorage.setItem('crmActivities', JSON.stringify(crmActivities));
+  if (typeof pushCrmToBackend === 'function') pushCrmToBackend('activities');
 
   closeCrmModal('crmLogActivityModal');
 
@@ -6887,6 +6898,7 @@ function saveActivity() {
 function logActivity(act) {
   crmActivities.push({ ...act, id: 'act' + Date.now() });
   localStorage.setItem('crmActivities', JSON.stringify(crmActivities));
+  if (typeof pushCrmToBackend === 'function') pushCrmToBackend('activities');
 }
 
 // Override renderCustomerModalContent again to include Activity Listing and Log Button

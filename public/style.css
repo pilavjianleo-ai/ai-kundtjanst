@@ -4469,7 +4469,7 @@ body[data-theme="light"] .messages {
   .main {
     flex: 1 !important;
     width: 100% !important;
-    padding: 12px !important;
+    padding: 16px !important;
     overflow-y: auto !important;
     overflow-x: hidden !important;
     -webkit-overflow-scrolling: touch;
@@ -4478,22 +4478,30 @@ body[data-theme="light"] .messages {
 
   /* Topbar Adjustments */
   .topbar {
-    margin-bottom: 12px !important;
-    flex-direction: column;
-    align-items: stretch !important;
+    margin-bottom: 16px !important;
+    display: flex !important;
+    flex-direction: column !important;
+    align-items: flex-start !important;
     height: auto !important;
-    padding: 12px !important;
+    gap: 12px !important;
+    padding: 16px !important;
+    background: var(--panel);
+    border-bottom: 1px solid var(--border);
   }
 
   .topbarActions {
-    margin-top: 10px;
-    justify-content: flex-start;
-    gap: 8px !important;
+    width: 100% !important;
+    display: flex !important;
+    flex-wrap: wrap !important;
+    justify-content: flex-start !important;
+    gap: 10px !important;
+    margin-top: 4px;
   }
 
-  .topbarActions .btn span {
-    display: none;
-    /* Icon-only for space */
+  .topbarActions .btn {
+    flex: 1 1 auto;
+    justify-content: center;
+    padding: 10px 14px !important;
   }
 
   /* CRM TAB NAVIGATION - Horizontal scrolling "Pill" menu */
@@ -4501,10 +4509,9 @@ body[data-theme="light"] .messages {
     display: flex !important;
     overflow-x: auto !important;
     white-space: nowrap !important;
-    gap: 10px !important;
-    padding: 12px 6px !important;
+    gap: 8px !important;
+    padding: 4px 0 16px !important;
     margin-bottom: 20px !important;
-    border-bottom: 2px solid var(--border);
     -webkit-overflow-scrolling: touch;
     scrollbar-width: none;
   }
@@ -4515,21 +4522,15 @@ body[data-theme="light"] .messages {
 
   .crmNav button {
     flex: 0 0 auto !important;
-    padding: 10px 20px !important;
-    border-radius: 25px !important;
+    padding: 8px 16px !important;
+    border-radius: 12px !important;
     font-size: 14px !important;
     font-weight: 600 !important;
-    min-height: 44px !important;
+    min-height: 40px !important;
     background: var(--panel2) !important;
     border: 1px solid var(--border) !important;
     color: var(--muted) !important;
-    position: relative;
     transition: all 0.2s ease;
-  }
-
-  /* Remove original line-under style on mobile for buttons */
-  .crmNav button::after {
-    display: none !important;
   }
 
   .crmNav button.active {
@@ -4547,6 +4548,17 @@ body[data-theme="light"] .messages {
     display: flex !important;
     flex-direction: column !important;
     gap: 16px !important;
+  }
+
+  .grid2>*,
+  .grid3>*,
+  .grid4>*,
+  .crmDashGrid>* {
+    width: 100% !important;
+    margin: 0 !important;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05) !important;
+    border-radius: 12px !important;
+    padding: 20px !important;
   }
 
   /* Results Grid in AI Cost Analysis - 2 per row for visual balance */
