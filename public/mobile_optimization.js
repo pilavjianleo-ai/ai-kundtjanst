@@ -25,9 +25,11 @@ function initMobileMenu() {
     const topbars = document.querySelectorAll('.topbar');
     topbars.forEach(tb => {
         const titleContainer = tb.firstElementChild;
-        if (titleContainer && !titleContainer.querySelector('.mobile-menu-btn')) {
+        // Check for existing menu toggle (either our manual one or legacy one)
+        if (titleContainer && !titleContainer.querySelector('.mobile-menu-btn') && !titleContainer.querySelector('.menu-toggle')) {
             const btn = document.createElement('button');
-            btn.className = 'mobile-menu-btn';
+            // Use existing styles!
+            btn.className = 'btn ghost icon menu-toggle mobile-menu-btn';
             btn.innerHTML = '<i class="fa-solid fa-bars"></i>';
             btn.type = 'button';
             btn.onclick = window.toggleSidebar;
