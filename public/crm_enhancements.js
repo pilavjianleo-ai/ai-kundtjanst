@@ -131,85 +131,111 @@ window.toggleAccordion = function (id) {
 };
 
 /**
- * Render CRM Dashboard Stats
+ * Render CRM Dashboard Stats (Aggregated & Filtered)
  */
 function renderCrmDashboard() {
     const dash = document.getElementById('crm_dashboard');
     if (!dash) return;
 
-    const deals = JSON.parse(localStorage.getItem('crmDeals') || '[]');
-    const customers = JSON.parse(localStorage.getItem('crmCustomers') || '[]');
-    const activities = JSON.parse(localStorage.getItem('crmActivities') || '[]');
+    let deals = JSON.parse(localStorage.getItem('crmDeals') || '[]');
+    let customers = JSON.parse(localStorage.getItem('crmCustomers') || '[]');
+    let activities = JSON.parse(localStorage.getItem('crmActivities') || '[]');
 
-    const totalValue = deals.reduce((sum, d) => sum + (d.value || 0), 0);
+    // Filter Logic based on Active Company (if applicable logic exists)
+    const activeCompanyId = window.state?.companyId;
+    if (activeCompanyId && activeCompanyId !== 'demo') {
+        const hasLinkedData = customers.some(c => c.companyId === activeCompanyId || c.id === activeCompanyId);
+        if (hasLinkedData) {
+            customers = customers.filter(c => c.companyId === activeCompanyId || c.id === activeCompanyId);
+            // Naive filter for deals - purely illustrative if linking exists
+            deals = deals.filter(d => customers.some(c => c.id === d.customerId));
+        }
+    }
+
+    // 1. Pipeline Value (Weighted Revenue if applicable, else raw)
+    const totalValue = deals.reduce((sum, d) => sum + (parseFloat(d.value) || 0), 0);
+
+    // 2. Open Deals Count
     const openDeals = deals.filter(d => d.stage !== 'won' && d.stage !== 'lost').length;
-    const totalCustomers = customers.length;
-    const hotLeads = customers.filter(c => (c.aiScore || 0) > 80).length;
 
+    // 3. Hot Leads (Improved Logic: Activity + AI Score)
+    const hotLeads = customers.filter(c => (c.aiScore || 0) > 70 && c.status === 'lead').length;
+
+    // 4. Monthly Revenue (ARR/12 or MRR field)
+    // We sum the 'value' field from Customers which represents their deal value / MRR
     const monthlyRevenue = customers.reduce((sum, c) => sum + (parseFloat(c.value) || 0), 0);
 
+    // Update UI Cards
     const cards = document.querySelectorAll('.crmStatCard');
     if (cards.length >= 3) {
-        // Card 1: Pipeline Värde
+        // Pipeline
         const val1 = cards[0].querySelector('.crmStatValue');
         if (val1) val1.innerText = new Intl.NumberFormat('sv-SE', { style: 'currency', currency: 'SEK', maximumSignificantDigits: 3 }).format(totalValue);
 
-        // Card 2: Hot Leads (AI Score > 80)
+        // Hot Leads
         const val2 = cards[1].querySelector('.crmStatValue');
         if (val2) val2.innerText = hotLeads + " st";
         const trend2 = cards[1].querySelector('.crmStatTrend');
-        if (trend2) trend2.innerText = hotLeads > 0 ? `${hotLeads} heta just nu` : "Inga nya leads";
+        if (trend2) trend2.innerText = hotLeads > 0 ? `${hotLeads} heta leads att bearbeta` : "Inga heta leads just nu";
 
-        // Card 3: Månatlig Intäkt
+        // Monthly Revenue
         const val3 = cards[2].querySelector('.crmStatValue');
         if (val3) val3.innerText = new Intl.NumberFormat('sv-SE', { style: 'currency', currency: 'SEK' }).format(monthlyRevenue);
     }
 
-    const feed = document.querySelector('.activityTimeline');
-    if (feed) {
-        const sorted = activities.sort((a, b) => new Date(b.created) - new Date(a.created)).slice(0, 20);
-        if (sorted.length > 0) {
-            const listItemsHtml = sorted.map((a, index) => {
-                let iconClass = "fa-info-circle";
-                if (a.type === 'chat') iconClass = "fa-comment-dots";
-                if (a.type === 'ticket') iconClass = "fa-ticket";
-                if (a.type === 'success') iconClass = "fa-check-circle";
-                if (a.type === 'warning') iconClass = "fa-exclamation-triangle";
-                return `
-                <div class="activityItem" style="display:flex; align-items:flex-start; gap:12px; margin-bottom:12px; padding-bottom:12px; border-bottom:1px solid var(--border);">
-                    <div style="width:28px; height:28px; border-radius:50%; background:var(--panel2); display:flex; align-items:center; justify-content:center; border:1px solid var(--border); flex-shrink:0;">
-                        <i class="fa-solid ${iconClass}" style="font-size:12px; color:var(--primary);"></i>
-                    </div>
-                    <div style="flex:1;">
-                        <div style="font-weight:600; font-size:13px; color:var(--text);">${a.subject}</div>
-                        <div style="font-size:11px; color:var(--muted); margin-top:3px;">
-                            ${new Date(a.created).toLocaleString('sv-SE')} • ${a.type?.toUpperCase()}
-                        </div>
-                    </div>
-                </div>`;
-            }).join('');
+    // Refresh Activity Timeline
+    renderActivityTimeline(activities);
+}
 
-            feed.innerHTML = `
-                <div class="accordion-item" style="border:1px solid var(--border); border-radius:12px; background:var(--panel2); overflow:hidden; box-shadow:0 4px 12px rgba(0,0,0,0.03);">
-                    <div class="accordion-header" onclick="toggleAccordion('crmTimelineBody')" style="padding:15px; display:flex; align-items:center; justify-content:space-between; cursor:pointer; background:var(--panel); transition:all 0.2s;">
-                        <div style="display:flex; align-items:center; gap:10px; font-weight:700; color:var(--text); font-size:14px;">
-                            <i class="fa-solid fa-clock-rotate-left" style="color:var(--primary);"></i> 
-                            Senaste Händelser
-                        </div>
-                        <div style="display:flex; align-items:center; gap:10px;">
-                            <span class="pill muted" style="font-size:10px; background:var(--bg); border:1px solid var(--border);">${sorted.length} st</span>
-                            <i class="fa-solid fa-chevron-down accordion-icon" id="icon-crmTimelineBody" style="font-size:12px; transition:transform 0.3s; color:var(--muted);"></i>
-                        </div>
-                    </div>
-                    <div id="crmTimelineBody" class="accordion-content" style="display:none; padding:15px; max-height:420px; overflow-y:auto; background:var(--bg);">
-                        ${listItemsHtml}
-                    </div>
-                </div>
-            `;
-        } else {
-            feed.innerHTML = `<div class="muted center" style="padding:20px; font-size:13px;">Inga aktiviteter loggade än.</div>`;
-        }
+function renderActivityTimeline(activities) {
+    const feed = document.querySelector('.activityTimeline');
+    if (!feed) return;
+
+    const sorted = activities.sort((a, b) => new Date(b.created) - new Date(a.created)).slice(0, 20);
+    if (sorted.length === 0) {
+        feed.innerHTML = `<div class="muted center" style="padding:20px; font-size:13px;">Inga aktiviteter loggade än.</div>`;
+        return;
     }
+
+    const listItemsHtml = sorted.map((a) => {
+        let iconClass = "fa-info-circle";
+        if (a.type === 'chat') iconClass = "fa-comment-dots";
+        if (a.type === 'ticket') iconClass = "fa-ticket";
+        if (a.type === 'success') iconClass = "fa-check-circle";
+        if (a.type === 'warning') iconClass = "fa-exclamation-triangle";
+        if (a.type === 'deal') iconClass = "fa-handshake";
+
+        return `
+        <div class="activityItem" style="display:flex; align-items:flex-start; gap:12px; margin-bottom:12px; padding-bottom:12px; border-bottom:1px solid var(--border);">
+            <div style="width:28px; height:28px; border-radius:50%; background:var(--panel2); display:flex; align-items:center; justify-content:center; border:1px solid var(--border); flex-shrink:0;">
+                <i class="fa-solid ${iconClass}" style="font-size:12px; color:var(--primary);"></i>
+            </div>
+            <div style="flex:1;">
+                <div style="font-weight:600; font-size:13px; color:var(--text);">${a.subject}</div>
+                <div style="font-size:11px; color:var(--muted); margin-top:3px;">
+                    ${new Date(a.created).toLocaleString('sv-SE')} • ${a.type?.toUpperCase()}
+                </div>
+            </div>
+        </div>`;
+    }).join('');
+
+    feed.innerHTML = `
+        <div class="accordion-item" style="border:1px solid var(--border); border-radius:12px; background:var(--panel2); overflow:hidden; box-shadow:0 4px 12px rgba(0,0,0,0.03);">
+            <div class="accordion-header" onclick="toggleAccordion('crmTimelineBody')" style="padding:15px; display:flex; align-items:center; justify-content:space-between; cursor:pointer; background:var(--panel); transition:all 0.2s;">
+                <div style="display:flex; align-items:center; gap:10px; font-weight:700; color:var(--text); font-size:14px;">
+                    <i class="fa-solid fa-clock-rotate-left" style="color:var(--primary);"></i> 
+                    Senaste Händelser
+                </div>
+                <div style="display:flex; align-items:center; gap:10px;">
+                    <span class="pill muted" style="font-size:10px; background:var(--bg); border:1px solid var(--border);">${sorted.length} st</span>
+                    <i class="fa-solid fa-chevron-down accordion-icon" id="icon-crmTimelineBody" style="font-size:12px; transition:transform 0.3s; color:var(--muted);"></i>
+                </div>
+            </div>
+            <div id="crmTimelineBody" class="accordion-content" style="display:none; padding:15px; max-height:420px; overflow-y:auto; background:var(--bg);">
+                ${listItemsHtml}
+            </div>
+        </div>
+    `;
 }
 
 // Populate AI Cost Analysis Customer Select
@@ -574,10 +600,19 @@ window.renderCustomerList = function () {
     const tbody = document.getElementById('crmAnalyticsTable');
     if (!tbody) return;
 
-    const customers = JSON.parse(localStorage.getItem('crmCustomers') || '[]');
+    let customers = JSON.parse(localStorage.getItem('crmCustomers') || '[]');
+
+    // FILTER BY CURRENT COMPANY CONTEXT
+    const activeCompanyId = window.state?.companyId;
+    if (activeCompanyId && activeCompanyId !== 'demo') {
+        const hasLinkedData = customers.some(c => c.companyId === activeCompanyId || c.id === activeCompanyId);
+        if (hasLinkedData) {
+            customers = customers.filter(c => c.companyId === activeCompanyId || c.id === activeCompanyId);
+        }
+    }
 
     if (customers.length === 0) {
-        tbody.innerHTML = `<tr><td colspan="6" class="muted center" style="padding:20px;">Inga kunder.</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="6" class="muted center" style="padding:20px;">Inga kunder hittades för ${window.state?.currentCompany?.displayName || 'detta företag'}.</td></tr>`;
         ['crmTotalValueHeader', 'crmTotalValueFooter'].forEach(id => {
             const el = document.getElementById(id);
             if (el) el.innerText = '0 kr';
@@ -627,6 +662,24 @@ window.openCustomerModal = function (id) {
 
     document.getElementById('crmModalCustomerName').innerText = c.name;
 
+    // AI LOGIC: Churn Risk & Next Best Action
+    // Simulated logic based on activity/status
+    let churnRisk = 'Låg';
+    let churnColor = 'var(--success)';
+    if (c.status === 'customer' && (!c.value || c.value < 5000)) {
+        churnRisk = 'Medium';
+        churnColor = 'orange';
+    }
+    if (c.status === 'customer' && (c.aiScore < 50)) {
+        churnRisk = 'Hög';
+        churnColor = 'var(--danger)';
+    }
+
+    let nextAction = "Följ upp avtal";
+    if (c.status === 'lead') nextAction = "Boka demo-möte";
+    if (c.aiScore > 80) nextAction = "Föreslå uppgradering (Upsell)";
+    if (churnRisk === 'Hög') nextAction = "Boka krismöte / Erbjud rabatt";
+
     const sidebar = modal.querySelector('.customerSidebar');
     if (sidebar) {
         sidebar.innerHTML = `
@@ -636,12 +689,20 @@ window.openCustomerModal = function (id) {
                 </div>
                 <h2 style="font-size:20px; margin:0;">${c.name}</h2>
                 <p class="muted">${c.industry || 'Bransch'} • ${c.address?.city || 'Stad'}</p>
-                <div class="pill ${c.status === 'customer' ? 'ok' : 'warn'}" style="margin-top:5px;">${c.status.toUpperCase()}</div>
+                <div class="pill ${c.status === 'customer' ? 'ok' : 'warn'}" style="margin-top:5px;">${c.status ? c.status.toUpperCase() : 'LEAD'}</div>
             </div>
+
             <div class="aiInsightBox" style="background:var(--primary-fade); padding:15px; border-radius:12px; text-align:center; margin-bottom:15px; border:1px solid var(--border);">
-                <div style="font-size:12px; text-transform:uppercase; color:var(--primary); font-weight:bold; margin-bottom:5px;">AI Lead Score</div>
-                <div class="aiScore" style="font-size:32px; font-weight:800; color:var(--primary);">${c.aiScore}</div>
+                <div style="font-size:11px; text-transform:uppercase; color:var(--primary); font-weight:bold; margin-bottom:5px;">AI Lead Score</div>
+                <div class="aiScore" style="font-size:32px; font-weight:800; color:var(--primary);">${c.aiScore || 0}</div>
+                <div style="font-size:11px; color:var(--muted); margin-top:5px;">Baserat på engagemang</div>
             </div>
+
+            <div class="panel soft" style="padding:15px; margin-bottom:15px; border:1px solid var(--border);">
+                <div style="font-size:11px; text-transform:uppercase; color:var(--text); font-weight:bold; margin-bottom:8px;">Next Best Action <i class="fa-solid fa-wand-magic-sparkles" style="color:var(--primary);"></i></div>
+                <div style="font-size:13px; font-weight:600; color:var(--primary);">${nextAction}</div>
+            </div>
+
             <div style="display:flex; flex-direction:column; gap:10px;">
                 <button class="btn primary full" onclick="saveCustomerEdits('${c.id}')"><i class="fa-solid fa-save"></i> SPARA ÄNDRINGAR</button>
                 <button class="btn ghost full" onclick="goToCustomerKB('${c.id}')"><i class="fa-solid fa-book"></i> HANTERA KB</button>
@@ -651,7 +712,7 @@ window.openCustomerModal = function (id) {
 
     const main = modal.querySelector('.customerMain');
     if (main) {
-        // Fallback for old data without separate first/last names
+        // Fallback for names
         let firstName = c.contactFirst || '';
         let lastName = c.contactLast || '';
         if (!firstName && !lastName && c.contactName) {
@@ -660,73 +721,136 @@ window.openCustomerModal = function (id) {
             lastName = parts.slice(1).join(' ') || '';
         }
 
-        main.innerHTML = `
-            <div class="panel soft" style="margin-bottom:20px;">
-                <div class="panelHead"><b>Profil & Kontakt</b></div>
-                <div class="grid2" style="padding:15px; gap:15px;">
-                    <div><label class="small-label">Företagsnamn</label><input type="text" id="editCustName" class="input" value="${c.name || ''}"></div>
-                    <div><label class="small-label">Org.nr</label><input type="text" id="editCustOrgNr" class="input" value="${c.orgNr || ''}"></div>
-                    
-                    <div><label class="small-label">Förnamn (Kontakt)</label><input type="text" id="editCustContactFirst" class="input" value="${firstName}"></div>
-                    <div><label class="small-label">Efternamn (Kontakt)</label><input type="text" id="editCustContactLast" class="input" value="${lastName}"></div>
-                    <div><label class="small-label">Roll/Titel</label><input type="text" id="editCustRole" class="input" value="${c.role || ''}"></div>
-
-                    <div><label class="small-label">E-post</label><input type="text" id="editCustEmail" class="input" value="${c.email || ''}"></div>
-                    <div><label class="small-label">Telefon</label><input type="text" id="editCustPhone" class="input" value="${c.phone || ''}"></div>
-                    <div><label class="small-label">Webbplats</label><input type="text" id="editCustWeb" class="input" value="${c.web || ''}"></div>
-                    <div><label class="small-label">Bransch</label><input type="text" id="editCustIndustry" class="input" value="${c.industry || ''}"></div>
-                    <div><label class="small-label">Värde (SEK)</label><input type="number" id="editCustValue" class="input" value="${c.value || 0}"></div>
-                </div>
+        // TABS NAVIGATION (Simple Implementation)
+        const tabHtml = `
+            <div class="crmTabs" style="display:flex; gap:15px; border-bottom:1px solid var(--border); margin-bottom:20px;">
+                <button class="tabLink active" onclick="switchCrmTab(this, 'tabOverview')">Översikt</button>
+                <button class="tabLink" onclick="switchCrmTab(this, 'tabEconomy')">Avtal & Ekonomi</button>
+                <button class="tabLink" onclick="switchCrmTab(this, 'tabAiChurn')">AI & Churn Analys</button>
             </div>
+        `;
 
-            <div class="panel soft" style="margin-bottom:20px;">
-                <div class="panelHead"><b>Adressuppgifter</b></div>
-                <div class="grid2" style="padding:15px; gap:15px;">
-                    <div><label class="small-label">Postnummer</label><input type="text" id="editCustZip" class="input" value="${c.address?.zip || ''}"></div>
-                    <div><label class="small-label">Stad</label><input type="text" id="editCustCity" class="input" value="${c.address?.city || ''}"></div>
-                    <div><label class="small-label">Land</label>
-                        <select id="editCustCountry" class="input">
-                            <option value="SE" ${c.address?.country === 'SE' ? 'selected' : ''}>Sverige</option>
-                            <option value="NO" ${c.address?.country === 'NO' ? 'selected' : ''}>Norge</option>
-                            <option value="DK" ${c.address?.country === 'DK' ? 'selected' : ''}>Danmark</option>
-                            <option value="FI" ${c.address?.country === 'FI' ? 'selected' : ''}>Finland</option>
-                        </select>
-                    </div>
-                    <div><label class="small-label">Typ</label>
-                         <select id="editCustStatus" class="input">
-                            <option value="customer" ${c.status === 'customer' ? 'selected' : ''}>Kund</option>
-                            <option value="lead" ${c.status === 'lead' ? 'selected' : ''}>Lead</option>
-                        </select>
+        // TAB 1: OVERVIEW (Existing fields)
+        const overviewContent = `
+            <div id="tabOverview" class="crmTabContent" style="display:block;">
+                <div class="panel soft" style="margin-bottom:20px;">
+                    <div class="panelHead"><b>Profil & Kontakt</b></div>
+                    <div class="grid2" style="padding:15px; gap:15px;">
+                        <div><label class="small-label">Företagsnamn</label><input type="text" id="editCustName" class="input" value="${c.name || ''}"></div>
+                        <div><label class="small-label">Org.nr</label><input type="text" id="editCustOrgNr" class="input" value="${c.orgNr || ''}"></div>
+                        
+                        <div><label class="small-label">Förnamn (Kontakt)</label><input type="text" id="editCustContactFirst" class="input" value="${firstName}"></div>
+                        <div><label class="small-label">Efternamn (Kontakt)</label><input type="text" id="editCustContactLast" class="input" value="${lastName}"></div>
+                        <div><label class="small-label">Roll/Titel</label><input type="text" id="editCustRole" class="input" value="${c.role || ''}"></div>
+
+                        <div><label class="small-label">E-post</label><input type="text" id="editCustEmail" class="input" value="${c.email || ''}"></div>
+                        <div><label class="small-label">Telefon</label><input type="text" id="editCustPhone" class="input" value="${c.phone || ''}"></div>
+                        <div><label class="small-label">Webbplats</label><input type="text" id="editCustWeb" class="input" value="${c.web || ''}"></div>
+                        <div><label class="small-label">Bransch</label><input type="text" id="editCustIndustry" class="input" value="${c.industry || ''}"></div>
+                        
+                        <div><label class="small-label">Typ</label>
+                             <select id="editCustStatus" class="input">
+                                <option value="customer" ${c.status === 'customer' ? 'selected' : ''}>Kund</option>
+                                <option value="lead" ${c.status === 'lead' ? 'selected' : ''}>Lead</option>
+                            </select>
+                        </div>
                     </div>
                 </div>
-            </div>
-
-            <div class="panel soft" style="background:var(--glass);">
-                <div class="panelHead"><b>AI-Konfiguration</b></div>
-                <div class="grid2" style="padding:15px; gap:15px;">
-                    <div><label class="small-label">AI Status</label>
-                        <select id="editCustAiStatus" class="input">
-                            <option value="active" ${c.aiConfig?.status === 'active' ? 'selected' : ''}>Aktiv</option>
-                            <option value="inactive" ${c.aiConfig?.status === 'inactive' ? 'selected' : ''}>Inaktiv</option>
-                        </select>
-                    </div>
-                    <div><label class="small-label">AI Modell</label>
-                        <select id="editCustAiModel" class="input">
-                            <option value="gpt-4o" ${c.aiConfig?.model === 'gpt-4o' ? 'selected' : ''}>GPT-4o (Standard)</option>
-                            <option value="gpt-4-turbo" ${c.aiConfig?.model === 'gpt-4-turbo' ? 'selected' : ''}>GPT-4 Turbo</option>
-                            <option value="gpt-3.5-turbo" ${c.aiConfig?.model === 'gpt-3.5-turbo' ? 'selected' : ''}>GPT-3.5 Turbo</option>
-                        </select>
-                    </div>
-                    <div><label class="small-label">Språk</label>
-                        <select id="editCustAiLang" class="input">
-                            <option value="sv" ${c.aiConfig?.lang === 'sv' ? 'selected' : ''}>Svenska</option>
-                            <option value="en" ${c.aiConfig?.lang === 'en' ? 'selected' : ''}>Engelska</option>
-                            <option value="multi" ${c.aiConfig?.lang === 'multi' ? 'selected' : ''}>Multi (Auto)</option>
-                        </select>
+                <!-- Address moved here for simpler overview -->
+                 <div class="panel soft" style="margin-bottom:20px;">
+                    <div class="panelHead"><b>Adressuppgifter</b></div>
+                    <div class="grid2" style="padding:15px; gap:15px;">
+                        <div><label class="small-label">Postnummer</label><input type="text" id="editCustZip" class="input" value="${c.address?.zip || ''}"></div>
+                        <div><label class="small-label">Stad</label><input type="text" id="editCustCity" class="input" value="${c.address?.city || ''}"></div>
+                        <div><label class="small-label">Land</label>
+                            <select id="editCustCountry" class="input">
+                                <option value="SE" ${c.address?.country === 'SE' ? 'selected' : ''}>Sverige</option>
+                                <option value="NO" ${c.address?.country === 'NO' ? 'selected' : ''}>Norge</option>
+                                <option value="DK" ${c.address?.country === 'DK' ? 'selected' : ''}>Danmark</option>
+                                <option value="FI" ${c.address?.country === 'FI' ? 'selected' : ''}>Finland</option>
+                            </select>
+                        </div>
                     </div>
                 </div>
             </div>
         `;
+
+        // TAB 2: ECONOMY (Expanded fields)
+        const economyContent = `
+            <div id="tabEconomy" class="crmTabContent" style="display:none;">
+                 <div class="panel soft" style="margin-bottom:20px;">
+                    <div class="panelHead"><b>Intäkter & Avtal</b></div>
+                    <div class="grid2" style="padding:15px; gap:15px;">
+                        <div><label class="small-label">Avtalsvärde (ARR/Total)</label><input type="number" id="editCustValue" class="input" value="${c.value || 0}"></div>
+                        <div><label class="small-label">Valuta</label><input type="text" class="input" value="SEK" disabled></div>
+                        <div><label class="small-label">MRR (Månadsintäkt)</label><input type="text" class="input" value="${Math.round((c.value || 0) / 12)} kr" disabled></div>
+                        <div><label class="small-label">Bruttomarginal %</label><input type="text" class="input" value="Uppdateras..." disabled></div>
+                    </div>
+                    <div style="padding:0 15px 15px;">
+                        <button class="btn tiny ghost"><i class="fa-solid fa-plus"></i> Lägg till abonnemang</button>
+                    </div>
+                </div>
+            </div>
+        `;
+
+        // TAB 3: AI & CHURN (Advanced Analysis)
+        const aiContent = `
+            <div id="tabAiChurn" class="crmTabContent" style="display:none;">
+                 <div class="panel soft" style="margin-bottom:20px;">
+                    <div class="panelHead"><b>AI-Konfiguration</b></div>
+                    <div class="grid2" style="padding:15px; gap:15px;">
+                        <div><label class="small-label">AI Status</label>
+                            <select id="editCustAiStatus" class="input">
+                                <option value="active" ${c.aiConfig?.status === 'active' ? 'selected' : ''}>Aktiv</option>
+                                <option value="inactive" ${c.aiConfig?.status === 'inactive' ? 'selected' : ''}>Inaktiv</option>
+                            </select>
+                        </div>
+                        <div><label class="small-label">AI Modell</label>
+                            <select id="editCustAiModel" class="input">
+                                <option value="gpt-4o" ${c.aiConfig?.model === 'gpt-4o' ? 'selected' : ''}>GPT-4o (Standard)</option>
+                                <option value="gpt-4-turbo" ${c.aiConfig?.model === 'gpt-4-turbo' ? 'selected' : ''}>GPT-4 Turbo</option>
+                                <option value="gpt-3.5-turbo" ${c.aiConfig?.model === 'gpt-3.5-turbo' ? 'selected' : ''}>GPT-3.5 Turbo</option>
+                            </select>
+                        </div>
+                        <div><label class="small-label">Språk</label>
+                            <select id="editCustAiLang" class="input">
+                                <option value="sv" ${c.aiConfig?.lang === 'sv' ? 'selected' : ''}>Svenska</option>
+                                <option value="en" ${c.aiConfig?.lang === 'en' ? 'selected' : ''}>Engelska</option>
+                                <option value="multi" ${c.aiConfig?.lang === 'multi' ? 'selected' : ''}>Multi (Auto)</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="panel soft" style="border:1px solid ${churnColor}; background:rgba(0,0,0,0.02);">
+                    <div class="panelHead" style="color:${churnColor};"><b>Churn Risk Analys</b></div>
+                    <div style="padding:15px;">
+                        <div style="display:flex; justify-content:space-between; margin-bottom:10px;">
+                            <span>Riskbedömning:</span>
+                            <strong style="color:${churnColor};">${churnRisk.toUpperCase()}</strong>
+                        </div>
+                         <div style="display:flex; justify-content:space-between; margin-bottom:10px;">
+                            <span>NPS (Estimerad):</span>
+                            <strong>${c.aiScore > 70 ? '9 (Promoter)' : '6 (Detractor)'}</strong>
+                        </div>
+                        <p class="muted small">Analysen baseras på engagemang, supportärenden och intäktsutveckling.</p>
+                    </div>
+                </div>
+            </div>
+        `;
+
+        main.innerHTML = tabHtml + overviewContent + economyContent + aiContent;
+
+        // Helper to switch tabs inside modal
+        window.switchCrmTab = function (btn, tabId) {
+            const parent = btn.parentElement;
+            parent.querySelectorAll('.tabLink').forEach(t => t.classList.remove('active'));
+            btn.classList.add('active');
+
+            const container = main;
+            container.querySelectorAll('.crmTabContent').forEach(c => c.style.display = 'none');
+            document.getElementById(tabId).style.display = 'block';
+        };
     }
     modal.style.display = 'flex';
 };
