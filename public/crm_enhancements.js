@@ -141,16 +141,12 @@ function renderCrmDashboard() {
  * AI COST TOOL LOGIC - DATA DRIVEN CALCULATIONS
  */
 const AI_CONFIG = {
-    exchange_rate: 11.5, // USD -> SEK
-    tokens_per_chat: {
-        avg_input: 500,
-        avg_output: 500
-    },
-    // Prices in USD per 1,000,000 tokens
+    exchange_rate: 11.5, // 1 USD = 11.5 SEK
+    // Prices in USD per 1,000,000 tokens (EXACT from user)
     model_prices: {
-        mini: { in: 0.15, out: 0.60 },    // GPT-mini
-        standard: { in: 5.00, out: 15.00 },// GPT-standard
-        advanced: { in: 10.00, out: 30.00 } // GPT-advanced
+        mini: { in: 0.25, out: 2.00 },     // GPT-5-mini
+        standard: { in: 1.25, out: 10.00 }, // GPT-5
+        advanced: { in: 2.00, out: 8.00 }   // GPT-4.1
     }
 };
 
@@ -193,24 +189,24 @@ window.calculateAiMargins = function () {
     const share_std = parseInt(document.getElementById('splitGpt5').value || 0) / 100;
     const share_adv = parseInt(document.getElementById('splitGpt4').value || 0) / 100;
 
-    // 1. Grunddata per chatt
+    // 1. Grunddata per chatt (Input=50%; Output=50% baserat på 500/500 instruktionen)
     const input_t = tokens_per_chat * 0.5;
     const output_t = tokens_per_chat * 0.5;
 
-    // 2. Beräkna Kostnad per chatt per modell (USD)
+    // 2. Beräkna Kostnad per chatt per modell (USD) - EXAKT precision
     const calcCostPerChatUSD = (model) => {
         const p = AI_CONFIG.model_prices[model];
         if (!p) return 0;
-        const input_cost = (input_t / 1000000) * p.in;
-        const output_cost = (output_t / 1000000) * p.out;
-        return input_cost + output_cost;
+        const input_cost_model = (input_t / 1000000) * p.in;
+        const output_cost_model = (output_t / 1000000) * p.out;
+        return input_cost_model + output_cost_model;
     };
 
     const cost_mini_usd = calcCostPerChatUSD('mini');
     const cost_std_usd = calcCostPerChatUSD('standard');
     const cost_adv_usd = calcCostPerChatUSD('advanced');
 
-    // 3. Viktad snittkostnad per chatt (Routing) i SEK
+    // 3. Viktad snittkostnad per chatt (USD -> SEK)
     const weighted_cost_usd = (cost_mini_usd * share_mini) + (cost_std_usd * share_std) + (cost_adv_usd * share_adv);
     const weighted_cost_sek = weighted_cost_usd * AI_CONFIG.exchange_rate;
 
@@ -222,25 +218,20 @@ window.calculateAiMargins = function () {
     let gross_revenue = 0;
 
     if (customerId === 'all') {
-        // AGGREGERAT: Summera alla kunders värde
-        gross_revenue = customers.reduce((sum, c) => {
-            const val = parseFloat(c.value) || 0;
-            return sum + val;
-        }, 0);
+        gross_revenue = customers.reduce((sum, c) => sum + (parseFloat(c.value) || 0), 0);
     } else {
-        // PER KUND
         const c = customers.find(x => (x.id == customerId || x.name == customerId));
         gross_revenue = c ? (parseFloat(c.value) || 0) : 0;
     }
 
-    // FALLBACK: Om inga kunder finns eller summan är 0, visa demo-försäljning
+    // FALLBACK
     let isDemo = false;
     if (gross_revenue === 0) {
-        gross_revenue = 15000;
+        gross_revenue = 4990;
         isDemo = true;
     }
 
-    const net_revenue = gross_revenue / 1.25; // Räkna bort 25% moms
+    const net_revenue = gross_revenue / 1.25;
 
     // 6. Marginalberäkning
     const gross_margin_val = net_revenue - monthly_llm_cost_sek;
@@ -250,7 +241,7 @@ window.calculateAiMargins = function () {
     const fmt = (v) => new Intl.NumberFormat('sv-SE', { style: 'currency', currency: 'SEK' }).format(v);
 
     const avgChatEl = document.getElementById('resAvgChatCost');
-    if (avgChatEl) avgChatEl.innerText = weighted_cost_sek.toFixed(2) + ' kr';
+    if (avgChatEl) avgChatEl.innerText = weighted_cost_sek.toFixed(3) + ' kr';
 
     const aiCostEl = document.getElementById('resAiCost');
     if (aiCostEl) aiCostEl.innerText = fmt(monthly_llm_cost_sek);
@@ -271,21 +262,15 @@ window.calculateAiMargins = function () {
     }
 
     const note = document.getElementById('marginNote');
-    if (note && isDemo) {
-        note.innerText = "VISAR DEMO-VÄRDEN (Inga kunder hittades)";
-        note.style.fontStyle = "italic";
-    } else if (note) {
-        note.innerText = customerId === 'all' ? "Baserat på TOTAL försäljning (Exkl. moms)" : "Baserat på KUNDENS avgift (Exkl. moms)";
-        note.style.fontStyle = "normal";
+    if (note) {
+        note.innerText = isDemo ? "DEMO: Baserat på 4 990 kr exempelförsäljning" : (customerId === 'all' ? "Baserat på TOTAL försäljning (Exkl. moms)" : "Baserat på KUNDENS avgift (Exkl. moms)");
     }
 
-    // Breakdown rutorna (Månadskostnad per modell)
+    // Breakdown rutorna
     const bMini = document.getElementById('breakMini');
     if (bMini) bMini.innerText = fmt(chats_per_month * share_mini * cost_mini_usd * AI_CONFIG.exchange_rate);
-
     const bStd = document.getElementById('breakGpt5');
     if (bStd) bStd.innerText = fmt(chats_per_month * share_std * cost_std_usd * AI_CONFIG.exchange_rate);
-
     const bAdv = document.getElementById('breakGpt4');
     if (bAdv) bAdv.innerText = fmt(chats_per_month * share_adv * cost_adv_usd * AI_CONFIG.exchange_rate);
 };
