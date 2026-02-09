@@ -2,6 +2,15 @@
    CRM ENHANCEMENTS V9: TRUE CLOUD SYNC & RESPONSIVE FIX
    ===================== */
 
+// Ensure global state exists
+if (typeof window.crmState === 'undefined') {
+    window.crmState = {
+        customers: JSON.parse(localStorage.getItem('crmCustomers') || '[]'),
+        deals: JSON.parse(localStorage.getItem('crmDeals') || '[]'),
+        activities: JSON.parse(localStorage.getItem('crmActivities') || '[]')
+    };
+}
+
 /**
  * SYNC CRM DATA WITH BACKEND (Multi-device support)
  */
@@ -16,19 +25,26 @@ window.syncCrmData = async function () {
     try {
         const data = await api(`/crm/sync?companyId=${companyId}`);
         if (data) {
-            if (data.customers) localStorage.setItem('crmCustomers', JSON.stringify(data.customers));
-            if (data.deals) localStorage.setItem('crmDeals', JSON.stringify(data.deals));
+            // Priority: Backend data overwrites local if exists, ensuring sync
+            if (data.customers) {
+                localStorage.setItem('crmCustomers', JSON.stringify(data.customers));
+                // Update global state if it exists
+                if (typeof crmState !== 'undefined') crmState.customers = data.customers;
+            }
+            if (data.deals) {
+                localStorage.setItem('crmDeals', JSON.stringify(data.deals));
+                if (typeof crmState !== 'undefined') crmState.deals = data.deals;
+            }
             if (data.activities) {
-                // Merge or replace
                 localStorage.setItem('crmActivities', JSON.stringify(data.activities));
             }
 
             console.log("✅ CRM data synkad från molnet.");
 
             // Re-render all CRM components
-            renderCrmDashboard();
-            if (window.renderCustomerList) renderCustomerList();
-            if (window.renderPipeline) renderPipeline();
+            if (typeof renderCrmDashboard === 'function') renderCrmDashboard();
+            if (typeof renderCustomerList === 'function') renderCustomerList();
+            if (typeof renderPipeline === 'function') renderPipeline();
             updateChatCategoriesFromCRM();
         }
     } catch (e) {

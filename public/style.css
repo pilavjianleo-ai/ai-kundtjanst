@@ -4415,6 +4415,46 @@ body[data-theme="light"] .messages {
     transition: opacity 0.3s;
   }
 
+  /* Improve Mobile Spacing & Inputs */
+  .grid2>div,
+  .grid3>div,
+  .grid4>div {
+    margin-bottom: 0px !important;
+    /* Let gap handle it, but ensure no extra double margins */
+  }
+
+  /* Make inputs easier to tap */
+  input,
+  select,
+  textarea,
+  button {
+    min-height: 44px !important;
+    /* Touch friendly */
+    font-size: 16px !important;
+    /* Prevent zoom on iOS */
+  }
+
+  /* Ensure full width for inputs in grids on mobile */
+  .input,
+  .grid2 input,
+  .grid2 select,
+  .grid3 input,
+  .grid3 select {
+    width: 100% !important;
+    max-width: 100% !important;
+    box-sizing: border-box !important;
+  }
+
+  /* Proper spacing for panels */
+  .panel {
+    margin-bottom: 16px !important;
+  }
+
+  /* Fix modal content scrolling */
+  .modalContent {
+    -webkit-overflow-scrolling: touch;
+  }
+
   /* Show Hamburger on Mobile */
   .menu-toggle {
     display: inline-flex !important;

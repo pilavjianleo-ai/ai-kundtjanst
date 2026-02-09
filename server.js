@@ -2103,20 +2103,16 @@ app.post("/simulator/generate", authenticate, async (req, res) => {
 
     console.log("🎨 Simulator prompt:", prompt);
 
-    // Check if OpenAI is configured, otherwise use Mock Mode
-    if (!process.env.OPENAI_API_KEY || process.env.OPENAI_API_KEY.includes("INSERT")) {
-      console.log("⚠️ OpenAI key missing. Using Mock Mode for Simulator.");
-
-      // Simulate delay for realism
-      await new Promise(resolve => setTimeout(resolve, 2500));
-
+    // define mock generator function
+    const runMockMode = async () => {
+      console.log("⚠️ Genererar Mock-bild...");
+      await new Promise(resolve => setTimeout(resolve, 2000));
       const mockImages = [
         "https://images.unsplash.com/photo-1555041469-a586c61ea9bc?auto=format&fit=crop&q=80&w=1024",
         "https://images.unsplash.com/photo-1586023492125-27b2c045efd7?auto=format&fit=crop&q=80&w=1024",
         "https://images.unsplash.com/photo-1618220179428-22790b461013?auto=format&fit=crop&q=80&w=1024",
         "https://images.unsplash.com/photo-1616486338812-3dadae4b4f9d?auto=format&fit=crop&q=80&w=1024"
       ];
-
       const randomImage = mockImages[Math.floor(Math.random() * mockImages.length)];
 
       const simulation = {
@@ -2136,9 +2132,14 @@ app.post("/simulator/generate", authenticate, async (req, res) => {
       return res.json({
         success: true,
         imageUrl: randomImage,
-        revisedPrompt: "AI-visualisering (Mock Mode)",
+        revisedPrompt: "AI-visualisering (Mock Mode - Fallback)",
         simulation
       });
+    };
+
+    // Check if OpenAI is configured, otherwise use Mock Mode
+    if (!process.env.OPENAI_API_KEY || process.env.OPENAI_API_KEY.includes("INSERT")) {
+      return await runMockMode();
     }
 
     // Generate image with DALL-E 3
@@ -2154,16 +2155,12 @@ app.post("/simulator/generate", authenticate, async (req, res) => {
       });
     } catch (openaiError) {
       console.error("OpenAI DALL-E Error:", openaiError);
-
-      // Handle specific OpenAI errors
-      if (openaiError.message?.includes("content_policy")) {
-        return res.status(400).json({ error: "Prompten bryter mot innehållspolicy." });
-      }
-      return res.status(400).json({ error: "Kunde inte generera bild: " + (openaiError.message || "Okänt fel") });
+      // Fallback to mock on any error (auth, billing, etc)
+      return await runMockMode();
     }
 
     if (!imageResponse?.data?.[0]?.url) {
-      return res.status(400).json({ error: "Ingen bild returnerades från AI. Försök igen." });
+      return await runMockMode();
     }
 
     const generatedImageUrl = imageResponse.data[0].url;
@@ -2200,7 +2197,10 @@ app.post("/simulator/generate", authenticate, async (req, res) => {
 
   } catch (e) {
     console.error("Simulator error:", e);
-    res.status(500).json({ error: e.message || "Kunde inte generera visualisering" });
+    // Even on generic error, try mock if not already sent
+    if (!res.headersSent) {
+      res.status(500).json({ error: "Kunde inte generera visualisering" });
+    }
   }
 });
 
