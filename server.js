@@ -206,6 +206,57 @@ const feedbackSchema = new mongoose.Schema({
 });
 const Feedback = mongoose.model("Feedback", feedbackSchema);
 
+// CRM Models (For multi-device sync)
+const crmCustomerSchema = new mongoose.Schema({
+  companyId: { type: String, required: true, index: true },
+  id: { type: String, required: true }, // Local ID used by frontend
+  name: { type: String, required: true },
+  email: { type: String, default: "" },
+  phone: { type: String, default: "" },
+  value: { type: Number, default: 0 },
+  status: { type: String, default: "Kund" },
+  industry: { type: String, default: "" },
+  orgNr: { type: String, default: "" },
+  notes: { type: String, default: "" },
+  aiConfig: {
+    status: { type: String, default: "inactive" },
+    model: { type: String, default: "GPT-5-mini" },
+    lang: { type: String, default: "Svenska" }
+  },
+  address: {
+    zip: { type: String, default: "" },
+    city: { type: String, default: "" },
+    country: { type: String, default: "Sverige" }
+  },
+  contactName: { type: String, default: "" },
+  role: { type: String, default: "" },
+  createdAt: { type: Date, default: Date.now }
+});
+// Unique per company + customer ID
+crmCustomerSchema.index({ companyId: 1, id: 1 }, { unique: true });
+const CrmCustomer = mongoose.model("CrmCustomer", crmCustomerSchema);
+
+const crmDealSchema = new mongoose.Schema({
+  companyId: { type: String, required: true, index: true },
+  id: { type: String, required: true },
+  company: { type: String, required: true },
+  value: { type: Number, default: 0 },
+  stage: { type: String, default: "new" },
+  tags: [String],
+  owner: { type: String, default: "MP" },
+  createdAt: { type: Date, default: Date.now }
+});
+crmDealSchema.index({ companyId: 1, id: 1 }, { unique: true });
+const CrmDeal = mongoose.model("CrmDeal", crmDealSchema);
+
+const crmActivitySchema = new mongoose.Schema({
+  companyId: { type: String, required: true, index: true },
+  subject: { type: String, required: true },
+  type: { type: String, default: "info" },
+  created: { type: Date, default: Date.now }
+});
+const CrmActivity = mongoose.model("CrmActivity", crmActivitySchema);
+
 // Run database fixes and index cleanup after models are defined
 (async () => {
   try {
@@ -2116,6 +2167,76 @@ app.delete("/simulator/history", authenticate, async (req, res) => {
   } catch (e) {
     res.status(500).json({ error: e.message });
   }
+});
+
+/* =====================
+   CRM SYNC ENDPOINTS
+===================== */
+
+// Fetch all CRM data for a company
+app.get("/crm/sync", authenticate, async (req, res) => {
+  try {
+    const { companyId } = req.query;
+    if (!companyId) return res.status(400).json({ error: "Saknar companyId" });
+
+    const customers = await CrmCustomer.find({ companyId }).lean();
+    const deals = await CrmDeal.find({ companyId }).lean();
+    const activities = await CrmActivity.find({ companyId }).sort({ created: -1 }).limit(100).lean();
+
+    res.json({ customers, deals, activities });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// Bulk upsert customers
+app.post("/crm/customers/sync", authenticate, async (req, res) => {
+  try {
+    const { companyId, customers } = req.body;
+    if (!companyId || !Array.isArray(customers)) return res.status(400).json({ error: "Invalid data" });
+
+    const ops = customers.map(c => ({
+      updateOne: {
+        filter: { companyId, id: c.id },
+        update: { ...c, companyId },
+        upsert: true
+      }
+    }));
+
+    if (ops.length > 0) await CrmCustomer.bulkWrite(ops);
+    res.json({ message: "Kunder synkade" });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// Bulk upsert deals
+app.post("/crm/deals/sync", authenticate, async (req, res) => {
+  try {
+    const { companyId, deals } = req.body;
+    if (!companyId || !Array.isArray(deals)) return res.status(400).json({ error: "Invalid data" });
+
+    const ops = deals.map(d => ({
+      updateOne: {
+        filter: { companyId, id: d.id },
+        update: { ...d, companyId },
+        upsert: true
+      }
+    }));
+
+    if (ops.length > 0) await CrmDeal.bulkWrite(ops);
+    res.json({ message: "Pipeline synkad" });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// Sync activities (replace top 100)
+app.post("/crm/activities/sync", authenticate, async (req, res) => {
+  try {
+    const { companyId, activities } = req.body;
+    if (!companyId || !Array.isArray(activities)) return res.status(400).json({ error: "Invalid data" });
+
+    if (activities.length > 0) {
+      await CrmActivity.insertMany(activities.map(a => ({ ...a, companyId })), { ordered: false }).catch(() => { });
+    }
+
+    res.json({ message: "Aktiviteter loggade" });
+  } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
 /* =====================

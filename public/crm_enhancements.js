@@ -1,6 +1,75 @@
 /* =====================
-   CRM ENHANCEMENTS V8: COMPLETE DATA SYNC & EDIT
+   CRM ENHANCEMENTS V9: TRUE CLOUD SYNC & RESPONSIVE FIX
    ===================== */
+
+/**
+ * SYNC CRM DATA WITH BACKEND (Multi-device support)
+ */
+window.syncCrmData = async function () {
+    if (!window.api || !window.state || !window.state.token || !window.state.user) {
+        console.log("Sync skipped: No auth state");
+        return;
+    }
+
+    const companyId = window.state.user.companyId || 'demo';
+
+    try {
+        const data = await api(`/crm/sync?companyId=${companyId}`);
+        if (data) {
+            if (data.customers) localStorage.setItem('crmCustomers', JSON.stringify(data.customers));
+            if (data.deals) localStorage.setItem('crmDeals', JSON.stringify(data.deals));
+            if (data.activities) {
+                // Merge or replace
+                localStorage.setItem('crmActivities', JSON.stringify(data.activities));
+            }
+
+            console.log("✅ CRM data synkad från molnet.");
+
+            // Re-render all CRM components
+            renderCrmDashboard();
+            if (window.renderCustomerList) renderCustomerList();
+            if (window.renderPipeline) renderPipeline();
+            updateChatCategoriesFromCRM();
+        }
+    } catch (e) {
+        console.error("CRM Sync Error:", e.message);
+    }
+};
+
+/**
+ * PUSH CRM DATA TO BACKEND
+ */
+window.pushCrmToBackend = async function (type) {
+    if (!window.api || !window.state || !window.state.token || !window.state.user) return;
+    const companyId = window.state.user.companyId || 'demo';
+
+    try {
+        if (type === 'customers' || !type) {
+            const customers = JSON.parse(localStorage.getItem('crmCustomers') || '[]');
+            await api('/crm/customers/sync', {
+                method: 'POST',
+                body: { companyId, customers }
+            });
+        }
+        if (type === 'deals' || !type) {
+            const deals = JSON.parse(localStorage.getItem('crmDeals') || '[]');
+            await api('/crm/deals/sync', {
+                method: 'POST',
+                body: { companyId, deals }
+            });
+        }
+        if (type === 'activities' || !type) {
+            const activities = JSON.parse(localStorage.getItem('crmActivities') || '[]');
+            // Filter to only send recent ones if needed, or just send provide
+            await api('/crm/activities/sync', {
+                method: 'POST',
+                body: { companyId, activities: activities.slice(0, 50) }
+            });
+        }
+    } catch (e) {
+        console.error("Cloud Push Failed:", e.message);
+    }
+};
 
 /**
  * Sync CRM Customers (AI Active) to Chat Dropdown
@@ -287,6 +356,9 @@ function logCrmActivity(subject, type = 'system') {
     });
     localStorage.setItem('crmActivities', JSON.stringify(activities));
     renderCrmDashboard();
+
+    // CRM Cloud Push
+    if (window.pushCrmToBackend) window.pushCrmToBackend('activities');
 }
 
 /**
@@ -400,6 +472,9 @@ window.saveNewCustomerExpanded = async function () {
     const customers = JSON.parse(localStorage.getItem('crmCustomers') || '[]');
     customers.push(newCustomer);
     localStorage.setItem('crmCustomers', JSON.stringify(customers));
+
+    // CRM Cloud Push
+    if (window.pushCrmToBackend) window.pushCrmToBackend('customers');
 
     logCrmActivity(`Ny kund och systembolag skapat: ${name}`, 'success');
 
@@ -631,6 +706,10 @@ window.saveCustomerEdits = async function (id) {
     }
 
     localStorage.setItem('crmCustomers', JSON.stringify(customers));
+
+    // CRM Cloud Push
+    if (window.pushCrmToBackend) window.pushCrmToBackend('customers');
+
     toast("Uppdaterad", `All information sparad och synkad för ${c.name}.`, "success");
     logCrmActivity(`Fullständig uppdatering av ${c.name}`, 'info');
 
@@ -678,6 +757,9 @@ window.deleteCustomer = async function (id) {
     customers = customers.filter(c => c.id !== id);
     localStorage.setItem('crmCustomers', JSON.stringify(customers));
 
+    // CRM Cloud Push
+    if (window.pushCrmToBackend) window.pushCrmToBackend('customers');
+
     renderCustomerList();
     renderCrmDashboard();
     updateChatCategoriesFromCRM();
@@ -698,6 +780,11 @@ window.openAddCustomerModal = function () {
 };
 
 document.addEventListener('DOMContentLoaded', () => {
+    // Initial CRM Sync from Cloud
+    setTimeout(() => {
+        if (window.syncCrmData) window.syncCrmData();
+    }, 1000);
+
     updateChatCategoriesFromCRM();
     renderCrmDashboard();
     if (window.renderCustomerList) window.renderCustomerList();
