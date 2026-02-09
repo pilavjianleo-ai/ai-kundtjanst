@@ -176,77 +176,77 @@ window.syncAiSplits = function (source) {
 };
 
 window.calculateAiMargins = function () {
-    const monthly_volume = parseInt(document.getElementById('aiCostVolume').value) || 0;
+    const chats_per_month = parseInt(document.getElementById('aiCostVolume').value) || 0;
     const tokens_per_chat = parseInt(document.getElementById('aiCostTokens').value) || 0;
     const customerId = document.getElementById('aiCostCustomerSelect').value;
 
     // Routing Shares (0.0 - 1.0)
-    const mini_share = parseInt(document.getElementById('splitMini').value) / 100;
-    const standard_share = parseInt(document.getElementById('splitGpt5').value) / 100;
-    const advanced_share = parseInt(document.getElementById('splitGpt4').value) / 100;
+    const share_mini = parseInt(document.getElementById('splitMini').value) / 100;
+    const share_std = parseInt(document.getElementById('splitGpt5').value) / 100;
+    const share_adv = parseInt(document.getElementById('splitGpt4').value) / 100;
 
-    // Use token split from UI (assuming 50/50 split for calculation if one input is used)
+    // 1. Grunddata per chatt (Input=500, Output=500 baserat på instruktion om totalt 1000)
+    // Men vi baserar det på tokens_per_chat fältet (50/50 split)
     const input_t = tokens_per_chat * 0.5;
     const output_t = tokens_per_chat * 0.5;
 
-    // 1. Calculate Cost per Chat per Model (USD)
-    const calcChatPriceUSD = (model) => {
+    // 2. Beräkna Kostnad per chatt per modell (USD)
+    const calcCostPerChatUSD = (model) => {
         const p = AI_CONFIG.model_prices[model];
-        const in_c = (input_t / 1000000) * p.in;
-        const out_c = (output_t / 1000000) * p.out;
-        return in_c + out_c;
+        const input_cost = (input_t / 1000000) * p.in;
+        const output_cost = (output_t / 1000000) * p.out;
+        return input_cost + output_cost;
     };
 
-    const cost_mini = calcChatPriceUSD('mini');
-    const cost_std = calcChatPriceUSD('standard');
-    const cost_adv = calcChatPriceUSD('advanced');
+    const cost_mini_usd = calcCostPerChatUSD('mini');
+    const cost_std_usd = calcChatPriceUSD ? calcChatPriceUSD('standard') : calcCostPerChatUSD('standard'); // check for prev name
+    const cost_adv_usd = calcCostPerChatUSD('advanced');
 
-    // 2. Weighted Average Cost per Chat (USD)
-    const weighted_avg_usd = (cost_mini * mini_share) + (cost_std * standard_share) + (cost_adv * advanced_share);
+    // 3. Viktad snittkostnad per chatt (Routing) i SEK
+    const weighted_cost_usd = (cost_mini_usd * share_mini) + (cost_std_usd * share_std) + (cost_adv_usd * share_adv);
+    const weighted_cost_sek = weighted_cost_usd * AI_CONFIG.exchange_rate;
 
-    // 3. Convert to Local (SEK)
-    const weighted_avg_sek = weighted_avg_usd * AI_CONFIG.exchange_rate;
+    // 4. Månadskostnad LLM
+    const monthly_llm_cost_sek = chats_per_month * weighted_cost_sek;
 
-    // 4. Monthly Totals
-    const total_monthly_cost_sek = monthly_volume * weighted_avg_sek;
-
-    // 5. Revenue from CRM
+    // 5. Intäktshantering (Moms 25%)
     const customers = JSON.parse(localStorage.getItem('crmCustomers') || '[]');
-    let monthly_revenue = 0;
+    let gross_revenue = 0;
     if (customerId === 'all') {
-        monthly_revenue = customers.reduce((sum, c) => sum + (parseFloat(c.value) || 0), 0);
+        gross_revenue = customers.reduce((sum, c) => sum + (parseFloat(c.value) || 0), 0);
     } else {
         const c = customers.find(x => (x.id || x.name) === customerId);
-        monthly_revenue = c ? (parseFloat(c.value) || 0) : 0;
+        gross_revenue = c ? (parseFloat(c.value) || 0) : 0;
     }
 
-    // FALLBACK: If no customers exist, show a demo revenue (e.g., 15 000 kr) so the tool isn't empty
-    if (monthly_revenue === 0) {
-        monthly_revenue = 15000;
-    }
+    // FALLBACK
+    if (gross_revenue === 0) gross_revenue = 15000;
 
-    // 6. Margins
-    const gross_margin_val = monthly_revenue - total_monthly_cost_sek;
-    const gross_margin_pct = monthly_revenue > 0 ? (gross_margin_val / monthly_revenue) * 100 : 0;
+    const net_revenue = gross_revenue / 1.25; // Räkna bort 25% moms
+
+    // 6. Marginalberäkning
+    const gross_margin_val = net_revenue - monthly_llm_cost_sek;
+    const gross_margin_pct = net_revenue > 0 ? (gross_margin_val / net_revenue) * 100 : 0;
 
     // UPDATE UI
     const fmt = (v) => new Intl.NumberFormat('sv-SE', { style: 'currency', currency: 'SEK' }).format(v);
 
-    document.getElementById('resAvgChatCost').innerText = weighted_avg_sek.toFixed(2) + ' kr';
-    document.getElementById('resAiCost').innerText = fmt(total_monthly_cost_sek);
-    document.getElementById('resCustomerValue').innerText = fmt(monthly_revenue);
+    document.getElementById('resAvgChatCost').innerText = weighted_cost_sek.toFixed(2) + ' kr';
+    document.getElementById('resAiCost').innerText = fmt(monthly_llm_cost_sek);
+    document.getElementById('resGrossRevenue').innerText = fmt(gross_revenue);
+    document.getElementById('resNetRevenue').innerText = fmt(net_revenue);
     document.getElementById('resMarginValue').innerText = fmt(gross_margin_val);
 
     const pctBox = document.getElementById('resMarginPercentBox');
     if (pctBox) {
         pctBox.innerText = gross_margin_pct.toFixed(1) + '%';
-        pctBox.style.color = gross_margin_pct > 40 ? 'var(--ok)' : (gross_margin_pct > 10 ? 'var(--warn)' : 'var(--danger)');
+        pctBox.style.color = gross_margin_pct > 30 ? 'var(--ok)' : (gross_margin_pct > 10 ? 'var(--warn)' : 'var(--danger)');
     }
 
-    // Breakdowns
-    document.getElementById('breakMini').innerText = fmt(monthly_volume * mini_share * cost_mini * AI_CONFIG.exchange_rate);
-    document.getElementById('breakGpt5').innerText = fmt(monthly_volume * standard_share * cost_std * AI_CONFIG.exchange_rate);
-    document.getElementById('breakGpt4').innerText = fmt(monthly_volume * advanced_share * cost_adv * AI_CONFIG.exchange_rate);
+    // Breakdown rutorna (Månadskostnad per modell)
+    document.getElementById('breakMini').innerText = fmt(chats_per_month * share_mini * cost_mini_usd * AI_CONFIG.exchange_rate);
+    document.getElementById('breakGpt5').innerText = fmt(chats_per_month * share_std * cost_std_usd * AI_CONFIG.exchange_rate);
+    document.getElementById('breakGpt4').innerText = fmt(chats_per_month * share_adv * cost_adv_usd * AI_CONFIG.exchange_rate);
 };
 
 /**
