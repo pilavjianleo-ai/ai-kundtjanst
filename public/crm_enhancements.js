@@ -2,6 +2,16 @@
    CRM ENHANCEMENTS V9: TRUE CLOUD SYNC & RESPONSIVE FIX
    ===================== */
 
+// 🚨 SAFETY CHECK: Remove corrupted data from previous tests
+try {
+    const raw = localStorage.getItem('crmCustomers');
+    if (raw && (raw.includes('"name":"undefined"') || raw.includes('"id":"undefined"') || raw.includes('"value":NaN'))) {
+        console.warn("⚠️ Corrupt CRM data found. Resetting 'crmCustomers'.");
+        localStorage.removeItem('crmCustomers');
+        // Force refresh if needed, but the init below will just load empty []
+    }
+} catch (e) { localStorage.removeItem('crmCustomers'); }
+
 // Ensure global state exists
 if (typeof window.crmState === 'undefined') {
     window.crmState = {
