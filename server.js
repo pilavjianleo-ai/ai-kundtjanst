@@ -2103,9 +2103,42 @@ app.post("/simulator/generate", authenticate, async (req, res) => {
 
     console.log("🎨 Simulator prompt:", prompt);
 
-    // Check if OpenAI is configured
+    // Check if OpenAI is configured, otherwise use Mock Mode
     if (!process.env.OPENAI_API_KEY || process.env.OPENAI_API_KEY.includes("INSERT")) {
-      return res.status(400).json({ error: "OpenAI API-nyckel ej konfigurerad. Kontakta administratör." });
+      console.log("⚠️ OpenAI key missing. Using Mock Mode for Simulator.");
+
+      // Simulate delay for realism
+      await new Promise(resolve => setTimeout(resolve, 2500));
+
+      const mockImages = [
+        "https://images.unsplash.com/photo-1555041469-a586c61ea9bc?auto=format&fit=crop&q=80&w=1024",
+        "https://images.unsplash.com/photo-1586023492125-27b2c045efd7?auto=format&fit=crop&q=80&w=1024",
+        "https://images.unsplash.com/photo-1618220179428-22790b461013?auto=format&fit=crop&q=80&w=1024",
+        "https://images.unsplash.com/photo-1616486338812-3dadae4b4f9d?auto=format&fit=crop&q=80&w=1024"
+      ];
+
+      const randomImage = mockImages[Math.floor(Math.random() * mockImages.length)];
+
+      const simulation = {
+        id: Date.now().toString(),
+        productName,
+        productCategory,
+        roomType,
+        imageUrl: randomImage,
+        prompt: "[MOCK] " + prompt,
+        createdAt: new Date()
+      };
+
+      const userId = req.user.id;
+      if (!simHistory.has(userId)) simHistory.set(userId, []);
+      simHistory.get(userId).unshift(simulation);
+
+      return res.json({
+        success: true,
+        imageUrl: randomImage,
+        revisedPrompt: "AI-visualisering (Mock Mode)",
+        simulation
+      });
     }
 
     // Generate image with DALL-E 3
@@ -2124,15 +2157,8 @@ app.post("/simulator/generate", authenticate, async (req, res) => {
 
       // Handle specific OpenAI errors
       if (openaiError.message?.includes("content_policy")) {
-        return res.status(400).json({ error: "Prompten bryter mot OpenAI:s innehållspolicy. Försök med en annan produktbeskrivning." });
+        return res.status(400).json({ error: "Prompten bryter mot innehållspolicy." });
       }
-      if (openaiError.message?.includes("billing") || openaiError.message?.includes("quota")) {
-        return res.status(400).json({ error: "OpenAI-kvoten är slut. Kontakta administratör." });
-      }
-      if (openaiError.message?.includes("rate_limit")) {
-        return res.status(400).json({ error: "För många förfrågningar. Vänta en minut och försök igen." });
-      }
-
       return res.status(400).json({ error: "Kunde inte generera bild: " + (openaiError.message || "Okänt fel") });
     }
 
