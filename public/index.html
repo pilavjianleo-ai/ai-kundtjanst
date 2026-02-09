@@ -11,9 +11,6 @@
 
   <link rel="preconnect" href="https://cdn.jsdelivr.net">
   <link rel="preconnect" href="https://cdnjs.cloudflare.com">
-
-  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js" defer></script>
-  <script src="https://cdn.socket.io/4.7.5/socket.io.min.js" defer></script>
 </head>
 
 <body data-theme="light">
@@ -1113,30 +1110,30 @@
           <div class="crmDashGrid">
             <div class="crmStatCard">
               <div class="crmStatTitle">Total Pipeline Värde <i class="fa-solid fa-sack-dollar"></i></div>
-              <div class="crmStatValue" id="crmWeightedPipeline">0 kr</div>
+              <div class="crmStatValue">2.4 Mkr</div>
               <div class="crmStatTrend up"><i class="fa-solid fa-arrow-trend-up"></i> +12% denna månad</div>
             </div>
             <div class="crmStatCard">
               <div class="crmStatTitle">Öppna Affärer <i class="fa-solid fa-briefcase"></i></div>
-              <div class="crmStatValue" id="crmOpenDealsCount">0 st</div>
-              <div class="crmStatTrend">Aktiv pipeline</div>
+              <div class="crmStatValue">34 st</div>
+              <div class="crmStatTrend">7 i förhandling</div>
             </div>
             <div class="crmStatCard">
               <div class="crmStatTitle">Nya Leads (AI Score > 80) <i class="fa-solid fa-star"></i></div>
-              <div class="crmStatValue" id="crmHotLeadsCount">0 st</div>
-              <div class="crmStatTrend up">Heta just nu</div>
+              <div class="crmStatValue">12 st</div>
+              <div class="crmStatTrend up">3 heta just nu</div>
             </div>
             <div class="crmStatCard">
               <div class="crmStatTitle">Månatlig Intäkt (MRR) <i class="fa-solid fa-chart-line"></i></div>
               <div class="crmStatValue" id="crmMonthlyRevenue">0 kr</div>
-              <div class="crmStatTrend ok">Aktiv kundbas</div>
+              <div class="crmStatTrend ok">Total kundbas</div>
             </div>
             <div class="crmStatCard" style="border: 1px solid var(--primary); background: var(--primary-fade);">
               <div class="crmStatTitle" style="color:var(--primary);">AI Insight <i class="fa-solid fa-robot"></i>
               </div>
-              <div id="crmAiInsightText" style="font-size:13px; font-weight:500;">Analyserar pipeline...</div>
-              <button class="btn primary small" style="margin-top:10px;" onclick="generatePipelineInsight()">Generera
-                insikt</button>
+              <div style="font-size:14px; font-weight:500;">"Du har 5 affärer som stannat av i 'Förhandling'. Skicka
+                en uppföljning idag för att öka stängningsfrekvensen med 15%."</div>
+              <button class="btn primary small" style="margin-top:10px;">Agera nu</button>
             </div>
           </div>
 
@@ -1144,8 +1141,18 @@
           <div class="panel">
             <div class="panelHead"><b><i class="fa-solid fa-clock-rotate-left"></i> Senaste Händelser</b></div>
             <div class="activityTimeline" style="border-left:none; padding-left:0;">
-              <!-- Dynamic Content -->
-              <div class="muted small center" style="padding:20px;">Laddar senaste händelser...</div>
+              <div class="activityItem call" style="padding-left:20px; border-left:2px solid var(--border);">
+                <div class="activityMeta">Idag 10:30 • Samtal</div>
+                <div><b>Maria Andersson</b> (TechCorp) diskuterade avtalsvillkor.</div>
+              </div>
+              <div class="activityItem email" style="padding-left:20px; border-left:2px solid var(--border);">
+                <div class="activityMeta">Igår 14:15 • E-post</div>
+                <div><b>Johan Svensson</b> öppnade offerten "Q1 Licenser".</div>
+              </div>
+              <div class="activityItem meeting" style="padding-left:20px; border-left:2px solid var(--border);">
+                <div class="activityMeta">Igår 09:00 • Möte</div>
+                <div>Demo med <b>Fastighetsbolaget AB</b> slutförd. Kund mycket intresserad.</div>
+              </div>
             </div>
           </div>
         </div>
@@ -1153,77 +1160,71 @@
         <!-- TAB: PIPELINE (KANBAN) -->
         <div id="crm_pipeline" class="crmTabContent" style="display:none;">
           <div class="pipelineContainer">
+            <!-- Complete Pipeline Columns matching JS Logic -->
             <div class="pipelineColumn">
               <div class="pipelineHeader">
                 <span>Nytt Lead</span>
-                <span class="stageCount">5</span>
+                <span class="stageCount">0</span>
               </div>
               <div id="pipelineBody-new" class="pipelineBody" ondrop="drop(event)" ondragover="allowDrop(event)">
-                <div class="dealCard" draggable="true" ondragstart="drag(event)" id="deal1">
-                  <div class="dealCompany">LogistikPartner AB</div>
-                  <div class="dealValue">250 000 kr</div>
-                  <div class="dealFooter">
-                    <div class="dealTags"><span class="dealTag tag-hot">HOT</span></div>
-                    <div class="dealOwner">MP</div>
-                  </div>
-                </div>
-                <div class="dealCard" draggable="true" ondragstart="drag(event)" id="deal2">
-                  <div class="dealCompany">Norrland Transport</div>
-                  <div class="dealValue">120 000 kr</div>
-                  <div class="dealFooter">
-                    <div class="dealTags"><span class="dealTag tag-warm">WARM</span></div>
-                    <div class="dealOwner">JS</div>
-                  </div>
-                </div>
+                <!-- JS will populate -->
               </div>
             </div>
+
             <div class="pipelineColumn">
               <div class="pipelineHeader">
-                <span>Kvalificerad</span>
-                <span class="stageCount">3</span>
+                <span>Kontakt Etablerad</span>
+                <span class="stageCount">0</span>
               </div>
-              <div id="pipelineBody-qualified" class="pipelineBody" ondrop="drop(event)" ondragover="allowDrop(event)">
-                <div class="dealCard" draggable="true" ondragstart="drag(event)" id="deal3">
-                  <div class="dealCompany">Byggmax AB</div>
-                  <div class="dealValue">450 000 kr</div>
-                  <div class="dealFooter">
-                    <div class="dealTags"><span class="dealTag tag-cold">COLD</span></div>
-                    <div class="dealOwner">MP</div>
-                  </div>
-                </div>
+              <div id="pipelineBody-contact" class="pipelineBody" ondrop="drop(event)" ondragover="allowDrop(event)">
               </div>
             </div>
+
+            <div class="pipelineColumn">
+              <div class="pipelineHeader">
+                <span>Demo / Möte</span>
+                <span class="stageCount">0</span>
+              </div>
+              <div id="pipelineBody-demo" class="pipelineBody" ondrop="drop(event)" ondragover="allowDrop(event)">
+              </div>
+            </div>
+
             <div class="pipelineColumn">
               <div class="pipelineHeader">
                 <span>Offert Skickad</span>
-                <span class="stageCount">2</span>
+                <span class="stageCount">0</span>
               </div>
               <div id="pipelineBody-proposal" class="pipelineBody" ondrop="drop(event)" ondragover="allowDrop(event)">
-                <div class="dealCard" draggable="true" ondragstart="drag(event)" id="deal4">
-                  <div class="dealCompany">TechConsulting</div>
-                  <div class="dealValue">85 000 kr</div>
-                  <div class="dealFooter">
-                    <div class="dealTags"><span class="dealTag tag-hot">HOT</span></div>
-                    <div class="dealOwner">SJ</div>
-                  </div>
-                </div>
               </div>
             </div>
+
             <div class="pipelineColumn">
               <div class="pipelineHeader">
                 <span>Förhandling</span>
-                <span class="stageCount">1</span>
+                <span class="stageCount">0</span>
               </div>
               <div id="pipelineBody-negotiation" class="pipelineBody" ondrop="drop(event)"
                 ondragover="allowDrop(event)">
-                <div class="dealCard" draggable="true" ondragstart="drag(event)" id="deal5">
-                  <div class="dealCompany">Storbanken SE</div>
-                  <div class="dealValue">1 200 000 kr</div>
-                  <div class="dealFooter">
-                    <div class="dealTags"><span class="dealTag tag-hot">HOT</span></div>
-                    <div class="dealOwner">VD</div>
-                  </div>
-                </div>
+              </div>
+            </div>
+
+            <div class="pipelineColumn">
+              <div class="pipelineHeader" style="border-top:3px solid var(--success);">
+                <span>Stängd Affär</span>
+                <span class="stageCount">0</span>
+              </div>
+              <div id="pipelineBody-won" class="pipelineBody" ondrop="drop(event)" ondragover="allowDrop(event)"
+                style="background:var(--success-fade);">
+              </div>
+            </div>
+
+            <div class="pipelineColumn">
+              <div class="pipelineHeader" style="border-top:3px solid var(--danger);">
+                <span>Förlorad</span>
+                <span class="stageCount">0</span>
+              </div>
+              <div id="pipelineBody-lost" class="pipelineBody" ondrop="drop(event)" ondragover="allowDrop(event)"
+                style="background:var(--danger-fade);">
               </div>
             </div>
           </div>
@@ -1408,24 +1409,20 @@
 
               <div style="margin-top:25px;">
                 <h5 style="margin-bottom:10px; font-size:11px; text-transform:uppercase; color:var(--muted);">
-                  Kostnadsbrytning per modell (Viktad)</h5>
+                  Kostnadsbrytning per modell</h5>
                 <div class="list">
                   <div class="listItem"
                     style="font-size:12px; cursor:default; display:flex; justify-content:space-between;">
-                    <span>GPT-5-mini (70%)</span> <b id="breakMini">0 kr</b>
+                    <span>GPT-5-mini</span> <b id="breakMini">0 kr</b>
                   </div>
                   <div class="listItem"
                     style="font-size:12px; cursor:default; display:flex; justify-content:space-between;">
-                    <span>GPT-5 (25%)</span> <b id="breakGpt5">0 kr</b>
+                    <span>GPT-5</span> <b id="breakGpt5">0 kr</b>
                   </div>
                   <div class="listItem"
                     style="font-size:12px; cursor:default; display:flex; justify-content:space-between;">
-                    <span>GPT-4.1 (5%)</span> <b id="breakGpt4">0 kr</b>
+                    <span>GPT-4.1</span> <b id="breakGpt4">0 kr</b>
                   </div>
-                </div>
-                <div class="alert warn tiny" style="margin-top:15px;" id="marginWarning" style="display:none;">
-                  <i class="fa-solid fa-triangle-exclamation"></i> <b>Låg marginal!</b> Marginalen understiger
-                  tröskelvärdet (20%).
                 </div>
               </div>
             </div>
@@ -2908,6 +2905,125 @@
     </div>
   </div>
 
+  <!-- VIEW: SLA & ANALYTICS -->
+  <section id="slaView" class="view" style="display:none;">
+    <div class="topbar">
+      <div class="title">SLA & Prestanda</div>
+      <div class="subtitle muted">Övervaka supportteamets effektivitet och svarstider.</div>
+    </div>
+    <div class="panel">
+      <div class="grid3 gap">
+        <div class="card">
+          <div class="cardHead">Lösningsgrad</div>
+          <div class="statValue" id="slaSolveRate">-</div>
+        </div>
+        <div class="card">
+          <div class="cardHead">Snittsvarstid</div>
+          <div class="statValue" id="slaAvgTime">-</div>
+        </div>
+        <div class="card">
+          <div class="cardHead">Kundnöjdhet (CSAT)</div>
+          <div class="statValue" id="slaCsat">-</div>
+        </div>
+      </div>
+
+      <div class="panelHead" style="margin-top:20px;"><b>Agent Prestanda</b></div>
+      <div id="slaAgentList" class="list">Laddar...</div>
+    </div>
+  </section>
+
+  <!-- VIEW: FEEDBACK -->
+  <section id="feedbackView" class="view" style="display:none;">
+    <div class="topbar">
+      <div class="title">Kundfeedback</div>
+      <div class="topbarActions">
+        <select id="fbPeriodFilter" class="input smallInput" onchange="loadFeedback()">
+          <option value="7">7 dagar</option>
+          <option value="30" selected>30 dagar</option>
+          <option value="all">All tid</option>
+        </select>
+        <button class="btn ghost icon" onclick="loadFeedback()"><i class="fa-solid fa-rotate"></i></button>
+      </div>
+    </div>
+
+    <div class="grid2 gap">
+      <div class="panel">
+        <div class="panelHead"><b>AI Analys</b> <span class="badge highlight">Beta</span></div>
+        <div id="aiAnalysisContent" class="soft center" style="padding:20px;">
+          <button class="btn secondary" onclick="getAiAnalysis()">Analysera Feedback</button>
+        </div>
+      </div>
+      <div class="panel">
+        <div class="panelHead"><b>Inkomna Svar</b></div>
+        <div id="feedbackList" class="list" style="max-height:500px; overflow-y:auto;"></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- VIEW: PRODUCT SIMULATOR -->
+  <section id="simulatorView" class="view" style="display:none;">
+    <div class="topbar">
+      <div class="title">Produktsimulator</div>
+      <div class="subtitle muted">Visualisera produkter i AI-genererade miljöer.</div>
+    </div>
+
+    <div class="grid2 gap">
+      <div class="panel">
+        <div class="panelHead"><b>Konfiguration</b></div>
+        <div class="grid2 gap">
+          <div class="col">
+            <label>Produktnamn</label>
+            <input id="simProductName" class="input" placeholder="T.ex. Lounge Soffa 3-sits">
+          </div>
+          <div class="col">
+            <label>Kategori</label>
+            <select id="simProductCategory" class="input">
+              <option value="furniture">Möbler</option>
+              <option value="lighting">Belysning</option>
+              <option value="decor">Inredning</option>
+              <option value="electronics">Elektronik</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="grid2 gap">
+          <div class="col">
+            <label>Rumaryp</label>
+            <select id="simRoomType" class="input">
+              <option value="living_room">Vardagsrum</option>
+              <option value="bedroom">Sovrum</option>
+              <option value="kitchen">Kök</option>
+              <option value="office">Kontor</option>
+            </select>
+          </div>
+          <div class="col">
+            <label>Stil</label>
+            <select id="simStyle" class="input">
+              <option value="modern">Modern</option>
+              <option value="scandinavian">Skandinavisk</option>
+              <option value="industrial">Industriell</option>
+              <option value="classic">Klassisk</option>
+            </select>
+          </div>
+        </div>
+
+        <button id="simGenerateBtn" class="btn primary full" style="margin-top:20px;">
+          <i class="fa-solid fa-wand-magic-sparkles"></i> Generera Visualisering
+        </button>
+      </div>
+
+      <div class="panel center" id="simResultArea" style="display:none; background:#000;">
+        <img id="simResultImage" style="max-width:100%; max-height:400px; border-radius:8px;">
+        <div id="simResultPrompt" class="muted small" style="margin-top:10px; color:#aaa;"></div>
+      </div>
+    </div>
+
+    <div class="panel" style="margin-top:20px;">
+      <div class="panelHead"><b>Historik</b></div>
+      <div id="simHistoryList" class="horizontalScroll"></div>
+    </div>
+  </section>
+
   <!-- MODAL: ADD DEAL (ADVANCED) -->
   <div id="crmAddDealModal" class="modal" style="display: none;">
     <div class="modalContent" style="max-width: 700px; padding:0; display:flex; flex-direction:column; height:80vh;">
@@ -2989,11 +3105,8 @@
         <textarea id="dealDesc" class="input" style="height:80px; resize:none;"
           placeholder="Vad ingår i affären?"></textarea>
 
-        <div class="alert info tiny" style="margin-top:10px;">
-          <i class="fa-solid fa-magic"></i><b> Snabb-mallar:</b>
-          <button class="btn ghost tiny" onclick="applyDealTemplate('new')">Nyförsäljning</button>
-          <button class="btn ghost tiny" onclick="applyDealTemplate('upsell')">Upsell</button>
-        </div>
+        <label>Nästa Steg</label>
+        <input id="dealNextStep" class="input" placeholder="T.ex. Skicka avtalsutkast..." />
       </div>
 
       <div class="modalFooter"
@@ -3002,38 +3115,6 @@
         <button class="btn primary" onclick="saveNewDealAdvanced()">
           <i class="fa-solid fa-plus"></i> Skapa Affär
         </button>
-      </div>
-    </div>
-  </div>
-
-  <!-- MODAL: BULK ACTIONS -->
-  <div id="crmBulkModal" class="modal" style="display: none;">
-    <div class="modalContent" style="max-width: 500px;">
-      <div class="modalHeader">
-        <h3><i class="fa-solid fa-layer-group"></i> Massuppdatering</h3>
-        <button class="btn ghost small" onclick="closeCrmModal('crmBulkModal')"><i
-            class="fa-solid fa-times"></i></button>
-      </div>
-      <div class="modalBody">
-        <p class="muted small">Uppdatera markerade affärer samtidigt.</p>
-        <div class="panel soft" style="margin-top:15px;">
-          <label>Flytta till fas</label>
-          <select id="bulkStage" class="input">
-            <option value="">Ingen ändring</option>
-            <option value="qualified">Kvalificerad</option>
-            <option value="proposal">Offert</option>
-            <option value="negotiation">Förhandling</option>
-            <option value="won">Vunnen</option>
-          </select>
-          <label style="margin-top:10px;">Ändra Säljare</label>
-          <select id="bulkOwner" class="input">
-            <option value="">Ingen ändring</option>
-            <option value="me">Jag</option>
-            <option value="team">Säljteamet</option>
-          </select>
-        </div>
-        <button class="btn primary full" style="margin-top:20px;" onclick="executeBulkUpdate()">Verkställ
-          Ändringar</button>
       </div>
     </div>
   </div>
@@ -3064,14 +3145,8 @@
             <input id="editDealValue" type="number" class="input" />
           </div>
           <div class="col">
-            <label>Vinst-sannolikhet (%)</label>
-            <input id="editDealProbability" type="number" class="input" min="0" max="100" />
-          </div>
-        </div>
-        <div class="grid2 gap">
-          <div class="col">
-            <label>Affärs-fas</label>
-            <select id="editDealStage" class="input" onchange="toggleLossFields()">
+            <label>Fas</label>
+            <select id="editDealStage" class="input">
               <option value="new">Nytt Lead</option>
               <option value="qualified">Kvalificerad</option>
               <option value="proposal">Offert Skickad</option>
@@ -3080,64 +3155,14 @@
               <option value="lost">Förlorad</option>
             </select>
           </div>
-          <div class="col">
-            <label>Typ av affär</label>
-            <select id="editDealType" class="input">
-              <option value="ny">Nyförsäljning</option>
-              <option value="upsell">Upsell</option>
-              <option value="churn_save">Churn-räddning</option>
-            </select>
-          </div>
         </div>
-
-        <!-- Loss Analysis (Conditional) -->
-        <div id="lossAnalysisBox"
-          style="display:none; margin:15px 0; padding:15px; background:var(--danger-fade); border:1px solid var(--danger); border-radius:12px;">
-          <b style="color:var(--danger); display:block; margin-bottom:10px;"><i
-              class="fa-solid fa-circle-exclamation"></i> Varför förlorades affären? (Obligatoriskt för analys)</b>
-          <div class="grid2 gap">
-            <div class="col">
-              <label>Orsak</label>
-              <select id="editDealLossReason" class="input">
-                <option value="">Välj...</option>
-                <option value="price">Pris (För dyrt)</option>
-                <option value="competitor">Konkurrent (Vinnare: ...)</option>
-                <option value="feature">Funktioner saknas</option>
-                <option value="timing">Dålig timing</option>
-                <option value="other">Annat</option>
-              </select>
-            </div>
-            <div class="col">
-              <label>Vinnande Konkurrent (om känd)</label>
-              <input id="editDealLossCompetitor" class="input" placeholder="T.ex. Zendesk, Salesforce" />
-            </div>
-          </div>
-          <label>Kommentar vid förlust</label>
-          <textarea id="editDealLossComment" class="input" style="height:60px;"></textarea>
-        </div>
-
-        <!-- AI NEXT BEST ACTION -->
-        <div class="nba-box">
-          <div class="nba-icon"><i class="fa-solid fa-bolt"></i></div>
-          <div class="nba-content">
-            <b style="color:var(--primary); font-size:13px; text-transform:uppercase;">AI: Next Best Action</b>
-            <div id="editDealNBA" style="font-size:14px; margin-top:4px;">Analyserar affärshistorik...</div>
-          </div>
-        </div>
-        <div class="row" style="margin-top:15px; gap:10px;">
-          <button class="btn ghost full" onclick="generateAiEmail()"><i class="fa-solid fa-wand-sparkles"></i> Skapa
-            AI-Uppföljning</button>
-          <button class="btn ghost full" onclick="logCrmActivityFromModal()"><i class="fa-solid fa-history"></i> Logga
-            Aktivitet</button>
-        </div>
+        <label>Beskrivning</label>
+        <textarea id="editDealDesc" class="input" style="height:80px; resize:none;"></textarea>
       </div>
       <div class="modalFooter"
-        style="padding:20px; border-top:1px solid var(--border); display:flex; justify-content:space-between; gap:10px;">
-        <button class="btn danger-ghost" onclick="deleteDeal()">Radera</button>
-        <div style="display:flex; gap:10px;">
-          <button class="btn ghost" onclick="closeCrmModal('crmEditDealModal')">Avbryt</button>
-          <button class="btn primary" onclick="updateDeal()">Spara ändringar</button>
-        </div>
+        style="padding:20px; border-top:1px solid var(--border); display:flex; justify-content:flex-end; gap:10px;">
+        <button class="btn ghost" onclick="closeCrmModal('crmEditDealModal')">Avbryt</button>
+        <button class="btn primary" onclick="updateDeal()">Spara ändringar</button>
       </div>
     </div>
   </div>
@@ -3260,17 +3285,6 @@
                 <option value="me">Jag (Nuvarande användare)</option>
                 <option value="unassigned">Ej tilldelad</option>
               </select>
-            </div>
-          </div>
-
-          <div class="grid2 gap" style="margin-bottom:15px;">
-            <div class="col">
-              <label>Månadsintäkt (MRR)</label>
-              <input id="custMrr" type="number" class="input" placeholder="0 kr" />
-            </div>
-            <div class="col">
-              <label>Kundhälsa (0-100)</label>
-              <input id="custHealth" type="number" class="input" value="100" />
             </div>
           </div>
 
@@ -3426,13 +3440,15 @@
     </div>
   </div>
 
-  <script src="script.js?v=2026.17"></script>
-  <script src="mobile_optimization.js?v=2026.17"></script>
-  <script src="crm_enhancements.js?v=2026.17"></script>
-  <script src="admin_users.js?v=2026.17"></script>
-  <script src="simulator_logic.js?v=2026.17"></script>
-  <script src="analytics_logic.js?v=2026.17"></script>
-  <script src="contact_logic.js?v=2026.17"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js" defer></script>
+  <script src="https://cdn.socket.io/4.7.5/socket.io.min.js" defer></script>
+
+  <script src="script.js?v=2026.16"></script>
+  <script src="mobile_optimization.js?v=2026.16"></script>
+  <script src="crm_enhancements.js?v=2026.16"></script>
+  <script src="admin_users.js?v=2026.16"></script>
+  <script src="simulator_logic.js?v=2026.16"></script>
+  <script src="contact_logic.js?v=2026.16"></script>
 </body>
 
 </html>
