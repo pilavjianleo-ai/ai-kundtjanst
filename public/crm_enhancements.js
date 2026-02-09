@@ -174,9 +174,10 @@ function renderCrmDashboard() {
 
         // Hot Leads
         const val2 = cards[1].querySelector('.crmStatValue');
-        if (val2) val2.innerText = hotLeads + " st";
+        if (val2) val2.innerText = openDeals + " st";
         const trend2 = cards[1].querySelector('.crmStatTrend');
-        if (trend2) trend2.innerText = hotLeads > 0 ? `${hotLeads} heta leads att bearbeta` : "Inga heta leads just nu";
+        const negotiationCount = deals.filter(d => d.stage === 'negotiation').length;
+        if (trend2) trend2.innerText = negotiationCount > 0 ? `${negotiationCount} i förhandling` : "Inga i förhandling";
 
         // Monthly Revenue
         const val3 = cards[2].querySelector('.crmStatValue');
@@ -748,7 +749,7 @@ window.renderPipeline = function () {
         // RENDER CARDS
         container.innerHTML = stageDeals.map(d => {
             const c = customers.find(cust => cust.id === d.customerId);
-            const customerName = c ? c.name : (d.customerName || 'Okänd Kund');
+            const customerName = c ? c.name : (d.company || d.customerName || 'Okänt Företag');
 
             // Churn/Stagnant Warning (Simulated)
             let warningHtml = '';
