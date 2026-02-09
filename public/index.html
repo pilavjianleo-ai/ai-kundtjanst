@@ -1359,28 +1359,32 @@
             <div class="panel" style="background: var(--panel2); border: 1px solid var(--border);">
               <div class="panelHead"><b><i class="fa-solid fa-chart-pie"></i> Resultat & Marginalanalys</b></div>
 
-              <div class="grid3" style="margin-top:20px; gap:15px;">
-                <div class="slaCard" style="background:var(--panel); border-left:3px solid var(--danger);">
-                  <div class="slaLabel">Est. AI Kostnad</div>
-                  <div class="slaValue" id="resAiCost" style="color:var(--danger); font-size:20px;">0 kr</div>
-                </div>
+              <div class="grid4" style="margin-top:20px; gap:12px;">
                 <div class="slaCard" style="background:var(--panel); border-left:3px solid var(--primary);">
+                  <div class="slaLabel">Snittkostnad / Chatt</div>
+                  <div id="resAvgChatCost" class="slaValue" style="font-size:18px; color:var(--primary);">0 kr</div>
+                </div>
+                <div class="slaCard" style="background:var(--panel); border-left:3px solid var(--danger);">
+                  <div class="slaLabel">Total AI Kostnad</div>
+                  <div class="slaValue" id="resAiCost" style="color:var(--danger); font-size:18px;">0 kr</div>
+                </div>
+                <div class="slaCard" style="background:var(--panel); border-left:3px solid var(--text);">
                   <div class="slaLabel">Total Intäkt</div>
-                  <div id="resCustomerValue" class="slaValue" style="font-size:20px;">0 kr</div>
+                  <div id="resCustomerValue" class="slaValue" style="font-size:18px;">0 kr</div>
                 </div>
                 <div class="slaCard" style="background:var(--panel); border-left:3px solid var(--ok);">
                   <div class="slaLabel">Marginal (%)</div>
-                  <div id="resMarginPercentBox" class="slaValue" style="color:var(--ok); font-size:20px;">0%</div>
+                  <div id="resMarginPercentBox" class="slaValue" style="color:var(--ok); font-size:18px;">0%</div>
                 </div>
               </div>
 
               <div
                 style="margin-top:20px; text-align:center; padding:25px; border-radius:12px; background:var(--panel); border:1px solid var(--border); box-shadow:0 10px 25px rgba(0,0,0,0.05);">
                 <div class="muted small" style="text-transform:uppercase; font-weight:bold; letter-spacing:1px;">Netto
-                  Marginal (Bevinst)</div>
+                  Marginal (Månadsvinst)</div>
                 <div id="resMarginValue" style="font-size:42px; font-weight:900; color:var(--ok); margin:5px 0;">0 kr
                 </div>
-                <div class="small muted" id="marginNote">Beräknat efter AI-kostnader</div>
+                <div class="small muted">Beräknat efter viktad LLM-routing</div>
               </div>
 
               <div style="margin-top:25px;">

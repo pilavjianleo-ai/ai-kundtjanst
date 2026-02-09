@@ -153,71 +153,70 @@ window.syncAiSplits = function (source) {
 };
 
 window.calculateAiMargins = function () {
-    const volume = parseInt(document.getElementById('aiCostVolume').value) || 0;
-    const tokensPerTicket = parseInt(document.getElementById('aiCostTokens').value) || 0;
+    const monthly_volume = parseInt(document.getElementById('aiCostVolume').value) || 0;
     const customerId = document.getElementById('aiCostCustomerSelect').value;
 
-    const miniPct = parseInt(document.getElementById('splitMini').value) / 100;
-    const gpt5Pct = parseInt(document.getElementById('splitGpt5').value) / 100;
-    const gpt4Pct = parseInt(document.getElementById('splitGpt4').value) / 100;
+    // Routing Shares (0.0 - 1.0)
+    const mini_share = parseInt(document.getElementById('splitMini').value) / 100;
+    const standard_share = parseInt(document.getElementById('splitGpt5').value) / 100;
+    const advanced_share = parseInt(document.getElementById('splitGpt4').value) / 100;
 
-    /**
-     * REAL-WORLD TOKEN PRICING (Estimated SEK per 1000 tokens)
-     * Assuming current exchange rates and model tiers.
-     */
-    const pricing = {
-        mini: { in: 0.0016, out: 0.0064 }, // GPT-5-mini (Ground-breaking efficiency)
-        gpt5: { in: 0.0525, out: 0.1575 }, // GPT-5 (Premium state-of-the-art)
-        gpt4: { in: 0.1050, out: 0.3150 }  // GPT-4.1 (Specialized Legacy/Advanced)
+    const input_t = AI_CONFIG.tokens_per_chat.avg_input;
+    const output_t = AI_CONFIG.tokens_per_chat.avg_output;
+
+    // 1. Calculate Cost per Chat per Model (USD)
+    const calcChatPriceUSD = (model) => {
+        const p = AI_CONFIG.model_prices[model];
+        const in_c = (input_t / 1000000) * p.in;
+        const out_c = (output_t / 1000000) * p.out;
+        return in_c + out_c;
     };
 
-    // Assuming a standard 3:1 Input to Output token ratio for customer service
-    const inProp = 0.75;
-    const outProp = 0.25;
+    const cost_mini = calcChatPriceUSD('mini');
+    const cost_std = calcChatPriceUSD('standard');
+    const cost_adv = calcChatPriceUSD('advanced');
 
-    const calcModelCost = (pct, model) => {
-        const modelTokens = volume * tokensPerTicket * pct;
-        const inputTokens = modelTokens * inProp;
-        const outputTokens = modelTokens * outProp;
-        return (inputTokens / 1000 * pricing[model].in) + (outputTokens / 1000 * pricing[model].out);
-    };
+    // 2. Weighted Average Cost per Chat (USD)
+    const weighted_avg_usd = (cost_mini * mini_share) + (cost_std * standard_share) + (cost_adv * advanced_share);
 
-    const costMini = calcModelCost(miniPct, 'mini');
-    const costGpt5 = calcModelCost(gpt5Pct, 'gpt5');
-    const costGpt4 = calcModelCost(gpt4Pct, 'gpt4');
+    // 3. Convert to Local (SEK)
+    const weighted_avg_sek = weighted_avg_usd * AI_CONFIG.exchange_rate;
 
-    const totalAiCost = costMini + costGpt5 + costGpt4;
+    // 4. Monthly Totals
+    const total_monthly_cost_sek = monthly_volume * weighted_avg_sek;
 
-    // Get Revenue
+    // 5. Revenue from CRM
     const customers = JSON.parse(localStorage.getItem('crmCustomers') || '[]');
-    let revenue = 0;
-
+    let monthly_revenue = 0;
     if (customerId === 'all') {
-        revenue = customers.reduce((sum, c) => sum + (parseFloat(c.value) || 0), 0);
+        monthly_revenue = customers.reduce((sum, c) => sum + (parseFloat(c.value) || 0), 0);
     } else {
-        const c = customers.find(x => x.id === customerId);
-        revenue = c ? (parseFloat(c.value) || 0) : 0;
+        const c = customers.find(x => (x.id || x.name) === customerId);
+        monthly_revenue = c ? (parseFloat(c.value) || 0) : 0;
     }
 
-    const margin = revenue - totalAiCost;
-    const marginPct = revenue > 0 ? (margin / revenue) * 100 : 0;
+    // 6. Margins
+    const gross_margin_val = monthly_revenue - total_monthly_cost_sek;
+    const gross_margin_pct = monthly_revenue > 0 ? (gross_margin_val / monthly_revenue) * 100 : 0;
 
-    // Update UI
+    // UPDATE UI
     const fmt = (v) => new Intl.NumberFormat('sv-SE', { style: 'currency', currency: 'SEK' }).format(v);
 
-    document.getElementById('resAiCost').innerText = fmt(totalAiCost);
-    document.getElementById('resCustomerValue').innerText = fmt(revenue);
-    document.getElementById('resMarginValue').innerText = fmt(margin);
+    document.getElementById('resAvgChatCost').innerText = weighted_avg_sek.toFixed(2) + ' kr';
+    document.getElementById('resAiCost').innerText = fmt(total_monthly_cost_sek);
+    document.getElementById('resCustomerValue').innerText = fmt(monthly_revenue);
+    document.getElementById('resMarginValue').innerText = fmt(gross_margin_val);
 
     const pctBox = document.getElementById('resMarginPercentBox');
     if (pctBox) {
-        pctBox.innerText = marginPct.toFixed(1) + '%';
-        pctBox.style.color = marginPct > 50 ? 'var(--ok)' : (marginPct > 15 ? 'var(--warn)' : 'var(--danger)');
+        pctBox.innerText = gross_margin_pct.toFixed(1) + '%';
+        pctBox.style.color = gross_margin_pct > 40 ? 'var(--ok)' : (gross_margin_pct > 10 ? 'var(--warn)' : 'var(--danger)');
     }
 
-    document.getElementById('breakMini').innerText = fmt(costMini);
-    document.getElementById('breakGpt5').innerText = fmt(costGpt5);
-    document.getElementById('breakGpt4').innerText = fmt(costGpt4);
+    // Breakdowns
+    document.getElementById('breakMini').innerText = fmt(monthly_volume * mini_share * cost_mini * AI_CONFIG.exchange_rate);
+    document.getElementById('breakGpt5').innerText = fmt(monthly_volume * standard_share * cost_std * AI_CONFIG.exchange_rate);
+    document.getElementById('breakGpt4').innerText = fmt(monthly_volume * advanced_share * cost_adv * AI_CONFIG.exchange_rate);
 };
 
 /**
