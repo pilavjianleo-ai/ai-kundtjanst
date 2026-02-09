@@ -134,20 +134,33 @@ function renderCrmDashboard() {
 }
 
 /**
- * AI COST TOOL LOGIC
+ * AI COST TOOL LOGIC - DATA DRIVEN CALCULATIONS
  */
+const AI_CONFIG = {
+    exchange_rate: 11.5, // USD -> SEK
+    tokens_per_chat: {
+        avg_input: 500,
+        avg_output: 500
+    },
+    // Prices in USD per 1,000,000 tokens
+    model_prices: {
+        mini: { in: 0.15, out: 0.60 },    // GPT-mini
+        standard: { in: 5.00, out: 15.00 },// GPT-standard
+        advanced: { in: 10.00, out: 30.00 } // GPT-advanced
+    }
+};
+
 window.syncAiSplits = function (source) {
-    const miniVal = parseInt(document.getElementById('splitMini').value);
-    const gpt5Val = parseInt(document.getElementById('splitGpt5').value);
-    const gpt4Val = parseInt(document.getElementById('splitGpt4').value);
+    const miniVal = parseInt(document.getElementById('splitMini').value || 0);
+    const gpt5Val = parseInt(document.getElementById('splitGpt5').value || 0);
+    const gpt4Val = parseInt(document.getElementById('splitGpt4').value || 0);
 
     const total = miniVal + gpt5Val + gpt4Val;
 
-    document.getElementById('valMini').innerText = miniVal + '%';
-    document.getElementById('valGpt5').innerText = gpt5Val + '%';
-    document.getElementById('valGpt4').innerText = gpt4Val + '%';
+    if (document.getElementById('valMini')) document.getElementById('valMini').innerText = miniVal + '%';
+    if (document.getElementById('valGpt5')) document.getElementById('valGpt5').innerText = gpt5Val + '%';
+    if (document.getElementById('valGpt4')) document.getElementById('valGpt4').innerText = gpt4Val + '%';
 
-    // Visual indicator if not 100%
     const note = document.getElementById('marginNote');
     if (note) {
         if (total !== 100) {
@@ -159,11 +172,12 @@ window.syncAiSplits = function (source) {
         }
     }
 
-    calculateAiMargins();
+    if (window.calculateAiMargins) calculateAiMargins();
 };
 
 window.calculateAiMargins = function () {
     const monthly_volume = parseInt(document.getElementById('aiCostVolume').value) || 0;
+    const tokens_per_chat = parseInt(document.getElementById('aiCostTokens').value) || 0;
     const customerId = document.getElementById('aiCostCustomerSelect').value;
 
     // Routing Shares (0.0 - 1.0)
@@ -171,8 +185,9 @@ window.calculateAiMargins = function () {
     const standard_share = parseInt(document.getElementById('splitGpt5').value) / 100;
     const advanced_share = parseInt(document.getElementById('splitGpt4').value) / 100;
 
-    const input_t = AI_CONFIG.tokens_per_chat.avg_input;
-    const output_t = AI_CONFIG.tokens_per_chat.avg_output;
+    // Use token split from UI (assuming 50/50 split for calculation if one input is used)
+    const input_t = tokens_per_chat * 0.5;
+    const output_t = tokens_per_chat * 0.5;
 
     // 1. Calculate Cost per Chat per Model (USD)
     const calcChatPriceUSD = (model) => {
@@ -203,6 +218,11 @@ window.calculateAiMargins = function () {
     } else {
         const c = customers.find(x => (x.id || x.name) === customerId);
         monthly_revenue = c ? (parseFloat(c.value) || 0) : 0;
+    }
+
+    // FALLBACK: If no customers exist, show a demo revenue (e.g., 15 000 kr) so the tool isn't empty
+    if (monthly_revenue === 0) {
+        monthly_revenue = 15000;
     }
 
     // 6. Margins
