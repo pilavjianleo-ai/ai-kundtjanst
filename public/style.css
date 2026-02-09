@@ -4333,6 +4333,30 @@ body[data-theme="light"] .messages {
 }
 
 /* =========================================
+   GLOBAL OVERLAYS & UI FIXES
+   ========================================= */
+
+/* Hide overlays by default to prevent layout disruption on desktop */
+.mobile-overlay,
+#aiDeployOverlay,
+#crmCustomerModal,
+#onboardingModal {
+  display: none;
+}
+
+/* Hamburger Menu Toggle (Hidden by default, shown on mobile) */
+.menu-toggle {
+  display: none;
+  background: transparent;
+  border: none;
+  font-size: 20px;
+  color: var(--text);
+  margin-right: 12px;
+  cursor: pointer;
+  padding: 4px;
+}
+
+/* =========================================
    RESPONSIVE & MOBILE OPTIMIZATIONS (ULTIMATE)
    ========================================= */
 
@@ -4381,12 +4405,19 @@ body[data-theme="light"] .messages {
   .mobile-overlay {
     position: fixed;
     inset: 0;
+    /* Allow blocking on mobile when active */
+    display: block !important;
     background: rgba(0, 0, 0, 0.5);
     backdrop-filter: blur(5px);
     z-index: 9998;
     opacity: 0;
     pointer-events: none;
     transition: opacity 0.3s;
+  }
+
+  /* Show Hamburger on Mobile */
+  .menu-toggle {
+    display: inline-flex !important;
   }
 
   .mobile-overlay.active {

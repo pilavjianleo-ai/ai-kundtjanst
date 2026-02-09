@@ -201,9 +201,13 @@
       <!-- CHAT VIEW -->
       <section id="chatView" class="view" style="display:none;">
         <div class="topbar">
-          <div>
-            <div class="title" id="chatTitle">AI Kundtjänst</div>
-            <div class="subtitle" id="chatSubtitle">Ställ en fråga så hjälper jag dig direkt.</div>
+          <div style="display: flex; align-items: center;">
+            <button class="btn ghost icon menu-toggle" onclick="toggleSidebar()"><i
+                class="fa-solid fa-bars"></i></button>
+            <div>
+              <div class="title" id="chatTitle">AI Kundtjänst</div>
+              <div class="subtitle" id="chatSubtitle">Ställ en fråga så hjälper jag dig direkt.</div>
+            </div>
           </div>
 
           <div class="topbarActions">
@@ -246,9 +250,13 @@
       <!-- MY TICKETS VIEW -->
       <section id="myTicketsView" class="view" style="display:none;">
         <div class="topbar">
-          <div>
-            <div class="title">Mina ärenden</div>
-            <div class="subtitle muted">Se dina tickets och status.</div>
+          <div style="display: flex; align-items: center;">
+            <button class="btn ghost icon menu-toggle" onclick="toggleSidebar()"><i
+                class="fa-solid fa-bars"></i></button>
+            <div>
+              <div class="title">Mina ärenden</div>
+              <div class="subtitle muted">Se dina tickets och status.</div>
+            </div>
           </div>
           <div class="topbarActions">
             <button id="myTicketsRefreshBtn" class="btn ghost" type="button">
@@ -292,10 +300,14 @@
       <!-- SLA VIEW - ANALYTICS COMMAND CENTER -->
       <section id="slaView" class="view" style="display:none;">
         <div class="topbar">
-          <div>
-            <div class="title"><i class="fa-solid fa-chart-pie" style="color:var(--primary);"></i> Analytics Command
-              Center</div>
-            <div class="subtitle muted">Avancerad statistik, insikter och KPI:er för hela organisationen</div>
+          <div style="display: flex; align-items: center;">
+            <button class="btn ghost icon menu-toggle" onclick="toggleSidebar()"><i
+                class="fa-solid fa-bars"></i></button>
+            <div>
+              <div class="title"><i class="fa-solid fa-chart-pie" style="color:var(--primary);"></i> Analytics Command
+                Center</div>
+              <div class="subtitle muted">Avancerad statistik, insikter och KPI:er för hela organisationen</div>
+            </div>
           </div>
 
           <div class="topbarActions">
@@ -628,9 +640,13 @@
       <!-- INBOX VIEW -->
       <section id="inboxView" class="view" style="display:none;">
         <div class="topbar">
-          <div>
-            <div class="title">Inbox</div>
-            <div class="subtitle muted">Hantera inkomna ärenden (agent/admin).</div>
+          <div style="display: flex; align-items: center;">
+            <button class="btn ghost icon menu-toggle" onclick="toggleSidebar()"><i
+                class="fa-solid fa-bars"></i></button>
+            <div>
+              <div class="title">Inbox</div>
+              <div class="subtitle muted">Hantera inkomna ärenden (agent/admin).</div>
+            </div>
           </div>
 
           <div class="topbarActions">
@@ -750,9 +766,13 @@
       <!-- ADMIN VIEW -->
       <section id="adminView" class="view" style="display:none;">
         <div class="topbar">
-          <div>
-            <div class="title">Admin Dashboard</div>
-            <div class="subtitle muted">Hantera users, export, KB, kategorier och AI settings.</div>
+          <div style="display: flex; align-items: center;">
+            <button class="btn ghost icon menu-toggle" onclick="toggleSidebar()"><i
+                class="fa-solid fa-bars"></i></button>
+            <div>
+              <div class="title">Admin Dashboard</div>
+              <div class="subtitle muted">Hantera users, export, KB, kategorier och AI settings.</div>
+            </div>
           </div>
           <div class="topbarActions">
             <button id="adminExportAllBtn" class="btn ghost" type="button">

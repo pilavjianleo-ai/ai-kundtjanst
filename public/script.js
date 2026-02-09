@@ -61,6 +61,16 @@ function escapeHtml(s) {
     .replaceAll("'", "&#039;");
 }
 
+/* =========================
+   Mobile Sidebar Toggle
+========================= */
+window.toggleSidebar = function () {
+  const sb = document.querySelector('.sidebar');
+  const ov = document.querySelector('.mobile-overlay');
+  if (sb) sb.classList.toggle('active');
+  if (ov) ov.classList.toggle('active');
+};
+
 function toast(title, text = "", type = "info") {
   const wrap = $("toastWrap");
   if (!wrap) return;
@@ -1478,10 +1488,7 @@ async function loadSlaDashboard() {
   }
 }
 
-console.error("SLA Load Error:", e);
-toast("Fel", "Kunde inte ladda dashboard-data", "error");
-  }
-}
+
 
 async function exportSlaCsv() {
   toast("Export", "Förbereder CSV...", "info");
