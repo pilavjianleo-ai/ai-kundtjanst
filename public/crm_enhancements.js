@@ -98,32 +98,6 @@ function renderCrmDashboard() {
                 </div>`;
             }).join('');
 
-            // NEW: Kundkort Accordion (Most recent customer info)
-            const latestCustomer = customers.length > 0 ? customers[customers.length - 1] : null;
-            let kundkortHtml = '';
-
-            if (latestCustomer) {
-                kundkortHtml = `
-                <div class="accordion-item" style="border:1px solid var(--border); border-radius:12px; background:var(--panel2); overflow:hidden; box-shadow:0 4px 12px rgba(0,0,0,0.03); margin-top:12px;">
-                    <div class="accordion-header" onclick="toggleAccordion('crmCustomerCardBody')" style="padding:15px; display:flex; align-items:center; justify-content:space-between; cursor:pointer; background:var(--panel); transition:all 0.2s;">
-                        <div style="display:flex; align-items:center; gap:10px; font-weight:700; color:var(--text); font-size:14px;">
-                            <i class="fa-solid fa-address-card" style="color:var(--primary);"></i> 
-                            Kundkort: ${latestCustomer.name}
-                        </div>
-                        <i class="fa-solid fa-chevron-down accordion-icon" id="icon-crmCustomerCardBody" style="font-size:12px; transition:transform 0.3s; color:var(--muted); transform:rotate(180deg);"></i>
-                    </div>
-                    <div id="crmCustomerCardBody" class="accordion-content" style="display:block; padding:15px; background:var(--bg);">
-                        <div class="grid2" style="gap:10px; font-size:12px;">
-                            <div><span class="muted">Ansvarig:</span> ${latestCustomer.contact || '-'}</div>
-                            <div><span class="muted">Status:</span> <span class="pill tiny ${latestCustomer.status === 'prospect' ? 'warn' : 'ok'}">${latestCustomer.status?.toUpperCase()}</span></div>
-                            <div><span class="muted">E-post:</span> ${latestCustomer.email || '-'}</div>
-                            <div><span class="muted">Region:</span> ${latestCustomer.address?.city || 'Okänd'}</div>
-                        </div>
-                        <button class="btn ghost tiny full" onclick="openCustomerModal('${latestCustomer.name}')" style="margin-top:10px; font-size:10px;">Visa 360-graders vy</button>
-                    </div>
-                </div>`;
-            }
-
             feed.innerHTML = `
                 <div class="accordion-item" style="border:1px solid var(--border); border-radius:12px; background:var(--panel2); overflow:hidden; box-shadow:0 4px 12px rgba(0,0,0,0.03);">
                     <div class="accordion-header" onclick="toggleAccordion('crmTimelineBody')" style="padding:15px; display:flex; align-items:center; justify-content:space-between; cursor:pointer; background:var(--panel); transition:all 0.2s;">
@@ -140,13 +114,91 @@ function renderCrmDashboard() {
                         ${listItemsHtml}
                     </div>
                 </div>
-                ${kundkortHtml}
             `;
         } else {
             feed.innerHTML = `<div class="muted center" style="padding:20px; font-size:13px;">Inga aktiviteter loggade än.</div>`;
         }
     }
+
+    // Populate AI Cost Analysis Customer Select
+    const costSelect = document.getElementById('aiCostCustomerSelect');
+    if (costSelect) {
+        const currentVal = costSelect.value;
+        let html = '<option value="all">Alla Kunder (Aggregerat)</option>';
+        customers.forEach(c => {
+            html += `<option value="${c.id || c.name}" ${(c.id || c.name) === currentVal ? 'selected' : ''}>${c.name}</option>`;
+        });
+        costSelect.innerHTML = html;
+        if (window.calculateAiMargins) window.calculateAiMargins();
+    }
 }
+
+/**
+ * AI COST TOOL LOGIC
+ */
+window.syncAiSplits = function (source) {
+    const miniVal = parseInt(document.getElementById('splitMini').value);
+    const gpt5Val = parseInt(document.getElementById('splitGpt5').value);
+    const gpt4Val = parseInt(document.getElementById('splitGpt4').value);
+
+    // Simple normalization to 100%
+    let total = miniVal + gpt5Val + gpt4Val;
+    if (total === 0) return;
+
+    document.getElementById('valMini').innerText = miniVal + '%';
+    document.getElementById('valGpt5').innerText = gpt5Val + '%';
+    document.getElementById('valGpt4').innerText = gpt4Val + '%';
+
+    calculateAiMargins();
+};
+
+window.calculateAiMargins = function () {
+    const volume = parseInt(document.getElementById('aiCostVolume').value) || 0;
+    const tokensPerTicket = parseInt(document.getElementById('aiCostTokens').value) || 0;
+    const customerId = document.getElementById('aiCostCustomerSelect').value;
+
+    const miniPct = parseInt(document.getElementById('splitMini').value) / 100;
+    const gpt5Pct = parseInt(document.getElementById('splitGpt5').value) / 100;
+    const gpt4Pct = parseInt(document.getElementById('splitGpt4').value) / 100;
+
+    // Price per 1k tokens (Estimated SEK)
+    const priceMini = 0.005; // GPT-5-mini
+    const priceGpt5 = 0.05;  // GPT-5
+    const priceGpt4 = 0.15;  // GPT-4.1
+
+    const costMini = (volume * tokensPerTicket * miniPct / 1000) * priceMini;
+    const costGpt5 = (volume * tokensPerTicket * gpt5Pct / 1000) * priceGpt5;
+    const costGpt4 = (volume * tokensPerTicket * gpt4Pct / 1000) * priceGpt4;
+
+    const totalAiCost = costMini + costGpt5 + costGpt4;
+
+    // Get Revenue
+    const customers = JSON.parse(localStorage.getItem('crmCustomers') || '[]');
+    let revenue = 0;
+
+    if (customerId === 'all') {
+        revenue = customers.reduce((sum, c) => sum + (parseFloat(c.value) || 0), 0);
+    } else {
+        const c = customers.find(x => x.id === customerId);
+        revenue = c ? (parseFloat(c.value) || 0) : 0;
+    }
+
+    const margin = revenue - totalAiCost;
+    const marginPct = revenue > 0 ? (margin / revenue) * 100 : 0;
+
+    // Update UI
+    const fmt = (v) => new Intl.NumberFormat('sv-SE', { style: 'currency', currency: 'SEK' }).format(v);
+
+    document.getElementById('resAiCost').innerText = fmt(totalAiCost);
+    document.getElementById('resCustomerValue').innerText = fmt(revenue);
+    document.getElementById('resMarginValue').innerText = fmt(margin);
+    document.getElementById('resMarginPercent').innerText = marginPct.toFixed(1) + '% Profit';
+    document.getElementById('resMarginPercent').className = 'pill ' + (marginPct > 30 ? 'ok' : (marginPct > 0 ? 'warn' : 'danger'));
+
+    document.getElementById('breakMini').innerText = fmt(costMini);
+    document.getElementById('breakGpt5').innerText = fmt(costGpt5);
+    document.getElementById('breakGpt4').innerText = fmt(costGpt4);
+};
 
 /**
  * Log Helper for CRM Activities

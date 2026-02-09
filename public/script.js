@@ -5973,6 +5973,7 @@ function setCrmTab(tabId) {
   if (btn) btn.classList.add('active');
 
   if (tabId === 'pipeline') renderPipeline();
+  if (tabId === 'ai_cost' && window.calculateAiMargins) calculateAiMargins();
 }
 
 function allowDrop(ev) {

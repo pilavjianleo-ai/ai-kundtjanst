@@ -1080,6 +1080,7 @@
           <button class="crmNavBtn active" onclick="setCrmTab('dashboard')" id="tab_crm_dashboard">Översikt</button>
           <button class="crmNavBtn" onclick="setCrmTab('pipeline')" id="tab_crm_pipeline">Pipeline</button>
           <button class="crmNavBtn" onclick="setCrmTab('customers')" id="tab_crm_customers">Kunder</button>
+          <button class="crmNavBtn" onclick="setCrmTab('ai_cost')" id="tab_crm_ai_cost">AI Kostnad</button>
           <button class="crmNavBtn" onclick="setCrmTab('activities')" id="tab_crm_activities">Aktiviteter</button>
         </div>
 
@@ -1286,6 +1287,116 @@
                 </tr>
               </tbody>
             </table>
+          </div>
+        </div>
+
+        <!-- TAB: AI COST ANALYSIS (NEW) -->
+        <div id="crm_ai_cost" class="crmTabContent" style="display:none;">
+          <div class="grid2" style="gap:20px;">
+            <!-- Calculator Panel -->
+            <div class="panel" style="border-top: 4px solid var(--primary);">
+              <div class="panelHead" style="display:flex; justify-content:space-between; align-items:center;">
+                <b><i class="fa-solid fa-calculator"></i> Kostnadskalkylator & Prognos</b>
+                <span class="pill primary tiny">LIVE BERÄKNING</span>
+              </div>
+
+              <div style="margin-top:20px;">
+                <label class="small-label">Välj Kund/Kategori för Analys</label>
+                <select id="aiCostCustomerSelect" class="input" onchange="calculateAiMargins()">
+                  <option value="all">Alla Kunder (Aggregerat)</option>
+                  <!-- Populated by JS -->
+                </select>
+              </div>
+
+              <div class="grid2" style="margin-top:20px; gap:15px;">
+                <div class="col">
+                  <label class="small-label">Antal ärenden / mån</label>
+                  <input type="number" id="aiCostVolume" class="input" value="1000" oninput="calculateAiMargins()">
+                </div>
+                <div class="col">
+                  <label class="small-label">Snitt tokens per ärende</label>
+                  <input type="number" id="aiCostTokens" class="input" value="1500" oninput="calculateAiMargins()">
+                </div>
+              </div>
+
+              <div class="divider" style="margin:20px 0;"></div>
+
+              <h5 style="margin-bottom:15px; color:var(--text-muted); font-size:11px; text-transform:uppercase;">
+                Modellfördelning (%)</h5>
+              <div class="row gap" style="margin-bottom:10px;">
+                <div style="flex:1;">
+                  <div style="font-size:12px; font-weight:600; margin-bottom:5px;">GPT-5-mini (Simpla)</div>
+                  <input type="range" id="splitMini" min="0" max="100" value="75"
+                    style="width:100%; accent-color:var(--ok);" oninput="syncAiSplits('mini')">
+                </div>
+                <div style="width:40px; font-weight:bold; color:var(--ok);" id="valMini">75%</div>
+              </div>
+
+              <div class="row gap" style="margin-bottom:10px;">
+                <div style="flex:1;">
+                  <div style="font-size:12px; font-weight:600; margin-bottom:5px;">GPT-5 (Komplexa)</div>
+                  <input type="range" id="splitGpt5" min="0" max="100" value="25"
+                    style="width:100%; accent-color:var(--primary);" oninput="syncAiSplits('gpt5')">
+                </div>
+                <div style="width:40px; font-weight:bold; color:var(--primary);" id="valGpt5">25%</div>
+              </div>
+
+              <div class="row gap" style="margin-bottom:10px;">
+                <div style="flex:1;">
+                  <div style="font-size:12px; font-weight:600; margin-bottom:5px;">GPT-4.1 (Avancerade)</div>
+                  <input type="range" id="splitGpt4" min="0" max="100" value="0"
+                    style="width:100%; accent-color:var(--warn);" oninput="syncAiSplits('gpt4')">
+                </div>
+                <div style="width:40px; font-weight:bold; color:var(--warn);" id="valGpt4">0%</div>
+              </div>
+
+              <div class="alert info tiny" style="margin-top:15px;">
+                <i class="fa-solid fa-circle-info"></i> Beräkningar baseras på aktuella API-priser inkl. marginalpåslag.
+              </div>
+            </div>
+
+            <!-- Results Panel -->
+            <div class="panel" style="background: var(--panel2); border: 1px solid var(--border);">
+              <div class="panelHead"><b><i class="fa-solid fa-chart-pie"></i> Resultat & Marginalanalys</b></div>
+
+              <div class="grid2" style="margin-top:20px; gap:15px;">
+                <div class="slaCard" style="background:var(--panel);">
+                  <div class="slaLabel">Est. AI Kostnad</div>
+                  <div class="slaValue" id="resAiCost" style="color:var(--danger);">0 kr</div>
+                </div>
+                <div class="slaCard" style="background:var(--panel);">
+                  <div class="slaLabel">Total Intäkt (Värde)</div>
+                  <div id="resCustomerValue" class="slaValue">0 kr</div>
+                </div>
+              </div>
+
+              <div
+                style="margin-top:30px; text-align:center; padding:20px; border-radius:12px; background:var(--panel); border:1px solid var(--border);">
+                <div class="muted small" style="text-transform:uppercase; font-weight:bold;">Netto Marginal</div>
+                <div id="resMarginValue" style="font-size:42px; font-weight:900; color:var(--ok); margin:10px 0;">0 kr
+                </div>
+                <div id="resMarginPercent" class="pill ok">0% Profit</div>
+              </div>
+
+              <div style="margin-top:25px;">
+                <h5 style="margin-bottom:10px; font-size:11px; text-transform:uppercase; color:var(--muted);">
+                  Kostnadsbrytning per modell</h5>
+                <div class="list">
+                  <div class="listItem"
+                    style="font-size:12px; cursor:default; display:flex; justify-content:space-between;">
+                    <span>GPT-5-mini</span> <b id="breakMini">0 kr</b>
+                  </div>
+                  <div class="listItem"
+                    style="font-size:12px; cursor:default; display:flex; justify-content:space-between;">
+                    <span>GPT-5</span> <b id="breakGpt5">0 kr</b>
+                  </div>
+                  <div class="listItem"
+                    style="font-size:12px; cursor:default; display:flex; justify-content:space-between;">
+                    <span>GPT-4.1</span> <b id="breakGpt4">0 kr</b>
+                  </div>
+                </div>
+              </div>
+            </div>
           </div>
         </div>
 
