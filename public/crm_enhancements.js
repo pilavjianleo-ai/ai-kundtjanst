@@ -205,11 +205,28 @@ function renderCrmDashboard() {
     const costSelect = document.getElementById('aiCostCustomerSelect');
     if (costSelect) {
         const currentVal = costSelect.value || 'all';
-        let html = '<option value="all">Alla Kunder (Aggregerat)</option>';
+        const categoryName = window.state?.currentCompany?.displayName || 'Kategorin';
+
+        let html = `<option value="all">Hela ${categoryName} (Kategori)</option>`;
         customers.forEach(c => {
-            html += `<option value="${c.id || c.name}" ${(c.id == currentVal || c.name == currentVal) ? 'selected' : ''}>${c.name}</option>`;
+            html += `<option value="${c.id}" ${c.id == currentVal ? 'selected' : ''}>${c.name}</option>`;
         });
         costSelect.innerHTML = html;
+
+        // Add listener if not exists to auto-adjust chats per day
+        if (!costSelect.dataset.listener) {
+            costSelect.addEventListener('change', () => {
+                const val = costSelect.value;
+                if (val === 'all') {
+                    const totalTickets = window.crmData?.stats?.totalTickets || 0;
+                    const daily = Math.max(1, Math.round(totalTickets / 30));
+                    const volInput = document.getElementById('aiCostVolume');
+                    if (volInput) volInput.value = daily;
+                }
+                window.calculateAiMargins();
+            });
+            costSelect.dataset.listener = "true";
+        }
     }
 
     // ENSURE IT RUNS
@@ -296,23 +313,26 @@ window.calculateAiMargins = function () {
     const monthly_chats = chats_per_day * 30;
     const monthly_llm_cost_sek = monthly_chats * avg_cost_sek;
 
-    // 6. REVENUE & MARGIN (DEL 8 - inkl. moms-hantering från föregående instruktion)
-    const customers = JSON.parse(localStorage.getItem('crmCustomers') || '[]');
+    // 6. REVENUE & MARGIN (DEL 8)
+    const customers = window.crmState?.customers || [];
     let gross_revenue = 0;
+    let isCategory = false;
+
     if (customerId === 'all') {
         gross_revenue = customers.reduce((sum, c) => sum + (parseFloat(c.value) || 0), 0);
+        isCategory = true;
     } else {
-        const c = customers.find(x => (x.id == customerId || x.name == customerId));
+        const c = customers.find(x => x.id == customerId);
         gross_revenue = c ? (parseFloat(c.value) || 0) : 0;
     }
 
     let isDemo = false;
-    if (gross_revenue === 0) {
+    if (gross_revenue === 0 && customers.length === 0) {
         gross_revenue = 4990;
         isDemo = true;
     }
 
-    const net_revenue = gross_revenue / 1.25; // Ta bort 25% moms
+    const net_revenue = gross_revenue / 1.25;
     const profit_val = net_revenue - monthly_llm_cost_sek;
     const margin_pct = net_revenue > 0 ? (profit_val / net_revenue) * 100 : 0;
 
@@ -342,7 +362,8 @@ window.calculateAiMargins = function () {
 
     const note = document.getElementById('marginNote');
     if (note) {
-        note.innerText = isDemo ? "DEMO: Baserat på 4 990 kr exempelförsäljning" : (customerId === 'all' ? "TOTALT Aggregerat (Exkl. moms)" : "Kundens månadsavgift (Exkl. moms)");
+        const entityName = isCategory ? "Kategorin" : "Kunden";
+        note.innerText = isDemo ? "DEMO: Baserat på 4 990 kr exempelförsäljning" : `${entityName}s intäkt (Exkl. moms)`;
     }
 
     // Breakdown rutorna
