@@ -1,104 +1,100 @@
 
 /* ========================
-   SIMULATOR LOGIC
-   Handles product visualization
+   PRODUCT SIMULATOR LOGIC
+   Handles image generation and simulation
 ======================== */
+
 async function generateSimulation() {
-    const btn = document.getElementById("simGenerateBtn");
-    const resultArea = document.getElementById("simResultArea");
-    const img = document.getElementById("simResultImage");
-    const promptText = document.getElementById("simResultPrompt");
+    const name = document.getElementById("simProductName")?.value?.trim();
+    const category = document.getElementById("simProductCategory")?.value;
+    const room = document.getElementById("simRoomType")?.value;
+    const style = document.getElementById("simRoomStyle")?.value;
 
-    if (!btn || !resultArea) return;
-
-    const productName = document.getElementById("simProductName")?.value;
-    const productCategory = document.getElementById("simProductCategory")?.value;
-    const roomType = document.getElementById("simRoomType")?.value;
-    const style = document.getElementById("simStyle")?.value;
-
-    if (!productName) {
-        toast("Fel", "Ange ett produktnamn", "error");
+    if (!name) {
+        toast("Namn saknas", "Vänligen ange ett produktnamn", "error");
         return;
     }
 
-    btn.disabled = true;
-    btn.innerHTML = `<i class="fa-solid fa-circle-notch fa-spin"></i> Genererar...`;
-    resultArea.style.display = "none";
+    const btn = document.getElementById("simGenerateBtn");
+    const resultArea = document.getElementById("simResultArea");
+    const resultImg = document.getElementById("simResultImage");
+    const resultPrompt = document.getElementById("simResultPrompt");
+
+    if (btn) {
+        btn.disabled = true;
+        btn.innerHTML = `<i class="fa-solid fa-spinner fa-spin"></i> Genererar...`;
+    }
 
     try {
-        const res = await api("/simulator/generate", {
+        const data = await api("/simulator/generate", {
             method: "POST",
             body: {
-                productName,
-                productCategory,
-                roomTypeSelect: roomType,
-                roomStyle: style,
-                roomType: "ai", // default for now
-                placement: "center",
-                lighting: "daylight",
-                angle: "front"
+                productName: name,
+                category: category,
+                roomType: room,
+                style: style
             }
         });
 
-        if (res.imageUrl) {
-            img.src = res.imageUrl;
-            promptText.textContent = res.revisedPrompt || res.prompt;
-            resultArea.style.display = "block";
-            toast("Klart", "Visualisering genererad", "success");
-        } else {
-            toast("Fel", "Kunde inte generera bild", "error");
-        }
+        if (data.imageUrl) {
+            if (resultArea) resultArea.style.display = "block";
+            if (resultImg) resultImg.src = data.imageUrl;
+            if (resultPrompt) resultPrompt.textContent = "AI Prompt: " + (data.prompt || "");
 
+            saveSimToHistory(data);
+            loadSimHistory();
+            toast("Klar!", "Visualiseringen har genererats", "ok");
+        }
     } catch (e) {
         toast("Fel", e.message, "error");
     } finally {
-        btn.disabled = false;
-        btn.innerHTML = `Generera Visualisering`;
+        if (btn) {
+            btn.disabled = false;
+            btn.innerHTML = `<i class="fa-solid fa-wand-magic-sparkles"></i> Generera Visualisering`;
+        }
     }
 }
 
-// History loader
-async function loadSimHistory() {
+function saveSimToHistory(data) {
+    let history = JSON.parse(localStorage.getItem("simHistory") || "[]");
+    history.unshift({
+        url: data.imageUrl,
+        name: data.productName,
+        date: new Date().toISOString()
+    });
+    localStorage.setItem("simHistory", JSON.stringify(history.slice(0, 10)));
+}
+
+function loadSimHistory() {
     const list = document.getElementById("simHistoryList");
     if (!list) return;
 
-    try {
-        const history = await api("/simulator/history");
-        if (!history || history.length === 0) {
-            list.innerHTML = `<div class="muted center">Ingen historik än.</div>`;
-            return;
-        }
-
-        list.innerHTML = history.map(h => `
-            <div class="simHistoryItem" onclick="showSimResult('${h.imageUrl}', '${h.prompt}')">
-                <img src="${h.imageUrl}" style="width:60px; height:60px; object-fit:cover; border-radius:4px;">
-                <div>
-                   <div style="font-weight:600;">${h.productName}</div>
-                   <div class="muted small">${new Date(h.createdAt).toLocaleDateString()}</div>
-                </div>
-            </div>
-        `).join("");
-
-    } catch (e) {
-        console.error(e);
+    const history = JSON.parse(localStorage.getItem("simHistory") || "[]");
+    if (history.length === 0) {
+        list.innerHTML = `<div class="muted small">Ingen historik ännu</div>`;
+        return;
     }
+
+    list.innerHTML = history.map(h => `
+        <div class="historyItem" onclick="showHistorySim('${h.url}')" style="cursor:pointer; flex-shrink:0;">
+            <img src="${h.url}" style="width:80px; height:80px; border-radius:8px; object-fit:cover; border:1px solid var(--border);">
+            <div class="tiny muted" style="max-width:80px; overflow:hidden; text-overflow:ellipsis;">${h.name}</div>
+        </div>
+    `).join("");
 }
 
-function showSimResult(url, prompt) {
+function showHistorySim(url) {
     const resultArea = document.getElementById("simResultArea");
-    const img = document.getElementById("simResultImage");
-    const promptText = document.getElementById("simResultPrompt");
-
-    if (img) img.src = url;
-    if (promptText) promptText.textContent = prompt;
+    const resultImg = document.getElementById("simResultImage");
     if (resultArea) resultArea.style.display = "block";
+    if (resultImg) resultImg.src = url;
 }
 
-// Hook up button
+// Global setup
 document.addEventListener("DOMContentLoaded", () => {
-    const btn = document.getElementById("simGenerateBtn");
-    if (btn) btn.addEventListener("click", generateSimulation);
+    const genBtn = document.getElementById("simGenerateBtn");
+    if (genBtn) genBtn.onclick = generateSimulation;
 
-    // Auto-load history when view is shown?
-    // We can hook into global showView or just rely on manual refresh/click
+    // Check if we are in simulatorView periodically or on showView
+    loadSimHistory();
 });

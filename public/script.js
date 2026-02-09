@@ -182,6 +182,7 @@ function showView(viewId, menuBtnId) {
     loadInboxTickets();
   }
 }
+window.showView = showView;
 
 function updateRoleUI() {
   const role = state.me?.role || "";

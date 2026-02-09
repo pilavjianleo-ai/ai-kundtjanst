@@ -1,101 +1,78 @@
 
 /* ========================
-   ADMIN: USER MANAGEMENT
+   ADMIN USER MANAGEMENT
+   Handles user listing, creation and deletion
 ======================== */
+
 async function loadAdminUsers() {
-    const list = $("adminUsersList");
-    const msg = $("adminUsersMsg");
+    const list = document.getElementById("adminUsersList");
     if (!list) return;
 
-    list.innerHTML = `<div class="muted center" style="padding:20px;">Laddar användare...</div>`;
-    if (msg) msg.style.display = "none";
+    list.innerHTML = `<div class="muted center" style="padding:20px;"><i class="fa-solid fa-circle-notch fa-spin"></i> Laddar användare...</div>`;
 
     try {
         const users = await api("/admin/users");
         if (!users || users.length === 0) {
-            list.innerHTML = `<div class="muted center" style="padding:20px;">Inga användare hittades.</div>`;
+            list.innerHTML = `<div class="muted center" style="padding:20px;">Inga användare hittades</div>`;
             return;
         }
 
         list.innerHTML = users.map(u => `
-      <div class="listItem" style="display:flex; justify-content:space-between; align-items:center; padding:10px;">
-        <div>
-          <div style="font-weight:600; display:flex; align-items:center; gap:8px;">
-            <i class="fa-solid fa-user"></i> ${u.username} 
-            <span class="badge ${u.role === 'admin' ? 'highlight' : 'soft'}">${u.role}</span>
-          </div>
-          <div class="muted small" style="margin-top:4px;">
-            ${u.email || 'Ingen e-post'} • Skapad: ${new Date(u.createdAt).toLocaleDateString()}
-            ${u.companyId ? `• Bolag: ${u.companyId}` : ''}
-          </div>
-        </div>
-        ${u.role !== 'admin' || (window.currentUser && window.currentUser.id !== u._id) ?
-                `<button class="btn danger small" onclick="deleteUser('${u._id}')" title="Radera">
-             <i class="fa-solid fa-trash"></i>
-           </button>`
-                : ''}
-      </div>
-    `).join("");
-
+            <div class="listItem" style="display:flex; justify-content:space-between; align-items:center; padding:12px;">
+                <div>
+                    <div style="font-weight:600;">${u.username} <span class="pill ${u.role === 'admin' ? 'danger' : 'info'} small">${u.role}</span></div>
+                    <div class="muted small">${u.email || 'Ingen e-post'} • ${u.companyId || 'Inget bolag'}</div>
+                </div>
+                <div style="display:flex; gap:10px;">
+                    <button class="btn ghost small icon" onclick="deleteUser('${u._id}')" title="Radera">
+                        <i class="fa-solid fa-trash" style="color:var(--danger)"></i>
+                    </button>
+                </div>
+            </div>
+        `).join("");
     } catch (e) {
-        if (msg) {
-            msg.textContent = "Kunde inte ladda användare: " + e.message;
-            msg.style.display = "block";
-        }
-        list.innerHTML = `<div class="alert error">Fel vid laddning</div>`;
+        list.innerHTML = `<div class="alert error">${e.message}</div>`;
     }
 }
 
-async function deleteUser(id) {
-    if (!confirm("Är du säker på att du vill radera denna användare? Detta kan inte ångras.")) return;
+async function deleteUser(userId) {
+    if (!confirm("Är du säker på att du vill radera denna användare?")) return;
+
     try {
-        await api(`/admin/users/${id}`, { method: "DELETE" });
-        toast("Klart", "Användare raderad", "success");
+        await api(`/admin/users/${userId}`, { method: "DELETE" });
+        toast("Raderad", "Användaren har raderats", "info");
         loadAdminUsers();
     } catch (e) {
-        toast("Fel", "Kunde inte radera: " + e.message, "error");
+        toast("Fel", e.message, "error");
     }
 }
 
-/* ========================
-   ADMIN: TAB SWITCHING
-======================== */
-window.setAdminTab = function (tabName) {
-    // Hide all panels
-    const panels = ["tabUsers", "tabKB", "tabAI", "tabWidget"];
-    panels.forEach(id => {
-        const el = document.getElementById(id);
-        if (el) el.style.display = "none";
-    });
+// Tab Switching inside Admin
+function setAdminTab(tabId, btn) {
+    const panels = document.querySelectorAll("#adminView .tabPanel");
+    panels.forEach(p => p.style.display = "none");
 
-    // Show selected
-    let targetId = "";
-    if (tabName === 'users') targetId = "tabUsers";
-    if (tabName === 'kb') targetId = "tabKB";
-    if (tabName === 'ai') targetId = "tabAI";
-    if (tabName === 'widget') targetId = "tabWidget";
+    const target = document.getElementById(tabId);
+    if (target) target.style.display = "block";
 
-    const target = document.getElementById(targetId);
-    if (target) {
-        target.style.display = "block";
+    const btns = document.querySelectorAll("#adminView .tabs button");
+    btns.forEach(b => b.classList.remove("active"));
+    if (btn) btn.classList.add("active");
 
-        // Load data if needed
-        if (tabName === 'users') loadAdminUsers();
-    }
+    if (tabId === "tabUsers") loadAdminUsers();
+}
 
-    // Update buttons state (optional, if buttons have IDs like btn_tab_users)
-    document.querySelectorAll('.adminTabBtn').forEach(btn => btn.classList.remove('active'));
-    const activeBtn = document.getElementById('btn_tab_' + tabName);
-    if (activeBtn) activeBtn.classList.add('active');
-};
-
-// Initialize listeners
+// Hook into the global init
 document.addEventListener("DOMContentLoaded", () => {
-    const btnRefresh = document.getElementById("adminUsersRefreshBtn");
-    if (btnRefresh) {
-        btnRefresh.addEventListener("click", loadAdminUsers);
-    }
+    const refreshBtn = document.getElementById("adminUsersRefreshBtn");
+    if (refreshBtn) refreshBtn.onclick = loadAdminUsers;
 
-    // Make deleteUser global
-    window.deleteUser = deleteUser;
+    // Add event listeners to admin tabs if they exist
+    const adminTabs = document.querySelectorAll("#adminView .tabs button");
+    adminTabs.forEach(btn => {
+        const tabId = btn.getAttribute("onclick")?.match(/'([^']+)'/)?.[1];
+        if (tabId) {
+            // Already handled by inline onclick in HTML usually, but let's ensure consistency
+        }
+    });
 });
