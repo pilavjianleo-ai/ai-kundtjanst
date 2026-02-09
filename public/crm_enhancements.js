@@ -178,28 +178,28 @@ window.syncAiSplits = function (source) {
 window.calculateAiMargins = function () {
     const chats_per_month = parseInt(document.getElementById('aiCostVolume').value) || 0;
     const tokens_per_chat = parseInt(document.getElementById('aiCostTokens').value) || 0;
-    const customerId = document.getElementById('aiCostCustomerSelect').value;
+    const customerId = document.getElementById('aiCostCustomerSelect')?.value || 'all';
 
     // Routing Shares (0.0 - 1.0)
-    const share_mini = parseInt(document.getElementById('splitMini').value) / 100;
-    const share_std = parseInt(document.getElementById('splitGpt5').value) / 100;
-    const share_adv = parseInt(document.getElementById('splitGpt4').value) / 100;
+    const share_mini = parseInt(document.getElementById('splitMini').value || 0) / 100;
+    const share_std = parseInt(document.getElementById('splitGpt5').value || 0) / 100;
+    const share_adv = parseInt(document.getElementById('splitGpt4').value || 0) / 100;
 
-    // 1. Grunddata per chatt (Input=500, Output=500 baserat på instruktion om totalt 1000)
-    // Men vi baserar det på tokens_per_chat fältet (50/50 split)
+    // 1. Grunddata per chatt
     const input_t = tokens_per_chat * 0.5;
     const output_t = tokens_per_chat * 0.5;
 
     // 2. Beräkna Kostnad per chatt per modell (USD)
     const calcCostPerChatUSD = (model) => {
         const p = AI_CONFIG.model_prices[model];
+        if (!p) return 0;
         const input_cost = (input_t / 1000000) * p.in;
         const output_cost = (output_t / 1000000) * p.out;
         return input_cost + output_cost;
     };
 
     const cost_mini_usd = calcCostPerChatUSD('mini');
-    const cost_std_usd = calcChatPriceUSD ? calcChatPriceUSD('standard') : calcCostPerChatUSD('standard'); // check for prev name
+    const cost_std_usd = calcCostPerChatUSD('standard');
     const cost_adv_usd = calcCostPerChatUSD('advanced');
 
     // 3. Viktad snittkostnad per chatt (Routing) i SEK
@@ -212,15 +212,25 @@ window.calculateAiMargins = function () {
     // 5. Intäktshantering (Moms 25%)
     const customers = JSON.parse(localStorage.getItem('crmCustomers') || '[]');
     let gross_revenue = 0;
+
     if (customerId === 'all') {
-        gross_revenue = customers.reduce((sum, c) => sum + (parseFloat(c.value) || 0), 0);
+        // AGGREGERAT: Summera alla kunders värde
+        gross_revenue = customers.reduce((sum, c) => {
+            const val = parseFloat(c.value) || 0;
+            return sum + val;
+        }, 0);
     } else {
-        const c = customers.find(x => (x.id || x.name) === customerId);
+        // PER KUND
+        const c = customers.find(x => (x.id == customerId || x.name == customerId));
         gross_revenue = c ? (parseFloat(c.value) || 0) : 0;
     }
 
-    // FALLBACK
-    if (gross_revenue === 0) gross_revenue = 15000;
+    // FALLBACK: Om inga kunder finns eller summan är 0, visa demo-försäljning
+    let isDemo = false;
+    if (gross_revenue === 0) {
+        gross_revenue = 15000;
+        isDemo = true;
+    }
 
     const net_revenue = gross_revenue / 1.25; // Räkna bort 25% moms
 
@@ -231,11 +241,20 @@ window.calculateAiMargins = function () {
     // UPDATE UI
     const fmt = (v) => new Intl.NumberFormat('sv-SE', { style: 'currency', currency: 'SEK' }).format(v);
 
-    document.getElementById('resAvgChatCost').innerText = weighted_cost_sek.toFixed(2) + ' kr';
-    document.getElementById('resAiCost').innerText = fmt(monthly_llm_cost_sek);
-    document.getElementById('resGrossRevenue').innerText = fmt(gross_revenue);
-    document.getElementById('resNetRevenue').innerText = fmt(net_revenue);
-    document.getElementById('resMarginValue').innerText = fmt(gross_margin_val);
+    const avgChatEl = document.getElementById('resAvgChatCost');
+    if (avgChatEl) avgChatEl.innerText = weighted_cost_sek.toFixed(2) + ' kr';
+
+    const aiCostEl = document.getElementById('resAiCost');
+    if (aiCostEl) aiCostEl.innerText = fmt(monthly_llm_cost_sek);
+
+    const grossRevEl = document.getElementById('resGrossRevenue');
+    if (grossRevEl) grossRevEl.innerText = fmt(gross_revenue);
+
+    const netRevEl = document.getElementById('resNetRevenue');
+    if (netRevEl) netRevEl.innerText = fmt(net_revenue);
+
+    const marginValEl = document.getElementById('resMarginValue');
+    if (marginValEl) marginValEl.innerText = fmt(gross_margin_val);
 
     const pctBox = document.getElementById('resMarginPercentBox');
     if (pctBox) {
@@ -243,10 +262,24 @@ window.calculateAiMargins = function () {
         pctBox.style.color = gross_margin_pct > 30 ? 'var(--ok)' : (gross_margin_pct > 10 ? 'var(--warn)' : 'var(--danger)');
     }
 
+    const note = document.getElementById('marginNote');
+    if (note && isDemo) {
+        note.innerText = "VISAR DEMO-VÄRDEN (Inga kunder hittades)";
+        note.style.fontStyle = "italic";
+    } else if (note) {
+        note.innerText = customerId === 'all' ? "Baserat på TOTAL försäljning (Exkl. moms)" : "Baserat på KUNDENS avgift (Exkl. moms)";
+        note.style.fontStyle = "normal";
+    }
+
     // Breakdown rutorna (Månadskostnad per modell)
-    document.getElementById('breakMini').innerText = fmt(chats_per_month * share_mini * cost_mini_usd * AI_CONFIG.exchange_rate);
-    document.getElementById('breakGpt5').innerText = fmt(chats_per_month * share_std * cost_std_usd * AI_CONFIG.exchange_rate);
-    document.getElementById('breakGpt4').innerText = fmt(chats_per_month * share_adv * cost_adv_usd * AI_CONFIG.exchange_rate);
+    const bMini = document.getElementById('breakMini');
+    if (bMini) bMini.innerText = fmt(chats_per_month * share_mini * cost_mini_usd * AI_CONFIG.exchange_rate);
+
+    const bStd = document.getElementById('breakGpt5');
+    if (bStd) bStd.innerText = fmt(chats_per_month * share_std * cost_std_usd * AI_CONFIG.exchange_rate);
+
+    const bAdv = document.getElementById('breakGpt4');
+    if (bAdv) bAdv.innerText = fmt(chats_per_month * share_adv * cost_adv_usd * AI_CONFIG.exchange_rate);
 };
 
 /**
