@@ -1053,7 +1053,7 @@ window.goToCustomerKB = function (companyId) {
 };
 
 window.deleteCustomer = async function (id) {
-    if (!confirm('VARNING: Detta kommer att radera kunden och ALL tillhörande data (biljetter, dokument, AI-inställningar) permanent från hela systemet. Vill du fortsätta?')) return;
+    if (!confirm('VARNING: Detta kommer att radera kunden och ALL tillhörande data (biljetter, dokument, AI-inställningar, affärer, historik) permanent från hela systemet. Vill du fortsätta?')) return;
 
     try {
         if (typeof api === 'function' && state.token) {
@@ -1067,20 +1067,47 @@ window.deleteCustomer = async function (id) {
         toast("System-fel", "Kunde inte radera från backend, men tar bort lokalt.", "warning");
     }
 
+    // 1. Remove Customer
     let customers = JSON.parse(localStorage.getItem('crmCustomers') || '[]');
+    const customerName = customers.find(c => c.id === id)?.name || id;
     customers = customers.filter(c => c.id !== id);
     localStorage.setItem('crmCustomers', JSON.stringify(customers));
 
-    // CRM Cloud Push
-    if (window.pushCrmToBackend) window.pushCrmToBackend('customers');
+    // 2. Remove Related Deals (Cleanup orphans)
+    let deals = JSON.parse(localStorage.getItem('crmDeals') || '[]');
+    const dealsBefore = deals.length;
+    deals = deals.filter(d => d.customerId !== id);
+    localStorage.setItem('crmDeals', JSON.stringify(deals));
 
-    renderCustomerList();
-    renderCrmDashboard();
-    updateChatCategoriesFromCRM();
+    // 3. Remove Related Activities
+    let activities = JSON.parse(localStorage.getItem('crmActivities') || '[]');
+    activities = activities.filter(a => a.customerId !== id && a.companyId !== id);
+    localStorage.setItem('crmActivities', JSON.stringify(activities));
+
+    // 4. Reset AI Cost Selection if this customer was selected
+    const aiCostSelect = document.getElementById('aiCostCustomerSelect');
+    if (aiCostSelect && aiCostSelect.value === id) {
+        aiCostSelect.value = 'all';
+        if (typeof populateAiCostCustomers === 'function') populateAiCostCustomers();
+    }
+
+    // CRM Cloud Push
+    if (window.pushCrmToBackend) {
+        window.pushCrmToBackend('customers');
+        window.pushCrmToBackend('deals'); // Also push cleaned deals
+    }
+
+    // UI Updates
+    if (typeof renderCustomerList === 'function') renderCustomerList();
+    if (typeof renderCrmDashboard === 'function') renderCrmDashboard();
+    if (typeof renderPipeline === 'function') renderPipeline(); // Refresh pipeline!
+    if (typeof updateChatCategoriesFromCRM === 'function') updateChatCategoriesFromCRM();
     if (typeof loadCompanies === 'function') await loadCompanies();
 
-    toast("Raderad", "Kunden har raderats helt från systemet.", "success");
-    logCrmActivity(`Raderade kund: ${id}`, 'warning');
+    if (window.calculateAiMargins) window.calculateAiMargins();
+
+    toast("Raderad", `Kunden ${customerName} och ${dealsBefore - deals.length} affärer har raderats.`, "success");
+    logCrmActivity(`Raderade kund: ${customerName} (ID: ${id})`, 'warning');
 };
 
 window.closeCrmModal = function (id) {
