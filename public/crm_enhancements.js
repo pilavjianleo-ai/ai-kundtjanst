@@ -299,116 +299,127 @@ window.syncAiSplits = function (source) {
 
 window.calculateAiMargins = function () {
     const customerId = document.getElementById('aiCostCustomerSelect')?.value || 'all';
-    const volume_input = parseFloat(document.getElementById('aiCostVolume')?.value || 0);
+
+    // READ USER INPUTS
+    const volume_input = parseFloat(document.getElementById('aiCostVolume')?.value || 100);
     const tokens_input = parseFloat(document.getElementById('aiCostTokens')?.value || 1500);
 
-    // 1. FASTA GRUNDANTAGANDEN (Requirements)
-    const SHARE_MINI = 0.70;
-    const SHARE_STD = 0.25;
-    const SHARE_ADV = 0.05;
+    // Read Model Split from Sliders (User adjustable)
+    let valMini = parseInt(document.getElementById('splitMini')?.value || 70);
+    let valGpt5 = parseInt(document.getElementById('splitGpt5')?.value || 25);
+    let valGpt4 = parseInt(document.getElementById('splitGpt4')?.value || 5);
+
+    // Normalize to ensure strict 100% sum if user drags weirdly (optional safety, or just trust inputs)
+    // For now, trust inputs but use them as weights
+    const totalSplit = valMini + valGpt5 + valGpt4;
+    const SHARE_MINI = valMini / 100;
+    const SHARE_STD = valGpt5 / 100;
+    const SHARE_ADV = valGpt4 / 100;
+
     const MOMS_SATS = 0.25;
 
-    // 2. DYNAMISK PRISSÄTTNING BASERAT PÅ KONFIGURATION (SEK per chatt)
+    // 2. KOSTNADER (Hämta från config)
     const exch = AI_CONFIG.exchange_rate || 11.5;
     const p = AI_CONFIG.model_prices;
 
-    // Beräkna kostnad per modell baserat på snitt av in/ut tokens (exkl. moms)
-    const getCost = (model) => {
-        const avgPriceUsdPerMillion = (model.in + model.out) / 2;
+    // Hjälpfunktion: Kostnad per chatt för en modell
+    const getCostPerChat = (modelPrice) => {
+        // Pris i USD per 1M tokens. Snitt av in/ut.
+        const avgPriceUsdPerMillion = (modelPrice.in + modelPrice.out) / 2;
+        // (Tokens / 1M) * Pris * Växelkurs
         return (tokens_input / 1000000) * avgPriceUsdPerMillion * exch;
     };
 
-    const KOSTNAD_GPT5_MINI = getCost(p.mini);
-    const KOSTNAD_GPT5 = getCost(p.standard);
-    const KOSTNAD_GPT41 = getCost(p.advanced);
+    const cost_mini = getCostPerChat(p.mini);
+    const cost_std = getCostPerChat(p.standard);
+    const cost_adv = getCostPerChat(p.advanced);
 
-    // 3. WEIGHTED LLM COST PER CHAT (EXKL. MOMS)
-    const cost_per_chat_sek = (SHARE_MINI * KOSTNAD_GPT5_MINI) +
-        (SHARE_STD * KOSTNAD_GPT5) +
-        (SHARE_ADV * KOSTNAD_GPT41);
+    // 3A. VIKTAD LLM-KOSTNAD PER CHATT (EXKL. MOMS)
+    // Cost based on user selected split
+    const cost_per_chat_sek = (SHARE_MINI * cost_mini) +
+        (SHARE_STD * cost_std) +
+        (SHARE_ADV * cost_adv);
 
-    // 4. DATA STRUCURE - CATEGORIES / CUSTOMERS
+    // 4. DATAHÄMTNING (KATEGORI / KUND)
     const customers = window.crmState?.customers || [];
-    let total_chattar = 0;
     let total_revenue_exkl_moms = 0;
+    let total_chattar_manad = volume_input * 30; // Månadsvolym baserat på input
 
     if (customerId === 'all') {
         // "Hela kategorin" = SUMMERING av alla kunders värden
-        if (customers.length > 0) {
-            customers.forEach(c => {
-                total_revenue_exkl_moms += parseFloat(c.value) || 0;
-            });
-            total_chattar = volume_input * 30; // Månadsvolym
-        } else {
-            total_chattar = volume_input * 30;
-            total_revenue_exkl_moms = total_chattar * 49;
-        }
+        total_revenue_exkl_moms = customers.reduce((sum, c) => sum + (parseFloat(c.value) || 0), 0);
     } else {
         const c = customers.find(x => x.id == customerId);
-        total_chattar = volume_input * 30;
         total_revenue_exkl_moms = parseFloat(c?.value || 0);
-        if (total_revenue_exkl_moms === 0) total_revenue_exkl_moms = total_chattar * 49;
     }
 
-    // 5. CORE CALCULATION LOGIC
-    const total_llm_cost_exkl_moms = cost_per_chat_sek * total_chattar;
+    // 5. BERÄKNINGAR (Enligt spec)
 
-    // Revenue exkl. moms is our baseline
+    // C. Total LLM-kostnad (EXKL. moms)
+    const total_llm_cost = cost_per_chat_sek * total_chattar_manad;
+
+    // D. Intäkt
     const intakt_exkl_moms = total_revenue_exkl_moms;
     const moms_belopp = intakt_exkl_moms * MOMS_SATS;
+    // Brutto Intäkt (mot kund) = Intäkt exkl moms + moms
     const intakt_inkl_moms = intakt_exkl_moms + moms_belopp;
 
-    const brutto = intakt_exkl_moms;
-    const netto = brutto - total_llm_cost_exkl_moms;
+    // E. Brutto & Netto (Enligt user def: Brutto=Intäkt, Netto=Vinst)
+    const marginal_sek = intakt_exkl_moms - total_llm_cost;
 
-    const marginal_sek = intakt_exkl_moms - total_llm_cost_exkl_moms;
-    const marginal_procent = intakt_exkl_moms > 0 ? (marginal_sek / intakt_exkl_moms) * 100 : 0;
+    // F. Marginal % (Baseras ALLTID på exkl. moms)
+    let marginal_procent = 0;
+    if (intakt_exkl_moms > 0) {
+        marginal_procent = (marginal_sek / intakt_exkl_moms) * 100;
+    }
 
     // 6. UPDATE UI
     const fmt = (v) => new Intl.NumberFormat('sv-SE', { style: 'currency', currency: 'SEK' }).format(v);
+    const fmtPct = (v) => v.toFixed(1) + '%';
 
-    const ui = {
-        'ui_count': total_chattar.toLocaleString(),
-        'ui_price_per_chat': total_chattar > 0 ? fmt(intakt_exkl_moms / total_chattar) : '0 kr',
-        'resAvgChatCost': cost_per_chat_sek.toFixed(2) + ' kr',
-        'resNetRevenue': fmt(intakt_exkl_moms),
-        'resGrossRevenue': fmt(intakt_inkl_moms),
-        'resAiCost': fmt(total_llm_cost_exkl_moms),
-        'ui_brutto': fmt(brutto),
-        'ui_netto': fmt(netto),
-        'resMarginValue': fmt(marginal_sek),
-        'resMarginPercentBox': marginal_procent.toFixed(1) + '%',
-        'breakMini': fmt(total_chattar * SHARE_MINI * KOSTNAD_GPT5_MINI),
-        'breakGpt5': fmt(total_chattar * SHARE_STD * KOSTNAD_GPT5),
-        'breakGpt4': fmt(total_chattar * SHARE_ADV * KOSTNAD_GPT41),
-        'resExchRate': exch.toFixed(2)
-    };
+    // Update Text Elements
+    const setTxt = (id, val) => { const el = document.getElementById(id); if (el) el.innerText = val; };
 
-    for (const [id, val] of Object.entries(ui)) {
-        const el = document.getElementById(id);
-        if (el) {
-            if (el.tagName === 'INPUT') el.value = val;
-            else el.innerText = val;
-        }
-    }
+    // Mappa mot UI-elementen
+    setTxt('resGrossRevenue', fmt(intakt_inkl_moms)); // UI Label: "Brutto Intäkt (Inkl. moms)"
+    setTxt('resNetRevenue', fmt(intakt_exkl_moms));   // UI Label: "Netto Intäkt (Exkl. moms)"
+    setTxt('resAiCost', fmt(total_llm_cost));
+    setTxt('resMarginValue', fmt(marginal_sek));      // UI Label: "Netto Vinst (Månad)"
+    setTxt('resMarginPercentBox', fmtPct(marginal_procent)); // UI Label: "Bruttomarginal (%)"
 
+    setTxt('resAvgChatCost', cost_per_chat_sek.toFixed(2) + ' kr');
+    setTxt('resExchRate', exch.toFixed(2));
+
+    // Update UI Count
+    const countEl = document.getElementById('ui_count');
+    if (countEl) countEl.innerText = total_chattar_manad.toLocaleString();
+
+    // UPDATE SLIDER LABELS ONLY (Do NOT force values)
+    setTxt('valMini', valMini + '%');
+    setTxt('valGpt5', valGpt5 + '%');
+    setTxt('valGpt4', valGpt4 + '%');
+
+    // Color coding for margin
     const pctBox = document.getElementById('resMarginPercentBox');
     if (pctBox) {
-        pctBox.style.color = marginal_procent > 30 ? 'var(--ok)' : (marginal_procent > 0 ? 'var(--warn)' : 'var(--danger)');
+        pctBox.style.color = marginal_procent > 20 ? 'var(--ok)' : (marginal_procent > 0 ? 'var(--warn)' : 'var(--danger)');
     }
 
     const note = document.getElementById('marginNote');
     if (note) {
-        note.innerText = `Marginal beräknad på Netto Intäkt (Exkl. moms)`;
+        if (totalSplit !== 100) {
+            note.innerText = `OBS: Summan är ${totalSplit}% (Bör vara 100%)`;
+            note.style.color = 'var(--warn)';
+        } else {
+            note.innerText = `Marginal beräknad på Netto Intäkt (Exkl. moms)`;
+            note.style.color = 'var(--muted)';
+        }
     }
 
-    // Sync sliders for visual only
-    if (document.getElementById('splitMini')) document.getElementById('splitMini').value = 70;
-    if (document.getElementById('splitGpt5')) document.getElementById('splitGpt5').value = 25;
-    if (document.getElementById('splitGpt4')) document.getElementById('splitGpt4').value = 5;
-    if (document.getElementById('valMini')) document.getElementById('valMini').innerText = '70%';
-    if (document.getElementById('valGpt5')) document.getElementById('valGpt5').innerText = '25%';
-    if (document.getElementById('valGpt4')) document.getElementById('valGpt4').innerText = '5%';
+    // Breakdown costs
+    setTxt('breakMini', fmt(total_chattar_manad * SHARE_MINI * cost_mini));
+    setTxt('breakGpt5', fmt(total_chattar_manad * SHARE_STD * cost_std));
+    setTxt('breakGpt4', fmt(total_chattar_manad * SHARE_ADV * cost_adv));
 };
 
 /**
