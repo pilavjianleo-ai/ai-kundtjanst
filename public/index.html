@@ -1160,77 +1160,71 @@
         <!-- TAB: PIPELINE (KANBAN) -->
         <div id="crm_pipeline" class="crmTabContent" style="display:none;">
           <div class="pipelineContainer">
+            <!-- Complete Pipeline Columns matching JS Logic -->
             <div class="pipelineColumn">
               <div class="pipelineHeader">
                 <span>Nytt Lead</span>
-                <span class="stageCount">5</span>
+                <span class="stageCount">0</span>
               </div>
               <div id="pipelineBody-new" class="pipelineBody" ondrop="drop(event)" ondragover="allowDrop(event)">
-                <div class="dealCard" draggable="true" ondragstart="drag(event)" id="deal1">
-                  <div class="dealCompany">LogistikPartner AB</div>
-                  <div class="dealValue">250 000 kr</div>
-                  <div class="dealFooter">
-                    <div class="dealTags"><span class="dealTag tag-hot">HOT</span></div>
-                    <div class="dealOwner">MP</div>
-                  </div>
-                </div>
-                <div class="dealCard" draggable="true" ondragstart="drag(event)" id="deal2">
-                  <div class="dealCompany">Norrland Transport</div>
-                  <div class="dealValue">120 000 kr</div>
-                  <div class="dealFooter">
-                    <div class="dealTags"><span class="dealTag tag-warm">WARM</span></div>
-                    <div class="dealOwner">JS</div>
-                  </div>
-                </div>
+                <!-- JS will populate -->
               </div>
             </div>
+
             <div class="pipelineColumn">
               <div class="pipelineHeader">
-                <span>Kvalificerad</span>
-                <span class="stageCount">3</span>
+                <span>Kontakt Etablerad</span>
+                <span class="stageCount">0</span>
               </div>
-              <div id="pipelineBody-qualified" class="pipelineBody" ondrop="drop(event)" ondragover="allowDrop(event)">
-                <div class="dealCard" draggable="true" ondragstart="drag(event)" id="deal3">
-                  <div class="dealCompany">Byggmax AB</div>
-                  <div class="dealValue">450 000 kr</div>
-                  <div class="dealFooter">
-                    <div class="dealTags"><span class="dealTag tag-cold">COLD</span></div>
-                    <div class="dealOwner">MP</div>
-                  </div>
-                </div>
+              <div id="pipelineBody-contact" class="pipelineBody" ondrop="drop(event)" ondragover="allowDrop(event)">
               </div>
             </div>
+
+            <div class="pipelineColumn">
+              <div class="pipelineHeader">
+                <span>Demo / Möte</span>
+                <span class="stageCount">0</span>
+              </div>
+              <div id="pipelineBody-demo" class="pipelineBody" ondrop="drop(event)" ondragover="allowDrop(event)">
+              </div>
+            </div>
+
             <div class="pipelineColumn">
               <div class="pipelineHeader">
                 <span>Offert Skickad</span>
-                <span class="stageCount">2</span>
+                <span class="stageCount">0</span>
               </div>
               <div id="pipelineBody-proposal" class="pipelineBody" ondrop="drop(event)" ondragover="allowDrop(event)">
-                <div class="dealCard" draggable="true" ondragstart="drag(event)" id="deal4">
-                  <div class="dealCompany">TechConsulting</div>
-                  <div class="dealValue">85 000 kr</div>
-                  <div class="dealFooter">
-                    <div class="dealTags"><span class="dealTag tag-hot">HOT</span></div>
-                    <div class="dealOwner">SJ</div>
-                  </div>
-                </div>
               </div>
             </div>
+
             <div class="pipelineColumn">
               <div class="pipelineHeader">
                 <span>Förhandling</span>
-                <span class="stageCount">1</span>
+                <span class="stageCount">0</span>
               </div>
               <div id="pipelineBody-negotiation" class="pipelineBody" ondrop="drop(event)"
                 ondragover="allowDrop(event)">
-                <div class="dealCard" draggable="true" ondragstart="drag(event)" id="deal5">
-                  <div class="dealCompany">Storbanken SE</div>
-                  <div class="dealValue">1 200 000 kr</div>
-                  <div class="dealFooter">
-                    <div class="dealTags"><span class="dealTag tag-hot">HOT</span></div>
-                    <div class="dealOwner">VD</div>
-                  </div>
-                </div>
+              </div>
+            </div>
+
+            <div class="pipelineColumn">
+              <div class="pipelineHeader" style="border-top:3px solid var(--success);">
+                <span>Stängd Affär</span>
+                <span class="stageCount">0</span>
+              </div>
+              <div id="pipelineBody-won" class="pipelineBody" ondrop="drop(event)" ondragover="allowDrop(event)"
+                style="background:var(--success-fade);">
+              </div>
+            </div>
+
+            <div class="pipelineColumn">
+              <div class="pipelineHeader" style="border-top:3px solid var(--danger);">
+                <span>Förlorad</span>
+                <span class="stageCount">0</span>
+              </div>
+              <div id="pipelineBody-lost" class="pipelineBody" ondrop="drop(event)" ondragover="allowDrop(event)"
+                style="background:var(--danger-fade);">
               </div>
             </div>
           </div>
