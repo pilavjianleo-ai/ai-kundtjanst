@@ -421,12 +421,20 @@ window.calculateAiMargins = function () {
     // 5. INTÄKTER (MÅNAD)
     // Vi konverterar ARR (Årsvärde) till Månadsvärde
     let monthly_revenue_exkl_moms = 0;
+
+    // Helper: Hantera "24 000" eller "24,000" korrekt
+    const cleanVal = (v) => {
+        if (typeof v === 'number') return v;
+        if (typeof v === 'string') return parseFloat(v.replace(/\s/g, '').replace(',', '.')) || 0;
+        return 0;
+    };
+
     if (customerId === 'all') {
-        const totalArr = customers.reduce((sum, c) => sum + (parseFloat(c.value) || 0), 0);
+        const totalArr = customers.reduce((sum, c) => sum + cleanVal(c.value), 0);
         monthly_revenue_exkl_moms = totalArr / 12;
     } else {
         const cust = customers.find(x => x.id == customerId);
-        monthly_revenue_exkl_moms = (parseFloat(cust?.value) || 0) / 12;
+        monthly_revenue_exkl_moms = cleanVal(cust?.value) / 12;
     }
 
     const MOMS_SATS = 0.25;
