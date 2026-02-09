@@ -1226,107 +1226,154 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 });
 
+
 /**
- * Render Pipeline Board
+ * FIXED DRAG & DROP LOGIC
+ * Overrides script.js to correctly handle IDs (stripping 'deal-' prefix)
  */
-window.renderPipeline = function () {
-    const board = document.getElementById('kanbanBoard');
+window.drag = function (ev) {
+    ev.dataTransfer.setData("text", ev.target.id);
+    ev.target.style.opacity = '0.5';
+    ev.effectAllowed = "move";
+};
 
-    // Map internal stage IDs to DOM IDs used in index.html (e.g. pipelineBody-new)
-    const stageMap = {
-        'new': 'pipelineBody-new',
-        'contact': 'pipelineBody-contact',
-        'demo': 'pipelineBody-demo',
-        'proposal': 'pipelineBody-proposal',
-        'negotiation': 'pipelineBody-negotiation',
-        'won': 'pipelineBody-won',
-        'lost': 'pipelineBody-lost'
-    };
+window.allowDrop = function (ev) {
+    ev.preventDefault();
+    ev.dataTransfer.dropEffect = "move";
+};
 
-    const stages = [
-        { id: 'new', label: 'Nytt Lead', prob: 10 },
-        { id: 'contact', label: 'Kontakt Etablerad', prob: 30 },
-        { id: 'demo', label: 'Demo / Möte', prob: 50 },
-        { id: 'proposal', label: 'Offert Skickad', prob: 70 },
-        { id: 'negotiation', label: 'Förhandling', prob: 90 },
-        { id: 'won', label: 'Stängd Affär', prob: 100 },
-        { id: 'lost', label: 'Förlorad', prob: 0 }
-    ];
+window.drop = function (ev) {
+    ev.preventDefault();
+    var data = ev.dataTransfer.getData("text");
+    var el = document.getElementById(data);
 
-    let deals = JSON.parse(localStorage.getItem('crmDeals') || '[]');
-    let customers = JSON.parse(localStorage.getItem('crmCustomers') || '[]');
+    if (el) {
+        el.style.opacity = '1';
+        // Find drop target column
+        var target = ev.target.closest('.pipelineBody');
+        if (target) {
+            // Move DOM element (Optimistic UI)
+            target.appendChild(el);
 
-    // FILTER BY ACTIVE COMPANY
-    const activeCompanyId = window.state?.companyId;
-    if (activeCompanyId && activeCompanyId !== 'demo') {
-        const companyCustomers = customers.filter(c => c.companyId === activeCompanyId || c.id === activeCompanyId);
-        const customerIds = companyCustomers.map(c => c.id);
-        deals = deals.filter(d => customerIds.includes(d.customerId) || d.companyId === activeCompanyId);
-    }
+            // EXTRACT PURE IDs
+            const dealId = data.replace('deal-', '');
+            const stageId = target.id.replace('pipelineBody-', '');
 
-    stages.forEach(stage => {
-        // Find container by ID pattern
-        let container = document.getElementById('pipelineBody-' + stage.id);
-
-        if (!container) return; // Skip if DOM element missing
-
-        const stageDeals = deals.filter(d => d.stage === stage.id);
-        const stageSum = stageDeals.reduce((sum, d) => sum + (parseFloat(d.value) || 0), 0);
-
-        // INJECT SUMMARY INTO HEADER
-        const header = container.previousElementSibling;
-        if (header && header.classList.contains('pipelineHeader')) {
-            let sumEl = header.querySelector('.stageSum');
-            if (!sumEl) {
-                sumEl = document.createElement('span');
-                sumEl.className = 'stageSum';
-                sumEl.style.fontSize = '11px';
-                sumEl.style.color = 'var(--muted)';
-                sumEl.style.marginLeft = '10px';
-                sumEl.style.float = 'right';
-                header.appendChild(sumEl);
+            // Update Logic
+            if (typeof window.updateDealStage === 'function') {
+                window.updateDealStage(dealId, stageId);
+            } else {
+                // Fallback inline logic if needed, but we define it below
+                updateDealStage(dealId, stageId);
             }
-            sumEl.innerText = new Intl.NumberFormat('sv-SE', { style: 'currency', currency: 'SEK', maximumSignificantDigits: 2 }).format(stageSum);
+        }
+    }
+};
 
-            let countEl = header.querySelector('.stageCount');
-            if (countEl) countEl.innerText = stageDeals.length;
+/**
+ * Update Deal Stage & Sync
+ */
+window.updateDealStage = function (id, stage) {
+    let deals = JSON.parse(localStorage.getItem('crmDeals') || '[]');
+    const idx = deals.findIndex(d => d.id.toString() === id.toString());
+
+    if (idx !== -1) {
+        const oldStage = deals[idx].stage;
+        deals[idx].stage = stage;
+        deals[idx].updatedAt = new Date().toISOString();
+
+        localStorage.setItem('crmDeals', JSON.stringify(deals));
+
+        // Sync to backend
+        if (window.pushCrmToBackend) window.pushCrmToBackend('deals');
+
+        // Log Activity if stage changed
+        if (oldStage !== stage) {
+            const subj = `Affär flyttad: ${stage.toUpperCase()}`;
+            if (typeof logCrmActivity === 'function') logCrmActivity(subj, 'deal');
+
+            // Auto-toast
+            if (typeof toast === 'function') toast('Uppdaterad', `Affären flyttad till ${stage}`, 'success');
         }
 
-        // RENDER CARDS
-        container.innerHTML = stageDeals.map(d => {
-            const c = customers.find(cust => cust.id === d.customerId);
-            const customerName = c ? c.name : (d.customerName || 'Okänd Kund');
+        // Re-render to ensure Sort Order & Totals
+        if (typeof renderPipeline === 'function') renderPipeline();
+        if (typeof renderCrmDashboard === 'function') renderCrmDashboard();
+    }
+};
 
-            let warningHtml = '';
-            if (d.stage !== 'won' && Math.random() > 0.8) {
-                warningHtml = `<i class="fa-solid fa-triangle-exclamation" style="color:orange; margin-left:5px;" title="Varning: Ingen aktivitet"></i>`;
-            }
+/**
+ * ENHANCED DELETE DEAL
+ */
+window.deleteDeal = function (id) {
+    if (!confirm('Är du säker på att du vill radera denna affär?')) return;
 
-            return `
-            <div class="dealCard" draggable="true" ondragstart="drag(event, '${d.id}')" onclick="openDealModal('${d.id}')" id="deal-${d.id}" style="
-                background:var(--panel); 
-                padding:12px; 
-                margin-bottom:10px; 
-                border-radius:8px; 
-                border:1px solid var(--border); 
-                cursor:grab; 
-                box-shadow:0 2px 5px rgba(0,0,0,0.02);
-                transition:transform 0.2s;
-            ">
-                <div class="dealCompany" style="font-size:13px; font-weight:600; margin-bottom:4px; display:flex; justify-content:space-between;">
-                    ${d.title} ${warningHtml}
-                </div>
-                <div style="font-size:11px; color:var(--muted); margin-bottom:8px;">${customerName}</div>
-                
-                <div class="dealFooter" style="display:flex; justify-content:space-between; align-items:center; margin-top:8px;">
-                     <div class="dealValue" style="font-weight:700; color:var(--primary); font-size:12px;">
-                        ${new Intl.NumberFormat('sv-SE', { style: 'currency', currency: 'SEK', maximumSignificantDigits: 3 }).format(d.value)}
-                     </div>
-                     <div class="dealTags">
-                        <span class="pill small" style="background:rgba(0,0,0,0.05); color:var(--text-muted); font-size:9px; padding:2px 6px;">${stage.prob}%</span>
-                     </div>
-                </div>
-            </div>`;
-        }).join('');
-    });
+    let deals = JSON.parse(localStorage.getItem('crmDeals') || '[]');
+    const initialLength = deals.length;
+    deals = deals.filter(d => d.id.toString() !== id.toString());
+
+    if (deals.length < initialLength) {
+        localStorage.setItem('crmDeals', JSON.stringify(deals));
+
+        // Sync
+        if (window.pushCrmToBackend) window.pushCrmToBackend('deals');
+
+        // UI
+        if (typeof renderPipeline === 'function') renderPipeline();
+        if (typeof renderCrmDashboard === 'function') renderCrmDashboard();
+
+        // Close modal if open
+        if (window.closeCrmModal) window.closeCrmModal('crmEditDealModal');
+
+        if (typeof toast === 'function') toast("Raderad", "Affären har tagits bort.", "success");
+    }
+};
+
+/**
+ * ENHANCED EDIT DEAL MODAL OPENER
+ * Ensures we map to the correct inputs
+ */
+window.openEditDealModal = function (id) {
+    const deals = JSON.parse(localStorage.getItem('crmDeals') || '[]');
+    const deal = deals.find(d => d.id.toString() === id.toString());
+    if (!deal) return;
+
+    // Populate Fields
+    const setVal = (eid, val) => { const e = document.getElementById(eid); if (e) e.value = val; };
+
+    setVal('editDealId', deal.id);
+    setVal('editDealName', deal.name);
+    setVal('editDealValue', deal.value);
+    setVal('editDealStage', deal.stage);
+    setVal('editDealDesc', deal.description || '');
+    setVal('editDealCompany', deal.company || deal.customerName || '');
+
+    // Show Modal
+    const m = document.getElementById('crmEditDealModal');
+    if (m) m.style.display = 'flex';
+};
+
+// Ensure updateDeal is available globally
+window.updateDeal = function () {
+    const id = document.getElementById('editDealId').value;
+    let deals = JSON.parse(localStorage.getItem('crmDeals') || '[]');
+    const idx = deals.findIndex(d => d.id.toString() === id.toString());
+    if (idx === -1) return;
+
+    deals[idx].name = document.getElementById('editDealName').value;
+    deals[idx].value = parseFloat(document.getElementById('editDealValue').value) || 0;
+    deals[idx].stage = document.getElementById('editDealStage').value;
+    deals[idx].description = document.getElementById('editDealDesc').value;
+    deals[idx].updatedAt = new Date().toISOString();
+
+    localStorage.setItem('crmDeals', JSON.stringify(deals));
+
+    if (window.pushCrmToBackend) window.pushCrmToBackend('deals');
+
+    if (window.closeCrmModal) window.closeCrmModal('crmEditDealModal');
+
+    if (typeof renderPipeline === 'function') renderPipeline();
+    if (typeof renderCrmDashboard === 'function') renderCrmDashboard();
+
+    if (typeof toast === 'function') toast("Sparat", "Ändringar sparade.", "success");
 };
