@@ -123,14 +123,18 @@ function renderCrmDashboard() {
     // Populate AI Cost Analysis Customer Select
     const costSelect = document.getElementById('aiCostCustomerSelect');
     if (costSelect) {
-        const currentVal = costSelect.value;
+        const currentVal = costSelect.value || 'all';
         let html = '<option value="all">Alla Kunder (Aggregerat)</option>';
         customers.forEach(c => {
-            html += `<option value="${c.id || c.name}" ${(c.id || c.name) === currentVal ? 'selected' : ''}>${c.name}</option>`;
+            html += `<option value="${c.id || c.name}" ${(c.id == currentVal || c.name == currentVal) ? 'selected' : ''}>${c.name}</option>`;
         });
         costSelect.innerHTML = html;
-        if (window.calculateAiMargins) window.calculateAiMargins();
     }
+
+    // ENSURE IT RUNS
+    setTimeout(() => {
+        if (window.calculateAiMargins) window.calculateAiMargins();
+    }, 100);
 }
 
 /**
@@ -172,7 +176,11 @@ window.syncAiSplits = function (source) {
         }
     }
 
-    if (window.calculateAiMargins) calculateAiMargins();
+    if (window.calculateAiMargins) {
+        window.calculateAiMargins();
+    } else {
+        console.error("calculateAiMargins not found!");
+    }
 };
 
 window.calculateAiMargins = function () {
