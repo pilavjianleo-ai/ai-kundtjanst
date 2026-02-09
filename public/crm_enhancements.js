@@ -37,20 +37,16 @@ window.syncCrmData = async function (manual = false) {
                 if (typeof crmState !== 'undefined') crmState.activities = data.activities;
             }
 
-            console.log("✅ CRM data synkad från molnet.");
-            if (manual && typeof toast === 'function') toast("Synkad", "All data är nu uppdaterad från molnet", "success");
-
-            // Re-render ALL crm views
             if (typeof renderCrmDashboard === 'function') renderCrmDashboard();
             if (typeof renderCustomerList === 'function') renderCustomerList();
             if (typeof renderPipeline === 'function') renderPipeline();
+            if (typeof populateAiCostCustomers === 'function') populateAiCostCustomers();
             if (typeof calculateAiMargins === 'function') calculateAiMargins();
 
             updateChatCategoriesFromCRM();
         }
     } catch (e) {
         console.error("CRM Sync Error:", e.message);
-        if (manual && typeof toast === 'function') toast("Sync Fel", e.message, "error");
     }
 };
 
@@ -148,24 +144,25 @@ function renderCrmDashboard() {
     const totalValue = deals.reduce((sum, d) => sum + (d.value || 0), 0);
     const openDeals = deals.filter(d => d.stage !== 'won' && d.stage !== 'lost').length;
     const totalCustomers = customers.length;
+    const hotLeads = customers.filter(c => (c.aiScore || 0) > 80).length;
 
     const monthlyRevenue = customers.reduce((sum, c) => sum + (parseFloat(c.value) || 0), 0);
 
     const cards = document.querySelectorAll('.crmStatCard');
     if (cards.length >= 3) {
+        // Card 1: Pipeline Värde
         const val1 = cards[0].querySelector('.crmStatValue');
         if (val1) val1.innerText = new Intl.NumberFormat('sv-SE', { style: 'currency', currency: 'SEK', maximumSignificantDigits: 3 }).format(totalValue);
 
+        // Card 2: Hot Leads (AI Score > 80)
         const val2 = cards[1].querySelector('.crmStatValue');
-        if (val2) val2.innerText = openDeals + " st";
+        if (val2) val2.innerText = hotLeads + " st";
+        const trend2 = cards[1].querySelector('.crmStatTrend');
+        if (trend2) trend2.innerText = hotLeads > 0 ? `${hotLeads} heta just nu` : "Inga nya leads";
 
+        // Card 3: Månatlig Intäkt
         const val3 = cards[2].querySelector('.crmStatValue');
-        if (val3) val3.innerText = totalCustomers + " st";
-
-        const revEl = document.getElementById('crmMonthlyRevenue');
-        if (revEl) {
-            revEl.innerText = new Intl.NumberFormat('sv-SE', { style: 'currency', currency: 'SEK' }).format(monthlyRevenue);
-        }
+        if (val3) val3.innerText = new Intl.NumberFormat('sv-SE', { style: 'currency', currency: 'SEK' }).format(monthlyRevenue);
     }
 
     const feed = document.querySelector('.activityTimeline');
@@ -213,40 +210,50 @@ function renderCrmDashboard() {
             feed.innerHTML = `<div class="muted center" style="padding:20px; font-size:13px;">Inga aktiviteter loggade än.</div>`;
         }
     }
-
-    // Populate AI Cost Analysis Customer Select
-    const costSelect = document.getElementById('aiCostCustomerSelect');
-    if (costSelect) {
-        const currentVal = costSelect.value || 'all';
-        const categoryName = window.state?.currentCompany?.displayName || 'Kategorin';
-
-        let html = `<option value="all">Hela ${categoryName} (Kategori)</option>`;
-        customers.forEach(c => {
-            html += `<option value="${c.id}" ${c.id == currentVal ? 'selected' : ''}>${c.name}</option>`;
-        });
-        costSelect.innerHTML = html;
-
-        // Add listener if not exists to auto-adjust chats per day
-        if (!costSelect.dataset.listener) {
-            costSelect.addEventListener('change', () => {
-                const val = costSelect.value;
-                if (val === 'all') {
-                    const totalTickets = window.crmData?.stats?.totalTickets || 0;
-                    const daily = Math.max(1, Math.round(totalTickets / 30));
-                    const volInput = document.getElementById('aiCostVolume');
-                    if (volInput) volInput.value = daily;
-                }
-                window.calculateAiMargins();
-            });
-            costSelect.dataset.listener = "true";
-        }
-    }
-
-    // ENSURE IT RUNS
-    setTimeout(() => {
-        if (window.calculateAiMargins) window.calculateAiMargins();
-    }, 100);
 }
+
+// Populate AI Cost Analysis Customer Select
+// Populate AI Cost Analysis Customer Select
+window.populateAiCostCustomers = function () {
+    const costSelect = document.getElementById('aiCostCustomerSelect');
+    if (!costSelect) return;
+
+    const customers = window.crmState?.customers || JSON.parse(localStorage.getItem('crmCustomers') || '[]');
+    const currentVal = costSelect.value || 'all';
+    const categoryName = window.state?.currentCompany?.displayName || 'Kategorin';
+
+    let html = `<option value="all">Hela ${categoryName} (Kategori)</option>`;
+    customers.forEach(c => {
+        // Use loose equality for safety if IDs are numbers/strings mixed
+        const isSelected = c.id == currentVal;
+        html += `<option value="${c.id}" ${isSelected ? 'selected' : ''}>${c.name}</option>`;
+    });
+    costSelect.innerHTML = html;
+
+    // Add listener if not exists to auto-adjust chats per day
+    if (!costSelect.dataset.listener) {
+        costSelect.addEventListener('change', () => {
+            const val = costSelect.value;
+            if (val === 'all') {
+                const totalTickets = window.crmData?.stats?.totalTickets || 0;
+                // Default fallback if no stats
+                const daily = totalTickets > 0 ? Math.round(totalTickets / 30) : 100;
+                const volInput = document.getElementById('aiCostVolume');
+                if (volInput) volInput.value = Math.max(1, daily);
+            }
+            if (typeof window.calculateAiMargins === 'function') {
+                window.calculateAiMargins();
+            }
+        });
+        costSelect.dataset.listener = "true";
+    }
+};
+
+// INITIAL RUN
+setTimeout(() => {
+    window.populateAiCostCustomers();
+    if (window.calculateAiMargins) window.calculateAiMargins();
+}, 500);
 
 /**
  * AI COST TOOL LOGIC - DATA DRIVEN CALCULATIONS
@@ -291,118 +298,117 @@ window.syncAiSplits = function (source) {
 };
 
 window.calculateAiMargins = function () {
-    // 1. INPUTS (chats_per_day derived from UI)
-    const chats_per_day = parseInt(document.getElementById('aiCostVolume').value) || 0;
-    const tokens_per_chat = parseInt(document.getElementById('aiCostTokens').value) || 0;
     const customerId = document.getElementById('aiCostCustomerSelect')?.value || 'all';
+    const volume_input = parseFloat(document.getElementById('aiCostVolume')?.value || 0);
+    const tokens_input = parseFloat(document.getElementById('aiCostTokens')?.value || 1500);
 
-    // Routing Shares (0.0 - 1.0)
-    const share_mini = parseInt(document.getElementById('splitMini').value || 0) / 100;
-    const share_std = parseInt(document.getElementById('splitGpt5').value || 0) / 100;
-    const share_adv = parseInt(document.getElementById('splitGpt4').value || 0) / 100;
+    // 1. FASTA GRUNDANTAGANDEN (Requirements)
+    const SHARE_MINI = 0.70;
+    const SHARE_STD = 0.25;
+    const SHARE_ADV = 0.05;
+    const MOMS_SATS = 0.25;
 
-    // 2. TOKENS PER CHAT (500 IN / 500 OUT - DEL 2)
-    const in_t = tokens_per_chat * 0.5;
-    const out_t = tokens_per_chat * 0.5;
+    // 2. DYNAMISK PRISSÄTTNING BASERAT PÅ KONFIGURATION (SEK per chatt)
+    const exch = AI_CONFIG.exchange_rate || 11.5;
+    const p = AI_CONFIG.model_prices;
 
-    // 3. COST PER CHAT PER MODEL (DEL 4)
-    const getModelChatCost = (model) => {
-        const p = AI_CONFIG.model_prices[model];
-        if (!p) return 0;
-        const in_cost = (in_t / 1000000) * p.in;
-        const out_cost = (out_t / 1000000) * p.out;
-        return in_cost + out_cost;
+    // Beräkna kostnad per modell baserat på snitt av in/ut tokens (exkl. moms)
+    const getCost = (model) => {
+        const avgPriceUsdPerMillion = (model.in + model.out) / 2;
+        return (tokens_input / 1000000) * avgPriceUsdPerMillion * exch;
     };
 
-    const costA_usd = getModelChatCost('mini');
-    const costB_usd = getModelChatCost('standard');
-    const costC_usd = getModelChatCost('advanced');
+    const KOSTNAD_GPT5_MINI = getCost(p.mini);
+    const KOSTNAD_GPT5 = getCost(p.standard);
+    const KOSTNAD_GPT41 = getCost(p.advanced);
 
-    // 4. WEIGHTED AVERAGE COST PER CHAT (DEL 6)
-    const avg_cost_usd = (costA_usd * share_mini) + (costB_usd * share_std) + (costC_usd * share_adv);
-    const avg_cost_sek = avg_cost_usd * AI_CONFIG.exchange_rate;
+    // 3. WEIGHTED LLM COST PER CHAT (EXKL. MOMS)
+    const cost_per_chat_sek = (SHARE_MINI * KOSTNAD_GPT5_MINI) +
+        (SHARE_STD * KOSTNAD_GPT5) +
+        (SHARE_ADV * KOSTNAD_GPT41);
 
-    // 5. MONTHLY TOTALS (DEL 7)
-    const monthly_chats = chats_per_day * 30;
-    const monthly_llm_cost_sek = monthly_chats * avg_cost_sek;
-
-    // 6. REVENUE & MARGIN (DEL 8)
+    // 4. DATA STRUCURE - CATEGORIES / CUSTOMERS
     const customers = window.crmState?.customers || [];
-    const deals = window.crmState?.deals || [];
-    let gross_revenue = 0;
-    let isCategory = false;
+    let total_chattar = 0;
+    let total_revenue_exkl_moms = 0;
 
     if (customerId === 'all') {
-        // ALWAYS use 'Total Value' from deals as the primary baseline for Category analysis
-        // This is what the user specifically asked for.
-        const dealsValue = deals.reduce((sum, d) => sum + (parseFloat(d.value) || 0), 0);
-        gross_revenue = dealsValue;
-        isCategory = true;
+        // "Hela kategorin" = SUMMERING av alla kunders värden
+        if (customers.length > 0) {
+            customers.forEach(c => {
+                total_revenue_exkl_moms += parseFloat(c.value) || 0;
+            });
+            total_chattar = volume_input * 30; // Månadsvolym
+        } else {
+            total_chattar = volume_input * 30;
+            total_revenue_exkl_moms = total_chattar * 49;
+        }
     } else {
         const c = customers.find(x => x.id == customerId);
-        // For individual customer, check their specific value OR won deals associated with them
-        const customerDeals = deals.filter(d => d.company === c?.name);
-        const dealsValue = customerDeals.reduce((sum, d) => sum + (parseFloat(d.value) || 0), 0);
-
-        gross_revenue = c ? (parseFloat(c.value) || 0) : 0;
-        // If customer has no fixed value, use their pipeline value
-        if (gross_revenue === 0) gross_revenue = dealsValue;
+        total_chattar = volume_input * 30;
+        total_revenue_exkl_moms = parseFloat(c?.value || 0);
+        if (total_revenue_exkl_moms === 0) total_revenue_exkl_moms = total_chattar * 49;
     }
 
-    let isDemo = false;
-    if (gross_revenue === 0) {
-        // Fallback to average plan value if no data exists to show something useful
-        gross_revenue = 4995;
-        isDemo = true;
-    }
+    // 5. CORE CALCULATION LOGIC
+    const total_llm_cost_exkl_moms = cost_per_chat_sek * total_chattar;
 
-    const net_revenue = gross_revenue / 1.25;
-    const profit_val = net_revenue - monthly_llm_cost_sek;
-    const margin_pct = net_revenue > 0 ? (profit_val / net_revenue) * 100 : 0;
+    // Revenue exkl. moms is our baseline
+    const intakt_exkl_moms = total_revenue_exkl_moms;
+    const moms_belopp = intakt_exkl_moms * MOMS_SATS;
+    const intakt_inkl_moms = intakt_exkl_moms + moms_belopp;
 
-    // === UPDATE UI ===
+    const brutto = intakt_exkl_moms;
+    const netto = brutto - total_llm_cost_exkl_moms;
+
+    const marginal_sek = intakt_exkl_moms - total_llm_cost_exkl_moms;
+    const marginal_procent = intakt_exkl_moms > 0 ? (marginal_sek / intakt_exkl_moms) * 100 : 0;
+
+    // 6. UPDATE UI
     const fmt = (v) => new Intl.NumberFormat('sv-SE', { style: 'currency', currency: 'SEK' }).format(v);
 
-    if (document.getElementById('resAvgChatCost'))
-        document.getElementById('resAvgChatCost').innerText = avg_cost_sek.toFixed(3) + ' kr';
+    const ui = {
+        'ui_count': total_chattar.toLocaleString(),
+        'ui_price_per_chat': total_chattar > 0 ? fmt(intakt_exkl_moms / total_chattar) : '0 kr',
+        'resAvgChatCost': cost_per_chat_sek.toFixed(2) + ' kr',
+        'resNetRevenue': fmt(intakt_exkl_moms),
+        'resGrossRevenue': fmt(intakt_inkl_moms),
+        'resAiCost': fmt(total_llm_cost_exkl_moms),
+        'ui_brutto': fmt(brutto),
+        'ui_netto': fmt(netto),
+        'resMarginValue': fmt(marginal_sek),
+        'resMarginPercentBox': marginal_procent.toFixed(1) + '%',
+        'breakMini': fmt(total_chattar * SHARE_MINI * KOSTNAD_GPT5_MINI),
+        'breakGpt5': fmt(total_chattar * SHARE_STD * KOSTNAD_GPT5),
+        'breakGpt4': fmt(total_chattar * SHARE_ADV * KOSTNAD_GPT41),
+        'resExchRate': exch.toFixed(2)
+    };
 
-    if (document.getElementById('resAiCost'))
-        document.getElementById('resAiCost').innerText = fmt(monthly_llm_cost_sek);
-
-    if (document.getElementById('resGrossRevenue'))
-        document.getElementById('resGrossRevenue').innerText = fmt(gross_revenue);
-
-    if (document.getElementById('resNetRevenue'))
-        document.getElementById('resNetRevenue').innerText = fmt(net_revenue);
-
-    if (document.getElementById('resMarginValue'))
-        document.getElementById('resMarginValue').innerText = fmt(profit_val);
+    for (const [id, val] of Object.entries(ui)) {
+        const el = document.getElementById(id);
+        if (el) {
+            if (el.tagName === 'INPUT') el.value = val;
+            else el.innerText = val;
+        }
+    }
 
     const pctBox = document.getElementById('resMarginPercentBox');
     if (pctBox) {
-        pctBox.innerText = margin_pct.toFixed(1) + '%';
-        pctBox.style.color = margin_pct > 30 ? 'var(--ok)' : (margin_pct > 0 ? 'var(--warn)' : 'var(--danger)');
+        pctBox.style.color = marginal_procent > 30 ? 'var(--ok)' : (marginal_procent > 0 ? 'var(--warn)' : 'var(--danger)');
     }
 
     const note = document.getElementById('marginNote');
     if (note) {
-        const entityName = isCategory ? "Kategorin" : "Kunden";
-        note.innerText = isDemo ? "DEMO: Baserat på 4 990 kr exempelförsäljning" : `${entityName}s intäkt (Exkl. moms)`;
+        note.innerText = `Marginal beräknad på Netto Intäkt (Exkl. moms)`;
     }
 
-    // Breakdown rutorna
-    if (document.getElementById('breakMini'))
-        document.getElementById('breakMini').innerText = fmt(monthly_chats * share_mini * costA_usd * AI_CONFIG.exchange_rate);
-    if (document.getElementById('breakGpt5'))
-        document.getElementById('breakGpt5').innerText = fmt(monthly_chats * share_std * costB_usd * AI_CONFIG.exchange_rate);
-    if (document.getElementById('breakGpt4'))
-        document.getElementById('breakGpt4').innerText = fmt(monthly_chats * share_adv * costC_usd * AI_CONFIG.exchange_rate);
-
-    // Update exchange rate label if exists
-    const rateLabel = document.getElementById('resExchRate');
-    if (rateLabel) rateLabel.innerText = AI_CONFIG.exchange_rate.toFixed(2);
-
-    console.log("TRACE:", { daily: chats_per_day, monthly: monthly_chats, cost_per_chat_sek: avg_cost_sek, profit: profit_val });
+    // Sync sliders for visual only
+    if (document.getElementById('splitMini')) document.getElementById('splitMini').value = 70;
+    if (document.getElementById('splitGpt5')) document.getElementById('splitGpt5').value = 25;
+    if (document.getElementById('splitGpt4')) document.getElementById('splitGpt4').value = 5;
+    if (document.getElementById('valMini')) document.getElementById('valMini').innerText = '70%';
+    if (document.getElementById('valGpt5')) document.getElementById('valGpt5').innerText = '25%';
+    if (document.getElementById('valGpt4')) document.getElementById('valGpt4').innerText = '5%';
 };
 
 /**

@@ -1,4 +1,4 @@
-:root {
+﻿:root {
   --bg: #0f1220;
   --panel: #151a2c;
   --panel2: #101426;
@@ -1152,7 +1152,7 @@ body[data-theme="light"] .btn.secondary:hover {
   }
 }
 
-/* NYTT FÖR 2025 – små tillägg för nya vyer (CSAT-modal, simulator, billing etc.) */
+/* NYTT F├ûR 2025 ÔÇô sm├Ñ till├ñgg f├Âr nya vyer (CSAT-modal, simulator, billing etc.) */
 
 /* Typing Indicator */
 .typing {
@@ -1271,7 +1271,7 @@ body[data-theme="light"] .btn.secondary:hover {
   background: rgba(255, 255, 255, 0.04);
 }
 
-/* Extra padding för nya paneler om det behövs – men återanvänder befintlig */
+/* Extra padding f├Âr nya paneler om det beh├Âvs ÔÇô men ├Ñteranv├ñnder befintlig */
 .customer-panel {
   margin-top: 12px;
 }

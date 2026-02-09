@@ -4,7 +4,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-  <title>AI Kundtjänst</title>
+  <title>AI Kundtj├ñnst</title>
 
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
   <link rel="stylesheet" href="style.css?v=2026.17" />
@@ -20,13 +20,13 @@
       <div class="brand">
         <div class="logo"><i class="fa-solid fa-headset"></i></div>
         <div class="brandText">
-          <div class="brandTitle">AI Kundtjänst</div>
+          <div class="brandTitle">AI Kundtj├ñnst</div>
           <div class="brandSub" id="roleBadge">Inte inloggad</div>
         </div>
       </div>
 
       <div class="sidebarBlock">
-        <div class="label">Företag / Kategori</div>
+        <div class="label">F├Âretag / Kategori</div>
         <select id="categorySelect" class="input">
           <option value="demo">demo</option>
         </select>
@@ -38,7 +38,7 @@
         </button>
 
         <button id="openMyTicketsView" class="menuBtn" type="button">
-          <i class="fa-solid fa-ticket"></i> Mina ärenden
+          <i class="fa-solid fa-ticket"></i> Mina ├ñrenden
         </button>
 
         <button id="openInboxView" class="menuBtn" style="display:none;" type="button">
@@ -55,10 +55,10 @@
         </button>
 
         <button id="openSettingsView" class="menuBtn" style="display:none;" type="button">
-          <i class="fa-solid fa-user-gear"></i> Min Profil & Säkerhet
+          <i class="fa-solid fa-user-gear"></i> Min Profil & S├ñkerhet
         </button>
 
-        <!-- NYA MENYKNAPPAR – läggs till sist i menyn -->
+        <!-- NYA MENYKNAPPAR ÔÇô l├ñggs till sist i menyn -->
         <button id="openCustomerAdminView" class="menuBtn" style="display:none;" type="button">
           <i class="fa-solid fa-building"></i> Kunder (CRM)
         </button>
@@ -68,7 +68,7 @@
         </button>
 
         <button id="openCustomerSettingsView" class="menuBtn" style="display:none;" type="button">
-          <i class="fa-solid fa-cog"></i> Företagsinställningar
+          <i class="fa-solid fa-cog"></i> F├Âretagsinst├ñllningar
         </button>
 
         <button id="openSimulatorView" class="menuBtn" style="display:none;" type="button">
@@ -85,7 +85,7 @@
         </button>
 
         <button id="openSalesView" class="menuBtn" style="display:none;" type="button">
-          <i class="fa-solid fa-chart-column"></i> Säljanalys
+          <i class="fa-solid fa-chart-column"></i> S├ñljanalys
         </button>
       </nav>
 
@@ -120,22 +120,22 @@
       <section id="authView" class="view">
         <div class="card authCard">
           <h2>Logga in</h2>
-          <p class="muted">Logga in för att starta chatt och se dina ärenden.</p>
+          <p class="muted">Logga in f├Âr att starta chatt och se dina ├ñrenden.</p>
 
           <div class="grid2">
             <div>
-              <label>Användarnamn</label>
+              <label>Anv├ñndarnamn</label>
               <input id="username" class="input" placeholder="t.ex. leo123" />
             </div>
             <div>
-              <label>Email (för återställning)</label>
+              <label>Email (f├Âr ├Ñterst├ñllning)</label>
               <input id="email" class="input" placeholder="email@exempel.se" />
             </div>
           </div>
 
-          <label>Lösenord</label>
+          <label>L├Âsenord</label>
           <div class="passRow">
-            <input id="password" type="password" class="input" placeholder="••••••••" />
+            <input id="password" type="password" class="input" placeholder="ÔÇóÔÇóÔÇóÔÇóÔÇóÔÇóÔÇóÔÇó" />
             <button id="togglePassBtn" class="btn secondary small" type="button"
               onclick="togglePasswordVisibility('password')">
               <i class="fa-solid fa-eye"></i>
@@ -153,7 +153,7 @@
 
           <div class="row gap" style="margin-top:10px;">
             <button id="openForgotBtn" class="btn ghost" type="button">
-              <i class="fa-solid fa-key"></i> Glömt lösenord?
+              <i class="fa-solid fa-key"></i> Gl├Âmt l├Âsenord?
             </button>
           </div>
 
@@ -161,15 +161,15 @@
         </div>
 
         <div id="forgotCard" class="card authCard" style="display:none;">
-          <h2>Återställ lösenord</h2>
-          <p class="muted">Skriv din email så skickas en återställningslänk.</p>
+          <h2>├àterst├ñll l├Âsenord</h2>
+          <p class="muted">Skriv din email s├Ñ skickas en ├Ñterst├ñllningsl├ñnk.</p>
 
           <label>Email</label>
           <input id="forgotEmail" class="input" placeholder="email@exempel.se" />
 
           <div class="row gap">
             <button id="sendForgotBtn" class="btn primary" type="button">
-              <i class="fa-solid fa-paper-plane"></i> Skicka länk
+              <i class="fa-solid fa-paper-plane"></i> Skicka l├ñnk
             </button>
             <button id="closeForgotBtn" class="btn ghost" type="button">Avbryt</button>
           </div>
@@ -178,12 +178,12 @@
         </div>
 
         <div id="resetCard" class="card authCard" style="display:none;">
-          <h2>Välj nytt lösenord</h2>
-          <p class="muted">Skriv ett nytt lösenord och spara.</p>
+          <h2>V├ñlj nytt l├Âsenord</h2>
+          <p class="muted">Skriv ett nytt l├Âsenord och spara.</p>
 
-          <label>Nytt lösenord</label>
+          <label>Nytt l├Âsenord</label>
           <div class="passRow">
-            <input id="resetNewPass" type="password" class="input" placeholder="Nytt lösenord" />
+            <input id="resetNewPass" type="password" class="input" placeholder="Nytt l├Âsenord" />
             <button id="toggleResetPassBtn" class="btn secondary small" type="button"
               onclick="togglePasswordVisibility('resetNewPass')">
               <i class="fa-solid fa-eye"></i>
@@ -191,7 +191,7 @@
           </div>
 
           <button id="resetSaveBtn" class="btn primary full" style="margin-top:10px;" type="button">
-            <i class="fa-solid fa-floppy-disk"></i> Spara nytt lösenord
+            <i class="fa-solid fa-floppy-disk"></i> Spara nytt l├Âsenord
           </button>
 
           <div id="resetMsg" class="alert" style="display:none;"></div>
@@ -205,17 +205,17 @@
             <button class="btn ghost icon menu-toggle" onclick="toggleSidebar()"><i
                 class="fa-solid fa-bars"></i></button>
             <div>
-              <div class="title" id="chatTitle">AI Kundtjänst</div>
-              <div class="subtitle" id="chatSubtitle">Ställ en fråga så hjälper jag dig direkt.</div>
+              <div class="title" id="chatTitle">AI Kundtj├ñnst</div>
+              <div class="subtitle" id="chatSubtitle">St├ñll en fr├Ñga s├Ñ hj├ñlper jag dig direkt.</div>
             </div>
           </div>
 
           <div class="topbarActions">
-            <button id="talkToHumanBtn" class="btn ghost small" title="Prata med en människa">
-              <i class="fa-solid fa-headset"></i> Hjälp av människa
+            <button id="talkToHumanBtn" class="btn ghost small" title="Prata med en m├ñnniska">
+              <i class="fa-solid fa-headset"></i> Hj├ñlp av m├ñnniska
             </button>
             <button id="newTicketBtn" class="btn ghost" type="button">
-              <i class="fa-solid fa-circle-plus"></i> Nytt ärende
+              <i class="fa-solid fa-circle-plus"></i> Nytt ├ñrende
             </button>
             <button id="clearChatBtn" class="btn ghost" type="button">
               <i class="fa-solid fa-trash"></i> Rensa
@@ -241,7 +241,7 @@
             <i class="fa-solid fa-thumbs-up"></i> Bra
           </button>
           <button id="fbDown" class="btn ghost small" type="button">
-            <i class="fa-solid fa-thumbs-down"></i> Dåligt
+            <i class="fa-solid fa-thumbs-down"></i> D├Ñligt
           </button>
           <span id="fbMsg" class="muted small"></span>
         </div>
@@ -254,7 +254,7 @@
             <button class="btn ghost icon menu-toggle" onclick="toggleSidebar()"><i
                 class="fa-solid fa-bars"></i></button>
             <div>
-              <div class="title">Mina ärenden</div>
+              <div class="title">Mina ├ñrenden</div>
               <div class="subtitle muted">Se dina tickets och status.</div>
             </div>
           </div>
@@ -280,12 +280,12 @@
             </div>
 
             <div id="myTicketDetails" class="ticketDetails muted small">
-              Välj ett ärende för att se detaljer.
+              V├ñlj ett ├ñrende f├Âr att se detaljer.
             </div>
 
             <div class="divider"></div>
 
-            <label>Skicka meddelande (fortsätt konversation)</label>
+            <label>Skicka meddelande (forts├ñtt konversation)</label>
             <textarea id="myTicketReplyText" class="input textarea" placeholder="Skriv ett meddelande..."></textarea>
 
             <button id="myTicketReplyBtn" class="btn primary full" type="button">
@@ -306,7 +306,7 @@
             <div>
               <div class="title"><i class="fa-solid fa-chart-pie" style="color:var(--primary);"></i> Analytics Command
                 Center</div>
-              <div class="subtitle muted">Avancerad statistik, insikter och KPI:er för hela organisationen</div>
+              <div class="subtitle muted">Avancerad statistik, insikter och KPI:er f├Âr hela organisationen</div>
             </div>
           </div>
 
@@ -340,16 +340,16 @@
         <!-- NAVIGATION TABS -->
         <div class="tabs" style="margin-top: 15px;">
           <button class="tabBtn active" data-tab="tabSlaOverview" type="button">
-            <i class="fa-solid fa-gauge-high"></i> Översikt
+            <i class="fa-solid fa-gauge-high"></i> ├ûversikt
           </button>
           <button class="tabBtn" data-tab="tabSlaEscalation" type="button">
             <i class="fa-solid fa-arrow-right-arrow-left"></i> Eskalering
           </button>
           <button class="tabBtn" data-tab="tabSlaQuestions" type="button">
-            <i class="fa-solid fa-comments"></i> Frågor & Meddelanden
+            <i class="fa-solid fa-comments"></i> Fr├Ñgor & Meddelanden
           </button>
           <button class="tabBtn" data-tab="tabSlaComparison" type="button">
-            <i class="fa-solid fa-code-compare"></i> Jämförelse
+            <i class="fa-solid fa-code-compare"></i> J├ñmf├Ârelse
           </button>
           <button class="tabBtn" data-tab="tabSlaInsights" type="button">
             <i class="fa-solid fa-lightbulb"></i> Insikter & Tips
@@ -367,7 +367,7 @@
           <div class="grid2">
             <div class="panel">
               <div class="panelHead">
-                <b><i class="fa-solid fa-chart-line"></i> Ärendetrend (veckovis)</b>
+                <b><i class="fa-solid fa-chart-line"></i> ├ärendetrend (veckovis)</b>
               </div>
               <div class="chart-container" style="height: 250px;">
                 <canvas id="slaTrendChart"></canvas>
@@ -387,14 +387,14 @@
           <div class="grid2">
             <div class="panel">
               <div class="panelHead">
-                <b><i class="fa-solid fa-tags"></i> Trendande Ämnen</b>
+                <b><i class="fa-solid fa-tags"></i> Trendande ├ämnen</b>
               </div>
               <div id="slaTopTopicsBox" class="list" style="margin-top:10px; max-height: 200px; overflow-y: auto;">
               </div>
             </div>
             <div class="panel">
               <div class="panelHead">
-                <b><i class="fa-solid fa-calendar-week"></i> Dagfördelning</b>
+                <b><i class="fa-solid fa-calendar-week"></i> Dagf├Ârdelning</b>
               </div>
               <div id="slaDailyDistribution" style="margin-top:10px;"></div>
             </div>
@@ -405,13 +405,13 @@
         <div id="tabSlaEscalation" class="tabPanel" style="display:none;">
           <div class="grid2" style="margin-top: 15px;">
             <div class="panel" style="border-left: 3px solid var(--primary);">
-              <div class="panelHead"><b><i class="fa-solid fa-robot"></i> AI vs Människa</b></div>
+              <div class="panelHead"><b><i class="fa-solid fa-robot"></i> AI vs M├ñnniska</b></div>
               <div id="slaEscalationOverview" style="padding: 15px;">
                 <div class="muted small center">Laddar eskaleringsstatistik...</div>
               </div>
             </div>
             <div class="panel" style="border-left: 3px solid var(--warning);">
-              <div class="panelHead"><b><i class="fa-solid fa-arrow-trend-up"></i> Eskaleringsflöde</b></div>
+              <div class="panelHead"><b><i class="fa-solid fa-arrow-trend-up"></i> Eskaleringsfl├Âde</b></div>
               <div id="slaEscalationFlow" style="padding: 15px;">
                 <div class="slaGrid" style="gap:10px;">
                   <div class="slaCard small">
@@ -419,7 +419,7 @@
                     <div class="slaValue" id="escTotalVal">-</div>
                   </div>
                   <div class="slaCard small">
-                    <div class="slaLabel"><i class="fa-solid fa-robot"></i> AI Löste</div>
+                    <div class="slaLabel"><i class="fa-solid fa-robot"></i> AI L├Âste</div>
                     <div class="slaValue" id="escAiVal">-</div>
                     <div class="slaDelta up" id="escAiRate">-</div>
                   </div>
@@ -456,7 +456,7 @@
                 <div class="slaValue" id="qTotalMessages">-</div>
               </div>
               <div class="slaCard">
-                <div class="slaLabel"><i class="fa-solid fa-user"></i> Från Kunder</div>
+                <div class="slaLabel"><i class="fa-solid fa-user"></i> Fr├Ñn Kunder</div>
                 <div class="slaValue" id="qUserMessages">-</div>
               </div>
               <div class="slaCard">
@@ -481,13 +481,13 @@
           <div class="divider"></div>
           <div class="grid2">
             <div class="panel">
-              <div class="panelHead"><b><i class="fa-solid fa-pie-chart"></i> Frågetyper (Kategorisering)</b></div>
+              <div class="panelHead"><b><i class="fa-solid fa-pie-chart"></i> Fr├Ñgetyper (Kategorisering)</b></div>
               <div id="slaQuestionTypes" class="list" style="margin-top: 10px; max-height: 300px; overflow-y: auto;">
-                <div class="muted small center">Analyserar frågor...</div>
+                <div class="muted small center">Analyserar fr├Ñgor...</div>
               </div>
             </div>
             <div class="panel">
-              <div class="panelHead"><b><i class="fa-solid fa-chart-bar"></i> Frågekategorier (Graf)</b></div>
+              <div class="panelHead"><b><i class="fa-solid fa-chart-bar"></i> Fr├Ñgekategorier (Graf)</b></div>
               <div class="chart-container" style="height: 280px;">
                 <canvas id="slaQuestionTypesChart"></canvas>
               </div>
@@ -499,8 +499,8 @@
         <div id="tabSlaComparison" class="tabPanel" style="display:none;">
           <div class="panel"
             style="margin-top: 15px; background: linear-gradient(135deg, rgba(76, 125, 255, 0.05), rgba(138, 43, 226, 0.05));">
-            <div class="panelHead"><b><i class="fa-solid fa-code-compare"></i> Period-jämförelse</b></div>
-            <p class="muted small" style="margin-bottom: 15px;">Jämför nuvarande period med föregående period för att se
+            <div class="panelHead"><b><i class="fa-solid fa-code-compare"></i> Period-j├ñmf├Ârelse</b></div>
+            <p class="muted small" style="margin-bottom: 15px;">J├ñmf├Âr nuvarande period med f├Âreg├Ñende period f├Âr att se
               trender och utveckling.</p>
 
             <div id="slaComparisonBox">
@@ -516,7 +516,7 @@
 
                 <!-- Previous Period -->
                 <div class="slaCard" style="border-top: 3px solid var(--muted);">
-                  <div class="slaLabel" style="font-weight:600;"><i class="fa-solid fa-calendar-minus"></i> Föregående
+                  <div class="slaLabel" style="font-weight:600;"><i class="fa-solid fa-calendar-minus"></i> F├Âreg├Ñende
                     Period</div>
                   <div id="compPreviousStats" style="margin-top: 10px;">
                     <div class="muted small">Laddar...</div>
@@ -528,18 +528,18 @@
 
           <div class="divider"></div>
           <div class="panel">
-            <div class="panelHead"><b><i class="fa-solid fa-arrow-trend-up"></i> Förändring (Deltas)</b></div>
+            <div class="panelHead"><b><i class="fa-solid fa-arrow-trend-up"></i> F├Âr├ñndring (Deltas)</b></div>
             <div id="slaComparisonDeltas" class="slaGrid" style="margin-top: 15px; gap: 10px;">
               <div class="slaCard small">
                 <div class="slaLabel">Totalt</div>
                 <div class="slaValue" id="deltaTotal">-</div>
               </div>
               <div class="slaCard small">
-                <div class="slaLabel">Lösta</div>
+                <div class="slaLabel">L├Âsta</div>
                 <div class="slaValue" id="deltaSolved">-</div>
               </div>
               <div class="slaCard small">
-                <div class="slaLabel">AI Lösta</div>
+                <div class="slaLabel">AI L├Âsta</div>
                 <div class="slaValue" id="deltaAiSolved">-</div>
               </div>
               <div class="slaCard small">
@@ -571,20 +571,20 @@
           <div class="divider"></div>
           <div class="panel"
             style="background: linear-gradient(135deg, rgba(55, 214, 122, 0.05), rgba(76, 125, 255, 0.05));">
-            <div class="panelHead"><b><i class="fa-solid fa-wand-magic-sparkles"></i> Optimeringsförslag</b></div>
+            <div class="panelHead"><b><i class="fa-solid fa-wand-magic-sparkles"></i> Optimeringsf├Ârslag</b></div>
             <div id="slaOptimizationTips" style="padding: 15px;">
               <div class="alert info" style="margin-bottom: 10px;">
-                <i class="fa-solid fa-rocket"></i> <b>Pro-tips för att öka AI-lösningsgraden:</b>
+                <i class="fa-solid fa-rocket"></i> <b>Pro-tips f├Âr att ├Âka AI-l├Âsningsgraden:</b>
                 <ul style="margin: 10px 0 0 20px; font-size: 13px;">
-                  <li>Lägg till fler FAQ-dokument i kunskapsbasen</li>
-                  <li>Använd tydliga rubriker och strukturerad text</li>
-                  <li>Inkludera vanliga frågor och svar från lösta ärenden</li>
+                  <li>L├ñgg till fler FAQ-dokument i kunskapsbasen</li>
+                  <li>Anv├ñnd tydliga rubriker och strukturerad text</li>
+                  <li>Inkludera vanliga fr├Ñgor och svar fr├Ñn l├Âsta ├ñrenden</li>
                   <li>Uppdatera regelbundet med ny produktinformation</li>
                 </ul>
               </div>
               <div class="alert warn" style="font-size: 12px;">
-                <i class="fa-solid fa-clock"></i> <b>SLA Best Practice:</b> Svara på high-priority ärenden inom 2 timmar
-                för optimal kundnöjdhet.
+                <i class="fa-solid fa-clock"></i> <b>SLA Best Practice:</b> Svara p├Ñ high-priority ├ñrenden inom 2 timmar
+                f├Âr optimal kundn├Âjdhet.
               </div>
             </div>
           </div>
@@ -604,12 +604,12 @@
                     <th style="width:40px;">#</th>
                     <th>Agent</th>
                     <th>Hanterade</th>
-                    <th>Lösta</th>
+                    <th>L├Âsta</th>
                     <th>High-Prio</th>
                     <th>Snitt Msgs</th>
                     <th>Effektivitet</th>
                     <th>CSAT</th>
-                    <th style="text-align:right;"><i class="fa-solid fa-star" style="color:gold;"></i> Poäng</th>
+                    <th style="text-align:right;"><i class="fa-solid fa-star" style="color:gold;"></i> Po├ñng</th>
                   </tr>
                 </thead>
                 <tbody id="slaAgentsTableBody"></tbody>
@@ -620,7 +620,7 @@
           <div class="divider"></div>
           <div class="grid2">
             <div class="panel soft">
-              <div class="panelHead"><b><i class="fa-solid fa-chart-pie"></i> Fördelning per Agent</b></div>
+              <div class="panelHead"><b><i class="fa-solid fa-chart-pie"></i> F├Ârdelning per Agent</b></div>
               <div class="chart-container" style="height: 200px;">
                 <canvas id="slaAgentPieChart"></canvas>
               </div>
@@ -628,7 +628,7 @@
             <div class="panel soft">
               <div class="panelHead"><b><i class="fa-solid fa-medal"></i> Top Performer</b></div>
               <div id="slaTopPerformer" style="padding: 20px; text-align: center;">
-                <div class="avatar-large" id="topPerformerAvatar" style="margin: 0 auto;">🏆</div>
+                <div class="avatar-large" id="topPerformerAvatar" style="margin: 0 auto;">­ƒÅå</div>
                 <h3 id="topPerformerName" style="margin-top: 10px;">-</h3>
                 <div class="muted small" id="topPerformerStats">Laddar...</div>
               </div>
@@ -645,7 +645,7 @@
                 class="fa-solid fa-bars"></i></button>
             <div>
               <div class="title">Inbox</div>
-              <div class="subtitle muted">Hantera inkomna ärenden (agent/admin).</div>
+              <div class="subtitle muted">Hantera inkomna ├ñrenden (agent/admin).</div>
             </div>
           </div>
 
@@ -682,7 +682,7 @@
                 <option value="">Alla kategorier</option>
               </select>
 
-              <input id="inboxSearchInput" class="input smallInput" placeholder="Sök title/ID/kategori..." />
+              <input id="inboxSearchInput" class="input smallInput" placeholder="S├Âk title/ID/kategori..." />
             </div>
 
             <div id="inboxMsg" class="alert error" style="display:none;"></div>
@@ -714,15 +714,15 @@
 
             <div class="divider"></div>
 
-            <div id="ticketDetails" class="ticketDetails muted small">Välj en ticket.</div>
+            <div id="ticketDetails" class="ticketDetails muted small">V├ñlj en ticket.</div>
 
             <div class="divider"></div>
 
-            <label>Agent-svar (syns för kunden)</label>
+            <label>Agent-svar (syns f├Âr kunden)</label>
             <div class="row gap small" style="margin-bottom:5px;">
               <button class="btn ghost tiny" onclick="useQuickReply('greeting')">Hej</button>
-              <button class="btn ghost tiny" onclick="useQuickReply('working')">Jobbar på det</button>
-              <button class="btn ghost tiny" onclick="useQuickReply('solved')">Löst</button>
+              <button class="btn ghost tiny" onclick="useQuickReply('working')">Jobbar p├Ñ det</button>
+              <button class="btn ghost tiny" onclick="useQuickReply('solved')">L├Âst</button>
               <button class="btn ghost tiny" onclick="useQuickReply('thanks')">Tack</button>
             </div>
             <textarea id="agentReplyTextInbox" class="input textarea" placeholder="Skriv ett svar..."></textarea>
@@ -732,7 +732,7 @@
 
             <div class="divider"></div>
 
-            <label>Intern notering (syns ej för kunden)</label>
+            <label>Intern notering (syns ej f├Âr kunden)</label>
             <textarea id="internalNoteText" class="input textarea" placeholder="Intern note..."></textarea>
             <button id="saveInternalNoteBtn" class="btn secondary full" type="button">
               <i class="fa-solid fa-note-sticky"></i> Spara note
@@ -747,7 +747,7 @@
             <label>Assign ticket till agent</label>
             <div class="row gap">
               <select id="assignUserSelect" class="input">
-                <option value="">Välj agent...</option>
+                <option value="">V├ñlj agent...</option>
               </select>
               <button id="assignTicketBtn" class="btn ghost" type="button">
                 <i class="fa-solid fa-user-check"></i> Assign
@@ -802,7 +802,7 @@
         <div id="tabUsers" class="tabPanel" style="display:none;">
           <div class="panel">
             <div class="panelHead">
-              <b>Användare</b>
+              <b>Anv├ñndare</b>
               <button id="adminUsersRefreshBtn" class="btn ghost small" style="margin-left:auto;" type="button">
                 <i class="fa-solid fa-rotate"></i> Uppdatera
               </button>
@@ -888,7 +888,7 @@
                   <div>
                     <label>Emojis</label>
                     <select id="newCatEmojis" class="input">
-                      <option value="true" selected>tillåt</option>
+                      <option value="true" selected>till├Ñt</option>
                       <option value="false">blockera</option>
                     </select>
                   </div>
@@ -916,15 +916,15 @@
 
             <div id="aiSettingsMsg" class="alert error" style="display:none;"></div>
 
-            <label>Hälsningsfras</label>
-            <input id="aiGreeting" class="input" placeholder="Hej! 👋 Hur kan jag hjälpa dig idag?" />
+            <label>H├ñlsningsfras</label>
+            <input id="aiGreeting" class="input" placeholder="Hej! ­ƒæï Hur kan jag hj├ñlpa dig idag?" />
 
             <label>Tips-text</label>
             <input id="aiTips" class="input" placeholder="Tips: Beskriv problemet tydligt..." />
 
-            <label>Genvägar (en per rad)</label>
+            <label>Genv├ñgar (en per rad)</label>
             <textarea id="aiShortcuts" class="input textarea"
-              placeholder="Spåra order&#10;Ändra bokning&#10;Faktura"></textarea>
+              placeholder="Sp├Ñra order&#10;├ändra bokning&#10;Faktura"></textarea>
 
             <button id="aiSettingsSaveBtn" class="btn primary full" style="margin-top:10px;" type="button">
               <i class="fa-solid fa-floppy-disk"></i> Spara AI Settings
@@ -939,7 +939,7 @@
             </div>
 
             <div class="muted small">
-              Detta är en enkel widget du kan ge till kunder att lägga på deras sida.
+              Detta ├ñr en enkel widget du kan ge till kunder att l├ñgga p├Ñ deras sida.
             </div>
 
             <div class="divider"></div>
@@ -960,7 +960,7 @@
         <div class="topbar">
           <div>
             <div class="title">Mitt Konto & Profil</div>
-            <div class="subtitle muted">Hantera personlig information, säkerhet och inställningar.</div>
+            <div class="subtitle muted">Hantera personlig information, s├ñkerhet och inst├ñllningar.</div>
           </div>
           <div class="topbarActions">
             <button id="logoutBtn" class="btn danger small">
@@ -973,9 +973,9 @@
           <button class="tabBtn active" data-tab="tabProfile" type="button"><i class="fa-solid fa-user"></i> Min
             Profil</button>
           <button class="tabBtn" data-tab="tabSecurity" type="button"><i class="fa-solid fa-shield-halved"></i>
-            Säkerhet</button>
+            S├ñkerhet</button>
           <button class="tabBtn" data-tab="tabPreferences" type="button"><i class="fa-solid fa-sliders"></i>
-            Inställningar</button>
+            Inst├ñllningar</button>
         </div>
 
         <!-- PROFILE TAB -->
@@ -992,9 +992,9 @@
               <label>E-postadress</label>
               <input id="profileEmail" class="input" readonly style="opacity:0.7;" />
 
-              <label>Användarnamn</label>
+              <label>Anv├ñndarnamn</label>
               <div class="row gap">
-                <input id="newUsernameInput" class="input" placeholder="Nytt användarnamn" />
+                <input id="newUsernameInput" class="input" placeholder="Nytt anv├ñndarnamn" />
                 <button id="changeUsernameBtn" class="btn secondary">Uppdatera</button>
               </div>
             </div>
@@ -1016,22 +1016,22 @@
         <!-- SECURITY TAB -->
         <div id="tabSecurity" class="tabPanel" style="display:none;">
           <div class="panel" style="max-width: 500px; margin: 0 auto;">
-            <div class="panelHead"><b>Ändra Lösenord</b></div>
-            <p class="muted small">Välj ett starkt lösenord för att skydda ditt konto.</p>
+            <div class="panelHead"><b>├ändra L├Âsenord</b></div>
+            <p class="muted small">V├ñlj ett starkt l├Âsenord f├Âr att skydda ditt konto.</p>
 
-            <label>Nuvarande Lösenord</label>
-            <input id="currentPassInput" type="password" class="input" placeholder="••••••••" />
+            <label>Nuvarande L├Âsenord</label>
+            <input id="currentPassInput" type="password" class="input" placeholder="ÔÇóÔÇóÔÇóÔÇóÔÇóÔÇóÔÇóÔÇó" />
 
-            <label>Nytt Lösenord</label>
+            <label>Nytt L├Âsenord</label>
             <input id="newPassInput" type="password" class="input" placeholder="Minst 8 tecken" />
 
             <button id="changePasswordBtn" class="btn primary full" style="margin-top:20px;">
-              <i class="fa-solid fa-key"></i> Uppdatera Lösenord
+              <i class="fa-solid fa-key"></i> Uppdatera L├Âsenord
             </button>
 
             <div class="divider"></div>
             <div class="alert warn" style="font-size:12px;">
-              <i class="fa-solid fa-circle-info"></i> Vi rekommenderar att du byter lösenord var 6:e månad.
+              <i class="fa-solid fa-circle-info"></i> Vi rekommenderar att du byter l├Âsenord var 6:e m├Ñnad.
             </div>
           </div>
         </div>
@@ -1039,13 +1039,13 @@
         <!-- PREFERENCES TAB -->
         <div id="tabPreferences" class="tabPanel" style="display:none;">
           <div class="panel">
-            <div class="panelHead"><b>Applikationsinställningar</b></div>
+            <div class="panelHead"><b>Applikationsinst├ñllningar</b></div>
 
             <div class="list">
               <div class="listItem" style="justify-content: space-between; display: flex; align-items: center;">
                 <div>
-                  <b>Mörkt läge</b>
-                  <p class="muted tiny">Växla mellan ljust och mörkt tema.</p>
+                  <b>M├Ârkt l├ñge</b>
+                  <p class="muted tiny">V├ñxla mellan ljust och m├Ârkt tema.</p>
                 </div>
                 <button id="themeToggleProfile" class="btn ghost small"><i class="fa-solid fa-moon"></i></button>
               </div>
@@ -1053,15 +1053,15 @@
               <div class="listItem" style="justify-content: space-between; display: flex; align-items: center;">
                 <div>
                   <b>Ljudaviseringar</b>
-                  <p class="muted tiny">Spela upp ljud vid nya inkommande ärenden.</p>
+                  <p class="muted tiny">Spela upp ljud vid nya inkommande ├ñrenden.</p>
                 </div>
                 <input type="checkbox" id="prefSoundNotif" checked />
               </div>
 
               <div class="listItem" style="justify-content: space-between; display: flex; align-items: center;">
                 <div>
-                  <b>Språk</b>
-                  <p class="muted tiny">Välj ditt önskade språk för gränssnittet.</p>
+                  <b>Spr├Ñk</b>
+                  <p class="muted tiny">V├ñlj ditt ├Ânskade spr├Ñk f├Âr gr├ñnssnittet.</p>
                 </div>
                 <select class="input smallInput" style="width: auto;">
                   <option value="sv">Svenska</option>
@@ -1075,19 +1075,19 @@
         <div id="settingsMsg" class="alert" style="display:none;"></div>
       </section>
 
-      <!-- === NYA VYER LÄGG TILL HÄR – längst ner i main === -->
+      <!-- === NYA VYER L├äGG TILL H├äR ÔÇô l├ñngst ner i main === -->
 
-      <!-- NY: KUND-ADMIN / CRM (för admin) -->
+      <!-- NY: KUND-ADMIN / CRM (f├Âr admin) -->
       <!-- CRM VIEW (UPGRADED AI PRO) -->
       <section id="customerAdminView" class="view" style="display:none;">
         <div class="topbar">
           <div>
-            <div class="title">CRM & Försäljning</div>
-            <div class="subtitle muted">Hantera kunder, affärer och pipeline på ett ställe.</div>
+            <div class="title">CRM & F├Ârs├ñljning</div>
+            <div class="subtitle muted">Hantera kunder, aff├ñrer och pipeline p├Ñ ett st├ñlle.</div>
           </div>
           <div class="topbarActions">
             <button id="addDealBtn" class="btn primary" onclick="openDealModal()">
-              <i class="fa-solid fa-plus"></i> Ny Affär
+              <i class="fa-solid fa-plus"></i> Ny Aff├ñr
             </button>
             <button id="addCustomerBtn" class="btn ghost" onclick="openAddCustomerModal()">
               <i class="fa-solid fa-user-plus"></i> Ny Kund
@@ -1097,7 +1097,7 @@
 
         <!-- CRM Navigation -->
         <div class="crmNav">
-          <button class="crmNavBtn active" onclick="setCrmTab('dashboard')" id="tab_crm_dashboard">Översikt</button>
+          <button class="crmNavBtn active" onclick="setCrmTab('dashboard')" id="tab_crm_dashboard">├ûversikt</button>
           <button class="crmNavBtn" onclick="setCrmTab('pipeline')" id="tab_crm_pipeline">Pipeline</button>
           <button class="crmNavBtn" onclick="setCrmTab('customers')" id="tab_crm_customers">Kunder</button>
           <button class="crmNavBtn" onclick="setCrmTab('ai_cost')" id="tab_crm_ai_cost">AI Kostnad</button>
@@ -1109,14 +1109,14 @@
           <!-- Stats Grid -->
           <div class="crmDashGrid">
             <div class="crmStatCard">
-              <div class="crmStatTitle">Total Pipeline Värde <i class="fa-solid fa-sack-dollar"></i></div>
+              <div class="crmStatTitle">Total Pipeline V├ñrde <i class="fa-solid fa-sack-dollar"></i></div>
               <div class="crmStatValue">2.4 Mkr</div>
-              <div class="crmStatTrend up"><i class="fa-solid fa-arrow-trend-up"></i> +12% denna månad</div>
+              <div class="crmStatTrend up"><i class="fa-solid fa-arrow-trend-up"></i> +12% denna m├Ñnad</div>
             </div>
             <div class="crmStatCard">
-              <div class="crmStatTitle">Öppna Affärer <i class="fa-solid fa-briefcase"></i></div>
+              <div class="crmStatTitle">├ûppna Aff├ñrer <i class="fa-solid fa-briefcase"></i></div>
               <div class="crmStatValue">34 st</div>
-              <div class="crmStatTrend">7 i förhandling</div>
+              <div class="crmStatTrend">7 i f├Ârhandling</div>
             </div>
             <div class="crmStatCard">
               <div class="crmStatTitle">Nya Leads (AI Score > 80) <i class="fa-solid fa-star"></i></div>
@@ -1124,34 +1124,34 @@
               <div class="crmStatTrend up">3 heta just nu</div>
             </div>
             <div class="crmStatCard">
-              <div class="crmStatTitle">Månatlig Intäkt (MRR) <i class="fa-solid fa-chart-line"></i></div>
+              <div class="crmStatTitle">M├Ñnatlig Int├ñkt (MRR) <i class="fa-solid fa-chart-line"></i></div>
               <div class="crmStatValue" id="crmMonthlyRevenue">0 kr</div>
               <div class="crmStatTrend ok">Total kundbas</div>
             </div>
             <div class="crmStatCard" style="border: 1px solid var(--primary); background: var(--primary-fade);">
               <div class="crmStatTitle" style="color:var(--primary);">AI Insight <i class="fa-solid fa-robot"></i>
               </div>
-              <div style="font-size:14px; font-weight:500;">"Du har 5 affärer som stannat av i 'Förhandling'. Skicka
-                en uppföljning idag för att öka stängningsfrekvensen med 15%."</div>
+              <div style="font-size:14px; font-weight:500;">"Du har 5 aff├ñrer som stannat av i 'F├Ârhandling'. Skicka
+                en uppf├Âljning idag f├Âr att ├Âka st├ñngningsfrekvensen med 15%."</div>
               <button class="btn primary small" style="margin-top:10px;">Agera nu</button>
             </div>
           </div>
 
           <!-- Recent Activity List -->
           <div class="panel">
-            <div class="panelHead"><b><i class="fa-solid fa-clock-rotate-left"></i> Senaste Händelser</b></div>
+            <div class="panelHead"><b><i class="fa-solid fa-clock-rotate-left"></i> Senaste H├ñndelser</b></div>
             <div class="activityTimeline" style="border-left:none; padding-left:0;">
               <div class="activityItem call" style="padding-left:20px; border-left:2px solid var(--border);">
-                <div class="activityMeta">Idag 10:30 • Samtal</div>
+                <div class="activityMeta">Idag 10:30 ÔÇó Samtal</div>
                 <div><b>Maria Andersson</b> (TechCorp) diskuterade avtalsvillkor.</div>
               </div>
               <div class="activityItem email" style="padding-left:20px; border-left:2px solid var(--border);">
-                <div class="activityMeta">Igår 14:15 • E-post</div>
-                <div><b>Johan Svensson</b> öppnade offerten "Q1 Licenser".</div>
+                <div class="activityMeta">Ig├Ñr 14:15 ÔÇó E-post</div>
+                <div><b>Johan Svensson</b> ├Âppnade offerten "Q1 Licenser".</div>
               </div>
               <div class="activityItem meeting" style="padding-left:20px; border-left:2px solid var(--border);">
-                <div class="activityMeta">Igår 09:00 • Möte</div>
-                <div>Demo med <b>Fastighetsbolaget AB</b> slutförd. Kund mycket intresserad.</div>
+                <div class="activityMeta">Ig├Ñr 09:00 ÔÇó M├Âte</div>
+                <div>Demo med <b>Fastighetsbolaget AB</b> slutf├Ârd. Kund mycket intresserad.</div>
               </div>
             </div>
           </div>
@@ -1218,7 +1218,7 @@
             </div>
             <div class="pipelineColumn">
               <div class="pipelineHeader">
-                <span>Förhandling</span>
+                <span>F├Ârhandling</span>
                 <span class="stageCount">1</span>
               </div>
               <div id="pipelineBody-negotiation" class="pipelineBody" ondrop="drop(event)"
@@ -1241,7 +1241,7 @@
           <div class="panel">
             <div class="row" style="margin-bottom:15px; justify-content:space-between;">
               <div class="searchInputs">
-                <input class="input" placeholder="Sök företag eller kontakt..." style="width:300px;">
+                <input class="input" placeholder="S├Âk f├Âretag eller kontakt..." style="width:300px;">
               </div>
               <div class="filters">
                 <button class="btn ghost small"><i class="fa-solid fa-filter"></i> Filter</button>
@@ -1255,7 +1255,7 @@
               <div>
                 <div class="muted"
                   style="font-size:11px; text-transform:uppercase; font-weight:bold; letter-spacing:0.5px;">Total
-                  månadsintäkt</div>
+                  m├Ñnadsint├ñkt</div>
                 <div id="crmTotalValueHeader" style="font-size:22px; font-weight:800; color:var(--primary);">0 kr</div>
               </div>
               <div>
@@ -1268,12 +1268,12 @@
             <table class="crmTable" style="width: 100%; border-collapse: collapse;">
               <thead>
                 <tr style="background: var(--panel2);">
-                  <th style="padding: 12px; text-align: left;">Företag</th>
+                  <th style="padding: 12px; text-align: left;">F├Âretag</th>
                   <th style="padding: 12px; text-align: left;">Kontakt & Org.nr</th>
                   <th style="padding: 12px; text-align: left;">Status</th>
-                  <th style="padding: 12px; text-align: right;">Totalt Värde</th>
+                  <th style="padding: 12px; text-align: right;">Totalt V├ñrde</th>
                   <th style="padding: 12px; text-align: center;">AI Score</th>
-                  <th style="padding: 12px; text-align: right;">Åtgärd</th>
+                  <th style="padding: 12px; text-align: right;">├àtg├ñrd</th>
                 </tr>
               </thead>
               <tbody id="crmAnalyticsTable">
@@ -1296,7 +1296,7 @@
                   <td style="padding:12px;"><b>Norrland Transport</b><br><span class="muted small">Logistik</span>
                   </td>
                   <td style="padding:12px;">Per Persson<br><span class="muted small">per@norrland.se</span></td>
-                  <td style="padding:12px;"><span class="pill warn">Förhandling</span></td>
+                  <td style="padding:12px;"><span class="pill warn">F├Ârhandling</span></td>
                   <td style="padding:12px; text-align:right;">450 000 kr</td>
                   <td style="padding:12px; text-align:center;"><span style="color:orange; font-weight:bold;">65</span>
                   </td>
@@ -1317,11 +1317,11 @@
             <div class="panel" style="border-top: 4px solid var(--primary);">
               <div class="panelHead" style="display:flex; justify-content:space-between; align-items:center;">
                 <b><i class="fa-solid fa-calculator"></i> Kostnadskalkylator & Prognos</b>
-                <span class="pill primary tiny">LIVE BERÄKNING</span>
+                <span class="pill primary tiny">LIVE BER├äKNING</span>
               </div>
 
               <div style="margin-top:20px;">
-                <label class="small-label">Välj Kund/Kategori för Analys</label>
+                <label class="small-label">V├ñlj Kund/Kategori f├Âr Analys</label>
                 <select id="aiCostCustomerSelect" class="input" onchange="calculateAiMargins()">
                   <option value="all">Alla Kunder (Aggregerat)</option>
                   <!-- Populated by JS -->
@@ -1330,11 +1330,11 @@
 
               <div class="grid2" style="margin-top:20px; gap:15px;">
                 <div class="col">
-                  <label class="small-label">Ärenden / dag (Snitt)</label>
+                  <label class="small-label">├ärenden / dag (Snitt)</label>
                   <input type="number" id="aiCostVolume" class="input" value="100" oninput="calculateAiMargins()">
                 </div>
                 <div class="col">
-                  <label class="small-label">Snitt tokens per ärende</label>
+                  <label class="small-label">Snitt tokens per ├ñrende</label>
                   <input type="number" id="aiCostTokens" class="input" value="1500" oninput="calculateAiMargins()">
                 </div>
               </div>
@@ -1342,7 +1342,7 @@
               <div class="divider" style="margin:20px 0;"></div>
 
               <h5 style="margin-bottom:15px; color:var(--text-muted); font-size:11px; text-transform:uppercase;">
-                Modellfördelning (%)</h5>
+                Modellf├Ârdelning (%)</h5>
               <div class="row gap" style="margin-bottom:10px;">
                 <div style="flex:1;">
                   <div style="font-size:12px; font-weight:600; margin-bottom:5px;">GPT-5-mini (Simpla)</div>
@@ -1371,7 +1371,7 @@
               </div>
 
               <div class="alert info tiny" style="margin-top:15px;">
-                <i class="fa-solid fa-circle-info"></i> Beräkningar baseras på aktuella API-priser inkl. marginalpåslag.
+                <i class="fa-solid fa-circle-info"></i> Ber├ñkningar baseras p├Ñ aktuella API-priser inkl. marginalp├Ñslag.
               </div>
             </div>
 
@@ -1381,11 +1381,11 @@
 
               <div class="grid4" style="margin-top:20px; gap:12px;">
                 <div class="slaCard" style="background:var(--panel); border-left:3px solid var(--text);">
-                  <div class="slaLabel">Brutto Intäkt (Inkl. moms)</div>
+                  <div class="slaLabel">Brutto Int├ñkt (Inkl. moms)</div>
                   <div id="resGrossRevenue" class="slaValue" style="font-size:18px;">0 kr</div>
                 </div>
                 <div class="slaCard" style="background:var(--panel); border-left:3px solid var(--primary);">
-                  <div class="slaLabel">Netto Intäkt (Exkl. moms)</div>
+                  <div class="slaLabel">Netto Int├ñkt (Exkl. moms)</div>
                   <div id="resNetRevenue" class="slaValue" style="font-size:18px; color:var(--primary);">0 kr</div>
                 </div>
                 <div class="slaCard" style="background:var(--panel); border-left:3px solid var(--danger);">
@@ -1401,16 +1401,16 @@
               <div
                 style="margin-top:20px; text-align:center; padding:25px; border-radius:12px; background:var(--panel); border:1px solid var(--border); box-shadow:0 10px 25px rgba(0,0,0,0.05);">
                 <div class="muted small" style="text-transform:uppercase; font-weight:bold; letter-spacing:1px;">Netto
-                  Vinst (Månad)</div>
+                  Vinst (M├Ñnad)</div>
                 <div id="resMarginValue" style="font-size:42px; font-weight:900; color:var(--ok); margin:5px 0;">0 kr
                 </div>
-                <div class="small muted" id="marginNote">Beräknat på Netto Intäkt - LLM Kostnad</div>
+                <div class="small muted" id="marginNote">Ber├ñknat p├Ñ Netto Int├ñkt - LLM Kostnad</div>
               </div>
 
               <div class="divider" style="margin:20px 0;"></div>
               <div style="display:flex; justify-content:space-between; font-size:12px;" class="muted">
                 <span>Snittkostnad per chatt: <b id="resAvgChatCost" style="color:var(--text);">0 kr</b></span>
-                <span>Växelkurs USD/SEK: <b>11.50</b></span>
+                <span>V├ñxelkurs USD/SEK: <b>11.50</b></span>
               </div>
 
               <div style="margin-top:25px;">
@@ -1466,7 +1466,7 @@
                       style="width:80px; height:80px; margin:0 auto 10px; background:#e0e7ff; color:var(--primary); font-size:32px; display:flex; align-items:center; justify-content:center; border-radius:50%;">
                       C</div>
                     <h2 style="font-size:20px; margin:0;">Kundnamn</h2>
-                    <p class="muted">Bransch • Stad</p>
+                    <p class="muted">Bransch ÔÇó Stad</p>
                     <div class="pill ok" style="margin-top:5px;">Status</div>
                   </div>
                   <div class="aiInsightBox">
@@ -1477,7 +1477,7 @@
                   </div>
                 </div>
                 <div class="customerMain" style="border:none; border-radius:0; overflow-y:auto; padding:20px;">
-                  <p class="muted center">Välj en kund för att se detaljer.</p>
+                  <p class="muted center">V├ñlj en kund f├Âr att se detaljer.</p>
                 </div>
               </div>
             </div>
@@ -1487,7 +1487,7 @@
       <section id="settingsView" class="view" style="display:none;">
         <div class="topbar">
           <div>
-            <div class="title">Inställningar & Profil</div>
+            <div class="title">Inst├ñllningar & Profil</div>
           </div>
         </div>
 
@@ -1500,7 +1500,7 @@
                 style="width:64px; height:64px; font-size:24px; display:flex; align-items:center; justify-content:center; background:var(--primary); color:white; border-radius:50%;">
                 XX</div>
               <div style="flex:1">
-                <div id="profileNameDisplay" class="title" style="font-size:20px;">Användarnamn</div>
+                <div id="profileNameDisplay" class="title" style="font-size:20px;">Anv├ñndarnamn</div>
                 <span id="profileRoleBadge" class="badge">Roll</span>
               </div>
             </div>
@@ -1508,31 +1508,31 @@
             <label>E-post</label>
             <input id="profileEmail" class="input" disabled />
 
-            <label>Användarnamn</label>
+            <label>Anv├ñndarnamn</label>
             <input id="newUsernameInput" class="input" />
-            <button id="changeUsernameBtn" class="btn secondary full" style="margin-top:10px;">Byt användarnamn</button>
+            <button id="changeUsernameBtn" class="btn secondary full" style="margin-top:10px;">Byt anv├ñndarnamn</button>
           </div>
 
           <div class="panel">
-            <div class="panelHead"><b><i class="fa-solid fa-lock"></i> Säkerhet</b></div>
-            <p class="muted small">Här kan du byta ditt lösenord.</p>
+            <div class="panelHead"><b><i class="fa-solid fa-lock"></i> S├ñkerhet</b></div>
+            <p class="muted small">H├ñr kan du byta ditt l├Âsenord.</p>
 
-            <label>Nuvarande lösenord</label>
+            <label>Nuvarande l├Âsenord</label>
             <div class="passRow" style="display:flex; gap:8px;">
-              <input id="currentPassInput" type="password" class="input" placeholder="••••••••" />
+              <input id="currentPassInput" type="password" class="input" placeholder="ÔÇóÔÇóÔÇóÔÇóÔÇóÔÇóÔÇóÔÇó" />
               <button onclick="togglePasswordVisibility('currentPassInput')" class="btn secondary small"
                 type="button"><i class="fa-solid fa-eye"></i></button>
             </div>
 
-            <label>Nytt lösenord</label>
+            <label>Nytt l├Âsenord</label>
             <div class="passRow" style="display:flex; gap:8px; margin-top:10px;">
-              <input id="newPassInput" type="password" class="input" placeholder="••••••••" />
+              <input id="newPassInput" type="password" class="input" placeholder="ÔÇóÔÇóÔÇóÔÇóÔÇóÔÇóÔÇóÔÇó" />
               <button onclick="togglePasswordVisibility('newPassInput')" class="btn secondary small" type="button"><i
                   class="fa-solid fa-eye"></i></button>
             </div>
 
             <button id="changePasswordBtn" class="btn primary full" style="margin-top:20px;">
-              <i class="fa-solid fa-floppy-disk"></i> Uppdatera lösenord
+              <i class="fa-solid fa-floppy-disk"></i> Uppdatera l├Âsenord
             </button>
           </div>
         </div>
@@ -1545,7 +1545,7 @@
         <div class="topbar">
           <div>
             <div class="title">Billing & Abonnemang</div>
-            <div class="subtitle muted">Hantera din prisplan, fakturor och förbrukning.</div>
+            <div class="subtitle muted">Hantera din prisplan, fakturor och f├Ârbrukning.</div>
           </div>
           <div class="topbarActions">
             <button id="manageBillingBtn" class="btn ghost">
@@ -1564,14 +1564,14 @@
             <div class="slaDelta up" id="currentPlanStatus">Aktivt</div>
           </div>
           <div class="slaCard">
-            <div class="slaLabel"><i class="fa-solid fa-bolt"></i> AI Förbrukning</div>
+            <div class="slaLabel"><i class="fa-solid fa-bolt"></i> AI F├Ârbrukning</div>
             <div class="slaValue" id="billingUsageVal">64%</div>
             <div class="slaDelta small" id="billingUsageLabel">320 / 500 meddelanden</div>
           </div>
           <div class="slaCard">
-            <div class="slaLabel"><i class="fa-solid fa-calendar-check"></i> Nästa faktura</div>
+            <div class="slaLabel"><i class="fa-solid fa-calendar-check"></i> N├ñsta faktura</div>
             <div class="slaValue" id="nextBillingDate">24 Mars</div>
-            <div class="slaDelta small">Auto-förnyelse aktiv</div>
+            <div class="slaDelta small">Auto-f├Ârnyelse aktiv</div>
           </div>
         </div>
 
@@ -1580,7 +1580,7 @@
         <div class="grid2">
           <!-- Pricing & Features -->
           <div class="panel">
-            <div class="panelHead"><b><i class="fa-solid fa-layer-group"></i> Dina Förmåner & Upgrade</b></div>
+            <div class="panelHead"><b><i class="fa-solid fa-layer-group"></i> Dina F├Ârm├Ñner & Upgrade</b></div>
 
             <div class="activePlanBox" id="activePlanBox"
               style="margin-top:15px; background: rgba(76, 125, 255, 0.05); border: 1px dashed var(--primary); padding: 16px; border-radius: 12px; margin-bottom: 20px;">
@@ -1598,9 +1598,9 @@
             <div class="list" style="gap:16px;">
               <div class="listItem pricingCard" id="planCardBas" style="padding: 16px; position:relative;">
                 <div class="title" style="font-size: 18px;">BAS</div>
-                <p class="muted small">Perfekt för småföretag som vill testa AI-support.</p>
+                <p class="muted small">Perfekt f├Âr sm├Ñf├Âretag som vill testa AI-support.</p>
                 <div style="font-size: 22px; font-weight: 900; margin: 10px 0;">0 kr <span class="muted small"
-                    style="font-weight:400">/ mån</span></div>
+                    style="font-weight:400">/ m├Ñn</span></div>
                 <ul class="featureList">
                   <li><i class="fa-solid fa-check"></i> 500 meddelanden</li>
                   <li><i class="fa-solid fa-check"></i> 1 Agent-konto</li>
@@ -1615,13 +1615,13 @@
                   <div class="title" style="font-size: 20px;">PRO</div>
                   <div class="pill ok">Rekommenderas</div>
                 </div>
-                <p class="muted small">Vårt mest populära paket för växande team.</p>
+                <p class="muted small">V├Ñrt mest popul├ñra paket f├Âr v├ñxande team.</p>
                 <div style="font-size: 24px; font-weight: 900; margin: 10px 0;">499 kr <span class="muted small"
-                    style="font-weight:400">/ mån</span></div>
+                    style="font-weight:400">/ m├Ñn</span></div>
                 <ul class="featureList">
                   <li><i class="fa-solid fa-check"></i> 5000 meddelanden</li>
                   <li><i class="fa-solid fa-check"></i> GPT-4 Turbo Access</li>
-                  <li><i class="fa-solid fa-check"></i> Obegränsat med agenter</li>
+                  <li><i class="fa-solid fa-check"></i> Obegr├ñnsat med agenter</li>
                   <li><i class="fa-solid fa-check"></i> Premium Analytics</li>
                 </ul>
                 <button id="upgradeToProBtn" class="btn primary full" style="margin-top: 15px;">Uppgradera till
@@ -1651,44 +1651,44 @@
 
             <div class="divider"></div>
             <div class="panel soft" style="background: rgba(255,255,255,0.02)">
-              <b>Inställningar</b>
-              <p class="muted small">Hantera sparade kort och företagsinformation.</p>
+              <b>Inst├ñllningar</b>
+              <p class="muted small">Hantera sparade kort och f├Âretagsinformation.</p>
               <button id="manageBillingBtn" class="btn secondary full" style="margin-top:10px;">
-                <i class="fa-solid fa-external-link"></i> Öppna Stripe Portal
+                <i class="fa-solid fa-external-link"></i> ├ûppna Stripe Portal
               </button>
             </div>
           </div>
         </div>
       </section>
 
-      <!-- NY: KUND-INSTÄLLNINGAR + SIMULATOR -->
+      <!-- NY: KUND-INST├äLLNINGAR + SIMULATOR -->
       <section id="customerSettingsView" class="view" style="display:none;">
         <div class="topbar">
-          <div class="title">Mina Företagsinställningar</div>
+          <div class="title">Mina F├Âretagsinst├ñllningar</div>
         </div>
 
         <div class="panel">
-          <label>Hälsningsfras</label>
-          <input id="custGreeting" class="input" placeholder="Hej! Hur kan vi hjälpa dig?" />
+          <label>H├ñlsningsfras</label>
+          <input id="custGreeting" class="input" placeholder="Hej! Hur kan vi hj├ñlpa dig?" />
 
           <label>Ton</label>
           <select id="custTone" class="input">
             <option value="professional">Professionell</option>
-            <option value="friendly">Vänlig</option>
-            <option value="strict">Sträng</option>
+            <option value="friendly">V├ñnlig</option>
+            <option value="strict">Str├ñng</option>
           </select>
 
-          <label>Widget-färg (hex)</label>
+          <label>Widget-f├ñrg (hex)</label>
           <input id="custWidgetColor" type="color" value="#0066cc" />
 
           <button id="saveCustomerSettingsBtn" class="btn primary full">Spara</button>
 
           <div class="divider"></div>
 
-          <h4>Simulator / Förhandsvisning</h4>
+          <h4>Simulator / F├Ârhandsvisning</h4>
           <div id="settingsSimulator" class="chat-preview"
             style="border:1px solid #444; padding:15px; border-radius:12px; min-height:120px;">
-            <div class="msg ai">Förhandsvisning laddas...</div>
+            <div class="msg ai">F├Ârhandsvisning laddas...</div>
           </div>
         </div>
       </section>
@@ -1699,11 +1699,11 @@
           <div>
             <div class="title"><i class="fa-solid fa-wand-magic-sparkles" style="color:var(--primary);"></i>
               Produktsimulator</div>
-            <div class="subtitle muted">Visualisera produkter i verkliga miljöer med AI</div>
+            <div class="subtitle muted">Visualisera produkter i verkliga milj├Âer med AI</div>
           </div>
           <div class="topbarActions">
             <button id="simResetBtn" class="btn ghost" type="button">
-              <i class="fa-solid fa-rotate-left"></i> Börja om
+              <i class="fa-solid fa-rotate-left"></i> B├Ârja om
             </button>
           </div>
         </div>
@@ -1715,18 +1715,18 @@
 
             <div class="sim-step" style="margin-top: 15px;">
               <label>Produktnamn / Beskrivning</label>
-              <input id="simProductName" class="input" placeholder="T.ex. Modern taklampa med mässingdetaljer" />
+              <input id="simProductName" class="input" placeholder="T.ex. Modern taklampa med m├ñssingdetaljer" />
 
               <label style="margin-top: 15px;">Produktkategori</label>
               <select id="simProductCategory" class="input">
-                <option value="furniture">Möbler</option>
+                <option value="furniture">M├Âbler</option>
                 <option value="lighting">Belysning</option>
                 <option value="decor">Heminredning</option>
                 <option value="electronics">Elektronik</option>
                 <option value="art">Konst & Tavlor</option>
                 <option value="appliances">Vitvaror</option>
-                <option value="outdoor">Utemöbler</option>
-                <option value="other">Övrigt</option>
+                <option value="outdoor">Utem├Âbler</option>
+                <option value="other">├ûvrigt</option>
               </select>
 
               <label style="margin-top: 15px;">Produktbild (valfritt)</label>
@@ -1734,7 +1734,7 @@
                 onclick="document.getElementById('simProductFile').click()">
                 <i class="fa-solid fa-cloud-arrow-up"
                   style="font-size: 32px; color: var(--primary); margin-bottom: 10px;"></i>
-                <p class="muted small">Dra och släpp eller klicka för att ladda upp</p>
+                <p class="muted small">Dra och sl├ñpp eller klicka f├Âr att ladda upp</p>
                 <p class="muted tiny">PNG, JPG, WEBP (max 5MB)</p>
                 <input type="file" id="simProductFile" accept="image/*" style="display: none;" />
               </div>
@@ -1743,7 +1743,7 @@
 
             <div class="divider"></div>
 
-            <div class="panelHead"><b><i class="fa-solid fa-home"></i> Steg 2: Rum / Miljö</b></div>
+            <div class="panelHead"><b><i class="fa-solid fa-home"></i> Steg 2: Rum / Milj├Â</b></div>
 
             <div class="sim-step" style="margin-top: 15px;">
               <div class="row gap" style="margin-bottom: 15px;">
@@ -1761,8 +1761,8 @@
                 <div class="file-upload-zone" id="simRoomDropzone"
                   onclick="document.getElementById('simRoomFile').click()">
                   <i class="fa-solid fa-image" style="font-size: 32px; color: var(--ok); margin-bottom: 10px;"></i>
-                  <p class="muted small">Dra och släpp eller klicka för att ladda upp</p>
-                  <p class="muted tiny">Bild på rummet där produkten ska placeras</p>
+                  <p class="muted small">Dra och sl├ñpp eller klicka f├Âr att ladda upp</p>
+                  <p class="muted tiny">Bild p├Ñ rummet d├ñr produkten ska placeras</p>
                   <input type="file" id="simRoomFile" accept="image/*" style="display: none;" />
                 </div>
                 <div id="simRoomPreview" class="image-preview" style="display:none;"></div>
@@ -1771,13 +1771,13 @@
               <div id="simRoomAi" style="display: none;">
                 <label>Beskriv rummet</label>
                 <textarea id="simRoomDescription" class="input textarea"
-                  placeholder="T.ex. Modernt vardagsrum med vita väggar, trätak, stora fönster och minimalistisk inredning"></textarea>
+                  placeholder="T.ex. Modernt vardagsrum med vita v├ñggar, tr├ñtak, stora f├Ânster och minimalistisk inredning"></textarea>
 
                 <label style="margin-top: 15px;">Rumstyp</label>
                 <select id="simRoomType" class="input">
                   <option value="living_room">Vardagsrum</option>
                   <option value="bedroom">Sovrum</option>
-                  <option value="kitchen">Kök</option>
+                  <option value="kitchen">K├Âk</option>
                   <option value="bathroom">Badrum</option>
                   <option value="office">Kontor</option>
                   <option value="outdoor">Utomhus / Terrass</option>
@@ -1797,33 +1797,33 @@
 
             <div class="divider"></div>
 
-            <div class="panelHead"><b><i class="fa-solid fa-sliders"></i> Steg 3: Inställningar</b></div>
+            <div class="panelHead"><b><i class="fa-solid fa-sliders"></i> Steg 3: Inst├ñllningar</b></div>
 
             <div class="sim-step" style="margin-top: 15px;">
               <label>Placering i rummet</label>
               <select id="simPlacement" class="input">
                 <option value="center">Centralt i rummet</option>
-                <option value="corner">I ett hörn</option>
-                <option value="wall">Mot vägg</option>
-                <option value="ceiling">I taket (för lampor)</option>
-                <option value="floor">På golvet</option>
-                <option value="table">På bord / Yta</option>
+                <option value="corner">I ett h├Ârn</option>
+                <option value="wall">Mot v├ñgg</option>
+                <option value="ceiling">I taket (f├Âr lampor)</option>
+                <option value="floor">P├Ñ golvet</option>
+                <option value="table">P├Ñ bord / Yta</option>
               </select>
 
-              <label style="margin-top: 15px;">Ljussättning</label>
+              <label style="margin-top: 15px;">Ljuss├ñttning</label>
               <select id="simLighting" class="input">
                 <option value="daylight">Dagsljus</option>
-                <option value="warm">Varmt ljus (kväll)</option>
+                <option value="warm">Varmt ljus (kv├ñll)</option>
                 <option value="cool">Kallt ljus</option>
                 <option value="dramatic">Dramatiskt / Spotligt</option>
               </select>
 
               <label style="margin-top: 15px;">Kameravinkel</label>
               <select id="simAngle" class="input">
-                <option value="front">Framifrån</option>
-                <option value="angle">Snett vinkel (45°)</option>
+                <option value="front">Framifr├Ñn</option>
+                <option value="angle">Snett vinkel (45┬░)</option>
                 <option value="wide">Vidvinkel (hela rummet)</option>
-                <option value="close">Närbild på produkten</option>
+                <option value="close">N├ñrbild p├Ñ produkten</option>
               </select>
             </div>
 
@@ -1855,10 +1855,10 @@
             <div id="simResultContainer" style="margin-top: 15px;">
               <div id="simResultPlaceholder" class="sim-placeholder">
                 <i class="fa-solid fa-image" style="font-size: 64px; color: var(--muted); margin-bottom: 20px;"></i>
-                <h3 style="color: var(--muted);">Ingen visualisering ännu</h3>
+                <h3 style="color: var(--muted);">Ingen visualisering ├ñnnu</h3>
                 <p class="muted small" style="max-width: 300px; text-align: center;">
-                  Fyll i produktinformation och klicka på "Generera Visualisering" för att se hur din produkt ser ut i
-                  en miljö.
+                  Fyll i produktinformation och klicka p├Ñ "Generera Visualisering" f├Âr att se hur din produkt ser ut i
+                  en milj├Â.
                 </p>
               </div>
 
@@ -1878,8 +1878,8 @@
             <div class="divider"></div>
 
             <div class="alert info" style="font-size: 12px;">
-              <i class="fa-solid fa-lightbulb"></i> <b>Tips:</b> För bästa resultat, beskriv produkten detaljerat och
-              använd högkvalitativa bilder. AI:n fungerar bäst med tydliga beskrivningar av färg, material och storlek.
+              <i class="fa-solid fa-lightbulb"></i> <b>Tips:</b> F├Âr b├ñsta resultat, beskriv produkten detaljerat och
+              anv├ñnd h├Âgkvalitativa bilder. AI:n fungerar b├ñst med tydliga beskrivningar av f├ñrg, material och storlek.
             </div>
           </div>
         </div>
@@ -1890,7 +1890,7 @@
         <div class="topbar">
           <div>
             <div class="title"><i class="fa-solid fa-star" style="color:var(--warn);"></i> Feedback Center</div>
-            <div class="subtitle muted">Analysera kundfeedback och förbättra er service</div>
+            <div class="subtitle muted">Analysera kundfeedback och f├Ârb├ñttra er service</div>
           </div>
           <div class="topbarActions">
             <button id="refreshFeedbackBtn" class="btn ghost" type="button">
@@ -1948,7 +1948,7 @@
                     <option value="7">Senaste 7 dagar</option>
                     <option value="30" selected>Senaste 30 dagar</option>
                     <option value="90">Senaste 90 dagar</option>
-                    <option value="365">Senaste året</option>
+                    <option value="365">Senaste ├Ñret</option>
                     <option value="all">Alla tider</option>
                   </select>
                 </div>
@@ -1981,14 +1981,14 @@
                 <div class="muted" style="text-align: center; padding: 30px;">
                   <i class="fa-solid fa-lightbulb"
                     style="font-size: 40px; color: var(--warn); margin-bottom: 15px; display: block;"></i>
-                  Klicka på "Generera" för att få AI-drivna insikter och förbättringstips baserat på er feedback.
+                  Klicka p├Ñ "Generera" f├Âr att f├Ñ AI-drivna insikter och f├Ârb├ñttringstips baserat p├Ñ er feedback.
                 </div>
               </div>
             </div>
 
             <!-- Rating Distribution -->
             <div class="panel" style="margin-top: 16px;">
-              <div class="panelHead"><b><i class="fa-solid fa-chart-bar"></i> Betygsfördelning</b></div>
+              <div class="panelHead"><b><i class="fa-solid fa-chart-bar"></i> Betygsf├Ârdelning</b></div>
               <div id="ratingDistribution" style="margin-top: 15px;">
                 <div class="ratingBar" style="display: flex; align-items: center; gap: 10px; margin-bottom: 8px;">
                   <span style="width: 60px;">5 <i class="fa-solid fa-star" style="color: var(--warn);"></i></span>
@@ -2055,7 +2055,7 @@
               <div class="muted center" style="padding: 40px;">
                 <i class="fa-solid fa-inbox"
                   style="font-size: 48px; margin-bottom: 15px; display: block; opacity: 0.5;"></i>
-                Ingen feedback ännu
+                Ingen feedback ├ñnnu
               </div>
             </div>
           </div>
@@ -2068,7 +2068,7 @@
         <!-- HEADER -->
         <div class="topbar">
           <div>
-            <div class="title"><i class="fa-solid fa-briefcase" style="color:var(--primary);"></i> Affärsanalys</div>
+            <div class="title"><i class="fa-solid fa-briefcase" style="color:var(--primary);"></i> Aff├ñrsanalys</div>
             <div class="subtitle muted">Kapacitetsplanering och kostnadsoptimering</div>
           </div>
           <div class="topbarActions">
@@ -2090,9 +2090,9 @@
               <div class="scenarioTimeFilter">
                 <span class="filterLabel">Prognosperiod:</span>
                 <div class="segmentedControl">
-                  <button class="timeFilterBtn" onclick="setScenarioTime(1)" id="tf_1">1 Mån</button>
-                  <button class="timeFilterBtn active" onclick="setScenarioTime(12)" id="tf_12">1 År</button>
-                  <button class="timeFilterBtn" onclick="setScenarioTime(36)" id="tf_36">3 År</button>
+                  <button class="timeFilterBtn" onclick="setScenarioTime(1)" id="tf_1">1 M├Ñn</button>
+                  <button class="timeFilterBtn active" onclick="setScenarioTime(12)" id="tf_12">1 ├àr</button>
+                  <button class="timeFilterBtn" onclick="setScenarioTime(36)" id="tf_36">3 ├àr</button>
                 </div>
               </div>
             </div>
@@ -2101,7 +2101,7 @@
             <div class="scenarioSummaryBar">
               <div class="summaryStats">
                 <div class="summaryStat primary">
-                  <span class="label" id="summary_save_label">Besparing (1 år)</span>
+                  <span class="label" id="summary_save_label">Besparing (1 ├Ñr)</span>
                   <span class="value positive giant" id="sc_summaryYearSave">810 000 kr</span>
                 </div>
                 <div class="summaryStat warning">
@@ -2115,7 +2115,7 @@
               </div>
               <div class="topbarActions">
                 <button class="btn ghost small" onclick="toggleScenarioOnboarding()">
-                  <i class="fa-solid fa-circle-question"></i> Hjälp
+                  <i class="fa-solid fa-circle-question"></i> Hj├ñlp
                 </button>
                 <button class="btn ghost small" onclick="exportScenarioReport()">
                   <i class="fa-solid fa-download"></i> Rapport
@@ -2126,7 +2126,7 @@
             <!-- Mode Tabs -->
             <div class="scenarioModeTabs">
               <button class="modeTab active" onclick="setScenarioMode('overview')" id="tab_overview">
-                <i class="fa-solid fa-chart-pie"></i> Översikt
+                <i class="fa-solid fa-chart-pie"></i> ├ûversikt
               </button>
               <button class="modeTab" onclick="setScenarioMode('optimization')" id="tab_optimization">
                 <i class="fa-solid fa-rocket"></i> Optimering
@@ -2146,19 +2146,19 @@
               <div class="step" data-step="1">
                 <div class="stepIcon"><i class="fa-solid fa-sliders"></i></div>
                 <h3>1. Justera antaganden</h3>
-                <p>Ställ in reglagen för att matcha din verksamhet.</p>
+                <p>St├ñll in reglagen f├Âr att matcha din verksamhet.</p>
               </div>
               <div class="step" data-step="2">
                 <div class="stepIcon"><i class="fa-solid fa-clock"></i></div>
-                <h3>2. Välj tidsperiod</h3>
-                <p>Använd filtret "1 Mån / 1 År / 3 År" för att se långsiktig effekt.</p>
+                <h3>2. V├ñlj tidsperiod</h3>
+                <p>Anv├ñnd filtret "1 M├Ñn / 1 ├àr / 3 ├àr" f├Âr att se l├Ñngsiktig effekt.</p>
               </div>
               <div class="step" data-step="3">
                 <div class="stepIcon"><i class="fa-solid fa-star"></i></div>
                 <h3>3. Spara favoriter</h3>
-                <p>Stjärnmarkera dina viktigaste nyckeltal till "Min Vy".</p>
+                <p>Stj├ñrnmarkera dina viktigaste nyckeltal till "Min Vy".</p>
               </div>
-              <button class="btn primary full" onclick="closeScenarioOnboarding()">Jag förstår, kör igång!</button>
+              <button class="btn primary full" onclick="closeScenarioOnboarding()">Jag f├Ârst├Ñr, k├Âr ig├Ñng!</button>
             </div>
           </div>
 
@@ -2166,12 +2166,12 @@
           <div id="sc_mode_myView" class="scenarioModeSection" style="display:none;">
             <div class="sectionHeader">
               <h3><i class="fa-solid fa-star"></i> Min Dashboard</h3>
-              <span class="sectionSubtitle">Dina utvalda mätvärden</span>
+              <span class="sectionSubtitle">Dina utvalda m├ñtv├ñrden</span>
             </div>
             <div id="sc_favoritesContainer" class="favoritesGrid">
               <div class="emptyState">
                 <i class="fa-regular fa-star"></i>
-                <p>Du har inte valt några favoriter än.</p>
+                <p>Du har inte valt n├Ñgra favoriter ├ñn.</p>
               </div>
             </div>
           </div>
@@ -2186,7 +2186,7 @@
                 <button class="favoriteBtn" onclick="toggleFavorite('sc_yearSavings', 'Total Besparing')"><i
                     class="fa-regular fa-star"></i></button>
                 <div class="heroIcon"><i class="fa-solid fa-sack-dollar"></i></div>
-                <div class="heroLabel" id="hero_money_label">Besparing (1 år)</div>
+                <div class="heroLabel" id="hero_money_label">Besparing (1 ├Ñr)</div>
                 <div class="heroValue" id="hero_money_val">810 000 kr</div>
                 <div class="heroSub" id="hero_money_sub">Minskad driftskostnad</div>
               </div>
@@ -2196,20 +2196,20 @@
                 <button class="favoriteBtn" onclick="toggleFavorite('sc_hoursSaved', 'Sparad Tid')"><i
                     class="fa-regular fa-star"></i></button>
                 <div class="heroIcon"><i class="fa-solid fa-clock"></i></div>
-                <div class="heroLabel" id="hero_time_label">Sparad Tid (1 år)</div>
+                <div class="heroLabel" id="hero_time_label">Sparad Tid (1 ├Ñr)</div>
                 <div class="heroValue" id="hero_time_val">4 000 h</div>
-                <div class="heroSub" id="hero_time_sub">Motsvarar <span id="hero_fte_val">2.5</span> heltidstjänster
+                <div class="heroSub" id="hero_time_sub">Motsvarar <span id="hero_fte_val">2.5</span> heltidstj├ñnster
                 </div>
               </div>
 
               <!-- Card 3: VOLUME -->
               <div class="heroCard vol">
-                <button class="favoriteBtn" onclick="toggleFavorite('sc_aiTickets', 'AI-ärenden')"><i
+                <button class="favoriteBtn" onclick="toggleFavorite('sc_aiTickets', 'AI-├ñrenden')"><i
                     class="fa-regular fa-star"></i></button>
                 <div class="heroIcon"><i class="fa-solid fa-robot"></i></div>
-                <div class="heroLabel" id="hero_vol_label">AI-hanterade ärenden</div>
+                <div class="heroLabel" id="hero_vol_label">AI-hanterade ├ñrenden</div>
                 <div class="heroValue" id="hero_vol_val">2 400</div>
-                <div class="heroSub">Automatiserade ärenden</div>
+                <div class="heroSub">Automatiserade ├ñrenden</div>
               </div>
 
               <!-- Card 4: QUALITY -->
@@ -2219,21 +2219,21 @@
                 <div class="heroIcon"><i class="fa-solid fa-heart"></i></div>
                 <div class="heroLabel">Servicekvalitet</div>
                 <div class="heroValue" id="sc_currentSla">92%</div>
-                <div class="heroSub active">Uppnår SLA-mål</div>
+                <div class="heroSub active">Uppn├Ñr SLA-m├Ñl</div>
               </div>
             </div>
 
-            <!-- SEKTION 2: AFFÄRSANTAGANDEN (Simplified) -->
+            <!-- SEKTION 2: AFF├äRSANTAGANDEN (Simplified) -->
             <div id="sc_assumptions" class="scenarioSection assumptions">
               <div class="sectionHeader togglable" onclick="toggleSection('sc_assumptions_content')">
                 <h3><i class="fa-solid fa-sliders"></i> Justera simulering</h3>
-                <span class="sectionSubtitle">Dra i reglagen för att se effekten direkt</span>
+                <span class="sectionSubtitle">Dra i reglagen f├Âr att se effekten direkt</span>
                 <i class="fa-solid fa-chevron-down toggleIcon"></i>
               </div>
               <div id="sc_assumptions_content" class="sectionContent">
                 <div class="assumptionsGrid">
                   <div class="assumptionCard">
-                    <div class="assumptionQuestion">Ärenden / månad</div>
+                    <div class="assumptionQuestion">├ärenden / m├Ñnad</div>
                     <div class="assumptionInput">
                       <input type="range" id="sc_tickets" class="slider" min="100" max="5000" value="500" step="50">
                       <div class="sliderValue"><span id="sc_tickets_val">500</span> st</div>
@@ -2247,7 +2247,7 @@
                     </div>
                   </div>
                   <div class="assumptionCard">
-                    <div class="assumptionQuestion">Personalkostnad / mån</div>
+                    <div class="assumptionQuestion">Personalkostnad / m├Ñn</div>
                     <div class="assumptionInput">
                       <input type="range" id="sc_staffCost" class="slider" min="25000" max="80000" value="45000"
                         step="1000">
@@ -2257,18 +2257,18 @@
 
                   <div class="advancedAssumptionsToggle"
                     onclick="document.getElementById('advancedAssumptions').classList.toggle('hidden')">
-                    <i class="fa-solid fa-cog"></i> Visa fler inställningar
+                    <i class="fa-solid fa-cog"></i> Visa fler inst├ñllningar
                   </div>
                   <div id="advancedAssumptions" class="hidden">
                     <div class="assumptionCard">
-                      <div class="assumptionQuestion">Ärenden per handläggare / dag</div>
+                      <div class="assumptionQuestion">├ärenden per handl├ñggare / dag</div>
                       <div class="assumptionInput">
                         <input type="range" id="sc_ticketsPerDay" class="slider" min="5" max="50" value="12" step="1">
                         <div class="sliderValue"><span id="sc_ticketsPerDay_val">12</span> st</div>
                       </div>
                     </div>
                     <div class="assumptionCard">
-                      <div class="assumptionQuestion">Mål för Service Level (SLA)</div>
+                      <div class="assumptionQuestion">M├Ñl f├Âr Service Level (SLA)</div>
                       <div class="assumptionInput">
                         <input type="range" id="sc_targetSla" class="slider" min="80" max="99" value="90" step="1">
                         <div class="sliderValue"><span id="sc_targetSla_val">90</span>%</div>
@@ -2302,14 +2302,14 @@
           <div id="sc_mode_optimization" class="scenarioModeSection" style="display:none;">
             <div class="topInsight">
               <i class="fa-solid fa-arrow-trend-up"></i>
-              <span id="sc_topInsight_opt">Ökad automatisering kan frigöra 1.5 årsarbetare (+340% ROI).</span>
+              <span id="sc_topInsight_opt">├ûkad automatisering kan frig├Âra 1.5 ├Ñrsarbetare (+340% ROI).</span>
             </div>
 
             <!-- SEKTION 6: TIDSBESPARING -->
             <div id="sc_time" class="scenarioSection time">
               <div class="sectionHeader togglable" onclick="toggleSection('sc_time_content')">
                 <h3><i class="fa-solid fa-hourglass-half"></i> Tidseffektivitet</h3>
-                <span class="sectionSubtitle">Frigjord tid för värdeskapande arbete</span>
+                <span class="sectionSubtitle">Frigjord tid f├Âr v├ñrdeskapande arbete</span>
                 <i class="fa-solid fa-chevron-down toggleIcon"></i>
               </div>
               <div id="sc_time_content" class="sectionContent">
@@ -2321,31 +2321,31 @@
                     <div class="timeLabel">Per vecka</div>
                   </div>
                   <div class="timeStat">
-                    <button class="favoriteBtn" onclick="toggleFavorite('sc_hoursMonth', 'Timmar/månad')"><i
+                    <button class="favoriteBtn" onclick="toggleFavorite('sc_hoursMonth', 'Timmar/m├Ñnad')"><i
                         class="fa-regular fa-star"></i></button>
                     <div class="timeValue" id="sc_hoursMonth">333 h</div>
-                    <div class="timeLabel">Per månad</div>
+                    <div class="timeLabel">Per m├Ñnad</div>
                   </div>
                   <div class="timeStat">
-                    <button class="favoriteBtn" onclick="toggleFavorite('sc_hoursYear', 'Timmar/år')"><i
+                    <button class="favoriteBtn" onclick="toggleFavorite('sc_hoursYear', 'Timmar/├Ñr')"><i
                         class="fa-regular fa-star"></i></button>
                     <div class="timeValue" id="sc_hoursYear">4 000 h</div>
-                    <div class="timeLabel">Per år</div>
+                    <div class="timeLabel">Per ├Ñr</div>
                   </div>
                   <div class="timeStat highlight">
                     <div class="timeValue">2.4</div>
-                    <div class="timeLabel">Årsarbetare (FTE)</div>
-                    <div class="actionLink">→ Omfördela resurser</div>
+                    <div class="timeLabel">├àrsarbetare (FTE)</div>
+                    <div class="actionLink">ÔåÆ Omf├Ârdela resurser</div>
                   </div>
                 </div>
               </div>
             </div>
 
-            <!-- SEKTION 3: AFFÄRSEFFEKT -->
+            <!-- SEKTION 3: AFF├äRSEFFEKT -->
             <div id="sc_results" class="scenarioSection results">
               <div class="sectionHeader togglable" onclick="toggleSection('sc_results_content')">
-                <h3><i class="fa-solid fa-chart-line"></i> Affärseffekt</h3>
-                <span class="sectionSubtitle">Resultat av nuvarande inställningar</span>
+                <h3><i class="fa-solid fa-chart-line"></i> Aff├ñrseffekt</h3>
+                <span class="sectionSubtitle">Resultat av nuvarande inst├ñllningar</span>
                 <i class="fa-solid fa-chevron-down toggleIcon"></i>
               </div>
               <div id="sc_results_content" class="sectionContent">
@@ -2357,8 +2357,8 @@
                     <div class="resultContent">
                       <div class="resultValue" id="sc_reqStaff">3</div>
                       <div class="resultLabel">Bemanning <i class="fa-solid fa-circle-info tooltip"
-                          title="Antal heltidstjänster som krävs"></i></div>
-                      <div class="resultRecommendation" id="sc_staffCtx">Optimal nivå</div>
+                          title="Antal heltidstj├ñnster som kr├ñvs"></i></div>
+                      <div class="resultRecommendation" id="sc_staffCtx">Optimal niv├Ñ</div>
                     </div>
                   </div>
                   <div class="resultCard status-ok">
@@ -2369,18 +2369,18 @@
                       <div class="resultValue" id="sc_savings">45 000 kr</div>
                       <div class="resultLabel">Besparing <i class="fa-solid fa-circle-info tooltip"
                           title="Minskad kostnad vs manuell hantering"></i></div>
-                      <div class="resultRecommendation">Investera i tillväxt</div>
+                      <div class="resultRecommendation">Investera i tillv├ñxt</div>
                     </div>
                   </div>
                   <div class="resultCard">
-                    <button class="favoriteBtn" onclick="toggleFavorite('sc_projectedSla', 'Förväntad SLA')"><i
+                    <button class="favoriteBtn" onclick="toggleFavorite('sc_projectedSla', 'F├Ârv├ñntad SLA')"><i
                         class="fa-regular fa-star"></i></button>
                     <div class="resultIcon"><i class="fa-solid fa-gauge-high"></i></div>
                     <div class="resultContent">
                       <div class="resultValue" id="sc_projectedSla">94%</div>
                       <div class="resultLabel">SLA-prognos <i class="fa-solid fa-circle-info tooltip"
-                          title="Beräknad servicekvalitet givet kapacitet"></i></div>
-                      <div class="resultRecommendation">Över målet (90%)</div>
+                          title="Ber├ñknad servicekvalitet givet kapacitet"></i></div>
+                      <div class="resultRecommendation">├ûver m├Ñlet (90%)</div>
                     </div>
                   </div>
                 </div>
@@ -2392,50 +2392,50 @@
           <div id="sc_mode_strategy" class="scenarioModeSection" style="display:none;">
             <div class="topInsight">
               <i class="fa-solid fa-chess"></i>
-              <span id="sc_topInsight_strat">Break-even vid 750 ärenden. Nuvarande kostnad per ärende (270 kr) är
+              <span id="sc_topInsight_strat">Break-even vid 750 ├ñrenden. Nuvarande kostnad per ├ñrende (270 kr) ├ñr
                 konkurrenskraftig.</span>
             </div>
 
-            <!-- SEKTION 4: BESPARINGSÖVERSIKT -->
+            <!-- SEKTION 4: BESPARINGS├ûVERSIKT -->
             <div id="sc_savings" class="scenarioSection savings">
               <div class="sectionHeader togglable" onclick="toggleSection('sc_savings_content')">
                 <h3><i class="fa-solid fa-piggy-bank"></i> Finansiell Analys</h3>
-                <span class="sectionSubtitle">ROI och långsiktig lönsamhet</span>
+                <span class="sectionSubtitle">ROI och l├Ñngsiktig l├Ânsamhet</span>
                 <i class="fa-solid fa-chevron-down toggleIcon"></i>
               </div>
               <div id="sc_savings_content" class="sectionContent">
                 <div class="savingsGrid">
                   <div class="savingsCard highlight">
-                    <button class="favoriteBtn" onclick="toggleFavorite('sc_yearSavings', 'Årsbesparing')"><i
+                    <button class="favoriteBtn" onclick="toggleFavorite('sc_yearSavings', '├àrsbesparing')"><i
                         class="fa-regular fa-star"></i></button>
                     <div class="savingsIcon"><i class="fa-solid fa-calendar-check"></i></div>
                     <div class="savingsValue" id="sc_yearSavings">810 000 kr</div>
-                    <div class="savingsLabel">Årlig besparing (Netto)</div>
+                    <div class="savingsLabel">├àrlig besparing (Netto)</div>
                   </div>
                   <div class="savingsCard">
                     <button class="favoriteBtn" onclick="toggleFavorite('sc_roiPercent', 'ROI')"><i
                         class="fa-regular fa-star"></i></button>
                     <div class="savingsIcon"><i class="fa-solid fa-percent"></i></div>
                     <div class="savingsValue" id="sc_roiPercent">340%</div>
-                    <div class="savingsLabel">ROI (3-års prognos)</div>
+                    <div class="savingsLabel">ROI (3-├Ñrs prognos)</div>
                   </div>
                   <div class="savingsCard">
-                    <button class="favoriteBtn" onclick="toggleFavorite('sc_costPerTicket', 'Kostnad/ärende')"><i
+                    <button class="favoriteBtn" onclick="toggleFavorite('sc_costPerTicket', 'Kostnad/├ñrende')"><i
                         class="fa-regular fa-star"></i></button>
                     <div class="savingsIcon"><i class="fa-solid fa-tag"></i></div>
                     <div class="savingsValue" id="sc_costPerTicket">270 kr</div>
-                    <div class="savingsLabel">Kostnad per ärende</div>
-                    <div class="savingsContext success">22% lägre än snitt</div>
+                    <div class="savingsLabel">Kostnad per ├ñrende</div>
+                    <div class="savingsContext success">22% l├ñgre ├ñn snitt</div>
                   </div>
                 </div>
               </div>
             </div>
 
-            <!-- SEKTION 5: TILLVÄXT & SKALBARHET -->
+            <!-- SEKTION 5: TILLV├äXT & SKALBARHET -->
             <div id="sc_growth" class="scenarioSection growth">
               <div class="sectionHeader togglable" onclick="toggleSection('sc_growth_content')">
                 <h3><i class="fa-solid fa-chart-line"></i> Skalbarhet</h3>
-                <span class="sectionSubtitle">Kapacitetsplanering för tillväxt</span>
+                <span class="sectionSubtitle">Kapacitetsplanering f├Âr tillv├ñxt</span>
                 <i class="fa-solid fa-chevron-down toggleIcon"></i>
               </div>
               <div id="sc_growth_content" class="sectionContent">
@@ -2448,7 +2448,7 @@
                     <div class="growthBar large">
                       <div class="growthProgress" id="sc_capacityBar" style="width: 75%"></div>
                     </div>
-                    <div class="growthContext">Du har utrymme för att växa utan att öka kostnaderna.</div>
+                    <div class="growthContext">Du har utrymme f├Âr att v├ñxa utan att ├Âka kostnaderna.</div>
                   </div>
 
                   <div class="growthCard">
@@ -2456,14 +2456,14 @@
                         class="fa-regular fa-star"></i></button>
                     <div class="growthLabel">Maxkapacitet</div>
                     <div class="growthValue large" id="sc_maxTickets">660</div>
-                    <div class="growthContext">Ärenden/mån</div>
+                    <div class="growthContext">├ärenden/m├Ñn</div>
                   </div>
                   <div class="growthCard">
                     <button class="favoriteBtn" onclick="toggleFavorite('sc_breakeven', 'Break-even')"><i
                         class="fa-regular fa-star"></i></button>
                     <div class="growthLabel">Break-even punkt</div>
                     <div class="growthValue" id="sc_breakeven">750</div>
-                    <div class="growthContext">Kritisk gräns</div>
+                    <div class="growthContext">Kritisk gr├ñns</div>
                   </div>
                 </div>
               </div>
@@ -2477,35 +2477,35 @@
         <div id="salesOnboarding" class="salesOnboardingModal" style="display:none;">
           <div class="salesOnboardingContent">
             <button class="modalClose" onclick="closeSalesOnboarding()">&times;</button>
-            <h2 style="margin-bottom: 20px;"><i class="fa-solid fa-rocket" style="color: var(--primary);"></i> Välkommen
-              till Säljanalys</h2>
+            <h2 style="margin-bottom: 20px;"><i class="fa-solid fa-rocket" style="color: var(--primary);"></i> V├ñlkommen
+              till S├ñljanalys</h2>
             <div class="onboardingSteps">
               <div class="onboardingStep">
                 <div class="stepNumber">1</div>
                 <div class="stepContent">
-                  <h4>Välj ditt läge</h4>
-                  <p>Börja med <b>Översikt</b> för snabb statusbild. Gå till <b>Optimering</b> för
-                    förbättringsarbete eller <b>Strategi</b> för långsiktig planering.</p>
+                  <h4>V├ñlj ditt l├ñge</h4>
+                  <p>B├Ârja med <b>├ûversikt</b> f├Âr snabb statusbild. G├Ñ till <b>Optimering</b> f├Âr
+                    f├Ârb├ñttringsarbete eller <b>Strategi</b> f├Âr l├Ñngsiktig planering.</p>
                 </div>
               </div>
               <div class="onboardingStep">
                 <div class="stepNumber">2</div>
                 <div class="stepContent">
-                  <h4>Fokusera på gröna och röda signaler</h4>
-                  <p>Grönt = bra, rött = kräver åtgärd. Följ rekommendationerna som visas automatiskt.</p>
+                  <h4>Fokusera p├Ñ gr├Âna och r├Âda signaler</h4>
+                  <p>Gr├Ânt = bra, r├Âtt = kr├ñver ├Ñtg├ñrd. F├Âlj rekommendationerna som visas automatiskt.</p>
                 </div>
               </div>
               <div class="onboardingStep">
                 <div class="stepNumber">3</div>
                 <div class="stepContent">
                   <h4>Skapa din personliga vy</h4>
-                  <p>Klicka på <i class="fa-regular fa-star"></i> för att markera favoriter och bygg din egen
+                  <p>Klicka p├Ñ <i class="fa-regular fa-star"></i> f├Âr att markera favoriter och bygg din egen
                     dashboard.</p>
                 </div>
               </div>
             </div>
             <button class="btn primary" onclick="closeSalesOnboarding()" style="margin-top: 20px;">
-              <i class="fa-solid fa-check"></i> Jag förstår, starta
+              <i class="fa-solid fa-check"></i> Jag f├Ârst├Ñr, starta
             </button>
           </div>
         </div>
@@ -2513,7 +2513,7 @@
         <!-- HEADER -->
         <div class="topbar">
           <div>
-            <div class="title"><i class="fa-solid fa-chart-column" style="color:var(--ok);"></i> Säljanalys</div>
+            <div class="title"><i class="fa-solid fa-chart-column" style="color:var(--ok);"></i> S├ñljanalys</div>
             <div class="subtitle muted">Fatta snabba, datadrivna beslut</div>
           </div>
           <div class="topbarActions">
@@ -2521,7 +2521,7 @@
               <option value="7">7 dagar</option>
               <option value="30" selected>30 dagar</option>
               <option value="90">90 dagar</option>
-              <option value="365">1 år</option>
+              <option value="365">1 ├Ñr</option>
             </select>
             <button id="showSalesOnboarding" class="btn ghost" type="button" title="Visa guide">
               <i class="fa-solid fa-circle-question"></i>
@@ -2537,21 +2537,21 @@
           <button class="salesModeBtn active" data-mode="overview"
             title="Snabb statusbild med de viktigaste nyckeltalen">
             <i class="fa-solid fa-gauge"></i>
-            <span>Översikt</span>
+            <span>├ûversikt</span>
             <small>Nyckeltal</small>
           </button>
-          <button class="salesModeBtn" data-mode="optimization" title="Optimera konvertering, AI och mersälj">
+          <button class="salesModeBtn" data-mode="optimization" title="Optimera konvertering, AI och mers├ñlj">
             <i class="fa-solid fa-sliders"></i>
             <span>Optimering</span>
-            <small>Förbättra</small>
+            <small>F├Ârb├ñttra</small>
           </button>
           <button class="salesModeBtn" data-mode="strategy"
-            title="Långsiktig planering med CLV, churn och prediktioner">
+            title="L├Ñngsiktig planering med CLV, churn och prediktioner">
             <i class="fa-solid fa-chess"></i>
             <span>Strategi</span>
             <small>Planera</small>
           </button>
-          <button class="salesModeBtn" data-mode="myview" title="Dina favoritmarkerade mätvärden">
+          <button class="salesModeBtn" data-mode="myview" title="Dina favoritmarkerade m├ñtv├ñrden">
             <i class="fa-solid fa-star"></i>
             <span>Min vy</span>
             <small>Favoriter</small>
@@ -2566,7 +2566,7 @@
             <div class="insightIcon"><i class="fa-solid fa-lightbulb"></i></div>
             <div class="insightContent">
               <div class="insightTitle">Laddar insikt...</div>
-              <div class="insightText">Analyserar din försäljningsdata</div>
+              <div class="insightText">Analyserar din f├Ârs├ñljningsdata</div>
             </div>
           </div>
 
@@ -2576,8 +2576,8 @@
               <button class="favoriteBtn" onclick="toggleFavorite('revenue')" title="Markera som favorit"><i
                   class="fa-regular fa-star"></i></button>
               <div class="kpiValue" id="kpi_revenue">0 kr</div>
-              <div class="kpiLabel">Total försäljning <span class="kpiTooltip"
-                  title="Summan av alla genomförda köp under vald period"><i class="fa-solid fa-circle-info"></i></span>
+              <div class="kpiLabel">Total f├Ârs├ñljning <span class="kpiTooltip"
+                  title="Summan av alla genomf├Ârda k├Âp under vald period"><i class="fa-solid fa-circle-info"></i></span>
               </div>
               <div class="kpiTrend" id="kpi_revenue_trend"></div>
             </div>
@@ -2586,14 +2586,14 @@
                   class="fa-regular fa-star"></i></button>
               <div class="kpiValue" id="kpi_conversion">0%</div>
               <div class="kpiLabel">Konverteringsgrad <span class="kpiTooltip"
-                  title="Andel besökare som genomför köp"><i class="fa-solid fa-circle-info"></i></span></div>
+                  title="Andel bes├Âkare som genomf├Âr k├Âp"><i class="fa-solid fa-circle-info"></i></span></div>
               <div class="kpiTrend" id="kpi_conversion_trend"></div>
             </div>
             <div class="primaryKpiCard" data-kpi="aov">
               <button class="favoriteBtn" onclick="toggleFavorite('aov')" title="Markera som favorit"><i
                   class="fa-regular fa-star"></i></button>
               <div class="kpiValue" id="kpi_aov">0 kr</div>
-              <div class="kpiLabel">Ordervärde (snitt) <span class="kpiTooltip"
+              <div class="kpiLabel">Orderv├ñrde (snitt) <span class="kpiTooltip"
                   title="Genomsnittligt belopp per order"><i class="fa-solid fa-circle-info"></i></span></div>
               <div class="kpiTrend" id="kpi_aov_trend"></div>
             </div>
@@ -2601,8 +2601,8 @@
               <button class="favoriteBtn" onclick="toggleFavorite('aiRevenue')" title="Markera som favorit"><i
                   class="fa-regular fa-star"></i></button>
               <div class="kpiValue" id="kpi_aiRevenue">0 kr</div>
-              <div class="kpiLabel">AI-driven försäljning <span class="kpiTooltip"
-                  title="Intäkter från köp där AI var involverad"><i class="fa-solid fa-circle-info"></i></span>
+              <div class="kpiLabel">AI-driven f├Ârs├ñljning <span class="kpiTooltip"
+                  title="Int├ñkter fr├Ñn k├Âp d├ñr AI var involverad"><i class="fa-solid fa-circle-info"></i></span>
               </div>
               <div class="kpiTrend" id="kpi_aiRevenue_trend"></div>
             </div>
@@ -2610,7 +2610,7 @@
               <button class="favoriteBtn" onclick="toggleFavorite('orders')" title="Markera som favorit"><i
                   class="fa-regular fa-star"></i></button>
               <div class="kpiValue" id="kpi_orders">0</div>
-              <div class="kpiLabel">Antal köp <span class="kpiTooltip" title="Totalt antal genomförda ordrar"><i
+              <div class="kpiLabel">Antal k├Âp <span class="kpiTooltip" title="Totalt antal genomf├Ârda ordrar"><i
                     class="fa-solid fa-circle-info"></i></span></div>
               <div class="kpiTrend" id="kpi_orders_trend"></div>
             </div>
@@ -2626,7 +2626,7 @@
           <!-- Sales Flow Section -->
           <div class="salesSection">
             <div class="salesSectionHeader" onclick="toggleSalesSection('salesFlow')">
-              <div class="sectionTitle"><i class="fa-solid fa-filter"></i> <span>Försäljningsflöde</span> <span
+              <div class="sectionTitle"><i class="fa-solid fa-filter"></i> <span>F├Ârs├ñljningsfl├Âde</span> <span
                   class="sectionInsight" id="salesFlowInsight"></span></div>
               <i class="fa-solid fa-chevron-down sectionChevron"></i>
             </div>
@@ -2643,21 +2643,21 @@
                   <button class="favoriteBtn" onclick="toggleFavorite('offersShown')"><i
                       class="fa-regular fa-star"></i></button>
                   <div class="skpiLabel">Erbjudanden visade <i class="fa-solid fa-circle-info kpiInfo"
-                      title="Antal säljförslag som presenterats"></i></div>
+                      title="Antal s├ñljf├Ârslag som presenterats"></i></div>
                   <div class="skpiValue" id="kpi_offersShown">-</div>
                 </div>
                 <div class="secondaryKpiCard" data-kpi="offersClicked">
                   <button class="favoriteBtn" onclick="toggleFavorite('offersClicked')"><i
                       class="fa-regular fa-star"></i></button>
-                  <div class="skpiLabel">Klick på erbjudanden <i class="fa-solid fa-circle-info kpiInfo"
-                      title="Antal gånger kunder klickade på förslag"></i></div>
+                  <div class="skpiLabel">Klick p├Ñ erbjudanden <i class="fa-solid fa-circle-info kpiInfo"
+                      title="Antal g├Ñnger kunder klickade p├Ñ f├Ârslag"></i></div>
                   <div class="skpiValue" id="kpi_offersClicked">-</div>
                 </div>
                 <div class="secondaryKpiCard status-warn" data-kpi="dropoff">
                   <button class="favoriteBtn" onclick="toggleFavorite('dropoff')"><i
                       class="fa-regular fa-star"></i></button>
                   <div class="skpiLabel">Drop-off <i class="fa-solid fa-circle-info kpiInfo"
-                      title="Andel som avbröt innan köp"></i></div>
+                      title="Andel som avbr├Ât innan k├Âp"></i></div>
                   <div class="skpiValue" id="kpi_dropoff">-</div>
                   <div class="skpiAction" id="kpi_dropoff_action"></div>
                 </div>
@@ -2668,8 +2668,8 @@
           <!-- Upsell Section -->
           <div class="salesSection">
             <div class="salesSectionHeader" onclick="toggleSalesSection('upsell')">
-              <div class="sectionTitle"><i class="fa-solid fa-arrow-up-right-dots"></i> <span>Mersälj &
-                  Korsförsäljning</span> <span class="sectionInsight" id="upsellInsight"></span></div>
+              <div class="sectionTitle"><i class="fa-solid fa-arrow-up-right-dots"></i> <span>Mers├ñlj &
+                  Korsf├Ârs├ñljning</span> <span class="sectionInsight" id="upsellInsight"></span></div>
               <i class="fa-solid fa-chevron-down sectionChevron"></i>
             </div>
             <div class="salesSectionContent" id="upsellContent">
@@ -2677,21 +2677,21 @@
                 <div class="secondaryKpiCard" data-kpi="upsellRate">
                   <button class="favoriteBtn" onclick="toggleFavorite('upsellRate')"><i
                       class="fa-regular fa-star"></i></button>
-                  <div class="skpiLabel">Mersäljsgrad <i class="fa-solid fa-circle-info kpiInfo"
-                      title="Andel ordrar med tilläggsprodukter"></i></div>
+                  <div class="skpiLabel">Mers├ñljsgrad <i class="fa-solid fa-circle-info kpiInfo"
+                      title="Andel ordrar med till├ñggsprodukter"></i></div>
                   <div class="skpiValue" id="kpi_upsellRate">-</div>
                 </div>
                 <div class="secondaryKpiCard" data-kpi="upsellRevenue">
                   <button class="favoriteBtn" onclick="toggleFavorite('upsellRevenue')"><i
                       class="fa-regular fa-star"></i></button>
-                  <div class="skpiLabel">Mersäljsintäkt <i class="fa-solid fa-circle-info kpiInfo"
-                      title="Extra intäkt från tilläggsprodukter"></i></div>
+                  <div class="skpiLabel">Mers├ñljsint├ñkt <i class="fa-solid fa-circle-info kpiInfo"
+                      title="Extra int├ñkt fr├Ñn till├ñggsprodukter"></i></div>
                   <div class="skpiValue" id="kpi_upsellRevenue">-</div>
                 </div>
                 <div class="secondaryKpiCard status-warn" data-kpi="rejectedOffers">
                   <button class="favoriteBtn" onclick="toggleFavorite('rejectedOffers')"><i
                       class="fa-regular fa-star"></i></button>
-                  <div class="skpiLabel">Avvisade förslag <i class="fa-solid fa-circle-info kpiInfo"
+                  <div class="skpiLabel">Avvisade f├Ârslag <i class="fa-solid fa-circle-info kpiInfo"
                       title="Andel erbjudanden som nekades"></i></div>
                   <div class="skpiValue" id="kpi_rejectedOffers">-</div>
                   <div class="skpiAction" id="kpi_rejectedOffers_action"></div>
@@ -2703,7 +2703,7 @@
           <!-- AI as Salesperson Section -->
           <div class="salesSection">
             <div class="salesSectionHeader" onclick="toggleSalesSection('aiSeller')">
-              <div class="sectionTitle"><i class="fa-solid fa-robot"></i> <span>AI som säljare</span> <span
+              <div class="sectionTitle"><i class="fa-solid fa-robot"></i> <span>AI som s├ñljare</span> <span
                   class="sectionInsight" id="aiSellerInsight"></span></div>
               <i class="fa-solid fa-chevron-down sectionChevron"></i>
             </div>
@@ -2713,21 +2713,21 @@
                   <button class="favoriteBtn" onclick="toggleFavorite('aiConversion')"><i
                       class="fa-regular fa-star"></i></button>
                   <div class="skpiLabel">AI-konvertering <i class="fa-solid fa-circle-info kpiInfo"
-                      title="Andel AI-förslag som ledde till köp"></i></div>
+                      title="Andel AI-f├Ârslag som ledde till k├Âp"></i></div>
                   <div class="skpiValue" id="kpi_aiConversion">-</div>
                 </div>
                 <div class="secondaryKpiCard" data-kpi="promptPerformance">
                   <button class="favoriteBtn" onclick="toggleFavorite('promptPerformance')"><i
                       class="fa-regular fa-star"></i></button>
-                  <div class="skpiLabel">Bästa prompt <i class="fa-solid fa-circle-info kpiInfo"
-                      title="Promptversion med högst konvertering"></i></div>
+                  <div class="skpiLabel">B├ñsta prompt <i class="fa-solid fa-circle-info kpiInfo"
+                      title="Promptversion med h├Âgst konvertering"></i></div>
                   <div class="skpiValue" id="kpi_promptPerformance">-</div>
                 </div>
                 <div class="secondaryKpiCard status-danger" data-kpi="fallbackLost">
                   <button class="favoriteBtn" onclick="toggleFavorite('fallbackLost')"><i
                       class="fa-regular fa-star"></i></button>
                   <div class="skpiLabel">Tappad vid eskalering <i class="fa-solid fa-circle-info kpiInfo"
-                      title="Förlorad intäkt när AI eskalerade"></i></div>
+                      title="F├Ârlorad int├ñkt n├ñr AI eskalerade"></i></div>
                   <div class="skpiValue" id="kpi_fallbackLost">-</div>
                   <div class="skpiAction" id="kpi_fallbackLost_action"></div>
                 </div>
@@ -2742,7 +2742,7 @@
           <!-- CLV Section -->
           <div class="salesSection">
             <div class="salesSectionHeader" onclick="toggleSalesSection('clv')">
-              <div class="sectionTitle"><i class="fa-solid fa-gem"></i> <span>Kundlivstidsvärde (CLV)</span> <span
+              <div class="sectionTitle"><i class="fa-solid fa-gem"></i> <span>Kundlivstidsv├ñrde (CLV)</span> <span
                   class="sectionInsight" id="clvInsight"></span></div>
               <i class="fa-solid fa-chevron-down sectionChevron"></i>
             </div>
@@ -2752,21 +2752,21 @@
                   <button class="favoriteBtn" onclick="toggleFavorite('clvTotal')"><i
                       class="fa-regular fa-star"></i></button>
                   <div class="skpiLabel">Genomsnittligt CLV <i class="fa-solid fa-circle-info kpiInfo"
-                      title="Förväntat livstidsvärde per kund"></i></div>
+                      title="F├Ârv├ñntat livstidsv├ñrde per kund"></i></div>
                   <div class="skpiValue" id="kpi_clvTotal">-</div>
                 </div>
                 <div class="secondaryKpiCard status-ok" data-kpi="clvAi">
                   <button class="favoriteBtn" onclick="toggleFavorite('clvAi')"><i
                       class="fa-regular fa-star"></i></button>
                   <div class="skpiLabel">CLV med AI <i class="fa-solid fa-circle-info kpiInfo"
-                      title="CLV för kunder som interagerat med AI"></i></div>
+                      title="CLV f├Âr kunder som interagerat med AI"></i></div>
                   <div class="skpiValue" id="kpi_clvAi">-</div>
                 </div>
                 <div class="secondaryKpiCard" data-kpi="clvGrowth">
                   <button class="favoriteBtn" onclick="toggleFavorite('clvGrowth')"><i
                       class="fa-regular fa-star"></i></button>
-                  <div class="skpiLabel">CLV-tillväxt <i class="fa-solid fa-circle-info kpiInfo"
-                      title="Förändring av CLV över tid"></i></div>
+                  <div class="skpiLabel">CLV-tillv├ñxt <i class="fa-solid fa-circle-info kpiInfo"
+                      title="F├Âr├ñndring av CLV ├Âver tid"></i></div>
                   <div class="skpiValue" id="kpi_clvGrowth">-</div>
                 </div>
               </div>
@@ -2786,7 +2786,7 @@
                   <button class="favoriteBtn" onclick="toggleFavorite('churnRisk')"><i
                       class="fa-regular fa-star"></i></button>
                   <div class="skpiLabel">Genomsnittlig churn-risk <i class="fa-solid fa-circle-info kpiInfo"
-                      title="Andel kunder med hög avhoppsrisk"></i></div>
+                      title="Andel kunder med h├Âg avhoppsrisk"></i></div>
                   <div class="skpiValue" id="kpi_churnRisk">-</div>
                   <div class="skpiAction" id="kpi_churnRisk_action"></div>
                 </div>
@@ -2794,14 +2794,14 @@
                   <button class="favoriteBtn" onclick="toggleFavorite('churnFailedAi')"><i
                       class="fa-regular fa-star"></i></button>
                   <div class="skpiLabel">Churn efter AI-misslyckande <i class="fa-solid fa-circle-info kpiInfo"
-                      title="Avhopp efter dålig AI-upplevelse"></i></div>
+                      title="Avhopp efter d├Ñlig AI-upplevelse"></i></div>
                   <div class="skpiValue" id="kpi_churnFailedAi">-</div>
                   <div class="skpiAction" id="kpi_churnFailedAi_action"></div>
                 </div>
                 <div class="secondaryKpiCard" data-kpi="highRiskCount">
                   <button class="favoriteBtn" onclick="toggleFavorite('highRiskCount')"><i
                       class="fa-regular fa-star"></i></button>
-                  <div class="skpiLabel">Högrisk-kunder <i class="fa-solid fa-circle-info kpiInfo"
+                  <div class="skpiLabel">H├Âgrisk-kunder <i class="fa-solid fa-circle-info kpiInfo"
                       title="Antal kunder med >70% churn-risk"></i></div>
                   <div class="skpiValue" id="kpi_highRiskCount">-</div>
                 </div>
@@ -2821,22 +2821,22 @@
                 <div class="secondaryKpiCard" data-kpi="predictedRevenue">
                   <button class="favoriteBtn" onclick="toggleFavorite('predictedRevenue')"><i
                       class="fa-regular fa-star"></i></button>
-                  <div class="skpiLabel">Prognostiserad intäkt <i class="fa-solid fa-circle-info kpiInfo"
-                      title="Förväntad försäljning nästa period"></i></div>
+                  <div class="skpiLabel">Prognostiserad int├ñkt <i class="fa-solid fa-circle-info kpiInfo"
+                      title="F├Ârv├ñntad f├Ârs├ñljning n├ñsta period"></i></div>
                   <div class="skpiValue" id="kpi_predictedRevenue">-</div>
                 </div>
                 <div class="secondaryKpiCard status-ok" data-kpi="hotLeads">
                   <button class="favoriteBtn" onclick="toggleFavorite('hotLeads')"><i
                       class="fa-regular fa-star"></i></button>
                   <div class="skpiLabel">Heta leads <i class="fa-solid fa-circle-info kpiInfo"
-                      title="Kunder med >80% köpsannolikhet"></i></div>
+                      title="Kunder med >80% k├Âpsannolikhet"></i></div>
                   <div class="skpiValue" id="kpi_hotLeads">-</div>
                 </div>
                 <div class="secondaryKpiCard" data-kpi="buyProbability">
                   <button class="favoriteBtn" onclick="toggleFavorite('buyProbability')"><i
                       class="fa-regular fa-star"></i></button>
-                  <div class="skpiLabel">Köpsannolikhet (snitt) <i class="fa-solid fa-circle-info kpiInfo"
-                      title="Genomsnittlig sannolikhet för köp"></i></div>
+                  <div class="skpiLabel">K├Âpsannolikhet (snitt) <i class="fa-solid fa-circle-info kpiInfo"
+                      title="Genomsnittlig sannolikhet f├Âr k├Âp"></i></div>
                   <div class="skpiValue" id="kpi_buyProbability">-</div>
                 </div>
               </div>
@@ -2849,15 +2849,15 @@
           <div class="myViewContainer">
             <div class="myViewHeader">
               <h3><i class="fa-solid fa-star" style="color: var(--warn);"></i> Mina favoriter</h3>
-              <p class="muted">Klicka på <i class="fa-regular fa-star"></i> bredvid valfritt mätvärde för att lägga
-                till det här.</p>
+              <p class="muted">Klicka p├Ñ <i class="fa-regular fa-star"></i> bredvid valfritt m├ñtv├ñrde f├Âr att l├ñgga
+                till det h├ñr.</p>
             </div>
             <div class="myViewKpis" id="myViewKpiContainer">
               <div class="myViewEmpty" id="myViewEmpty">
                 <i class="fa-regular fa-star" style="font-size: 48px; opacity: 0.3; margin-bottom: 16px;"></i>
-                <p>Du har inga favoriter ännu</p>
-                <p class="muted">Gå till Översikt, Optimering eller Strategi och markera de mätvärden du vill se
-                  här.</p>
+                <p>Du har inga favoriter ├ñnnu</p>
+                <p class="muted">G├Ñ till ├ûversikt, Optimering eller Strategi och markera de m├ñtv├ñrden du vill se
+                  h├ñr.</p>
               </div>
             </div>
           </div>
@@ -2876,20 +2876,20 @@
         <button class="modalClose" onclick="closeFeedbackModal()">&times;</button>
       </div>
       <div class="modalBody" style="padding: 25px;">
-        <p class="muted" style="margin-bottom: 20px;">Din feedback hjälper oss att förbättra vår service!</p>
+        <p class="muted" style="margin-bottom: 20px;">Din feedback hj├ñlper oss att f├Ârb├ñttra v├Ñr service!</p>
 
         <!-- Star Rating -->
         <div id="starRatingContainer" style="display: flex; justify-content: center; gap: 8px; margin-bottom: 20px;">
           <button type="button" class="starBtn" data-rating="1" onclick="setFeedbackRating(1)"
-            style="background: none; border: none; cursor: pointer; font-size: 36px; color: var(--muted); transition: all 0.2s;">☆</button>
+            style="background: none; border: none; cursor: pointer; font-size: 36px; color: var(--muted); transition: all 0.2s;">Ôÿå</button>
           <button type="button" class="starBtn" data-rating="2" onclick="setFeedbackRating(2)"
-            style="background: none; border: none; cursor: pointer; font-size: 36px; color: var(--muted); transition: all 0.2s;">☆</button>
+            style="background: none; border: none; cursor: pointer; font-size: 36px; color: var(--muted); transition: all 0.2s;">Ôÿå</button>
           <button type="button" class="starBtn" data-rating="3" onclick="setFeedbackRating(3)"
-            style="background: none; border: none; cursor: pointer; font-size: 36px; color: var(--muted); transition: all 0.2s;">☆</button>
+            style="background: none; border: none; cursor: pointer; font-size: 36px; color: var(--muted); transition: all 0.2s;">Ôÿå</button>
           <button type="button" class="starBtn" data-rating="4" onclick="setFeedbackRating(4)"
-            style="background: none; border: none; cursor: pointer; font-size: 36px; color: var(--muted); transition: all 0.2s;">☆</button>
+            style="background: none; border: none; cursor: pointer; font-size: 36px; color: var(--muted); transition: all 0.2s;">Ôÿå</button>
           <button type="button" class="starBtn" data-rating="5" onclick="setFeedbackRating(5)"
-            style="background: none; border: none; cursor: pointer; font-size: 36px; color: var(--muted); transition: all 0.2s;">☆</button>
+            style="background: none; border: none; cursor: pointer; font-size: 36px; color: var(--muted); transition: all 0.2s;">Ôÿå</button>
         </div>
 
         <input type="hidden" id="feedbackRatingValue" value="0" />
@@ -2897,12 +2897,12 @@
         <input type="hidden" id="feedbackTargetAgentId" value="" />
 
         <!-- Optional Comment -->
-        <textarea id="feedbackComment" class="input" rows="3" placeholder="Berätta mer (valfritt)..."
+        <textarea id="feedbackComment" class="input" rows="3" placeholder="Ber├ñtta mer (valfritt)..."
           style="width: 100%; margin-bottom: 20px; resize: none;"></textarea>
 
         <div style="display: flex; gap: 10px; justify-content: center;">
           <button id="skipFeedbackBtn" class="btn ghost" onclick="closeFeedbackModal()" type="button">Hoppa
-            över</button>
+            ├Âver</button>
           <button id="submitFeedbackBtn" class="btn primary" onclick="submitCustomerFeedback()" type="button">
             <i class="fa-solid fa-paper-plane"></i> Skicka
           </button>
@@ -2915,7 +2915,7 @@
   <div id="crmAddDealModal" class="modal" style="display: none;">
     <div class="modalContent" style="max-width: 700px; padding:0; display:flex; flex-direction:column; height:80vh;">
       <div class="modalHeader" style="padding:20px; border-bottom:1px solid var(--border);">
-        <h3><i class="fa-solid fa-briefcase"></i> Ny Affärsmöjlighet</h3>
+        <h3><i class="fa-solid fa-briefcase"></i> Ny Aff├ñrsm├Âjlighet</h3>
         <button class="btn ghost small" onclick="closeCrmModal('crmAddDealModal')"><i
             class="fa-solid fa-times"></i></button>
       </div>
@@ -2923,12 +2923,12 @@
       <div class="modalBody" style="flex:1; overflow-y:auto; padding:20px;">
         <div class="grid2 gap">
           <div class="col">
-            <label>Affärens namn *</label>
+            <label>Aff├ñrens namn *</label>
             <input id="dealName" class="input" placeholder="T.ex. Q3 Licenser + Support" />
           </div>
           <div class="col">
-            <label>Kopplad Kund (Företag) *</label>
-            <input id="dealCompanyInput" class="input" list="dealCompanyList" placeholder="Sök företag..."
+            <label>Kopplad Kund (F├Âretag) *</label>
+            <input id="dealCompanyInput" class="input" list="dealCompanyList" placeholder="S├Âk f├Âretag..."
               oninput="filterCompanyList(this)" />
             <datalist id="dealCompanyList">
               <!-- Populated via JS -->
@@ -2938,7 +2938,7 @@
 
         <div class="grid2 gap">
           <div class="col">
-            <label>Affärsvärde (SEK)</label>
+            <label>Aff├ñrsv├ñrde (SEK)</label>
             <div class="inputGroup">
               <input id="dealValue" type="number" class="input" placeholder="0" />
               <span class="inputSuffix">kr</span>
@@ -2959,40 +2959,40 @@
               <option value="new">Nytt Lead</option>
               <option value="qualified">Kvalificerad</option>
               <option value="proposal">Offert Skickad</option>
-              <option value="negotiation">Förhandling</option>
-              <option value="won">Vunnen (Stängd)</option>
-              <option value="lost">Förlorad</option>
+              <option value="negotiation">F├Ârhandling</option>
+              <option value="won">Vunnen (St├ñngd)</option>
+              <option value="lost">F├Ârlorad</option>
             </select>
           </div>
           <div class="col">
-            <label>Förväntat Avslut</label>
+            <label>F├Ârv├ñntat Avslut</label>
             <input id="dealCloseDate" type="date" class="input" />
           </div>
         </div>
 
         <div class="grid2 gap">
           <div class="col">
-            <label>Affärstyp</label>
+            <label>Aff├ñrstyp</label>
             <select id="dealType" class="input">
-              <option value="new">Nyförsäljning</option>
-              <option value="upsell">Merköp / Uppgradering</option>
-              <option value="renewal">Förnyelse</option>
+              <option value="new">Nyf├Ârs├ñljning</option>
+              <option value="upsell">Merk├Âp / Uppgradering</option>
+              <option value="renewal">F├Ârnyelse</option>
             </select>
           </div>
           <div class="col">
-            <label>Ansvarig Säljare</label>
+            <label>Ansvarig S├ñljare</label>
             <select id="dealOwner" class="input">
               <option value="me">Jag</option>
-              <option value="team">Säljteamet</option>
+              <option value="team">S├ñljteamet</option>
             </select>
           </div>
         </div>
 
         <label>Beskrivning / Produkter</label>
         <textarea id="dealDesc" class="input" style="height:80px; resize:none;"
-          placeholder="Vad ingår i affären?"></textarea>
+          placeholder="Vad ing├Ñr i aff├ñren?"></textarea>
 
-        <label>Nästa Steg</label>
+        <label>N├ñsta Steg</label>
         <input id="dealNextStep" class="input" placeholder="T.ex. Skicka avtalsutkast..." />
       </div>
 
@@ -3000,7 +3000,7 @@
         style="padding:20px; border-top:1px solid var(--border); display:flex; justify-content:flex-end; gap:10px; background:var(--panel);">
         <button class="btn ghost" onclick="closeCrmModal('crmAddDealModal')">Avbryt</button>
         <button class="btn primary" onclick="saveNewDealAdvanced()">
-          <i class="fa-solid fa-plus"></i> Skapa Affär
+          <i class="fa-solid fa-plus"></i> Skapa Aff├ñr
         </button>
       </div>
     </div>
@@ -3010,7 +3010,7 @@
   <div id="crmEditDealModal" class="modal" style="display: none;">
     <div class="modalContent" style="max-width: 700px; padding:0; display:flex; flex-direction:column; height:80vh;">
       <div class="modalHeader" style="padding:20px; border-bottom:1px solid var(--border);">
-        <h3><i class="fa-solid fa-pen-to-square"></i> Redigera Affär</h3>
+        <h3><i class="fa-solid fa-pen-to-square"></i> Redigera Aff├ñr</h3>
         <button class="btn ghost small" onclick="closeCrmModal('crmEditDealModal')"><i
             class="fa-solid fa-times"></i></button>
       </div>
@@ -3018,17 +3018,17 @@
         <input type="hidden" id="editDealId" />
         <div class="grid2 gap">
           <div class="col">
-            <label>Affärens namn</label>
+            <label>Aff├ñrens namn</label>
             <input id="editDealName" class="input" />
           </div>
           <div class="col">
-            <label>Företag</label>
+            <label>F├Âretag</label>
             <input id="editDealCompany" class="input" disabled />
           </div>
         </div>
         <div class="grid2 gap">
           <div class="col">
-            <label>Värde (SEK)</label>
+            <label>V├ñrde (SEK)</label>
             <input id="editDealValue" type="number" class="input" />
           </div>
           <div class="col">
@@ -3037,9 +3037,9 @@
               <option value="new">Nytt Lead</option>
               <option value="qualified">Kvalificerad</option>
               <option value="proposal">Offert Skickad</option>
-              <option value="negotiation">Förhandling</option>
+              <option value="negotiation">F├Ârhandling</option>
               <option value="won">Vunnen</option>
-              <option value="lost">Förlorad</option>
+              <option value="lost">F├Ârlorad</option>
             </select>
           </div>
         </div>
@@ -3049,7 +3049,7 @@
       <div class="modalFooter"
         style="padding:20px; border-top:1px solid var(--border); display:flex; justify-content:flex-end; gap:10px;">
         <button class="btn ghost" onclick="closeCrmModal('crmEditDealModal')">Avbryt</button>
-        <button class="btn primary" onclick="updateDeal()">Spara ändringar</button>
+        <button class="btn primary" onclick="updateDeal()">Spara ├ñndringar</button>
       </div>
     </div>
   </div>
@@ -3068,19 +3068,19 @@
           <button class="btn ghost small activityTypeBtn active" onclick="setActivityType('call', this)"><i
               class="fa-solid fa-phone"></i> Samtal</button>
           <button class="btn ghost small activityTypeBtn" onclick="setActivityType('meeting', this)"><i
-              class="fa-solid fa-users"></i> Möte</button>
+              class="fa-solid fa-users"></i> M├Âte</button>
           <button class="btn ghost small activityTypeBtn" onclick="setActivityType('email', this)"><i
               class="fa-solid fa-envelope"></i> E-post</button>
           <button class="btn ghost small activityTypeBtn" onclick="setActivityType('task', this)"><i
               class="fa-solid fa-check"></i> Uppgift</button>
         </div>
 
-        <label>Rubrik / Ämne</label>
-        <input id="actSubject" class="input" placeholder="T.ex. Uppföljning av offert" />
+        <label>Rubrik / ├ämne</label>
+        <input id="actSubject" class="input" placeholder="T.ex. Uppf├Âljning av offert" />
 
         <label>Beskrivning</label>
         <textarea id="actDesc" class="input" style="height:80px;"
-          placeholder="Anteckningar från mötet/samtalet..."></textarea>
+          placeholder="Anteckningar fr├Ñn m├Âtet/samtalet..."></textarea>
 
         <div class="row gap">
           <div class="col">
@@ -3090,7 +3090,7 @@
           <div class="col">
             <label>Status</label>
             <select id="actStatus" class="input">
-              <option value="done">Utförd</option>
+              <option value="done">Utf├Ârd</option>
               <option value="planned">Planerad</option>
             </select>
           </div>
@@ -3106,7 +3106,7 @@
   <div id="crmAddCustomerModal" class="modal" style="display: none;">
     <div class="modalContent" style="max-width: 850px; height: 85vh; display:flex; flex-direction:column; padding:0;">
       <div class="modalHeader" style="padding: 20px; border-bottom: 1px solid var(--border);">
-        <h3><i class="fa-solid fa-building"></i> Ny Företagskund</h3>
+        <h3><i class="fa-solid fa-building"></i> Ny F├Âretagskund</h3>
         <button class="btn ghost small" onclick="closeCrmModal('crmAddCustomerModal')"><i
             class="fa-solid fa-times"></i></button>
       </div>
@@ -3127,7 +3127,7 @@
         <div id="modalTabBasic" class="modalTabContent">
           <div class="grid2 gap" style="margin-bottom:15px;">
             <div class="col">
-              <label>Företagsnamn *</label>
+              <label>F├Âretagsnamn *</label>
               <input id="custName" class="input" placeholder="T.ex. TechCorp AB" />
             </div>
             <div class="col">
@@ -3140,11 +3140,11 @@
             <div class="col">
               <label>Bransch</label>
               <select id="custIndustry" class="input">
-                <option value="">Välj...</option>
+                <option value="">V├ñlj...</option>
                 <option value="IT">IT & Teknik</option>
                 <option value="Retail">Handel / E-handel</option>
                 <option value="Construction">Bygg & Fastighet</option>
-                <option value="Service">Tjänsteföretag</option>
+                <option value="Service">Tj├ñnstef├Âretag</option>
                 <option value="Finance">Bank & Finans</option>
                 <option value="Public">Offentlig Sektor</option>
                 <option value="Other">Annat</option>
@@ -3163,13 +3163,13 @@
                 <option value="prospect">Prospekt (Lead)</option>
                 <option value="customer" selected>Aktiv Kund</option>
                 <option value="inactive">Inaktiv</option>
-                <option value="churn">Före detta Kund</option>
+                <option value="churn">F├Âre detta Kund</option>
               </select>
             </div>
             <div class="col">
-              <label>Kontoägare (Säljare)</label>
+              <label>Konto├ñgare (S├ñljare)</label>
               <select id="custOwner" class="input">
-                <option value="me">Jag (Nuvarande användare)</option>
+                <option value="me">Jag (Nuvarande anv├ñndare)</option>
                 <option value="unassigned">Ej tilldelad</option>
               </select>
             </div>
@@ -3186,10 +3186,10 @@
         <div id="modalTabContact" class="modalTabContent" style="display:none;">
           <h4
             style="margin-bottom:15px; border-bottom:1px solid var(--border); padding-bottom:5px; color:var(--primary);">
-            Primär Kontaktperson</h4>
+            Prim├ñr Kontaktperson</h4>
           <div class="grid2 gap" style="margin-bottom:15px;">
             <div class="col">
-              <label>Förnamn</label>
+              <label>F├Ârnamn</label>
               <input id="custContactFirst" class="input" />
             </div>
             <div class="col">
@@ -3209,7 +3209,7 @@
           </div>
           <div class="col" style="margin-bottom:20px;">
             <label>Befattning / Roll</label>
-            <input id="custRole" class="input" placeholder="T.ex. VD, IT-chef, Inköpare" />
+            <input id="custRole" class="input" placeholder="T.ex. VD, IT-chef, Ink├Âpare" />
           </div>
 
           <h4
@@ -3249,9 +3249,9 @@
               <input type="checkbox" id="custAiDeploy" checked
                 style="width:20px; height:20px; margin-top:5px; accent-color:var(--primary);" />
               <div style="margin-left:10px;">
-                <b style="color:var(--primary); font-size:16px;">Aktivera AI Kundtjänst (Auto-Deploy) 🤖</b>
+                <b style="color:var(--primary); font-size:16px;">Aktivera AI Kundtj├ñnst (Auto-Deploy) ­ƒñû</b>
                 <p class="muted" style="margin-top:5px; line-height:1.5; font-size:13px;">
-                  När du sparar kunden konfigureras AI-agenten automatiskt med unik API-nyckel och grundläggande
+                  N├ñr du sparar kunden konfigureras AI-agenten automatiskt med unik API-nyckel och grundl├ñggande
                   kunskap.
                 </p>
               </div>
@@ -3268,11 +3268,11 @@
               </select>
             </div>
             <div class="col">
-              <label>Språkstöd</label>
+              <label>Spr├Ñkst├Âd</label>
               <select id="custAiLang" class="input">
-                <option value="sv">Svenska (Primärt)</option>
+                <option value="sv">Svenska (Prim├ñrt)</option>
                 <option value="en">Engelska</option>
-                <option value="multi">Flerspråkig (Auto-detect)</option>
+                <option value="multi">Flerspr├Ñkig (Auto-detect)</option>
               </select>
             </div>
           </div>
@@ -3294,7 +3294,7 @@
     <div style="text-align:center; color:var(--text); width:300px;">
       <i class="fa-solid fa-circle-notch fa-spin" style="font-size:48px; color:var(--primary); margin-bottom:20px;"></i>
       <h2 id="aiDeployText" style="margin-bottom:10px;">Konfigurerar AI-agent...</h2>
-      <div id="aiDeploySub" class="muted" style="margin-bottom:15px;">Analyserar företagsdata</div>
+      <div id="aiDeploySub" class="muted" style="margin-bottom:15px;">Analyserar f├Âretagsdata</div>
       <div style="width:100%; height:4px; background:var(--glass-border); border-radius:2px; overflow:hidden;">
         <div id="aiDeployBar" style="width:0%; height:100%; background:var(--primary); transition: width 0.5s ease;">
         </div>
@@ -3322,7 +3322,7 @@
       <div id="ticketContactBody" style="display:flex; flex-direction:column; gap:15px;"></div>
       <div class="modalFooter" style="margin-top:20px; border-top:1px solid var(--border); padding-top:15px;">
         <button class="btn primary full"
-          onclick="document.getElementById('ticketContactModal').style.display='none'">Stäng</button>
+          onclick="document.getElementById('ticketContactModal').style.display='none'">St├ñng</button>
       </div>
     </div>
   </div>
