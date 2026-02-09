@@ -295,9 +295,29 @@ const AI_CONFIG = {
 };
 
 window.syncAiSplits = function (source) {
-    const miniVal = parseInt(document.getElementById('splitMini').value || 0);
-    const gpt5Val = parseInt(document.getElementById('splitGpt5').value || 0);
-    const gpt4Val = parseInt(document.getElementById('splitGpt4').value || 0);
+    let miniVal = parseInt(document.getElementById('splitMini').value || 0);
+    let gpt5Val = parseInt(document.getElementById('splitGpt5').value || 0);
+    let gpt4Val = parseInt(document.getElementById('splitGpt4').value || 0);
+
+    const auto = document.getElementById('aiAutoRouting')?.checked;
+    const tokens_input = parseFloat(document.getElementById('aiCostTokens')?.value || 1500);
+
+    const recommend = (tokens) => {
+        if (tokens <= 1200) return { mini: 80, std: 18, adv: 2 };
+        if (tokens <= 2500) return { mini: 70, std: 25, adv: 5 };
+        if (tokens <= 6000) return { mini: 55, std: 35, adv: 10 };
+        return { mini: 40, std: 45, adv: 15 };
+    };
+    if (auto || source === 'auto') {
+        const r = recommend(tokens_input);
+        miniVal = r.mini; gpt5Val = r.std; gpt4Val = r.adv;
+        const sMini = document.getElementById('splitMini');
+        const sStd = document.getElementById('splitGpt5');
+        const sAdv = document.getElementById('splitGpt4');
+        if (sMini) sMini.value = r.mini;
+        if (sStd) sStd.value = r.std;
+        if (sAdv) sAdv.value = r.adv;
+    }
 
     const total = miniVal + gpt5Val + gpt4Val;
 
@@ -335,6 +355,8 @@ window.calculateAiMargins = function () {
     let valGpt5 = parseInt(document.getElementById('splitGpt5')?.value || 25);
     let valGpt4 = parseInt(document.getElementById('splitGpt4')?.value || 5);
 
+    const auto = document.getElementById('aiAutoRouting')?.checked;
+
     // Normalize to ensure strict 100% sum if user drags weirdly (optional safety, or just trust inputs)
     // For now, trust inputs but use them as weights
     const totalSplit = valMini + valGpt5 + valGpt4;
@@ -371,6 +393,23 @@ window.calculateAiMargins = function () {
     let total_revenue_exkl_moms = 0;
     let total_chattar_manad = volume_input * 30; // Månadsvolym baserat på input
 
+    // Kundspecifik modellpolicy
+    if (customerId !== 'all') {
+        const cust = customers.find(x => x.id == customerId);
+        if (cust?.aiConfig?.modelPolicy && typeof cust.aiConfig.modelPolicy === 'object') {
+            const mp = cust.aiConfig.modelPolicy;
+            if (typeof mp.mini === 'number' && typeof mp.std === 'number' && typeof mp.adv === 'number') {
+                valMini = mp.mini; valGpt5 = mp.std; valGpt4 = mp.adv;
+                const sMini = document.getElementById('splitMini');
+                const sStd = document.getElementById('splitGpt5');
+                const sAdv = document.getElementById('splitGpt4');
+                if (sMini) sMini.value = valMini;
+                if (sStd) sStd.value = valGpt5;
+                if (sAdv) sAdv.value = valGpt4;
+            }
+        }
+    }
+
     if (customerId === 'all') {
         // "Hela kategorin" = SUMMERING av alla kunders värden
         total_revenue_exkl_moms = customers.reduce((sum, c) => sum + (parseFloat(c.value) || 0), 0);
@@ -397,6 +436,29 @@ window.calculateAiMargins = function () {
     let marginal_procent = 0;
     if (intakt_exkl_moms > 0) {
         marginal_procent = (marginal_sek / intakt_exkl_moms) * 100;
+    }
+
+    // Marginal-skydd: om auto-routing aktiv och marginalen < tröskel, justera fördelning
+    const MARGIN_MIN = 20;
+    if (auto && marginal_procent < MARGIN_MIN) {
+        // Flytta 5% från dyrare modeller till mini, upp till 3 iterationer
+        let iter = 0;
+        while (marginal_procent < MARGIN_MIN && iter < 3) {
+            if (valGpt4 > 0) { valGpt4 = Math.max(0, valGpt4 - 5); valMini = Math.min(100, valMini + 5); }
+            else if (valGpt5 > 0) { valGpt5 = Math.max(0, valGpt5 - 5); valMini = Math.min(100, valMini + 5); }
+            iter++;
+            const sMini = document.getElementById('splitMini');
+            const sStd = document.getElementById('splitGpt5');
+            const sAdv = document.getElementById('splitGpt4');
+            if (sMini) sMini.value = valMini;
+            if (sStd) sStd.value = valGpt5;
+            if (sAdv) sAdv.value = valGpt4;
+            const SHARE_MINI2 = valMini / 100, SHARE_STD2 = valGpt5 / 100, SHARE_ADV2 = valGpt4 / 100;
+            const cost_per_chat2 = (SHARE_MINI2 * cost_mini) + (SHARE_STD2 * cost_std) + (SHARE_ADV2 * cost_adv);
+            const total_llm_cost2 = cost_per_chat2 * total_chattar_manad;
+            const marginal_sek2 = intakt_exkl_moms - total_llm_cost2;
+            marginal_procent = intakt_exkl_moms > 0 ? (marginal_sek2 / intakt_exkl_moms) * 100 : 0;
+        }
     }
 
     // 6. UPDATE UI
@@ -441,13 +503,28 @@ window.calculateAiMargins = function () {
             note.style.color = 'var(--muted)';
         }
     }
+    const warnEl = document.getElementById('marginWarning');
+    if (warnEl) {
+        warnEl.style.display = marginal_procent < MARGIN_MIN ? 'block' : 'none';
+    }
 
     // Breakdown costs
-    setTxt('breakMini', fmt(total_chattar_manad * SHARE_MINI * cost_mini));
-    setTxt('breakGpt5', fmt(total_chattar_manad * SHARE_STD * cost_std));
-    setTxt('breakGpt4', fmt(total_chattar_manad * SHARE_ADV * cost_adv));
+    setTxt('breakMini', fmt(total_chattar_manad * (valMini / 100) * cost_mini));
+    setTxt('breakGpt5', fmt(total_chattar_manad * (valGpt5 / 100) * cost_std));
+    setTxt('breakGpt4', fmt(total_chattar_manad * (valGpt4 / 100) * cost_adv));
 };
 
+// Kundspecifik modellpolicy setter
+window.setCustomerModelPolicy = function (customerId, { mini, std, adv }) {
+    let customers = JSON.parse(localStorage.getItem('crmCustomers') || '[]');
+    const idx = customers.findIndex(c => c.id == customerId);
+    if (idx === -1) return;
+    customers[idx].aiConfig = customers[idx].aiConfig || {};
+    customers[idx].aiConfig.modelPolicy = { mini: mini ?? 70, std: std ?? 25, adv: adv ?? 5 };
+    localStorage.setItem('crmCustomers', JSON.stringify(customers));
+    if (typeof window.crmState !== 'undefined') window.crmState.customers = customers;
+    if (window.pushCrmToBackend) window.pushCrmToBackend('customers');
+};
 /**
  * Log Helper for CRM Activities
  */
@@ -680,7 +757,7 @@ window.renderPipeline = function () {
             }
 
             return `
-            <div class="dealCard" draggable="true" ondragstart="drag(event, '${d.id}')" onclick="openDealModal('${d.id}')" id="deal-${d.id}" style="
+            <div class="dealCard" draggable="true" ondragstart="drag(event, '${d.id}')" onclick="openEditDealModal('${d.id}')" id="deal-${d.id}" style="
                 background:var(--panel); 
                 padding:12px; 
                 margin-bottom:10px; 

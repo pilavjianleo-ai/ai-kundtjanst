@@ -6118,6 +6118,33 @@ function updateDealStageInsideStorage(id, stage) {
     if (typeof pushCrmToBackend === 'function') pushCrmToBackend('deals');
     renderPipeline();
     if (typeof renderCrmDashboard === 'function') renderCrmDashboard();
+    try {
+      const subj = `Affär flyttad till "${stage}"`;
+      const targetId = deals[idx].customerId || deals[idx].id;
+      const followUp = { stage, addDays: stage === 'proposal' ? 2 : (stage === 'negotiation' ? 3 : 0) };
+      // Log immediate activity
+      logActivity({
+        type: 'deal',
+        subject: subj,
+        description: `Affär "${deals[idx].name || deals[idx].title || ''}" uppdaterad.`,
+        targetId,
+        date: new Date().toISOString(),
+        status: 'done'
+      });
+      // Schedule reminder if applicable
+      if (followUp.addDays > 0) {
+        const dt = new Date();
+        dt.setDate(dt.getDate() + followUp.addDays);
+        logActivity({
+          type: 'task',
+          subject: followUp.stage === 'proposal' ? 'Följ upp offert' : 'Uppföljning förhandling',
+          description: 'Automatisk påminnelse (SLA)',
+          targetId,
+          date: dt.toISOString().slice(0, 10),
+          status: 'planned'
+        });
+      }
+    } catch (e) { console.warn('Aktivitetslogg misslyckades', e); }
   }
 }
 
@@ -6207,7 +6234,10 @@ window.updateDeal = function () {
 
   deals[idx].name = document.getElementById('editDealName').value;
   deals[idx].value = parseInt(document.getElementById('editDealValue').value) || 0;
-  deals[idx].stage = document.getElementById('editDealStage').value;
+  let stageVal = document.getElementById('editDealStage').value;
+  // Map legacy "qualified" to current "contact"
+  if (stageVal === 'qualified') stageVal = 'contact';
+  deals[idx].stage = stageVal;
   deals[idx].description = document.getElementById('editDealDesc').value;
 
   localStorage.setItem('crmDeals', JSON.stringify(deals));

@@ -802,7 +802,7 @@
         <div id="tabUsers" class="tabPanel" style="display:none;">
           <div class="panel">
             <div class="panelHead">
-              <b>Användare</b>
+              <h3 style="margin:0; font-weight:800; font-size:18px;">Användare</h3>
               <button id="adminUsersRefreshBtn" class="btn ghost small" style="margin-left:auto;" type="button">
                 <i class="fa-solid fa-rotate"></i> Uppdatera
               </button>
@@ -1338,6 +1338,12 @@
               <h5 style="margin-bottom:15px; color:var(--text-muted); font-size:11px; text-transform:uppercase;">
                 Modellfördelning (%)</h5>
               <div class="row gap" style="margin-bottom:10px;">
+                <label class="small-label" style="display:flex; align-items:center; gap:8px;">
+                  <input type="checkbox" id="aiAutoRouting" checked onchange="syncAiSplits('auto')">
+                  Automatisk routing (optimera kostnad)
+                </label>
+              </div>
+              <div class="row gap" style="margin-bottom:10px;">
                 <div style="flex:1;">
                   <div style="font-size:12px; font-weight:600; margin-bottom:5px;">GPT-5-mini (Simpla)</div>
                   <input type="range" id="splitMini" min="0" max="100" value="75"
@@ -1399,12 +1405,15 @@
                 <div id="resMarginValue" style="font-size:42px; font-weight:900; color:var(--ok); margin:5px 0;">0 kr
                 </div>
                 <div class="small muted" id="marginNote">Beräknat på Netto Intäkt - LLM Kostnad</div>
+                <div class="alert warn tiny" id="marginWarning" style="display:none; margin-top:10px;">
+                  <i class="fa-solid fa-triangle-exclamation"></i> Marginal under tröskelvärde – åtgärder rekommenderas.
+                </div>
               </div>
 
               <div class="divider" style="margin:20px 0;"></div>
               <div style="display:flex; justify-content:space-between; font-size:12px;" class="muted">
                 <span>Snittkostnad per chatt: <b id="resAvgChatCost" style="color:var(--text);">0 kr</b></span>
-                <span>Växelkurs USD/SEK: <b>11.50</b></span>
+                <span>Växelkurs USD/SEK: <b id="resExchRate">11.50</b></span>
               </div>
 
               <div style="margin-top:25px;">
@@ -3148,7 +3157,8 @@
             <label>Fas</label>
             <select id="editDealStage" class="input">
               <option value="new">Nytt Lead</option>
-              <option value="qualified">Kvalificerad</option>
+              <option value="contact">Kontakt Etablerad</option>
+              <option value="demo">Demo / Möte</option>
               <option value="proposal">Offert Skickad</option>
               <option value="negotiation">Förhandling</option>
               <option value="won">Vunnen</option>
@@ -3162,6 +3172,10 @@
       <div class="modalFooter"
         style="padding:20px; border-top:1px solid var(--border); display:flex; justify-content:flex-end; gap:10px;">
         <button class="btn ghost" onclick="closeCrmModal('crmEditDealModal')">Avbryt</button>
+        <button class="btn danger"
+          onclick="(function(){ const id=document.getElementById('editDealId').value; if(id) window.deleteDeal(id); closeCrmModal('crmEditDealModal'); })()">
+          <i class="fa-solid fa-trash"></i> Radera
+        </button>
         <button class="btn primary" onclick="updateDeal()">Spara ändringar</button>
       </div>
     </div>
