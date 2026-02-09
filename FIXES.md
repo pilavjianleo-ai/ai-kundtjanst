@@ -68,6 +68,12 @@
 - ✅ Valde Vanilla JavaScript som frontend-lösning
 - ✅ Komplett separation mellan frontend och backend
 
+### 7. **CRM & INBOX UI RESTORATION** ✅
+- ✅ **CRM Panel UI** - Återställt Kundkortet som en utfällbar accordion inom sektionen "Senaste Händelser".
+- ✅ **Agent Inbox** - Åtgärdat saknad "Kundkort"-knapp genom att rensa dubbla funktionsdefinitioner i `script.js`.
+- ✅ **Responsivitet** - Säkerställt att desktop-layouten är orörd genom att isolera mobiloptimeringar till specifika media queries.
+- ✅ **Cache Management** - Bumpat versionering till `v=2026.16` i `index.html` för att säkerställa att ändringar slår igenom.
+
 ---
 
 ## 🚀 HUR MAN STARTAR APPLIKATIONEN
