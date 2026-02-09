@@ -769,7 +769,7 @@ window.renderPipeline = function () {
                 transition:transform 0.2s;
             ">
                 <div class="dealCompany" style="font-size:13px; font-weight:600; margin-bottom:4px; display:flex; justify-content:space-between;">
-                    ${d.title} ${warningHtml}
+                    ${d.name || d.title || 'Namnlös affär'} ${warningHtml}
                 </div>
                 <div style="font-size:11px; color:var(--muted); margin-bottom:8px;">${customerName}</div>
                 
