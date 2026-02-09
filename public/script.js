@@ -2801,32 +2801,59 @@ async function selectInboxTicket(ticketId) {
   state.inboxSelectedTicket = state.inboxTickets.find((t) => t._id === ticketId) || null;
   const box = $("ticketDetails");
   if (!box || !state.inboxSelectedTicket) return;
-  const t = await api("/tickets/" + ticketId);
-  const msgs = (t.messages || [])
-    .map((m) => `<div class="muted small"><b>${escapeHtml(m.role)}:</b> ${escapeHtml(m.content)}</div>`)
-    .join("<br>");
-  box.innerHTML = `
-    <div class="row" style="justify-content:space-between; align-items:flex-start;">
-        <div>
-            <b>${escapeHtml(t.title || "Ticket")}</b><br>
-            <span class="muted small">${escapeHtml(t.publicTicketId)} • ${escapeHtml(t.status)}</span>
-        </div>
-        <button class="btn ghost small" onclick="summarizeTicket('${t._id}')">
-            <i class="fa-solid fa-wand-magic-sparkles"></i> AI Sammanfatta
-        </button>
-    </div>
-    <div id="ticketSummaryContent" class="alert info small" style="display:none; margin-top:10px;"></div>
-    <div class="divider"></div>
-    ${msgs || "<div class='muted small'>Inga meddelanden ännu.</div>"}
-  `;
-  const priSel = $("ticketPrioritySelect");
-  if (priSel) priSel.value = t.priority || "normal";
-  if (t.internalNotes && t.internalNotes.length > 0) {
-    const notesHtml = t.internalNotes.map(n => `<div class="alert info tiny" style="margin-top:5px; border-style:dashed;"><i class="fa-solid fa-note-sticky"></i> ${escapeHtml(n.content)}</div>`).join("");
-    box.innerHTML += `<div style="margin-top:15px;"><b>Interna noter:</b>${notesHtml}</div>`;
+
+  try {
+    box.innerHTML = `<div class="muted small center" style="padding:20px;">Laddar ärende...</div>`;
+    const t = await api("/tickets/" + ticketId);
+    if (!t) throw new Error("Kunde inte hämta ärendet.");
+    state.inboxSelectedTicket = t;
+
+    const msgs = (t.messages || [])
+      .map((m) => `<div class="muted small"><b>${escapeHtml(m.role)}:</b> ${escapeHtml(m.content)}</div>`)
+      .join("<br>");
+
+    box.innerHTML = `
+      <div class="row" style="justify-content:space-between; align-items:flex-start; margin-bottom:15px;">
+          <div style="flex:1;">
+              <div style="font-size:18px; font-weight:700; color:var(--text); margin-bottom:6px;">${escapeHtml(t.title || "Ärende")}</div>
+              <div style="display:flex; align-items:center; flex-wrap:wrap; gap:8px;">
+                <span class="pill muted">#${escapeHtml(t.publicTicketId)}</span>
+                <span class="pill ${t.status === 'solved' ? 'ok' : t.status === 'high' ? 'danger' : 'info'}">${escapeHtml(t.status?.toUpperCase())}</span>
+                <span class="muted small"><i class="fa-solid fa-building" style="font-size:10px;"></i> ${escapeHtml(t.companyId || 'demo')}</span>
+                
+                <!-- CUSTOMER CARD BUTTON -->
+                <button class="btn ${t.contactInfo && (t.contactInfo.name || t.contactInfo.email) ? 'primary' : 'ghost'} tiny" 
+                        onclick="showTicketContactModal('${t._id}')" 
+                        style="margin-left:10px; padding:4px 10px; border-radius:6px; font-size:11px;">
+                    <i class="fa-solid fa-address-card"></i> Kundkort
+                </button>
+              </div>
+          </div>
+          <button class="btn ghost small" onclick="summarizeTicket('${t._id}')" style="white-space:nowrap;">
+              <i class="fa-solid fa-wand-magic-sparkles"></i> AI Sammanfatta
+          </button>
+      </div>
+      <div id="ticketSummaryContent" class="alert info small" style="display:none; margin-top:10px;"></div>
+      <div class="divider"></div>
+      <div class="messageList" style="max-height:400px; overflow-y:auto;">
+        ${msgs || "<div class='muted small'>Inga meddelanden ännu.</div>"}
+      </div>
+    `;
+
+    const priSel = $("ticketPrioritySelect");
+    if (priSel) priSel.value = t.priority || "normal";
+
+    if (t.internalNotes && t.internalNotes.length > 0) {
+      const notesHtml = t.internalNotes.map(n => `<div class="alert info tiny" style="margin-top:5px; border-style:dashed;"><i class="fa-solid fa-note-sticky"></i> ${escapeHtml(n.content)}</div>`).join("");
+      box.innerHTML += `<div style="margin-top:15px;"><b>Interna noter:</b>${notesHtml}</div>`;
+    }
+    const userSel = $("assignUserSelect");
+    if (userSel) userSel.value = t.assignedToUserId || "";
+
+  } catch (e) {
+    console.error("Select ticket error:", e);
+    box.innerHTML = `<div class="alert error">Kunde inte öppna ärendet: ${e.message}</div>`;
   }
-  const userSel = $("assignUserSelect");
-  if (userSel) userSel.value = t.assignedToUserId || "";
 }
 
 async function summarizeTicket(id) {

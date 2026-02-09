@@ -98,6 +98,32 @@ function renderCrmDashboard() {
                 </div>`;
             }).join('');
 
+            // NEW: Kundkort Accordion (Most recent customer info)
+            const latestCustomer = customers.length > 0 ? customers[customers.length - 1] : null;
+            let kundkortHtml = '';
+
+            if (latestCustomer) {
+                kundkortHtml = `
+                <div class="accordion-item" style="border:1px solid var(--border); border-radius:12px; background:var(--panel2); overflow:hidden; box-shadow:0 4px 12px rgba(0,0,0,0.03); margin-top:12px;">
+                    <div class="accordion-header" onclick="toggleAccordion('crmCustomerCardBody')" style="padding:15px; display:flex; align-items:center; justify-content:space-between; cursor:pointer; background:var(--panel); transition:all 0.2s;">
+                        <div style="display:flex; align-items:center; gap:10px; font-weight:700; color:var(--text); font-size:14px;">
+                            <i class="fa-solid fa-address-card" style="color:var(--primary);"></i> 
+                            Kundkort: ${latestCustomer.name}
+                        </div>
+                        <i class="fa-solid fa-chevron-down accordion-icon" id="icon-crmCustomerCardBody" style="font-size:12px; transition:transform 0.3s; color:var(--muted); transform:rotate(180deg);"></i>
+                    </div>
+                    <div id="crmCustomerCardBody" class="accordion-content" style="display:block; padding:15px; background:var(--bg);">
+                        <div class="grid2" style="gap:10px; font-size:12px;">
+                            <div><span class="muted">Ansvarig:</span> ${latestCustomer.contact || '-'}</div>
+                            <div><span class="muted">Status:</span> <span class="pill tiny ${latestCustomer.status === 'prospect' ? 'warn' : 'ok'}">${latestCustomer.status?.toUpperCase()}</span></div>
+                            <div><span class="muted">E-post:</span> ${latestCustomer.email || '-'}</div>
+                            <div><span class="muted">Region:</span> ${latestCustomer.address?.city || 'Okänd'}</div>
+                        </div>
+                        <button class="btn ghost tiny full" onclick="openCustomerModal('${latestCustomer.name}')" style="margin-top:10px; font-size:10px;">Visa 360-graders vy</button>
+                    </div>
+                </div>`;
+            }
+
             feed.innerHTML = `
                 <div class="accordion-item" style="border:1px solid var(--border); border-radius:12px; background:var(--panel2); overflow:hidden; box-shadow:0 4px 12px rgba(0,0,0,0.03);">
                     <div class="accordion-header" onclick="toggleAccordion('crmTimelineBody')" style="padding:15px; display:flex; align-items:center; justify-content:space-between; cursor:pointer; background:var(--panel); transition:all 0.2s;">
@@ -114,6 +140,7 @@ function renderCrmDashboard() {
                         ${listItemsHtml}
                     </div>
                 </div>
+                ${kundkortHtml}
             `;
         } else {
             feed.innerHTML = `<div class="muted center" style="padding:20px; font-size:13px;">Inga aktiviteter loggade än.</div>`;
