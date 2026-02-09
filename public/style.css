@@ -4298,63 +4298,60 @@ body[data-theme="light"] .messages {
 }
 
 /* =========================================
-   RESPONSIVE & MOBILE OPTIMIZATIONS (ENHANCED)
+   RESPONSIVE & MOBILE OPTIMIZATIONS (ULTIMATE)
    ========================================= */
 
 /* Mobile / Tablet (< 900px matching JS logic) */
 @media (max-width: 900px) {
-  .app {
-    flex-direction: column;
-    height: 100vh;
-    overflow: hidden;
+
+  /* Prevent horizontal overflow and enforce base font size to stop iOS zoom */
+  html,
+  body {
+    overflow-x: hidden !important;
+    width: 100vw;
+    font-size: 16px;
+    line-height: 1.5;
   }
 
-  /* Sidebar Navigation - Premium Mobile Style */
+  .app {
+    flex-direction: column !important;
+    height: 100vh;
+    height: -webkit-fill-available;
+    overflow: hidden !important;
+    display: flex !important;
+  }
+
+  /* Sidebar Navigation - Fixed Overlay */
   .sidebar {
-    position: fixed;
+    position: fixed !important;
     top: 0;
     left: 0;
     bottom: 0;
-    width: 290px;
-    z-index: 2000;
+    width: 290px !important;
+    max-width: 85vw !important;
+    z-index: 9999 !important;
     transform: translateX(-100%);
     transition: transform 0.4s cubic-bezier(0.16, 1, 0.3, 1);
-    box-shadow: 20px 0 50px rgba(0, 0, 0, 0.5);
+    box-shadow: 20px 0 50px rgba(0, 0, 0, 0.4);
     background: var(--panel2);
-    padding-top: env(safe-area-inset-top, 20px);
+    display: flex !important;
+    flex-direction: column;
   }
 
   .sidebar.active {
     transform: translateX(0);
   }
 
-  /* Mobile Menu Button Style */
-  .mobile-menu-btn {
-    background: var(--panel);
-    border: 1px solid var(--border);
-    color: var(--text);
-    width: 40px;
-    height: 40px;
-    border-radius: 10px;
-    cursor: pointer;
-    font-size: 18px;
-    display: flex !important;
-    align-items: center;
-    justify-content: center;
-    margin-right: 10px;
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-  }
-
-  /* Overlay for mobile menu */
+  /* Mobile Overlay (Darker/Blur) */
   .mobile-overlay {
     position: fixed;
     inset: 0;
-    background: rgba(0, 0, 0, 0.4);
-    z-index: 1999;
+    background: rgba(0, 0, 0, 0.5);
+    backdrop-filter: blur(5px);
+    z-index: 9998;
     opacity: 0;
     pointer-events: none;
-    transition: all 0.3s ease;
-    backdrop-filter: blur(4px);
+    transition: opacity 0.3s;
   }
 
   .mobile-overlay.active {
@@ -4362,126 +4359,182 @@ body[data-theme="light"] .messages {
     pointer-events: auto;
   }
 
-  /* Mobile Topbar Adjustments */
+  /* Main Area - Continuous Scroll */
+  .main {
+    flex: 1 !important;
+    width: 100% !important;
+    padding: 12px !important;
+    overflow-y: auto !important;
+    overflow-x: hidden !important;
+    -webkit-overflow-scrolling: touch;
+    display: block !important;
+  }
+
+  /* Topbar Adjustments */
   .topbar {
-    padding: 12px 15px !important;
+    margin-bottom: 12px !important;
+    flex-direction: column;
+    align-items: stretch !important;
     height: auto !important;
-    min-height: 60px;
-    border-bottom: 1px solid var(--border);
-    backdrop-filter: blur(10px);
-    background: var(--glass);
-    position: sticky;
-    top: 0;
-    z-index: 1000;
+    padding: 12px !important;
   }
 
   .topbarActions {
+    margin-top: 10px;
+    justify-content: flex-start;
     gap: 8px !important;
   }
 
   .topbarActions .btn span {
     display: none;
-    /* Hide button text on mobile for space */
+    /* Icon-only for space */
   }
 
-  /* Main Area Adjustments */
-  .main {
-    width: 100% !important;
-    padding: 15px !important;
-    overflow-y: auto;
+  /* CRM TAB NAVIGATION - Horizontal scrolling "Pill" menu */
+  .crmNav {
+    display: flex !important;
+    overflow-x: auto !important;
+    white-space: nowrap !important;
+    gap: 10px !important;
+    padding: 12px 6px !important;
+    margin-bottom: 20px !important;
+    border-bottom: 2px solid var(--border);
     -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
   }
 
-  /* Grid Collapse - User friendly stacking */
+  .crmNav::-webkit-scrollbar {
+    display: none;
+  }
+
+  .crmNav button {
+    flex: 0 0 auto !important;
+    padding: 10px 20px !important;
+    border-radius: 25px !important;
+    font-size: 14px !important;
+    font-weight: 600 !important;
+    min-height: 44px !important;
+    background: var(--panel2) !important;
+    border: 1px solid var(--border) !important;
+    color: var(--muted) !important;
+    position: relative;
+    transition: all 0.2s ease;
+  }
+
+  /* Remove original line-under style on mobile for buttons */
+  .crmNav button::after {
+    display: none !important;
+  }
+
+  .crmNav button.active {
+    background: var(--primary) !important;
+    color: white !important;
+    border-color: var(--primary) !important;
+    box-shadow: 0 4px 12px var(--primary-fade);
+  }
+
+  /* GRIDS COLLAPSE - Stack items vertically */
   .grid2,
   .grid3,
-  .grid4 {
-    grid-template-columns: 1fr !important;
-    gap: 15px !important;
+  .grid4,
+  .crmDashGrid {
+    display: flex !important;
+    flex-direction: column !important;
+    gap: 16px !important;
   }
 
-  /* Results Grid in AI Cost Analysis - Special handling for mobile */
+  /* Results Grid in AI Cost Analysis - 2 per row for visual balance */
   #crm_ai_cost .grid4 {
+    display: grid !important;
     grid-template-columns: 1fr 1fr !important;
-    /* Keep 2 per row for better symmetry */
   }
 
-  @media (max-width: 480px) {
-    #crm_ai_cost .grid4 {
-      grid-template-columns: 1fr !important;
-    }
+  /* PANELS FIX - Prevent parts from being "stuck" or cut off */
+  .panel,
+  .card {
+    width: 100% !important;
+    max-width: 100% !important;
+    padding: 15px !important;
+    height: auto !important;
+    min-height: auto !important;
+    overflow: visible !important;
   }
 
-  /* Customer Profile Grid */
+  /* MODAL - Full height bottom sheet for mobile */
+  .modalContent {
+    width: 100% !important;
+    max-width: 100% !important;
+    height: 94vh !important;
+    margin: 0 !important;
+    top: 6vh !important;
+    border-radius: 20px 20px 0 0 !important;
+    display: flex !important;
+    flex-direction: column;
+  }
+
+  .modalBody {
+    overflow-y: auto !important;
+    padding-bottom: 50px !important;
+  }
+
+  /* CUSTOMER PROFILE */
   .customerProfileLayout {
-    grid-template-columns: 1fr !important;
+    display: flex !important;
+    flex-direction: column !important;
   }
 
-  /* Better Chat UI on Mobile */
-  .messages {
-    padding: 10px !important;
+  .customerSidebar {
+    width: 100% !important;
+    border-right: none !important;
+    border-bottom: 1px solid var(--border) !important;
+    padding: 20px !important;
   }
 
+  /* BUBBLES - Better reading width */
   .bubble {
-    max-width: 88% !important;
-    font-size: 14px !important;
+    font-size: 15px !important;
+    max-width: 92% !important;
+    padding: 12px 16px !important;
   }
 
-  .chat-input-area {
-    padding: 10px !important;
-    background: var(--panel);
+  /* INPUTS - Large enough for No-Zoom & easy touch */
+  .input,
+  .textarea,
+  select {
+    font-size: 16px !important;
+    min-height: 48px !important;
+    padding: 12px 14px !important;
   }
 
-  /* Pipeline/Kanban - Proper mobile scrolling */
+  /* Pipeline/Kanban - Proper touch scrolling */
   .pipelineContainer {
     display: flex !important;
-    overflow-x: auto;
+    overflow-x: auto !important;
     gap: 12px;
-    padding-bottom: 20px;
+    padding: 10px 5px !important;
     -webkit-overflow-scrolling: touch;
-    height: auto !important;
+    height: 70vh !important;
   }
 
   .pipelineColumn {
     min-width: 85vw !important;
     max-width: 85vw !important;
-  }
-
-  /* Stats Cards - More compact on mobile */
-  .crmStatCard {
-    padding: 15px !important;
-  }
-
-  .crmStatValue {
-    font-size: 20px !important;
-  }
-
-  /* Modal Enhancements */
-  .modalContent {
-    width: 95% !important;
-    margin: 5% auto;
-    border-radius: 20px !important;
-    max-height: 90vh;
-  }
-
-  /* Hide elements for cleaner mobile view */
-  .hide-mobile {
-    display: none !important;
+    flex: 0 0 auto !important;
   }
 }
 
-/* Touch targets for mobile */
+/* Base touch targets for coarse pointers (finger touch) */
 @media (pointer: coarse) {
 
   .menuBtn,
   .btn,
   .listItem,
   .input {
-    min-height: 44px;
+    min-height: 48px !important;
   }
 }
 
-/* Fix for iOS Safari height issues */
+/* Fix for iOS Safari height issues (Dynamic Viewport Units) */
 @supports (-webkit-touch-callout: none) {
   .app {
     height: -webkit-fill-available;
