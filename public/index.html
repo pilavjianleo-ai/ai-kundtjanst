@@ -2857,660 +2857,598 @@
           </div>
         </div>
 
-        <!-- VIEW: SLA & KPI -->
-        <section id="slaView" class="view" style="display:none;">
-          <div class="topbar">
-            <div>
-              <div class="title">SLA & KPI Dashboard</div>
-              <div class="subtitle muted">Övervaka prestanda och servicenivåer i realtid.</div>
+      </section>
+
+    </main>
+  </div>
+
+  <!-- CUSTOMER FEEDBACK MODAL -->
+  <div id="feedbackModal" class="modal" style="display: none;">
+    <div class="modalContent" style="max-width: 400px; text-align: center;">
+      <div class="modalHeader">
+        <h3><i class="fa-solid fa-star" style="color: var(--warn);"></i> Hur var din upplevelse?</h3>
+        <button class="modalClose" onclick="closeFeedbackModal()">&times;</button>
+      </div>
+      <div class="modalBody" style="padding: 25px;">
+        <p class="muted" style="margin-bottom: 20px;">Din feedback hjälper oss att förbättra vår service!</p>
+
+        <!-- Star Rating -->
+        <div id="starRatingContainer" style="display: flex; justify-content: center; gap: 8px; margin-bottom: 20px;">
+          <button type="button" class="starBtn" data-rating="1" onclick="setFeedbackRating(1)"
+            style="background: none; border: none; cursor: pointer; font-size: 36px; color: var(--muted); transition: all 0.2s;">☆</button>
+          <button type="button" class="starBtn" data-rating="2" onclick="setFeedbackRating(2)"
+            style="background: none; border: none; cursor: pointer; font-size: 36px; color: var(--muted); transition: all 0.2s;">☆</button>
+          <button type="button" class="starBtn" data-rating="3" onclick="setFeedbackRating(3)"
+            style="background: none; border: none; cursor: pointer; font-size: 36px; color: var(--muted); transition: all 0.2s;">☆</button>
+          <button type="button" class="starBtn" data-rating="4" onclick="setFeedbackRating(4)"
+            style="background: none; border: none; cursor: pointer; font-size: 36px; color: var(--muted); transition: all 0.2s;">☆</button>
+          <button type="button" class="starBtn" data-rating="5" onclick="setFeedbackRating(5)"
+            style="background: none; border: none; cursor: pointer; font-size: 36px; color: var(--muted); transition: all 0.2s;">☆</button>
+        </div>
+
+        <input type="hidden" id="feedbackRatingValue" value="0" />
+        <input type="hidden" id="feedbackTargetType" value="ai" />
+        <input type="hidden" id="feedbackTargetAgentId" value="" />
+
+        <!-- Optional Comment -->
+        <textarea id="feedbackComment" class="input" rows="3" placeholder="Berätta mer (valfritt)..."
+          style="width: 100%; margin-bottom: 20px; resize: none;"></textarea>
+
+        <div style="display: flex; gap: 10px; justify-content: center;">
+          <button id="skipFeedbackBtn" class="btn ghost" onclick="closeFeedbackModal()" type="button">Hoppa
+            över</button>
+          <button id="submitFeedbackBtn" class="btn primary" onclick="submitCustomerFeedback()" type="button">
+            <i class="fa-solid fa-paper-plane"></i> Skicka
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- VIEW: SLA & ANALYTICS -->
+  <section id="slaView" class="view" style="display:none;">
+    <div class="topbar">
+      <div class="title">SLA & Prestanda</div>
+      <div class="subtitle muted">Övervaka supportteamets effektivitet och svarstider.</div>
+    </div>
+    <div class="panel">
+      <div class="grid3 gap">
+        <div class="card">
+          <div class="cardHead">Lösningsgrad</div>
+          <div class="statValue" id="slaSolveRate">-</div>
+        </div>
+        <div class="card">
+          <div class="cardHead">Snittsvarstid</div>
+          <div class="statValue" id="slaAvgTime">-</div>
+        </div>
+        <div class="card">
+          <div class="cardHead">Kundnöjdhet (CSAT)</div>
+          <div class="statValue" id="slaCsat">-</div>
+        </div>
+      </div>
+
+      <div class="panelHead" style="margin-top:20px;"><b>Agent Prestanda</b></div>
+      <div id="slaAgentList" class="list">Laddar...</div>
+    </div>
+  </section>
+
+  <!-- VIEW: FEEDBACK -->
+  <section id="feedbackView" class="view" style="display:none;">
+    <div class="topbar">
+      <div class="title">Kundfeedback</div>
+      <div class="topbarActions">
+        <select id="fbPeriodFilter" class="input smallInput" onchange="loadFeedback()">
+          <option value="7">7 dagar</option>
+          <option value="30" selected>30 dagar</option>
+          <option value="all">All tid</option>
+        </select>
+        <button class="btn ghost icon" onclick="loadFeedback()"><i class="fa-solid fa-rotate"></i></button>
+      </div>
+    </div>
+
+    <div class="grid2 gap">
+      <div class="panel">
+        <div class="panelHead"><b>AI Analys</b> <span class="badge highlight">Beta</span></div>
+        <div id="aiAnalysisContent" class="soft center" style="padding:20px;">
+          <button class="btn secondary" onclick="getAiAnalysis()">Analysera Feedback</button>
+        </div>
+      </div>
+      <div class="panel">
+        <div class="panelHead"><b>Inkomna Svar</b></div>
+        <div id="feedbackList" class="list" style="max-height:500px; overflow-y:auto;"></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- VIEW: PRODUCT SIMULATOR -->
+  <section id="simulatorView" class="view" style="display:none;">
+    <div class="topbar">
+      <div class="title">Produktsimulator</div>
+      <div class="subtitle muted">Visualisera produkter i AI-genererade miljöer.</div>
+    </div>
+
+    <div class="grid2 gap">
+      <div class="panel">
+        <div class="panelHead"><b>Konfiguration</b></div>
+        <div class="grid2 gap">
+          <div class="col">
+            <label>Produktnamn</label>
+            <input id="simProductName" class="input" placeholder="T.ex. Lounge Soffa 3-sits">
+          </div>
+          <div class="col">
+            <label>Kategori</label>
+            <select id="simProductCategory" class="input">
+              <option value="furniture">Möbler</option>
+              <option value="lighting">Belysning</option>
+              <option value="decor">Inredning</option>
+              <option value="electronics">Elektronik</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="grid2 gap">
+          <div class="col">
+            <label>Rumaryp</label>
+            <select id="simRoomType" class="input">
+              <option value="living_room">Vardagsrum</option>
+              <option value="bedroom">Sovrum</option>
+              <option value="kitchen">Kök</option>
+              <option value="office">Kontor</option>
+            </select>
+          </div>
+          <div class="col">
+            <label>Stil</label>
+            <select id="simStyle" class="input">
+              <option value="modern">Modern</option>
+              <option value="scandinavian">Skandinavisk</option>
+              <option value="industrial">Industriell</option>
+              <option value="classic">Klassisk</option>
+            </select>
+          </div>
+        </div>
+
+        <button id="simGenerateBtn" class="btn primary full" style="margin-top:20px;">
+          <i class="fa-solid fa-wand-magic-sparkles"></i> Generera Visualisering
+        </button>
+      </div>
+
+      <div class="panel center" id="simResultArea" style="display:none; background:#000;">
+        <img id="simResultImage" style="max-width:100%; max-height:400px; border-radius:8px;">
+        <div id="simResultPrompt" class="muted small" style="margin-top:10px; color:#aaa;"></div>
+      </div>
+    </div>
+
+    <div class="panel" style="margin-top:20px;">
+      <div class="panelHead"><b>Historik</b></div>
+      <div id="simHistoryList" class="horizontalScroll"></div>
+    </div>
+  </section>
+
+  <!-- MODAL: ADD DEAL (ADVANCED) -->
+  <div id="crmAddDealModal" class="modal" style="display: none;">
+    <div class="modalContent" style="max-width: 700px; padding:0; display:flex; flex-direction:column; height:80vh;">
+      <div class="modalHeader" style="padding:20px; border-bottom:1px solid var(--border);">
+        <h3><i class="fa-solid fa-briefcase"></i> Ny Affärsmöjlighet</h3>
+        <button class="btn ghost small" onclick="closeCrmModal('crmAddDealModal')"><i
+            class="fa-solid fa-times"></i></button>
+      </div>
+
+      <div class="modalBody" style="flex:1; overflow-y:auto; padding:20px;">
+        <div class="grid2 gap">
+          <div class="col">
+            <label>Affärens namn *</label>
+            <input id="dealName" class="input" placeholder="T.ex. Q3 Licenser + Support" />
+          </div>
+          <div class="col">
+            <label>Kopplad Kund (Företag) *</label>
+            <input id="dealCompanyInput" class="input" list="dealCompanyList" placeholder="Sök företag..."
+              oninput="filterCompanyList(this)" />
+            <datalist id="dealCompanyList">
+              <!-- Populated via JS -->
+            </datalist>
+          </div>
+        </div>
+
+        <div class="grid2 gap">
+          <div class="col">
+            <label>Affärsvärde (SEK)</label>
+            <div class="inputGroup">
+              <input id="dealValue" type="number" class="input" placeholder="0" />
+              <span class="inputSuffix">kr</span>
             </div>
-            <div class="topbarActions">
-              <button class="btn ghost small" onclick="loadSlaStats()"><i class="fa-solid fa-rotate"></i>
-                Uppdatera</button>
-              <button class="btn primary small"><i class="fa-solid fa-download"></i> Rapport</button>
+          </div>
+          <div class="col">
+            <label>Sannolikhet (%)</label>
+            <input id="dealProb" type="range" class="input" min="0" max="100" value="50"
+              oninput="this.nextElementSibling.textContent = this.value + '%'" />
+            <div style="text-align:right; font-size:12px; font-weight:bold; color:var(--primary);">50%</div>
+          </div>
+        </div>
+
+        <div class="grid2 gap">
+          <div class="col">
+            <label>Pipeline Fas</label>
+            <select id="dealStage" class="input">
+              <option value="new">Nytt Lead</option>
+              <option value="qualified">Kvalificerad</option>
+              <option value="proposal">Offert Skickad</option>
+              <option value="negotiation">Förhandling</option>
+              <option value="won">Vunnen (Stängd)</option>
+              <option value="lost">Förlorad</option>
+            </select>
+          </div>
+          <div class="col">
+            <label>Förväntat Avslut</label>
+            <input id="dealCloseDate" type="date" class="input" />
+          </div>
+        </div>
+
+        <div class="grid2 gap">
+          <div class="col">
+            <label>Affärstyp</label>
+            <select id="dealType" class="input">
+              <option value="new">Nyförsäljning</option>
+              <option value="upsell">Merköp / Uppgradering</option>
+              <option value="renewal">Förnyelse</option>
+            </select>
+          </div>
+          <div class="col">
+            <label>Ansvarig Säljare</label>
+            <select id="dealOwner" class="input">
+              <option value="me">Jag</option>
+              <option value="team">Säljteamet</option>
+            </select>
+          </div>
+        </div>
+
+        <label>Beskrivning / Produkter</label>
+        <textarea id="dealDesc" class="input" style="height:80px; resize:none;"
+          placeholder="Vad ingår i affären?"></textarea>
+
+        <label>Nästa Steg</label>
+        <input id="dealNextStep" class="input" placeholder="T.ex. Skicka avtalsutkast..." />
+      </div>
+
+      <div class="modalFooter"
+        style="padding:20px; border-top:1px solid var(--border); display:flex; justify-content:flex-end; gap:10px; background:var(--panel);">
+        <button class="btn ghost" onclick="closeCrmModal('crmAddDealModal')">Avbryt</button>
+        <button class="btn primary" onclick="saveNewDealAdvanced()">
+          <i class="fa-solid fa-plus"></i> Skapa Affär
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL: EDIT DEAL -->
+  <div id="crmEditDealModal" class="modal" style="display: none;">
+    <div class="modalContent" style="max-width: 700px; padding:0; display:flex; flex-direction:column; height:80vh;">
+      <div class="modalHeader" style="padding:20px; border-bottom:1px solid var(--border);">
+        <h3><i class="fa-solid fa-pen-to-square"></i> Redigera Affär</h3>
+        <button class="btn ghost small" onclick="closeCrmModal('crmEditDealModal')"><i
+            class="fa-solid fa-times"></i></button>
+      </div>
+      <div class="modalBody" style="flex:1; overflow-y:auto; padding:20px;">
+        <input type="hidden" id="editDealId" />
+        <div class="grid2 gap">
+          <div class="col">
+            <label>Affärens namn</label>
+            <input id="editDealName" class="input" />
+          </div>
+          <div class="col">
+            <label>Företag</label>
+            <input id="editDealCompany" class="input" disabled />
+          </div>
+        </div>
+        <div class="grid2 gap">
+          <div class="col">
+            <label>Värde (SEK)</label>
+            <input id="editDealValue" type="number" class="input" />
+          </div>
+          <div class="col">
+            <label>Fas</label>
+            <select id="editDealStage" class="input">
+              <option value="new">Nytt Lead</option>
+              <option value="qualified">Kvalificerad</option>
+              <option value="proposal">Offert Skickad</option>
+              <option value="negotiation">Förhandling</option>
+              <option value="won">Vunnen</option>
+              <option value="lost">Förlorad</option>
+            </select>
+          </div>
+        </div>
+        <label>Beskrivning</label>
+        <textarea id="editDealDesc" class="input" style="height:80px; resize:none;"></textarea>
+      </div>
+      <div class="modalFooter"
+        style="padding:20px; border-top:1px solid var(--border); display:flex; justify-content:flex-end; gap:10px;">
+        <button class="btn ghost" onclick="closeCrmModal('crmEditDealModal')">Avbryt</button>
+        <button class="btn primary" onclick="updateDeal()">Spara ändringar</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL: LOG ACTIVITY -->
+  <div id="crmLogActivityModal" class="modal" style="display: none;">
+    <div class="modalContent" style="max-width: 500px;">
+      <div class="modalHeader">
+        <h3><i class="fa-solid fa-list-check"></i> Logga Aktivitet</h3>
+        <button class="btn ghost small" onclick="closeCrmModal('crmLogActivityModal')"><i
+            class="fa-solid fa-times"></i></button>
+      </div>
+      <div class="modalBody">
+        <label>Typ av aktivitet</label>
+        <div class="row gap" style="margin-bottom:15px;">
+          <button class="btn ghost small activityTypeBtn active" onclick="setActivityType('call', this)"><i
+              class="fa-solid fa-phone"></i> Samtal</button>
+          <button class="btn ghost small activityTypeBtn" onclick="setActivityType('meeting', this)"><i
+              class="fa-solid fa-users"></i> Möte</button>
+          <button class="btn ghost small activityTypeBtn" onclick="setActivityType('email', this)"><i
+              class="fa-solid fa-envelope"></i> E-post</button>
+          <button class="btn ghost small activityTypeBtn" onclick="setActivityType('task', this)"><i
+              class="fa-solid fa-check"></i> Uppgift</button>
+        </div>
+
+        <label>Rubrik / Ämne</label>
+        <input id="actSubject" class="input" placeholder="T.ex. Uppföljning av offert" />
+
+        <label>Beskrivning</label>
+        <textarea id="actDesc" class="input" style="height:80px;"
+          placeholder="Anteckningar från mötet/samtalet..."></textarea>
+
+        <div class="row gap">
+          <div class="col">
+            <label>Datum</label>
+            <input id="actDate" type="date" class="input" />
+          </div>
+          <div class="col">
+            <label>Status</label>
+            <select id="actStatus" class="input">
+              <option value="done">Utförd</option>
+              <option value="planned">Planerad</option>
+            </select>
+          </div>
+        </div>
+
+        <input type="hidden" id="actType" value="call" />
+        <input type="hidden" id="actTargetId" /> <!-- Customer or Deal ID -->
+
+        <button class="btn primary full" onclick="saveActivity()" style="margin-top:20px;">Spara</button>
+      </div>
+    </div>
+  </div><!-- MODAL: ADD CUSTOMER (FULL ENTERPRISE) -->
+  <div id="crmAddCustomerModal" class="modal" style="display: none;">
+    <div class="modalContent" style="max-width: 850px; height: 85vh; display:flex; flex-direction:column; padding:0;">
+      <div class="modalHeader" style="padding: 20px; border-bottom: 1px solid var(--border);">
+        <h3><i class="fa-solid fa-building"></i> Ny Företagskund</h3>
+        <button class="btn ghost small" onclick="closeCrmModal('crmAddCustomerModal')"><i
+            class="fa-solid fa-times"></i></button>
+      </div>
+
+      <!-- Tabs for Modal -->
+      <div class="tabs" style="border-bottom:1px solid var(--border); padding:0 20px; background:var(--panel2);">
+        <button class="tabBtn active" onclick="setModalTab('modalTabBasic', this)"
+          style="padding: 15px 20px;">Grunduppgifter</button>
+        <button class="tabBtn" onclick="setModalTab('modalTabContact', this)" style="padding: 15px 20px;">Kontakt &
+          Adress</button>
+        <button class="tabBtn" onclick="setModalTab('modalTabAi', this)" style="padding: 15px 20px;">AI &
+          System</button>
+      </div>
+
+      <div class="modalBody" style="flex:1; overflow-y:auto; padding:20px;">
+
+        <!-- TAB: BASIC -->
+        <div id="modalTabBasic" class="modalTabContent">
+          <div class="grid2 gap" style="margin-bottom:15px;">
+            <div class="col">
+              <label>Företagsnamn *</label>
+              <input id="custName" class="input" placeholder="T.ex. TechCorp AB" />
+            </div>
+            <div class="col">
+              <label>Organisationsnummer</label>
+              <input id="custOrgNr" class="input" placeholder="55XXXX-XXXX" />
             </div>
           </div>
 
-          <div class="grid4" style="margin-bottom:20px;">
-            <div class="slaCard" style="border-left:4px solid var(--primary);">
-              <div class="slaLabel">Svarsfrekvens (SLA)</div>
-              <div class="slaValue">98.5%</div>
-              <div class="slaDelta up" style="color:var(--ok);">+2.1%</div>
-            </div>
-            <div class="slaCard" style="border-left:4px solid var(--ok);">
-              <div class="slaLabel">Kundnöjdhet (CSAT)</div>
-              <div class="slaValue">4.8/5</div>
-              <div class="slaDelta up" style="color:var(--ok);">Top Class</div>
-            </div>
-            <div class="slaCard" style="border-left:4px solid var(--warn);">
-              <div class="slaLabel">Snitt Svarstid</div>
-              <div class="slaValue">45s</div>
-              <div class="slaDelta down" style="color:var(--ok);">-12s (Snabbare)</div>
-            </div>
-            <div class="slaCard" style="border-left:4px solid var(--danger);">
-              <div class="slaLabel">Eskalerade Ärenden</div>
-              <div class="slaValue">14 st</div>
-              <div class="slaDelta small">Kräver åtgärd</div>
-            </div>
-          </div>
-
-          <div class="grid2" style="gap:20px;">
-            <div class="panel">
-              <div class="panelHead"><b><i class="fa-solid fa-chart-area"></i> Volym & Trender</b></div>
-              <div style="height:300px; position:relative;">
-                <!-- Chart.js canvas -->
-                <canvas id="slaChart"></canvas>
-                <div id="chartFallback" class="muted center"
-                  style="display:none; position:absolute; top:50%; left:50%; transform:translate(-50%, -50%);">
-                  <i class="fa-solid fa-chart-line" style="font-size:48px; margin-bottom:10px; opacity:0.3;"></i>
-                  <p>Laddar graf...</p>
-                </div>
-              </div>
-            </div>
-
-            <div class="panel">
-              <div class="panelHead"><b><i class="fa-solid fa-list-check"></i> Aktiva SLA-brott</b></div>
-              <div class="list">
-                <div class="listItem" style="border-left:3px solid var(--danger);">
-                  <div class="listItemTitle">Order #9921 - Leveransfel</div>
-                  <div class="muted small">Överskreds för 2h sedan • Agent: Ingen</div>
-                </div>
-                <div class="listItem" style="border-left:3px solid var(--warn);">
-                  <div class="listItemTitle">Fakturafråga - TechCorp</div>
-                  <div class="muted small">Varning: 15 min kvar • Agent: Maria</div>
-                </div>
-                <div class="listItem" style="border-left:3px solid var(--warn);">
-                  <div class="listItemTitle">Inloggningsproblem</div>
-                  <div class="muted small">Varning: 30 min kvar • Agent: Auto-AI</div>
-                </div>
-              </div>
-            </div>
-          </div>
-        </section>
-
-        <!-- VIEW: FEEDBACK & INSIGHTS -->
-        <section id="feedbackView" class="view" style="display:none;">
-          <div class="topbar">
-            <div>
-              <div class="title">Kundfeedback & Insikter</div>
-              <div class="subtitle muted">Analysera vad kunderna egentligen tycker.</div>
-            </div>
-            <div class="topbarActions">
-              <select id="fbPeriodFilter" class="input small" onchange="loadFeedback()" style="width:auto;">
-                <option value="7">Senaste 7 dagarna</option>
-                <option value="30" selected>Senaste 30 dagarna</option>
-                <option value="90">Senaste kvartalet</option>
+          <div class="grid2 gap" style="margin-bottom:15px;">
+            <div class="col">
+              <label>Bransch</label>
+              <select id="custIndustry" class="input">
+                <option value="">Välj...</option>
+                <option value="IT">IT & Teknik</option>
+                <option value="Retail">Handel / E-handel</option>
+                <option value="Construction">Bygg & Fastighet</option>
+                <option value="Service">Tjänsteföretag</option>
+                <option value="Finance">Bank & Finans</option>
+                <option value="Public">Offentlig Sektor</option>
+                <option value="Other">Annat</option>
               </select>
-              <select id="fbTypeFilter" class="input small" onchange="loadFeedback()" style="width:auto;">
-                <option value="">All Feedback</option>
-                <option value="ai">AI-Agent</option>
-                <option value="human">Mänsklig Agent</option>
+            </div>
+            <div class="col">
+              <label>Webbplats</label>
+              <input id="custWeb" class="input" placeholder="https://..." />
+            </div>
+          </div>
+
+          <div class="grid2 gap" style="margin-bottom:15px;">
+            <div class="col">
+              <label>Status</label>
+              <select id="custStatus" class="input">
+                <option value="prospect">Prospekt (Lead)</option>
+                <option value="customer" selected>Aktiv Kund</option>
+                <option value="inactive">Inaktiv</option>
+                <option value="churn">Före detta Kund</option>
               </select>
+            </div>
+            <div class="col">
+              <label>Kontoägare (Säljare)</label>
+              <select id="custOwner" class="input">
+                <option value="me">Jag (Nuvarande användare)</option>
+                <option value="unassigned">Ej tilldelad</option>
+              </select>
+            </div>
+          </div>
+
+          <div style="margin-top:10px;">
+            <label>Interna Anteckningar</label>
+            <textarea id="custNotes" class="input" style="height:80px; resize:none;"
+              placeholder="Kort beskrivning av verksamheten, behov och historik..."></textarea>
+          </div>
+        </div>
+
+        <!-- TAB: CONTACT & ADDRESS -->
+        <div id="modalTabContact" class="modalTabContent" style="display:none;">
+          <h4
+            style="margin-bottom:15px; border-bottom:1px solid var(--border); padding-bottom:5px; color:var(--primary);">
+            Primär Kontaktperson</h4>
+          <div class="grid2 gap" style="margin-bottom:15px;">
+            <div class="col">
+              <label>Förnamn</label>
+              <input id="custContactFirst" class="input" />
+            </div>
+            <div class="col">
+              <label>Efternamn</label>
+              <input id="custContactLast" class="input" />
+            </div>
+          </div>
+          <div class="grid2 gap" style="margin-bottom:15px;">
+            <div class="col">
+              <label>E-post *</label>
+              <input id="custEmail" type="email" class="input" placeholder="namn@foretag.se" />
+            </div>
+            <div class="col">
+              <label>Telefon / Mobil</label>
+              <input id="custPhone" class="input" placeholder="+46..." />
+            </div>
+          </div>
+          <div class="col" style="margin-bottom:20px;">
+            <label>Befattning / Roll</label>
+            <input id="custRole" class="input" placeholder="T.ex. VD, IT-chef, Inköpare" />
+          </div>
+
+          <h4
+            style="margin:25px 0 15px; border-bottom:1px solid var(--border); padding-bottom:5px; color:var(--primary);">
+            Adressuppgifter</h4>
+          <div class="col" style="margin-bottom:15px;">
+            <label>Gatuadress</label>
+            <input id="custAddress" class="input" placeholder="Storgatan 1" />
+          </div>
+          <div class="grid2 gap" style="margin-bottom:15px;">
+            <div class="col">
+              <label>Postnummer</label>
+              <input id="custZip" class="input" placeholder="123 45" />
+            </div>
+            <div class="col">
+              <label>Ort</label>
+              <input id="custCity" class="input" placeholder="Stockholm" />
+            </div>
+          </div>
+          <div class="col">
+            <label>Land</label>
+            <select id="custCountry" class="input">
+              <option value="SE" selected>Sverige</option>
+              <option value="NO">Norge</option>
+              <option value="DK">Danmark</option>
+              <option value="FI">Finland</option>
+              <option value="Other">Annat</option>
+            </select>
+          </div>
+        </div>
+
+        <!-- TAB: AI & SYSTEM -->
+        <div id="modalTabAi" class="modalTabContent" style="display:none;">
+          <div class="aiSetupBox"
+            style="background:rgba(76, 125, 255, 0.05); border:1px dashed var(--primary); padding:20px; border-radius:8px; margin-bottom:20px;">
+            <div class="row gap" style="align-items:flex-start; display:flex;">
+              <input type="checkbox" id="custAiDeploy" checked
+                style="width:20px; height:20px; margin-top:5px; accent-color:var(--primary);" />
+              <div style="margin-left:10px;">
+                <b style="color:var(--primary); font-size:16px;">Aktivera AI Kundtjänst (Auto-Deploy) 🤖</b>
+                <p class="muted" style="margin-top:5px; line-height:1.5; font-size:13px;">
+                  När du sparar kunden konfigureras AI-agenten automatiskt med unik API-nyckel och grundläggande
+                  kunskap.
+                </p>
+              </div>
             </div>
           </div>
 
           <div class="grid2 gap">
-            <!-- AI Analysis Column -->
-            <div class="col" style="flex:1;">
-              <div class="panel highlight">
-                <div class="panelHead"><b><i class="fa-solid fa-robot"></i> AI Sentiment Analys</b></div>
-                <div id="aiAnalysisContent">
-                  <div class="muted center" style="padding:40px;">
-                    <button class="btn primary" onclick="getAiAnalysis()"><i
-                        class="fa-solid fa-wand-magic-sparkles"></i> Analysera Feedback Nu</button>
-                  </div>
-                </div>
-              </div>
+            <div class="col">
+              <label>AI-Modell</label>
+              <select id="custAiModel" class="input">
+                <option value="gpt-4o">GPT-4o (Rekommenderad)</option>
+                <option value="gpt-4-turbo">GPT-4 Turbo</option>
+                <option value="gpt-3.5-turbo">GPT-3.5 Turbo</option>
+              </select>
             </div>
-
-            <!-- Feedback List Column -->
-            <div class="col" style="flex:1.5;">
-              <div class="panel">
-                <div class="panelHead" style="display:flex; justify-content:space-between;">
-                  <b>Inkomna Svar</b>
-                  <button class="btn ghost small" onclick="loadFeedback()"><i class="fa-solid fa-rotate"></i></button>
-                </div>
-                <div id="feedbackList" class="list" style="max-height:600px; overflow-y:auto;">
-                  <!-- Populated by JS -->
-                  <div class="muted center" style="padding:20px;">Laddar feedback...</div>
-                </div>
-              </div>
-            </div>
-          </div>
-        </section>
-
-        <!-- VIEW: CUSTOMER SETTINGS (Manage Company) -->
-        <section id="customerSettingsView" class="view" style="display:none;">
-          <div class="topbar">
-            <div>
-              <div class="title">Företagsinställningar</div>
-              <div class="subtitle muted">Konfigurera profil och varumärke.</div>
-            </div>
-          </div>
-          <div class="panel" style="max-width:800px;">
-            <div class="panelHead"><b><i class="fa-solid fa-building"></i> Profil</b></div>
-            <div class="grid2 gap">
-              <div class="col">
-                <label>Visningsnamn</label>
-                <input class="input" placeholder="T.ex. Mitt Företag AB">
-              </div>
-              <div class="col">
-                <label>Bransch</label>
-                <select class="input">
-                  <option>E-handel</option>
-                  <option>SaaS</option>
-                  <option>Konsult</option>
-                </select>
-              </div>
-            </div>
-            <button class="btn primary" style="margin-top:20px;">Spara Profil</button>
-          </div>
-        </section>
-
-        <!-- VIEW: SALES ANALYTICS (Placeholder) -->
-        <section id="salesView" class="view" style="display:none;">
-          <div class="topbar">
-            <div class="title">Säljanalys</div>
-          </div>
-          <div class="panel center" style="padding:80px 20px;">
-            <i class="fa-solid fa-chart-column"
-              style="font-size:64px; color:var(--primary); opacity:0.3; margin-bottom:20px;"></i>
-            <h3>Djupgående Analys</h3>
-            <p class="muted" style="max-width:400px; margin:0 auto;">Våra data scientists arbetar på att ta fram
-              avancerade rapporter för din försäljning. Lanseras i Q2.</p>
-          </div>
-        </section>
-
-        <!-- VIEW: PRODUCT SIMULATOR (Placeholder) -->
-        <section id="simulatorView" class="view" style="display:none;">
-          <div class="topbar">
-            <div class="title">Produktsimulator</div>
-          </div>
-          <div class="panel center" style="padding:80px 20px;">
-            <i class="fa-solid fa-wand-magic-sparkles"
-              style="font-size:64px; color:var(--primary); opacity:0.3; margin-bottom:20px;"></i>
-            <h3>Produktsimulator</h3>
-            <p class="muted" style="max-width:400px; margin:0 auto;">Simulera hur nya produkter skulle prestera med
-              hjälp av vår AI-motor.</p>
-            <button class="btn primary" style="margin-top:20px;"
-              onclick="toast('Info', 'Demoläge ej aktivt än', 'info')">Begär tidig åtkomst</button>
-          </div>
-        </section>
-
-        <!-- CUSTOMER FEEDBACK MODAL -->
-        <div id="feedbackModal" class="modal" style="display: none;">
-          <div class="modalContent" style="max-width: 400px; text-align: center;">
-            <div class="modalHeader">
-              <h3><i class="fa-solid fa-star" style="color: var(--warn);"></i> Hur var din upplevelse?</h3>
-              <button class="modalClose" onclick="closeFeedbackModal()">&times;</button>
-            </div>
-            <div class="modalBody" style="padding: 25px;">
-              <p class="muted" style="margin-bottom: 20px;">Din feedback hjälper oss att förbättra vår service!</p>
-
-              <!-- Star Rating -->
-              <div id="starRatingContainer"
-                style="display: flex; justify-content: center; gap: 8px; margin-bottom: 20px;">
-                <button type="button" class="starBtn" data-rating="1" onclick="setFeedbackRating(1)"
-                  style="background: none; border: none; cursor: pointer; font-size: 36px; color: var(--muted); transition: all 0.2s;">☆</button>
-                <button type="button" class="starBtn" data-rating="2" onclick="setFeedbackRating(2)"
-                  style="background: none; border: none; cursor: pointer; font-size: 36px; color: var(--muted); transition: all 0.2s;">☆</button>
-                <button type="button" class="starBtn" data-rating="3" onclick="setFeedbackRating(3)"
-                  style="background: none; border: none; cursor: pointer; font-size: 36px; color: var(--muted); transition: all 0.2s;">☆</button>
-                <button type="button" class="starBtn" data-rating="4" onclick="setFeedbackRating(4)"
-                  style="background: none; border: none; cursor: pointer; font-size: 36px; color: var(--muted); transition: all 0.2s;">☆</button>
-                <button type="button" class="starBtn" data-rating="5" onclick="setFeedbackRating(5)"
-                  style="background: none; border: none; cursor: pointer; font-size: 36px; color: var(--muted); transition: all 0.2s;">☆</button>
-              </div>
-
-              <input type="hidden" id="feedbackRatingValue" value="0" />
-              <input type="hidden" id="feedbackTargetType" value="ai" />
-              <input type="hidden" id="feedbackTargetAgentId" value="" />
-
-              <!-- Optional Comment -->
-              <textarea id="feedbackComment" class="input" rows="3" placeholder="Berätta mer (valfritt)..."
-                style="width: 100%; margin-bottom: 20px; resize: none;"></textarea>
-
-              <div style="display: flex; gap: 10px; justify-content: center;">
-                <button id="skipFeedbackBtn" class="btn ghost" onclick="closeFeedbackModal()" type="button">Hoppa
-                  över</button>
-                <button id="submitFeedbackBtn" class="btn primary" onclick="submitCustomerFeedback()" type="button">
-                  <i class="fa-solid fa-paper-plane"></i> Skicka
-                </button>
-              </div>
+            <div class="col">
+              <label>Språkstöd</label>
+              <select id="custAiLang" class="input">
+                <option value="sv">Svenska (Primärt)</option>
+                <option value="en">Engelska</option>
+                <option value="multi">Flerspråkig (Auto-detect)</option>
+              </select>
             </div>
           </div>
         </div>
 
-        <!-- MODAL: ADD DEAL (ADVANCED) -->
-        <div id="crmAddDealModal" class="modal" style="display: none;">
-          <div class="modalContent"
-            style="max-width: 700px; padding:0; display:flex; flex-direction:column; height:80vh;">
-            <div class="modalHeader" style="padding:20px; border-bottom:1px solid var(--border);">
-              <h3><i class="fa-solid fa-briefcase"></i> Ny Affärsmöjlighet</h3>
-              <button class="btn ghost small" onclick="closeCrmModal('crmAddDealModal')"><i
-                  class="fa-solid fa-times"></i></button>
-            </div>
+      </div>
 
-            <div class="modalBody" style="flex:1; overflow-y:auto; padding:20px;">
-              <div class="grid2 gap">
-                <div class="col">
-                  <label>Affärens namn *</label>
-                  <input id="dealName" class="input" placeholder="T.ex. Q3 Licenser + Support" />
-                </div>
-                <div class="col">
-                  <label>Kopplad Kund (Företag) *</label>
-                  <input id="dealCompanyInput" class="input" list="dealCompanyList" placeholder="Sök företag..."
-                    oninput="filterCompanyList(this)" />
-                  <datalist id="dealCompanyList">
-                    <!-- Populated via JS -->
-                  </datalist>
-                </div>
-              </div>
-
-              <div class="grid2 gap">
-                <div class="col">
-                  <label>Affärsvärde (SEK)</label>
-                  <div class="inputGroup">
-                    <input id="dealValue" type="number" class="input" placeholder="0" />
-                    <span class="inputSuffix">kr</span>
-                  </div>
-                </div>
-                <div class="col">
-                  <label>Sannolikhet (%)</label>
-                  <input id="dealProb" type="range" class="input" min="0" max="100" value="50"
-                    oninput="this.nextElementSibling.textContent = this.value + '%'" />
-                  <div style="text-align:right; font-size:12px; font-weight:bold; color:var(--primary);">50%</div>
-                </div>
-              </div>
-
-              <div class="grid2 gap">
-                <div class="col">
-                  <label>Pipeline Fas</label>
-                  <select id="dealStage" class="input">
-                    <option value="new">Nytt Lead</option>
-                    <option value="qualified">Kvalificerad</option>
-                    <option value="proposal">Offert Skickad</option>
-                    <option value="negotiation">Förhandling</option>
-                    <option value="won">Vunnen (Stängd)</option>
-                    <option value="lost">Förlorad</option>
-                  </select>
-                </div>
-                <div class="col">
-                  <label>Förväntat Avslut</label>
-                  <input id="dealCloseDate" type="date" class="input" />
-                </div>
-              </div>
-
-              <div class="grid2 gap">
-                <div class="col">
-                  <label>Affärstyp</label>
-                  <select id="dealType" class="input">
-                    <option value="new">Nyförsäljning</option>
-                    <option value="upsell">Merköp / Uppgradering</option>
-                    <option value="renewal">Förnyelse</option>
-                  </select>
-                </div>
-                <div class="col">
-                  <label>Ansvarig Säljare</label>
-                  <select id="dealOwner" class="input">
-                    <option value="me">Jag</option>
-                    <option value="team">Säljteamet</option>
-                  </select>
-                </div>
-              </div>
-
-              <label>Beskrivning / Produkter</label>
-              <textarea id="dealDesc" class="input" style="height:80px; resize:none;"
-                placeholder="Vad ingår i affären?"></textarea>
-
-              <label>Nästa Steg</label>
-              <input id="dealNextStep" class="input" placeholder="T.ex. Skicka avtalsutkast..." />
-            </div>
-
-            <div class="modalFooter"
-              style="padding:20px; border-top:1px solid var(--border); display:flex; justify-content:flex-end; gap:10px; background:var(--panel);">
-              <button class="btn ghost" onclick="closeCrmModal('crmAddDealModal')">Avbryt</button>
-              <button class="btn primary" onclick="saveNewDealAdvanced()">
-                <i class="fa-solid fa-plus"></i> Skapa Affär
-              </button>
-            </div>
-          </div>
+      <div class="modalFooter"
+        style="padding:20px; border-top:1px solid var(--border); display:flex; justify-content:flex-end; gap:10px; background:var(--panel);">
+        <button class="btn ghost" onclick="closeCrmModal('crmAddCustomerModal')">Avbryt</button>
+        <button class="btn primary" onclick="saveNewCustomerExpanded()">
+          <i class="fa-solid fa-check"></i> Spara Kund & Konfigurera
+        </button>
+      </div>
+    </div>
+  </div><!-- AI DEPLOYMENT OVERLAY (Fake Loader) -->
+  <div id="aiDeployOverlay" class="modal"
+    style="display:none; align-items:center; justify-content:center; background:var(--overlay); backdrop-filter: blur(4px);">
+    <div style="text-align:center; color:var(--text); width:300px;">
+      <i class="fa-solid fa-circle-notch fa-spin" style="font-size:48px; color:var(--primary); margin-bottom:20px;"></i>
+      <h2 id="aiDeployText" style="margin-bottom:10px;">Konfigurerar AI-agent...</h2>
+      <div id="aiDeploySub" class="muted" style="margin-bottom:15px;">Analyserar företagsdata</div>
+      <div style="width:100%; height:4px; background:var(--glass-border); border-radius:2px; overflow:hidden;">
+        <div id="aiDeployBar" style="width:0%; height:100%; background:var(--primary); transition: width 0.5s ease;">
         </div>
+      </div>
+    </div>
+  </div>
 
-        <!-- MODAL: EDIT DEAL -->
-        <div id="crmEditDealModal" class="modal" style="display: none;">
-          <div class="modalContent"
-            style="max-width: 700px; padding:0; display:flex; flex-direction:column; height:80vh;">
-            <div class="modalHeader" style="padding:20px; border-bottom:1px solid var(--border);">
-              <h3><i class="fa-solid fa-pen-to-square"></i> Redigera Affär</h3>
-              <button class="btn ghost small" onclick="closeCrmModal('crmEditDealModal')"><i
-                  class="fa-solid fa-times"></i></button>
-            </div>
-            <div class="modalBody" style="flex:1; overflow-y:auto; padding:20px;">
-              <input type="hidden" id="editDealId" />
-              <div class="grid2 gap">
-                <div class="col">
-                  <label>Affärens namn</label>
-                  <input id="editDealName" class="input" />
-                </div>
-                <div class="col">
-                  <label>Företag</label>
-                  <input id="editDealCompany" class="input" disabled />
-                </div>
-              </div>
-              <div class="grid2 gap">
-                <div class="col">
-                  <label>Värde (SEK)</label>
-                  <input id="editDealValue" type="number" class="input" />
-                </div>
-                <div class="col">
-                  <label>Fas</label>
-                  <select id="editDealStage" class="input">
-                    <option value="new">Nytt Lead</option>
-                    <option value="qualified">Kvalificerad</option>
-                    <option value="proposal">Offert Skickad</option>
-                    <option value="negotiation">Förhandling</option>
-                    <option value="won">Vunnen</option>
-                    <option value="lost">Förlorad</option>
-                  </select>
-                </div>
-              </div>
-              <label>Beskrivning</label>
-              <textarea id="editDealDesc" class="input" style="height:80px; resize:none;"></textarea>
-            </div>
-            <div class="modalFooter"
-              style="padding:20px; border-top:1px solid var(--border); display:flex; justify-content:flex-end; gap:10px;">
-              <button class="btn ghost" onclick="closeCrmModal('crmEditDealModal')">Avbryt</button>
-              <button class="btn primary" onclick="updateDeal()">Spara ändringar</button>
-            </div>
+  <!-- Ticket Contact Popup Modal -->
+  <div id="ticketContactModal" class="modal"
+    style="display:none; align-items:center; justify-content:center; z-index:9999;">
+    <div class="modalContent card" style="width:420px; max-width:95%; animation: zoomIn 0.2s ease;">
+      <div class="modalHeader"
+        style="display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid var(--border); padding-bottom:15px; margin-bottom:15px;">
+        <div style="font-weight:700; font-size:16px; display:flex; align-items:center; gap:8px;">
+          <div
+            style="width:32px; height:32px; background:var(--primary-fade); color:var(--primary); border-radius:50%; display:flex; align-items:center; justify-content:center;">
+            <i class="fa-solid fa-address-card"></i>
           </div>
+          Kundkort
         </div>
+        <button class="btn ghost icon small"
+          onclick="document.getElementById('ticketContactModal').style.display='none'"><i
+            class="fa-solid fa-times"></i></button>
+      </div>
+      <div id="ticketContactBody" style="display:flex; flex-direction:column; gap:15px;"></div>
+      <div class="modalFooter" style="margin-top:20px; border-top:1px solid var(--border); padding-top:15px;">
+        <button class="btn primary full"
+          onclick="document.getElementById('ticketContactModal').style.display='none'">Stäng</button>
+      </div>
+    </div>
+  </div>
 
-        <!-- MODAL: LOG ACTIVITY -->
-        <div id="crmLogActivityModal" class="modal" style="display: none;">
-          <div class="modalContent" style="max-width: 500px;">
-            <div class="modalHeader">
-              <h3><i class="fa-solid fa-list-check"></i> Logga Aktivitet</h3>
-              <button class="btn ghost small" onclick="closeCrmModal('crmLogActivityModal')"><i
-                  class="fa-solid fa-times"></i></button>
-            </div>
-            <div class="modalBody">
-              <label>Typ av aktivitet</label>
-              <div class="row gap" style="margin-bottom:15px;">
-                <button class="btn ghost small activityTypeBtn active" onclick="setActivityType('call', this)"><i
-                    class="fa-solid fa-phone"></i> Samtal</button>
-                <button class="btn ghost small activityTypeBtn" onclick="setActivityType('meeting', this)"><i
-                    class="fa-solid fa-users"></i> Möte</button>
-                <button class="btn ghost small activityTypeBtn" onclick="setActivityType('email', this)"><i
-                    class="fa-solid fa-envelope"></i> E-post</button>
-                <button class="btn ghost small activityTypeBtn" onclick="setActivityType('task', this)"><i
-                    class="fa-solid fa-check"></i> Uppgift</button>
-              </div>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js" defer></script>
+  <script src="https://cdn.socket.io/4.7.5/socket.io.min.js" defer></script>
 
-              <label>Rubrik / Ämne</label>
-              <input id="actSubject" class="input" placeholder="T.ex. Uppföljning av offert" />
-
-              <label>Beskrivning</label>
-              <textarea id="actDesc" class="input" style="height:80px;"
-                placeholder="Anteckningar från mötet/samtalet..."></textarea>
-
-              <div class="row gap">
-                <div class="col">
-                  <label>Datum</label>
-                  <input id="actDate" type="date" class="input" />
-                </div>
-                <div class="col">
-                  <label>Status</label>
-                  <select id="actStatus" class="input">
-                    <option value="done">Utförd</option>
-                    <option value="planned">Planerad</option>
-                  </select>
-                </div>
-              </div>
-
-              <input type="hidden" id="actType" value="call" />
-              <input type="hidden" id="actTargetId" /> <!-- Customer or Deal ID -->
-
-              <button class="btn primary full" onclick="saveActivity()" style="margin-top:20px;">Spara</button>
-            </div>
-          </div>
-        </div><!-- MODAL: ADD CUSTOMER (FULL ENTERPRISE) -->
-        <div id="crmAddCustomerModal" class="modal" style="display: none;">
-          <div class="modalContent"
-            style="max-width: 850px; height: 85vh; display:flex; flex-direction:column; padding:0;">
-            <div class="modalHeader" style="padding: 20px; border-bottom: 1px solid var(--border);">
-              <h3><i class="fa-solid fa-building"></i> Ny Företagskund</h3>
-              <button class="btn ghost small" onclick="closeCrmModal('crmAddCustomerModal')"><i
-                  class="fa-solid fa-times"></i></button>
-            </div>
-
-            <!-- Tabs for Modal -->
-            <div class="tabs" style="border-bottom:1px solid var(--border); padding:0 20px; background:var(--panel2);">
-              <button class="tabBtn active" onclick="setModalTab('modalTabBasic', this)"
-                style="padding: 15px 20px;">Grunduppgifter</button>
-              <button class="tabBtn" onclick="setModalTab('modalTabContact', this)" style="padding: 15px 20px;">Kontakt
-                &
-                Adress</button>
-              <button class="tabBtn" onclick="setModalTab('modalTabAi', this)" style="padding: 15px 20px;">AI &
-                System</button>
-            </div>
-
-            <div class="modalBody" style="flex:1; overflow-y:auto; padding:20px;">
-
-              <!-- TAB: BASIC -->
-              <div id="modalTabBasic" class="modalTabContent">
-                <div class="grid2 gap" style="margin-bottom:15px;">
-                  <div class="col">
-                    <label>Företagsnamn *</label>
-                    <input id="custName" class="input" placeholder="T.ex. TechCorp AB" />
-                  </div>
-                  <div class="col">
-                    <label>Organisationsnummer</label>
-                    <input id="custOrgNr" class="input" placeholder="55XXXX-XXXX" />
-                  </div>
-                </div>
-
-                <div class="grid2 gap" style="margin-bottom:15px;">
-                  <div class="col">
-                    <label>Bransch</label>
-                    <select id="custIndustry" class="input">
-                      <option value="">Välj...</option>
-                      <option value="IT">IT & Teknik</option>
-                      <option value="Retail">Handel / E-handel</option>
-                      <option value="Construction">Bygg & Fastighet</option>
-                      <option value="Service">Tjänsteföretag</option>
-                      <option value="Finance">Bank & Finans</option>
-                      <option value="Public">Offentlig Sektor</option>
-                      <option value="Other">Annat</option>
-                    </select>
-                  </div>
-                  <div class="col">
-                    <label>Webbplats</label>
-                    <input id="custWeb" class="input" placeholder="https://..." />
-                  </div>
-                </div>
-
-                <div class="grid2 gap" style="margin-bottom:15px;">
-                  <div class="col">
-                    <label>Status</label>
-                    <select id="custStatus" class="input">
-                      <option value="prospect">Prospekt (Lead)</option>
-                      <option value="customer" selected>Aktiv Kund</option>
-                      <option value="inactive">Inaktiv</option>
-                      <option value="churn">Före detta Kund</option>
-                    </select>
-                  </div>
-                  <div class="col">
-                    <label>Kontoägare (Säljare)</label>
-                    <select id="custOwner" class="input">
-                      <option value="me">Jag (Nuvarande användare)</option>
-                      <option value="unassigned">Ej tilldelad</option>
-                    </select>
-                  </div>
-                </div>
-
-                <div style="margin-top:10px;">
-                  <label>Interna Anteckningar</label>
-                  <textarea id="custNotes" class="input" style="height:80px; resize:none;"
-                    placeholder="Kort beskrivning av verksamheten, behov och historik..."></textarea>
-                </div>
-              </div>
-
-              <!-- TAB: CONTACT & ADDRESS -->
-              <div id="modalTabContact" class="modalTabContent" style="display:none;">
-                <h4
-                  style="margin-bottom:15px; border-bottom:1px solid var(--border); padding-bottom:5px; color:var(--primary);">
-                  Primär Kontaktperson</h4>
-                <div class="grid2 gap" style="margin-bottom:15px;">
-                  <div class="col">
-                    <label>Förnamn</label>
-                    <input id="custContactFirst" class="input" />
-                  </div>
-                  <div class="col">
-                    <label>Efternamn</label>
-                    <input id="custContactLast" class="input" />
-                  </div>
-                </div>
-                <div class="grid2 gap" style="margin-bottom:15px;">
-                  <div class="col">
-                    <label>E-post *</label>
-                    <input id="custEmail" type="email" class="input" placeholder="namn@foretag.se" />
-                  </div>
-                  <div class="col">
-                    <label>Telefon / Mobil</label>
-                    <input id="custPhone" class="input" placeholder="+46..." />
-                  </div>
-                </div>
-                <div class="col" style="margin-bottom:20px;">
-                  <label>Befattning / Roll</label>
-                  <input id="custRole" class="input" placeholder="T.ex. VD, IT-chef, Inköpare" />
-                </div>
-
-                <h4
-                  style="margin:25px 0 15px; border-bottom:1px solid var(--border); padding-bottom:5px; color:var(--primary);">
-                  Adressuppgifter</h4>
-                <div class="col" style="margin-bottom:15px;">
-                  <label>Gatuadress</label>
-                  <input id="custAddress" class="input" placeholder="Storgatan 1" />
-                </div>
-                <div class="grid2 gap" style="margin-bottom:15px;">
-                  <div class="col">
-                    <label>Postnummer</label>
-                    <input id="custZip" class="input" placeholder="123 45" />
-                  </div>
-                  <div class="col">
-                    <label>Ort</label>
-                    <input id="custCity" class="input" placeholder="Stockholm" />
-                  </div>
-                </div>
-                <div class="col">
-                  <label>Land</label>
-                  <select id="custCountry" class="input">
-                    <option value="SE" selected>Sverige</option>
-                    <option value="NO">Norge</option>
-                    <option value="DK">Danmark</option>
-                    <option value="FI">Finland</option>
-                    <option value="Other">Annat</option>
-                  </select>
-                </div>
-              </div>
-
-              <!-- TAB: AI & SYSTEM -->
-              <div id="modalTabAi" class="modalTabContent" style="display:none;">
-                <div class="aiSetupBox"
-                  style="background:rgba(76, 125, 255, 0.05); border:1px dashed var(--primary); padding:20px; border-radius:8px; margin-bottom:20px;">
-                  <div class="row gap" style="align-items:flex-start; display:flex;">
-                    <input type="checkbox" id="custAiDeploy" checked
-                      style="width:20px; height:20px; margin-top:5px; accent-color:var(--primary);" />
-                    <div style="margin-left:10px;">
-                      <b style="color:var(--primary); font-size:16px;">Aktivera AI Kundtjänst (Auto-Deploy) 🤖</b>
-                      <p class="muted" style="margin-top:5px; line-height:1.5; font-size:13px;">
-                        När du sparar kunden konfigureras AI-agenten automatiskt med unik API-nyckel och grundläggande
-                        kunskap.
-                      </p>
-                    </div>
-                  </div>
-                </div>
-
-                <div class="grid2 gap">
-                  <div class="col">
-                    <label>AI-Modell</label>
-                    <select id="custAiModel" class="input">
-                      <option value="gpt-4o">GPT-4o (Rekommenderad)</option>
-                      <option value="gpt-4-turbo">GPT-4 Turbo</option>
-                      <option value="gpt-3.5-turbo">GPT-3.5 Turbo</option>
-                    </select>
-                  </div>
-                  <div class="col">
-                    <label>Språkstöd</label>
-                    <select id="custAiLang" class="input">
-                      <option value="sv">Svenska (Primärt)</option>
-                      <option value="en">Engelska</option>
-                      <option value="multi">Flerspråkig (Auto-detect)</option>
-                    </select>
-                  </div>
-                </div>
-              </div>
-
-            </div>
-
-            <div class="modalFooter"
-              style="padding:20px; border-top:1px solid var(--border); display:flex; justify-content:flex-end; gap:10px; background:var(--panel);">
-              <button class="btn ghost" onclick="closeCrmModal('crmAddCustomerModal')">Avbryt</button>
-              <button class="btn primary" onclick="saveNewCustomerExpanded()">
-                <i class="fa-solid fa-check"></i> Spara Kund & Konfigurera
-              </button>
-            </div>
-          </div>
-        </div><!-- AI DEPLOYMENT OVERLAY (Fake Loader) -->
-        <div id="aiDeployOverlay" class="modal"
-          style="display:none; align-items:center; justify-content:center; background:var(--overlay); backdrop-filter: blur(4px);">
-          <div style="text-align:center; color:var(--text); width:300px;">
-            <i class="fa-solid fa-circle-notch fa-spin"
-              style="font-size:48px; color:var(--primary); margin-bottom:20px;"></i>
-            <h2 id="aiDeployText" style="margin-bottom:10px;">Konfigurerar AI-agent...</h2>
-            <div id="aiDeploySub" class="muted" style="margin-bottom:15px;">Analyserar företagsdata</div>
-            <div style="width:100%; height:4px; background:var(--glass-border); border-radius:2px; overflow:hidden;">
-              <div id="aiDeployBar"
-                style="width:0%; height:100%; background:var(--primary); transition: width 0.5s ease;">
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <!-- Ticket Contact Popup Modal -->
-        <div id="ticketContactModal" class="modal"
-          style="display:none; align-items:center; justify-content:center; z-index:9999;">
-          <div class="modalContent card" style="width:420px; max-width:95%; animation: zoomIn 0.2s ease;">
-            <div class="modalHeader"
-              style="display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid var(--border); padding-bottom:15px; margin-bottom:15px;">
-              <div style="font-weight:700; font-size:16px; display:flex; align-items:center; gap:8px;">
-                <div
-                  style="width:32px; height:32px; background:var(--primary-fade); color:var(--primary); border-radius:50%; display:flex; align-items:center; justify-content:center;">
-                  <i class="fa-solid fa-address-card"></i>
-                </div>
-                Kundkort
-              </div>
-              <button class="btn ghost icon small"
-                onclick="document.getElementById('ticketContactModal').style.display='none'"><i
-                  class="fa-solid fa-times"></i></button>
-            </div>
-            <div id="ticketContactBody" style="display:flex; flex-direction:column; gap:15px;"></div>
-            <div class="modalFooter" style="margin-top:20px; border-top:1px solid var(--border); padding-top:15px;">
-              <button class="btn primary full"
-                onclick="document.getElementById('ticketContactModal').style.display='none'">Stäng</button>
-            </div>
-          </div>
-        </div>
-
-        <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js" defer></script>
-        <script src="https://cdn.socket.io/4.7.5/socket.io.min.js" defer></script>
-
-        <script src="script.js?v=2026.16"></script>
-        <script src="mobile_optimization.js?v=2026.16"></script>
-        <script src="crm_enhancements.js?v=2026.16"></script>
-        <script src="admin_users.js?v=2026.16"></script>
-        <script src="contact_logic.js?v=2026.16"></script>
+  <script src="script.js?v=2026.16"></script>
+  <script src="mobile_optimization.js?v=2026.16"></script>
+  <script src="crm_enhancements.js?v=2026.16"></script>
+  <script src="admin_users.js?v=2026.16"></script>
+  <script src="simulator_logic.js?v=2026.16"></script>
+  <script src="contact_logic.js?v=2026.16"></script>
 </body>
 
 </html>
