@@ -4470,19 +4470,6 @@ body[data-theme="light"] .messages {
   }
 }
 
-/* Large Screens (> 1600px) - Center content for premium look while keeping sidebar */
-@media (min-width: 1600px) {
-  .main {
-    max-width: 1400px;
-    margin-right: auto;
-    border-right: 1px solid var(--border);
-  }
-
-  .app {
-    justify-content: flex-start;
-  }
-}
-
 /* Touch targets for mobile */
 @media (pointer: coarse) {
 
