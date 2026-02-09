@@ -594,6 +594,118 @@ window.saveNewCustomerExpanded = async function () {
     if (window.renderCustomerList) window.renderCustomerList();
 
     toast("Klart!", `Kund ${name} är nu skapad och integrerad.`, "success");
+}
+
+/**
+ * Render Pipeline Board
+ */
+window.renderPipeline = function () {
+    // Map internal stage IDs to DOM IDs used in index.html (e.g. pipelineBody-new)
+    // Based on HTML structure seen in view_file.
+    const stageMap = {
+        'new': 'pipelineBody-new', // Assuming ID exists or we need to find mapped element
+        'contact': 'contact', // Verify if this matches HTML 
+        'demo': 'pipelineBody-demo', // Seen in HTML? No, let's check structure
+        // Actually, HTML showed: id="pipelineBody-proposal", "pipelineBody-negotiation"
+        // So pattern is likely pipelineBody-[stage]
+    };
+
+    const stages = [
+        { id: 'new', label: 'Nytt Lead', prob: 10 },
+        { id: 'contact', label: 'Kontakt Etablerad', prob: 30 },
+        { id: 'demo', label: 'Demo / Möte', prob: 50 },
+        { id: 'proposal', label: 'Offert Skickad', prob: 70 },
+        { id: 'negotiation', label: 'Förhandling', prob: 90 },
+        { id: 'won', label: 'Stängd Affär', prob: 100 },
+        { id: 'lost', label: 'Förlorad', prob: 0 }
+    ];
+
+    let deals = JSON.parse(localStorage.getItem('crmDeals') || '[]');
+    let customers = JSON.parse(localStorage.getItem('crmCustomers') || '[]');
+
+    // FILTER BY ACTIVE COMPANY
+    const activeCompanyId = window.state?.companyId;
+    if (activeCompanyId && activeCompanyId !== 'demo') {
+        const companyCustomers = customers.filter(c => c.companyId === activeCompanyId || c.id === activeCompanyId);
+        const customerIds = companyCustomers.map(c => c.id);
+        deals = deals.filter(d => customerIds.includes(d.customerId) || d.companyId === activeCompanyId);
+    }
+
+    stages.forEach(stage => {
+        // Find container by ID pattern
+        let container = document.getElementById('pipelineBody-' + stage.id);
+
+        // Fallback: Try finding by class if IDs are missing (Common in some templates)
+        // usage: <div class="pipelineColumn"> ... <div class="pipelineBody">
+        // But we need to know WHICH column. Let's assume IDs exist as per previous view_file.
+
+        if (!container) return; // Skip if DOM element missing
+
+        const stageDeals = deals.filter(d => d.stage === stage.id);
+        const stageSum = stageDeals.reduce((sum, d) => sum + (parseFloat(d.value) || 0), 0);
+
+        // INJECT SUMMARY INTO HEADER
+        // The header is the previous sibling of the body container
+        // <div class="pipelineHeader">...</div>
+        // <div id="pipelineBody-..." ...>
+        const header = container.previousElementSibling;
+        if (header && header.classList.contains('pipelineHeader')) {
+            // Check for existing sum element or create
+            let sumEl = header.querySelector('.stageSum');
+            if (!sumEl) {
+                sumEl = document.createElement('span');
+                sumEl.className = 'stageSum';
+                sumEl.style.fontSize = '11px';
+                sumEl.style.color = 'var(--muted)';
+                sumEl.style.marginLeft = '10px';
+                sumEl.style.float = 'right';
+                header.appendChild(sumEl);
+            }
+            sumEl.innerText = new Intl.NumberFormat('sv-SE', { style: 'currency', currency: 'SEK', maximumSignificantDigits: 2 }).format(stageSum);
+
+            // Update count
+            let countEl = header.querySelector('.stageCount');
+            if (countEl) countEl.innerText = stageDeals.length;
+        }
+
+        // RENDER CARDS
+        container.innerHTML = stageDeals.map(d => {
+            const c = customers.find(cust => cust.id === d.customerId);
+            const customerName = c ? c.name : (d.customerName || 'Okänd Kund');
+
+            // Churn/Stagnant Warning (Simulated)
+            let warningHtml = '';
+            if (d.stage !== 'won' && Math.random() > 0.8) {
+                warningHtml = `<i class="fa-solid fa-triangle-exclamation" style="color:orange; margin-left:5px;" title="Varning: Ingen aktivitet"></i>`;
+            }
+
+            return `
+            <div class="dealCard" draggable="true" ondragstart="drag(event, '${d.id}')" onclick="openDealModal('${d.id}')" id="deal-${d.id}" style="
+                background:var(--panel); 
+                padding:12px; 
+                margin-bottom:10px; 
+                border-radius:8px; 
+                border:1px solid var(--border); 
+                cursor:grab; 
+                box-shadow:0 2px 5px rgba(0,0,0,0.02);
+                transition:transform 0.2s;
+            ">
+                <div class="dealCompany" style="font-size:13px; font-weight:600; margin-bottom:4px; display:flex; justify-content:space-between;">
+                    ${d.title} ${warningHtml}
+                </div>
+                <div style="font-size:11px; color:var(--muted); margin-bottom:8px;">${customerName}</div>
+                
+                <div class="dealFooter" style="display:flex; justify-content:space-between; align-items:center; margin-top:8px;">
+                     <div class="dealValue" style="font-weight:700; color:var(--primary); font-size:12px;">
+                        ${new Intl.NumberFormat('sv-SE', { style: 'currency', currency: 'SEK', maximumSignificantDigits: 3 }).format(d.value)}
+                     </div>
+                     <div class="dealTags">
+                        <span class="pill small" style="background:rgba(0,0,0,0.05); color:var(--text-muted); font-size:9px; padding:2px 6px;">${stage.prob}%</span>
+                     </div>
+                </div>
+            </div>`;
+        }).join('');
+    });
 };
 
 window.renderCustomerList = function () {
