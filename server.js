@@ -1978,6 +1978,37 @@ app.delete("/sla/clear/my", authenticate, requireAgent, async (req, res) => {
   res.json({ message: "Dina ärenden rensade." });
 });
 
+// Agent Personal Stats
+app.get("/sla/my-stats", authenticate, requireAgent, async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const stats = await Ticket.aggregate([
+      { $match: { assignedToUserId: new mongoose.Types.ObjectId(userId) } }, // Only my tickets
+      {
+        $group: {
+          _id: null,
+          handled: { $sum: 1 },
+          solved: { $sum: { $cond: [{ $eq: ["$status", "solved"] }, 1, 0] } },
+          highPriority: { $sum: { $cond: [{ $eq: ["$priority", "high"] }, 1, 0] } },
+          totalMessages: { $sum: { $size: { $ifNull: ["$messages", []] } } },
+          avgRating: { $avg: "$csatRating" }
+        }
+      }
+    ]);
+
+    const s = stats[0] || { handled: 0, solved: 0, highPriority: 0, totalMessages: 0, avgRating: 0 };
+
+    res.json({
+      handled: s.handled,
+      solved: s.solved,
+      highPriority: s.highPriority,
+      avgCsat: s.avgRating ? s.avgRating.toFixed(1) : "N/A",
+      efficiency: s.handled > 0 ? Math.round((s.solved / s.handled) * 100) : 0,
+      role: "Agent"
+    });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
 /* =====================
    PRODUCT SIMULATOR
 ===================== */

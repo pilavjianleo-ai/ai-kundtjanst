@@ -179,56 +179,68 @@ function updateRoleUI() {
   const logoutBtn = $("logoutBtn");
   const settingsBtn = $("openSettingsView");
 
+  // User-specific
+  const chatBtn = $("openChatView");
+  const myTicketsBtn = $("openMyTicketsView");
+  const simulatorBtn = $("openSimulatorView");
+
+  // Agent/Admin shared
   const inboxBtn = $("openInboxView");
   const slaBtn = $("openSlaView");
+  const feedbackBtn = $("openFeedbackView");
+
+  // Admin specific
   const adminBtn = $("openAdminView");
   const customerAdminBtn = $("openCustomerAdminView");
   const billingBtn = $("openBillingView");
   const customerSettingsBtn = $("openCustomerSettingsView");
-  const simulatorBtn = $("openSimulatorView");
+  const scenarioBtn = $("openScenarioView");
+  const salesBtn = $("openSalesView");
   const slaClearAllStatsBtn = $("slaClearAllStatsBtn");
+
+  // 1. Reset all to hidden first
+  [logoutBtn, settingsBtn, chatBtn, myTicketsBtn, simulatorBtn,
+    inboxBtn, slaBtn, feedbackBtn, adminBtn, customerAdminBtn,
+    billingBtn, customerSettingsBtn, scenarioBtn, salesBtn, slaClearAllStatsBtn]
+    .forEach(el => { if (el) el.style.display = "none"; });
 
   if (!state.me) {
     if (roleBadge) roleBadge.textContent = "Inte inloggad";
-    if (logoutBtn) logoutBtn.style.display = "none";
-    if (settingsBtn) settingsBtn.style.display = "none";
-
-    if (inboxBtn) inboxBtn.style.display = "none";
-    if (slaBtn) slaBtn.style.display = "none";
-    if (adminBtn) adminBtn.style.display = "none";
-    if (customerAdminBtn) customerAdminBtn.style.display = "none";
-    if (billingBtn) billingBtn.style.display = "none";
-    if (customerSettingsBtn) customerSettingsBtn.style.display = "none";
-    if (simulatorBtn) simulatorBtn.style.display = "none";
-    if (slaClearAllStatsBtn) slaClearAllStatsBtn.style.display = "none";
     return;
   }
 
+  // 2. Common for logged in
   if (roleBadge) roleBadge.textContent = `${state.me.username} (${role})`;
   if (logoutBtn) logoutBtn.style.display = "";
-  if (settingsBtn) settingsBtn.style.display = "";
 
-  // Simulator is available for all logged-in users
-  if (simulatorBtn) simulatorBtn.style.display = "";
+  // 3. User Role
+  if (role === "user") {
+    if (chatBtn) chatBtn.style.display = "";
+    if (myTicketsBtn) myTicketsBtn.style.display = "";
+    if (settingsBtn) settingsBtn.style.display = "";
+    if (simulatorBtn) simulatorBtn.style.display = "";
+    return;
+  }
 
-  if (role === "admin" || role === "agent") {
+  // 4. Agent Role
+  if (role === "agent") {
+    if (chatBtn) chatBtn.style.display = "";
+    if (myTicketsBtn) myTicketsBtn.style.display = "";
     if (inboxBtn) inboxBtn.style.display = "";
     if (slaBtn) slaBtn.style.display = "";
-    const feedbackBtn = $("openFeedbackView");
+    if (settingsBtn) settingsBtn.style.display = "";
     if (feedbackBtn) feedbackBtn.style.display = "";
-    const scenarioBtn = $("openScenarioView");
-    if (scenarioBtn) scenarioBtn.style.display = "";
-    const salesBtn = $("openSalesView");
-    if (salesBtn) salesBtn.style.display = "";
-  }
-  if (role === "admin") {
-    if (adminBtn) adminBtn.style.display = "";
-    if (customerAdminBtn) customerAdminBtn.style.display = "";
-    if (slaClearAllStatsBtn) slaClearAllStatsBtn.style.display = "";
+    if (simulatorBtn) simulatorBtn.style.display = "";
+    return;
   }
 
-  if (billingBtn) billingBtn.style.display = "";
-  if (customerSettingsBtn) customerSettingsBtn.style.display = "";
+  // 5. Admin Role
+  if (role === "admin") {
+    [chatBtn, myTicketsBtn, inboxBtn, slaBtn, adminBtn, settingsBtn,
+      customerAdminBtn, billingBtn, customerSettingsBtn, simulatorBtn,
+      feedbackBtn, scenarioBtn, salesBtn, slaClearAllStatsBtn]
+      .forEach(el => { if (el) el.style.display = ""; });
+  }
 }
 
 /* =========================
@@ -578,6 +590,14 @@ async function switchCompany(newCompanyId) {
   renderChatHeader();
 
   // Show the intro card with the new company name
+  // SYNC CRM HERE
+  if (typeof syncCrmData === 'function') {
+    console.log("Auto-syncing CRM on company switch...");
+    syncCrmData();
+  } else {
+    console.warn("syncCrmData function missing from global scope.");
+  }
+
   const companyName = state.currentCompany?.displayName || newCompanyId;
   const messagesEl = $("messages");
   if (messagesEl) {
@@ -1296,7 +1316,57 @@ async function deleteTicket() {
 /* =========================
    SLA
 ========================= */
+/* =========================
+   SLA - Updated for Roles
+========================= */
 async function loadSlaDashboard() {
+  // If Agent, load personal stats only
+  if (state.me?.role === "agent") {
+    try {
+      const stats = await api("/sla/my-stats");
+      const overviewBox = $("slaOverviewBox");
+      if (overviewBox) {
+        overviewBox.innerHTML = `
+             <div class="panel soft" style="margin-bottom:20px; text-align:center;">
+                 <h3>👋 Din Personliga Statistik</h3>
+                 <p class="muted">Här ser du hur du presterar jämfört med dina mål.</p>
+             </div>
+             <div class="slaGrid">
+                 <div class="slaCard">
+                     <div class="slaLabel"><i class="fa-solid fa-hand-holding-hand"></i> Hanterade</div>
+                     <div class="slaValue">${stats.handled}</div>
+                     <div class="slaDelta">Dina ärenden</div>
+                 </div>
+                 <div class="slaCard">
+                     <div class="slaLabel"><i class="fa-solid fa-check-circle"></i> Lösta</div>
+                     <div class="slaValue">${stats.solved}</div>
+                     <div class="slaDelta up" style="color:${stats.efficiency > 70 ? 'var(--ok)' : 'var(--warn)'}">${stats.efficiency}% Effektivitet</div>
+                 </div>
+                 <div class="slaCard">
+                     <div class="slaLabel"><i class="fa-solid fa-fire"></i> Prio Hög</div>
+                     <div class="slaValue">${stats.highPriority}</div>
+                     <div class="slaDelta">Kritiska</div>
+                 </div>
+                 <div class="slaCard">
+                     <div class="slaLabel"><i class="fa-solid fa-star"></i> Din CSAT</div>
+                     <div class="slaValue">${stats.avgCsat}</div>
+                     <div class="slaDelta up">Kundnöjdhet</div>
+                 </div>
+             </div>
+        `;
+      }
+      // Hide global sections for agents
+      if ($("slaTopTopicsBox")) $("slaTopTopicsBox").innerHTML = "<div class='muted small center'>Endast tillgängligt för Admin</div>";
+      if ($("slaAgentsTableBody")) $("slaAgentsTableBody").innerHTML = "";
+      if (window.__slaChart) window.__slaChart.destroy();
+    } catch (e) {
+      console.error("My Stats Error:", e);
+      toast("Fel", "Kunde inte ladda din statistik", "error");
+    }
+    return;
+  }
+
+  // == ADMIN VIEW (Global Stats) ==
   const days = $("slaDaysSelect")?.value || "30";
 
   try {
@@ -1405,6 +1475,11 @@ async function loadSlaDashboard() {
   } catch (e) {
     console.error("SLA Load Error:", e);
     toast("Fel", "Kunde inte ladda dashboard-data", "error");
+  }
+}
+
+console.error("SLA Load Error:", e);
+toast("Fel", "Kunde inte ladda dashboard-data", "error");
   }
 }
 
