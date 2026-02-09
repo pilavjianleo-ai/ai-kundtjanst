@@ -601,11 +601,10 @@ async function switchCompany(newCompanyId) {
 
   // Show the intro card with the new company name
   // SYNC CRM HERE
-  if (typeof syncCrmData === 'function') {
-    console.log("Auto-syncing CRM on company switch...");
-    syncCrmData();
-  } else {
-    console.warn("syncCrmData function missing from global scope.");
+  if (typeof refreshCustomers === 'function' && (state.me?.role === 'admin' || state.me?.role === 'agent')) {
+    await refreshCustomers();
+  } else if (typeof syncCrmData === 'function') {
+    await syncCrmData();
   }
 
   const companyName = state.currentCompany?.displayName || newCompanyId;
@@ -2030,12 +2029,16 @@ async function createCategory() {
       return toast("Fel", "Företaget finns redan", "error");
     }
 
-    // Create new company via API
-    await api("/company/settings", {
-      method: "PATCH",
+    // Create new company via API (POST /admin/companies)
+    await api("/admin/companies", {
+      method: "POST",
       body: {
         companyId,
-        settings: { tone, greeting: `Välkommen till ${displayName}!` }
+        displayName,
+        tone: tone || "professional",
+        greeting: `Välkommen till ${displayName}!`,
+        plan: "bas",
+        status: "active"
       }
     });
 
@@ -2092,9 +2095,11 @@ let crmData = window.crmState; // Alias for legacy code compatibility
 
 async function refreshCustomers() {
   try {
-    // Load companies as customers
-    const companies = await api("/companies");
-    crmData.customers = companies || [];
+    // We already have companies in state.companies from loadCompanies()
+    const companies = state.companies || [];
+
+    // We do NOT overwrite crmData.customers here anymore to prevent sync issues.
+    // crmData.customers is managed by syncCrmData() specifically for the current company.
 
     // Load tickets for statistics
     let tickets = [];
@@ -2107,12 +2112,12 @@ async function refreshCustomers() {
     const thisMonth = new Date(now.getFullYear(), now.getMonth(), 1);
 
     crmData.stats = {
-      total: crmData.customers.length,
-      active: crmData.customers.filter(c => c.status !== "inactive").length,
-      pro: crmData.customers.filter(c => c.plan === "pro").length,
-      enterprise: crmData.customers.filter(c => c.plan === "enterprise").length,
-      trial: crmData.customers.filter(c => c.plan === "trial").length,
-      newThisMonth: crmData.customers.filter(c => new Date(c.createdAt) >= thisMonth).length,
+      total: companies.length,
+      active: companies.filter(c => c.status !== "inactive").length,
+      pro: companies.filter(c => c.plan === "pro").length,
+      enterprise: companies.filter(c => c.plan === "enterprise").length,
+      trial: companies.filter(c => c.plan === "trial").length,
+      newThisMonth: companies.filter(c => new Date(c.createdAt) >= thisMonth).length,
       totalTickets: tickets.length,
       openTickets: tickets.filter(t => t.status !== "solved").length,
       avgCsat: calculateAvgCsat(tickets)
@@ -2126,7 +2131,7 @@ async function refreshCustomers() {
 
     // Render all CRM sections
     renderCrmOverview();
-    renderCrmCustomersList();
+    renderCrmCustomersList(companies); // Show categories in the dashboard
     renderCrmActivity();
     renderCrmAnalytics();
 
@@ -2157,13 +2162,13 @@ function generateCrmActivities(tickets, customers) {
     });
   });
 
-  // Recent customers
+  // Recent customers/companies
   customers.slice(0, 10).forEach(c => {
     activities.push({
       type: "customer",
-      title: `Kund: ${c.displayName}`,
-      description: `Plan: ${c.plan || 'bas'}`,
-      time: new Date(c.createdAt),
+      title: `Kund/Företag: ${c.name || c.displayName || 'Okänd'}`,
+      description: `Status: ${c.status || 'aktiv'}`,
+      time: new Date(c.createdAt || c.created || Date.now()),
       icon: "fa-building"
     });
   });
@@ -2173,9 +2178,11 @@ function generateCrmActivities(tickets, customers) {
   return activities.slice(0, 30);
 }
 
-function renderCrmOverview() {
+function renderCrmOverview(providedCompanies) {
   // KPI Cards
   const s = crmData.stats;
+  const companies = providedCompanies || state.companies || [];
+
   $("crmTotalCustomers").textContent = s.total;
   $("crmCustomersDelta").textContent = `+${s.newThisMonth} denna månad`;
   $("crmActiveCustomers").textContent = s.active;
@@ -2185,19 +2192,19 @@ function renderCrmOverview() {
   $("crmOpenTickets").textContent = `${s.openTickets} öppna`;
   $("crmCsatScore").textContent = s.avgCsat ? `${s.avgCsat}/5` : "--";
 
-  // Recent Customers
+  // Recent 
   const recentList = $("crmRecentCustomersList");
   if (recentList) {
-    const recent = crmData.customers.slice(0, 5);
+    const recent = companies.slice(0, 5);
     recentList.innerHTML = recent.length ? recent.map(c => `
-      <div class="listItem" style="cursor: pointer;" onclick="openCustomerModal('${c.companyId}')">
+      <div class="listItem" style="cursor: pointer;" onclick="switchCompany('${c.companyId}')">
         <div class="listItemTitle">
-          <b>${escapeHtml(c.displayName)}</b>
+          <b>${escapeHtml(c.displayName || c.name)}</b>
           <span class="planBadge ${c.plan || 'bas'}">${(c.plan || 'bas').toUpperCase()}</span>
         </div>
-        <div class="muted small">${escapeHtml(c.companyId)} • ${new Date(c.createdAt).toLocaleDateString('sv-SE')}</div>
+        <div class="muted small">${escapeHtml(c.companyId || (c.name ? 'CRM 2.0' : '-'))} • ${new Date(c.createdAt || Date.now()).toLocaleDateString('sv-SE')}</div>
       </div>
-    `).join("") : '<div class="muted small center">Inga kunder ännu.</div>';
+    `).join('') : '<div class="muted small center">Inga nyligen tillagda företag</div>';
   }
 
   // Recent Activity
@@ -2231,9 +2238,11 @@ function timeAgo(date) {
   return date.toLocaleDateString('sv-SE');
 }
 
-function renderCrmCustomersList() {
+function renderCrmCustomersList(providedCompanies) {
   const list = $("customersList");
   if (!list) return;
+
+  const companies = providedCompanies || state.companies || [];
 
   // Get filter values
   const search = ($("crmSearchInput")?.value || "").toLowerCase().trim();
@@ -2241,8 +2250,8 @@ function renderCrmCustomersList() {
   const statusFilter = $("crmStatusFilter")?.value || "";
   const sortBy = $("crmSortBy")?.value || "createdAt";
 
-  // Filter customers
-  let filtered = crmData.customers.filter(c => {
+  // Filter 
+  let filtered = companies.filter(c => {
     const matchSearch = !search ||
       (c.displayName || "").toLowerCase().includes(search) ||
       (c.companyId || "").toLowerCase().includes(search) ||
@@ -6063,6 +6072,7 @@ function setCrmTab(tabId) {
   const btn = document.getElementById('tab_crm_' + tabId);
   if (btn) btn.classList.add('active');
 
+  if (tabId === 'customers') renderCustomerList();
   if (tabId === 'pipeline') renderPipeline();
   if (tabId === 'ai_cost' && window.calculateAiMargins) calculateAiMargins();
 }
@@ -6381,33 +6391,27 @@ function renderCustomerList() {
   const tbody = document.getElementById('crmAnalyticsTable');
   if (!tbody) return;
 
-  // Merge default persistence if empty
+  tbody.innerHTML = ''; // Always clear first to avoid demo data confusion
+
   let displayList = window.crmState.customers;
   if (displayList.length === 0) {
-    // Show demo rows from HTML if localStorage is empty?
-    // Or keep empty. Let's keep empty state handling.
-    // But the user might want to see the demo data from the HTML initially.
-    // If we clear HTML on load, usage might be confused.
-    // Let's append to existing if we detect they are static? No, clear and render is safer.
+    tbody.innerHTML = '<tr><td colspan="6" style="padding:40px; text-align:center; color:var(--text-muted);"><i class="fa-solid fa-user-slash" style="font-size:32px; display:block; margin-bottom:10px;"></i>Inga kunder hittades för denna kategori.</td></tr>';
+    return;
   }
 
-  if (displayList.length > 0) {
-    tbody.innerHTML = displayList.map(c => `
+  tbody.innerHTML = displayList.map(c => `
             <tr onclick="openCustomerModal('${c.id}')" style="cursor:pointer; border-bottom:1px solid var(--border);">
                 <td style="padding:12px;"><b>${c.name}</b><br><span class="muted small">${c.industry || '-'}</span></td>
                 <td style="padding:12px;">${c.contact || '-'}<br><span class="muted small">${c.email || '-'}</span></td>
                 <td style="padding:12px;">${c.aiConfig ? '<span class="pill ok">AI Aktiv</span>' : '<span class="pill">Ingen AI</span>'}</td>
-                <td style="padding:12px; text-align:right;">-</td>
-                <td style="padding:12px; text-align:center;">
-                    ${c.aiConfig ? '92' : '-'}
-                </td>
-                <td style="padding:12px; text-align:right;">
-                    <button class="btn ghost small icon"><i class="fa-solid fa-pen"></i></button>
-                    <button class="btn ghost small icon" onclick="deleteCustomer('${c.id}', event)"><i class="fa-solid fa-trash"></i></button>
+                <td style="padding:12px; text-align:right;">${c.plan === 'enterprise' ? 'Enterprise' : (c.plan === 'pro' ? 'Pro' : 'Bas')}</td>
+                <td style="padding:12px; text-align:center;"><span style="color:var(--primary); font-weight:bold;">${c.status === 'active' ? '95' : '45'}</span></td>
+                <td style="padding:12px; text-align:right;" onclick="event.stopPropagation()">
+                    <button class="btn ghost small icon" title="Redigera"><i class="fa-solid fa-pen"></i></button>
+                    <button class="btn ghost small icon danger" title="Ta bort" onclick="deleteCustomer('${c.id}', event)"><i class="fa-solid fa-trash"></i></button>
                 </td>
             </tr>
-        `).join('');
-  }
+  `).join('');
 }
 
 function deleteCustomer(id, event) {
