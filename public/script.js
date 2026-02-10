@@ -895,13 +895,14 @@ function renderInboxList() {
 
   (state.inboxTickets || []).forEach((t) => {
     const div = document.createElement("div");
-    const isHigh = t.priority === "high";
-    const priClass = isHigh ? "danger" : t.priority === "low" ? "muted" : "info";
+    const isHighPri = t.priority === "high";
+    const shouldHighlight = isHighPri && t.status !== "solved";
+    const priClass = isHighPri ? "danger" : t.priority === "low" ? "muted" : "info";
 
-    div.className = "listItem " + (isHigh ? "important-highlight" : "");
+    div.className = "listItem " + (shouldHighlight ? "important-highlight" : "");
     div.innerHTML = `
       <div class="listItemTitle">
-        ${isHigh ? '<i class="fa-solid fa-triangle-exclamation" style="color:var(--danger)"></i> ' : ""}
+        ${isHighPri ? '<i class="fa-solid fa-triangle-exclamation" style="color:var(--danger)"></i> ' : ""}
         ${escapeHtml(t.title || "Ticket")}
         <span class="pill ${priClass}">${escapeHtml(t.priority || "normal")}</span>
         <span class="pill">${escapeHtml(t.status)}</span>
@@ -948,13 +949,14 @@ function filterInboxBySearch() {
 
   filtered.forEach((t) => {
     const div = document.createElement("div");
-    const isHigh = t.priority === "high";
-    const priClass = isHigh ? "danger" : t.priority === "low" ? "muted" : "info";
+    const isHighPri = t.priority === "high";
+    const shouldHighlight = isHighPri && t.status !== "solved";
+    const priClass = isHighPri ? "danger" : t.priority === "low" ? "muted" : "info";
 
-    div.className = "listItem " + (isHigh ? "important-highlight" : "");
+    div.className = "listItem " + (shouldHighlight ? "important-highlight" : "");
     div.innerHTML = `
       <div class="listItemTitle">
-        ${isHigh ? '<i class="fa-solid fa-triangle-exclamation" style="color:var(--danger)"></i> ' : ""}
+        ${isHighPri ? '<i class="fa-solid fa-triangle-exclamation" style="color:var(--danger)"></i> ' : ""}
         ${escapeHtml(t.title || "Ticket")}
         <span class="pill ${priClass}">${escapeHtml(t.priority || "normal")}</span>
         <span class="pill">${escapeHtml(t.status)}</span>
@@ -1078,6 +1080,10 @@ async function selectInboxTicket(ticketId) {
     if (userSel) {
       userSel.value = t.assignedToUserId || "";
     }
+
+    const highlightDetails = t.priority === "high" && t.status !== "solved";
+    if (highlightDetails) box.classList.add("important-highlight");
+    else box.classList.remove("important-highlight");
 
   } catch (e) {
     console.error("Select ticket error:", e);
@@ -2934,12 +2940,13 @@ function renderInboxList() {
   }
   state.inboxTickets.forEach((t) => {
     const div = document.createElement("div");
-    const isHigh = t.priority === "high";
-    const priClass = isHigh ? "danger" : t.priority === "low" ? "muted" : "info";
-    div.className = "listItem " + (isHigh ? "important-highlight" : "");
+    const isHighPri = t.priority === "high";
+    const shouldHighlight = isHighPri && t.status !== "solved";
+    const priClass = isHighPri ? "danger" : t.priority === "low" ? "muted" : "info";
+    div.className = "listItem " + (shouldHighlight ? "important-highlight" : "");
     div.innerHTML = `
       <div class="listItemTitle">
-        ${isHigh ? '<i class="fa-solid fa-triangle-exclamation" style="color:var(--danger)"></i> ' : ""}
+        ${isHighPri ? '<i class="fa-solid fa-triangle-exclamation" style="color:var(--danger)"></i> ' : ""}
         ${escapeHtml(t.title || "Ticket")}
         <span class="pill ${priClass}">${escapeHtml(t.priority || "normal")}</span>
         <span class="pill">${escapeHtml(t.status)}</span>
@@ -3014,6 +3021,10 @@ async function selectInboxTicket(ticketId) {
     const userSel = $("assignUserSelect");
     if (userSel) userSel.value = t.assignedToUserId || "";
 
+    const highlightDetails = t.priority === "high" && t.status !== "solved";
+    if (highlightDetails) box.classList.add("important-highlight");
+    else box.classList.remove("important-highlight");
+
   } catch (e) {
     console.error("Select ticket error:", e);
     box.innerHTML = `<div class="alert error">Kunde inte öppna ärendet: ${e.message}</div>`;
@@ -3036,6 +3047,7 @@ async function setInboxStatus(status) {
   if (!state.inboxSelectedTicket) return toast("Saknas", "Välj en ticket först", "error");
   await api(`/inbox/tickets/${state.inboxSelectedTicket._id}/status`, { method: "PATCH", body: { status } });
   toast("OK", "Status uppdaterad ✅", "info");
+  await selectInboxTicket(state.inboxSelectedTicket._id);
   await loadInboxTickets();
 }
 
@@ -3044,6 +3056,7 @@ async function setInboxPriority() {
   const priority = $("ticketPrioritySelect")?.value || "normal";
   await api(`/inbox/tickets/${state.inboxSelectedTicket._id}/priority`, { method: "PATCH", body: { priority } });
   toast("OK", "Prioritet uppdaterad ✅", "info");
+  await selectInboxTicket(state.inboxSelectedTicket._id);
   await loadInboxTickets();
 }
 
