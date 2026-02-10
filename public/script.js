@@ -372,6 +372,7 @@ function updateRoleUI() {
     if (myTicketsBtn) myTicketsBtn.style.display = "";
     if (settingsBtn) settingsBtn.style.display = "";
     if (simulatorBtn) simulatorBtn.style.display = "";
+    if (aiPanelBtn) aiPanelBtn.style.display = "";
     return;
   }
 
@@ -2049,35 +2050,66 @@ async function upgradeToPro() {
 ========================= */
 async function loadAdminUsers() {
   const list = $("adminUsersList");
+  const msg = $("adminUsersMsg");
   if (!list) return;
-
+  list.innerHTML = `<div class="muted center" style="padding:20px;">Laddar användare...</div>`;
+  if (msg) msg.style.display = "none";
   try {
     const users = await api("/admin/users");
+    const roleFilter = $("adminRoleFilter")?.value || "all";
+    const q = String($("adminUsersSearch")?.value || "").toLowerCase();
+    const filtered = (users || []).filter(u => {
+      const roleOk = roleFilter === "all" ? true : u.role === roleFilter;
+      const text = `${u.username || ""} ${u.email || ""} ${u._id || ""}`.toLowerCase();
+      const searchOk = q ? text.includes(q) : true;
+      return roleOk && searchOk;
+    });
     list.innerHTML = "";
-
-    (users || []).forEach((u) => {
-      const div = document.createElement("div");
-      div.className = "listItem";
-      div.style.display = "flex";
-      div.style.alignItems = "center";
-      div.style.justifyContent = "space-between";
-
-      const info = document.createElement("div");
-      info.innerHTML = `
-        <div class="listItemTitle">${escapeHtml(u.username)} <span class="pill ${u.role === 'admin' ? 'admin' : (u.role === 'agent' ? 'ok' : '')}">${escapeHtml(u.role)}</span></div>
-        <div class="muted small">${escapeHtml(u.email || "Ingen e-post")} • ID: ${u._id.slice(-6)}</div>
+    if (filtered.length === 0) {
+      list.innerHTML = `<div class="muted center small" style="padding:20px;">Inga användare matchar filtret.</div>`;
+      return;
+    }
+    filtered.forEach((u) => {
+      const roleClass = u.role === "admin" ? "badge-admin" : (u.role === "agent" ? "badge-agent" : "badge-user");
+      const item = document.createElement("div");
+      item.className = "listItem adminUserItem";
+      item.style.display = "flex";
+      item.style.justifyContent = "space-between";
+      item.style.alignItems = "center";
+      item.style.padding = "12px";
+      item.style.gap = "10px";
+      item.style.border = "1px solid var(--border)";
+      item.style.borderRadius = "16px";
+      item.onclick = () => {
+        const listEl = $("adminUsersList");
+        if (!listEl) return;
+        listEl.querySelectorAll(".adminUserItem").forEach(el => {
+          el.style.boxShadow = "";
+          el.style.borderColor = "var(--border)";
+        });
+        item.style.boxShadow = "0 0 0 2px var(--primary-fade)";
+        item.style.borderColor = "var(--primary)";
+      };
+      const left = document.createElement("div");
+      left.style.flex = "1";
+      left.style.minWidth = "0";
+      left.innerHTML = `
+        <div style="font-weight:800; display:flex; align-items:center; gap:8px;">
+          <i class="fa-solid fa-user"></i>
+          <span style="overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${escapeHtml(u.username)}</span>
+          <span class="${roleClass}" style="display:inline-block; padding:4px 12px; border-radius:20px; font-size:12px; font-weight:700; text-transform:lowercase; letter-spacing:0.5px;">${escapeHtml(u.role)}</span>
+        </div>
+        <div class="muted small" style="margin-top:4px;">
+          ${escapeHtml(u.email || "Ingen e-post")} • ID: ${u._id}
+        </div>
       `;
-      div.appendChild(info);
-
-      const actions = document.createElement("div");
-      actions.style.display = "flex";
-      actions.style.gap = "8px";
-
-      // Role select
+      const right = document.createElement("div");
+      right.style.display = "flex";
+      right.style.alignItems = "center";
+      right.style.gap = "8px";
       if (state.me?.role === "admin" && state.me?._id !== u._id) {
         const sel = document.createElement("select");
         sel.className = "input smallInput";
-        sel.style.width = "auto";
         ["user", "agent", "admin"].forEach(r => {
           const opt = document.createElement("option");
           opt.value = r;
@@ -2088,31 +2120,33 @@ async function loadAdminUsers() {
         sel.onchange = async () => {
           try {
             await api(`/admin/users/${u._id}/role`, { method: "PATCH", body: { role: sel.value } });
-            toast("Uppdaterat", `Roll ändrad till ${sel.value}`, "info");
+            toast("Uppdaterat", "Roll uppdaterad", "info");
             await loadAdminUsers();
           } catch (e) { toast("Fel", e.message, "error"); }
         };
-        actions.appendChild(sel);
-
+        right.appendChild(sel);
         const delBtn = document.createElement("button");
         delBtn.className = "btn danger small";
-        delBtn.innerHTML = `<i class="fa-solid fa-user-slash"></i>`;
-        delBtn.title = "Ta bort användare";
+        delBtn.innerHTML = `<i class="fa-solid fa-xmark"></i>`;
+        delBtn.title = "Radera";
         delBtn.onclick = async () => {
-          if (!confirm(`Är du säker på att du vill radera ${u.username}? Detta kan ej ångras.`)) return;
+          if (!confirm(`Är du säker på att du vill radera ${u.username}? Detta kan inte ångras.`)) return;
           try {
             await api(`/admin/users/${u._id}`, { method: "DELETE" });
-            toast("Borttagen", "Användaren har raderats", "info");
+            toast("Klart", "Användare raderad", "success");
             await loadAdminUsers();
           } catch (e) { toast("Fel", e.message, "error"); }
         };
-        actions.appendChild(delBtn);
+        right.appendChild(delBtn);
       }
-
-      div.appendChild(actions);
-      list.appendChild(div);
+      item.appendChild(left);
+      item.appendChild(right);
+      list.appendChild(item);
     });
-  } catch (e) { toast("Fel", "Kunde inte ladda användare", "error"); }
+  } catch (e) {
+    if (msg) { msg.textContent = "Kunde inte ladda användare: " + e.message; msg.style.display = "block"; }
+    list.innerHTML = `<div class="alert error">Fel vid laddning</div>`;
+  }
 }
 
 async function loadAdminDiagnostics() {
@@ -3941,26 +3975,103 @@ async function upgradeToPro() {
 ========================= */
 async function loadAdminUsers() {
   const list = $("adminUsersList");
+  const msg = $("adminUsersMsg");
   if (!list) return;
+  list.innerHTML = `<div class="muted center" style="padding:20px;">Laddar användare...</div>`;
+  if (msg) msg.style.display = "none";
   try {
     const users = await api("/admin/users");
-    list.innerHTML = "";
-    (users || []).forEach((u) => {
-      const div = document.createElement("div"); div.className = "listItem"; div.style.display = "flex"; div.style.alignItems = "center"; div.style.justifyContent = "space-between";
-      const info = document.createElement("div"); info.innerHTML = `<div class="listItemTitle">${escapeHtml(u.username)} <span class="pill ${u.role === 'admin' ? 'admin' : (u.role === 'agent' ? 'ok' : '')}">${escapeHtml(u.role)}</span></div><div class="muted small">${escapeHtml(u.email || "Ingen e-post")} • ID: ${u._id.slice(-6)}</div>`;
-      div.appendChild(info);
-      const actions = document.createElement("div"); actions.style.display = "flex"; actions.style.gap = "8px";
-      if (state.me?.role === "admin" && state.me?._id !== u._id) {
-        const sel = document.createElement("select"); sel.className = "input smallInput"; sel.style.width = "auto";
-        ["user", "agent", "admin"].forEach(r => { const opt = document.createElement("option"); opt.value = r; opt.textContent = r; if (u.role === r) opt.selected = true; sel.appendChild(opt); });
-        sel.onchange = async () => { try { await api(`/admin/users/${u._id}/role`, { method: "PATCH", body: { role: sel.value } }); toast("Uppdaterat", `Roll ändrad till ${sel.value}`, "info"); await loadAdminUsers(); } catch (e) { toast("Fel", e.message, "error"); } };
-        actions.appendChild(sel);
-        const delBtn = document.createElement("button"); delBtn.className = "btn danger small"; delBtn.innerHTML = `<i class="fa-solid fa-user-slash"></i>`; delBtn.onclick = async () => { if (!confirm(`Vill du radera ${u.username}?`)) return; try { await api(`/admin/users/${u._id}`, { method: "DELETE" }); toast("Borttagen", "Användaren har raderats", "info"); await loadAdminUsers(); } catch (e) { toast("Fel", e.message, "error"); } };
-        actions.appendChild(delBtn);
-      }
-      div.appendChild(actions); list.appendChild(div);
+    const roleFilter = $("adminRoleFilter")?.value || "all";
+    const q = String($("adminUsersSearch")?.value || "").toLowerCase();
+    const filtered = (users || []).filter(u => {
+      const roleOk = roleFilter === "all" ? true : u.role === roleFilter;
+      const text = `${u.username || ""} ${u.email || ""} ${u._id || ""}`.toLowerCase();
+      const searchOk = q ? text.includes(q) : true;
+      return roleOk && searchOk;
     });
-  } catch (e) { toast("Fel", "Kunde inte ladda användare", "error"); }
+    list.innerHTML = "";
+    if (filtered.length === 0) {
+      list.innerHTML = `<div class="muted center small" style="padding:20px;">Inga användare matchar filtret.</div>`;
+      return;
+    }
+    filtered.forEach((u) => {
+      const roleClass = u.role === "admin" ? "badge-admin" : (u.role === "agent" ? "badge-agent" : "badge-user");
+      const item = document.createElement("div");
+      item.className = "listItem adminUserItem";
+      item.style.display = "flex";
+      item.style.justifyContent = "space-between";
+      item.style.alignItems = "center";
+      item.style.padding = "12px";
+      item.style.gap = "10px";
+      item.style.border = "1px solid var(--border)";
+      item.style.borderRadius = "16px";
+      item.onclick = () => {
+        const listEl = $("adminUsersList");
+        if (!listEl) return;
+        listEl.querySelectorAll(".adminUserItem").forEach(el => {
+          el.style.boxShadow = "";
+          el.style.borderColor = "var(--border)";
+        });
+        item.style.boxShadow = "0 0 0 2px var(--primary-fade)";
+        item.style.borderColor = "var(--primary)";
+      };
+      const left = document.createElement("div");
+      left.style.flex = "1";
+      left.style.minWidth = "0";
+      left.innerHTML = `
+        <div style="font-weight:800; display:flex; align-items:center; gap:8px;">
+          <i class="fa-solid fa-user"></i>
+          <span style="overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${escapeHtml(u.username)}</span>
+          <span class="${roleClass}" style="display:inline-block; padding:4px 12px; border-radius:20px; font-size:12px; font-weight:700; text-transform:lowercase; letter-spacing:0.5px;">${escapeHtml(u.role)}</span>
+        </div>
+        <div class="muted small" style="margin-top:4px;">
+          ${escapeHtml(u.email || "Ingen e-post")} • ID: ${u._id}
+        </div>
+      `;
+      const right = document.createElement("div");
+      right.style.display = "flex";
+      right.style.alignItems = "center";
+      right.style.gap = "8px";
+      if (state.me?.role === "admin" && state.me?._id !== u._id) {
+        const sel = document.createElement("select");
+        sel.className = "input smallInput";
+        ["user", "agent", "admin"].forEach(r => {
+          const opt = document.createElement("option");
+          opt.value = r;
+          opt.textContent = r;
+          if (u.role === r) opt.selected = true;
+          sel.appendChild(opt);
+        });
+        sel.onchange = async () => {
+          try {
+            await api(`/admin/users/${u._id}/role`, { method: "PATCH", body: { role: sel.value } });
+            toast("Uppdaterat", "Roll uppdaterad", "info");
+            await loadAdminUsers();
+          } catch (e) { toast("Fel", e.message, "error"); }
+        };
+        right.appendChild(sel);
+        const delBtn = document.createElement("button");
+        delBtn.className = "btn danger small";
+        delBtn.innerHTML = `<i class="fa-solid fa-xmark"></i>`;
+        delBtn.title = "Radera";
+        delBtn.onclick = async () => {
+          if (!confirm(`Är du säker på att du vill radera ${u.username}? Detta kan inte ångras.`)) return;
+          try {
+            await api(`/admin/users/${u._id}`, { method: "DELETE" });
+            toast("Klart", "Användare raderad", "success");
+            await loadAdminUsers();
+          } catch (e) { toast("Fel", e.message, "error"); }
+        };
+        right.appendChild(delBtn);
+      }
+      item.appendChild(left);
+      item.appendChild(right);
+      list.appendChild(item);
+    });
+  } catch (e) {
+    if (msg) { msg.textContent = "Kunde inte ladda användare: " + e.message; msg.style.display = "block"; }
+    list.innerHTML = `<div class="alert error">Fel vid laddning</div>`;
+  }
 }
 
 async function loadAdminDiagnostics() {
@@ -4633,6 +4744,11 @@ function bindEvents() {
   });
 
   on("adminUsersRefreshBtn", "click", loadAdminUsers);
+  on("adminRoleFilter", "change", loadAdminUsers);
+  on("adminUsersSearch", "input", () => {
+    clearTimeout(window.__adminUsersSearchDeb);
+    window.__adminUsersSearchDeb = setTimeout(loadAdminUsers, 250);
+  });
   on("kbBulkDeleteBtn", "click", bulkDeleteKb);
 
   // KB Events
