@@ -1139,9 +1139,18 @@
           <div class="panel">
             <div class="panelHead">
               <h3 style="margin:0; font-weight:800; font-size:18px;">Användare</h3>
-              <button id="adminUsersRefreshBtn" class="btn ghost small" style="margin-left:auto;" type="button">
-                <i class="fa-solid fa-rotate"></i> Uppdatera
-              </button>
+              <div style="margin-left:auto; display:flex; gap:10px; flex-wrap:wrap; align-items:center;">
+                <input id="adminUsersSearch" class="input smallInput" placeholder="Sök användare..." />
+                <select id="adminRoleFilter" class="input smallInput">
+                  <option value="all">Alla</option>
+                  <option value="admin">Admin</option>
+                  <option value="agent">Agent</option>
+                  <option value="user">User</option>
+                </select>
+                <button id="adminUsersRefreshBtn" class="btn ghost small" type="button">
+                  <i class="fa-solid fa-rotate"></i> Uppdatera
+                </button>
+              </div>
             </div>
 
             <div id="adminUsersMsg" class="alert error" style="display:none;"></div>

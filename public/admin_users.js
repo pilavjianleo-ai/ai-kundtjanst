@@ -17,7 +17,16 @@ async function loadAdminUsers() {
             return;
         }
 
-        list.innerHTML = users.map(u => {
+        const roleFilter = document.getElementById("adminRoleFilter")?.value || "all";
+        const q = String(document.getElementById("adminUsersSearch")?.value || "").toLowerCase();
+        const filtered = users.filter(u => {
+          const roleOk = roleFilter === "all" ? true : u.role === roleFilter;
+          const text = `${u.username || ""} ${u.email || ""} ${u._id || ""}`.toLowerCase();
+          const searchOk = q ? text.includes(q) : true;
+          return roleOk && searchOk;
+        });
+
+        list.innerHTML = filtered.map(u => {
           const roleClass =
             u.role === 'admin' ? 'badge-admin' :
             u.role === 'agent' ? 'badge-agent' : 'badge-user';
@@ -125,13 +134,20 @@ document.addEventListener("DOMContentLoaded", () => {
     if (btnRefresh) {
         btnRefresh.addEventListener("click", loadAdminUsers);
     }
+    const rf = document.getElementById("adminRoleFilter");
+    if (rf) rf.addEventListener("change", loadAdminUsers);
+    let searchDebounce = null;
+    const si = document.getElementById("adminUsersSearch");
+    if (si) si.addEventListener("input", () => {
+      clearTimeout(searchDebounce);
+      searchDebounce = setTimeout(loadAdminUsers, 250);
+    });
 
     // Make deleteUser global
     window.deleteUser = deleteUser;
     window.updateUserRole = updateUserRole;
     window.selectAdminUser = function(id, el) {
       const list = document.getElementById("adminUsersList");
-      if (!list) return;
       list.querySelectorAll(".adminUserItem").forEach(item => {
         item.style.boxShadow = "";
         item.style.borderColor = "var(--border)";

@@ -4803,11 +4803,13 @@ function renderAiDashboardStats() {
   const fl = $("aiStatFlows");
   const rl = $("aiStatRules");
   const cs = $("aiStatCsat");
+  const lt = $("aiStatLastSimType");
   if (ap) ap.textContent = state.aiActiveProfile || "-";
   if (seg) seg.textContent = String((state.aiSegmenting?.mappings || []).length);
   if (fl) fl.textContent = String((state.aiFlows || []).length);
   if (rl) rl.textContent = String((state.aiRules || []).length);
   if (cs) cs.textContent = String(state.aiAnalytics?.avgCsat || "-");
+  if (lt) lt.textContent = String(state.lastSimCustomerType || "-").toUpperCase();
 }
 
 function initSocket() {
