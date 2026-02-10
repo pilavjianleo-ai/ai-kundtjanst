@@ -20,6 +20,7 @@
 - 🔍 **Knowledge Base Search** - Elasticsearch-powered search (optional)
 - 💳 **Stripe Integration** - Subscription management (optional)
 - 📧 **Email Notifications** - Automated customer notifications
+- 🧭 **SLA Dashboard UX** - Laddar‑indikator med spinner, Avbryt‑knapp och progressbar under datainhämtning
 
 ---
 

@@ -182,3 +182,13 @@ docker run -d -p 9200:9200 -e "discovery.type=single-node" elasticsearch:8.15.0
 5. **Anpassa designen** - Ändra färger i `style.css` `:root`
 
 Lycka till! 🚀
+
+---
+
+## 🆕 SLA UI – Förbättringar
+
+- ✅ Laddar‑indikator med spinner i toppbaren
+- ✅ Avbryt‑knapp som aborterar samtliga parallella SLA‑anrop
+- ✅ Progressbar som tickar upp per sektion (overview, trend, agents, etc.)
+- ✅ Disable av kontroller under laddning (Uppdatera, dag‑väljaren)
+- ✅ Visuella placeholders ”Laddar…” i varje panel under hämtning
