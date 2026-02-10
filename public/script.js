@@ -214,6 +214,13 @@ function setActiveMenu(btnId) {
   $(btnId)?.classList.add("active");
 }
 
+function togglePanel(id) {
+  const panel = $(id);
+  if (!panel) return;
+  const isHidden = panel.style.display === "none";
+  panel.style.display = isHidden ? "" : "none";
+}
+
 function showView(viewId, menuBtnId) {
   state.currentView = viewId;
   hideAllViews();
@@ -4164,6 +4171,14 @@ function getAiSettingsFromFields() {
         no_guarantees: $("aiNoGuarantees")?.checked || false,
         no_promises: $("aiNoPromises")?.checked || false,
       }
+    },
+    sales: {
+      enable_cta: $("salesEnableCta")?.checked || false,
+      offer_demo: $("salesOfferDemo")?.checked || false,
+      offer_offert: $("salesOfferOffert")?.checked || false,
+      link_pricing: $("salesLinkPricing")?.checked || false,
+      schedule_meeting: $("salesScheduleMeeting")?.checked || false,
+      request_contact: $("salesRequestContact")?.checked || false,
     }
   };
 }
@@ -4196,6 +4211,13 @@ function setAiFieldsFromSettings(ai) {
   if ($("aiAllowedPhrases")) $("aiAllowedPhrases").value = (sa.allowed_phrases || []).join("\n");
   if ($("aiNoGuarantees")) $("aiNoGuarantees").checked = !!(sa.legal?.no_guarantees);
   if ($("aiNoPromises")) $("aiNoPromises").checked = !!(sa.legal?.no_promises);
+  const sales = ai?.sales || {};
+  if ($("salesEnableCta")) $("salesEnableCta").checked = !!sales.enable_cta;
+  if ($("salesOfferDemo")) $("salesOfferDemo").checked = !!sales.offer_demo;
+  if ($("salesOfferOffert")) $("salesOfferOffert").checked = !!sales.offer_offert;
+  if ($("salesLinkPricing")) $("salesLinkPricing").checked = !!sales.link_pricing;
+  if ($("salesScheduleMeeting")) $("salesScheduleMeeting").checked = !!sales.schedule_meeting;
+  if ($("salesRequestContact")) $("salesRequestContact").checked = !!sales.request_contact;
 }
 
 function aiSimulateResponse(input, ai) {
@@ -4306,6 +4328,12 @@ async function loadAiPanel() {
     renderAiFlows();
     renderAiSegmenting();
     renderAiRules();
+    try {
+      const a = await api(`/ai/analytics?companyId=${encodeURIComponent(state.companyId)}`);
+      state.aiAnalytics = a;
+      renderAiAnalyticsBox();
+      renderAiDashboardStats();
+    } catch {}
   } catch {
     state.aiProfiles = { default: {} };
     state.aiActiveProfile = "default";
@@ -4501,6 +4529,7 @@ function bindEvents() {
       const a = await api(`/ai/analytics?companyId=${encodeURIComponent(state.companyId)}`);
       state.aiAnalytics = a;
       renderAiAnalyticsBox();
+      renderAiDashboardStats();
     } catch (e) { toast("Fel", e.message, "error"); }
   });
   on("aiRunRuleSimBtn", "click", () => {
@@ -4697,6 +4726,19 @@ function bindEvents() {
       }
     }
   });
+}
+
+function renderAiDashboardStats() {
+  const ap = $("aiStatActiveProfile");
+  const seg = $("aiStatSegments");
+  const fl = $("aiStatFlows");
+  const rl = $("aiStatRules");
+  const cs = $("aiStatCsat");
+  if (ap) ap.textContent = state.aiActiveProfile || "-";
+  if (seg) seg.textContent = String((state.aiSegmenting?.mappings || []).length);
+  if (fl) fl.textContent = String((state.aiFlows || []).length);
+  if (rl) rl.textContent = String((state.aiRules || []).length);
+  if (cs) cs.textContent = String(state.aiAnalytics?.avgCsat || "-");
 }
 
 function initSocket() {

@@ -685,6 +685,33 @@
             </div>
           </div>
           <div>
+            <div class="panel" id="panelDashboard">
+              <div class="panelHead">
+                <b><i class="fa-solid fa-gauge-simple-high"></i> AI Kontrollpanel – Dashboard</b>
+              </div>
+              <div class="grid3" style="grid-template-columns: repeat(5, 1fr); gap:10px; margin-top:8px;">
+                <div class="card soft" style="padding:12px;">
+                  <div class="muted small">Aktiv profil</div>
+                  <div id="aiStatActiveProfile" style="font-weight:800; font-size:18px;">-</div>
+                </div>
+                <div class="card soft" style="padding:12px;">
+                  <div class="muted small">Segment</div>
+                  <div id="aiStatSegments" style="font-weight:800; font-size:18px;">0</div>
+                </div>
+                <div class="card soft" style="padding:12px;">
+                  <div class="muted small">Flöden</div>
+                  <div id="aiStatFlows" style="font-weight:800; font-size:18px;">0</div>
+                </div>
+                <div class="card soft" style="padding:12px;">
+                  <div class="muted small">Regler</div>
+                  <div id="aiStatRules" style="font-weight:800; font-size:18px;">0</div>
+                </div>
+                <div class="card soft" style="padding:12px;">
+                  <div class="muted small">CSAT Snitt</div>
+                  <div id="aiStatCsat" style="font-weight:800; font-size:18px;">-</div>
+                </div>
+              </div>
+            </div>
             <div class="panel">
               <div class="panelHead"><b><i class="fa-solid fa-user-astronaut"></i> Personlighet & beteende</b></div>
               <div class="grid2">
@@ -763,7 +790,8 @@
               </div>
             </div>
             <div class="panel">
-              <div class="panelHead"><b><i class="fa-solid fa-list-check"></i> Beteenderegler</b></div>
+              <div class="panelHead"><b><i class="fa-solid fa-list-check"></i> Beteenderegler</b><button class="btn ghost tiny icon" style="margin-left:auto;" type="button" onclick="togglePanel('panelBehaviorRules')"><i class="fa-solid fa-chevron-up"></i></button></div>
+              <div id="panelBehaviorRules">
               <div class="grid2">
                 <div><label>Arga kunder</label><textarea id="aiRuleAngry" class="input" rows="3" placeholder="T.ex. lugn, empatisk, erbjud kompensation vid skada"></textarea></div>
                 <div><label>Osäkra kunder</label><textarea id="aiRuleUncertain" class="input" rows="3" placeholder="T.ex. ställ tydliga följdfrågor, be om exempel"></textarea></div>
@@ -776,9 +804,11 @@
                 <div><label>Avslå förfrågningar</label><textarea id="aiRuleDecline" class="input" rows="3" placeholder="T.ex. förklara policy, ge alternativ"></textarea></div>
                 <div><label>Eskalera till människa</label><textarea id="aiRuleEscalate" class="input" rows="3" placeholder="T.ex. vid max svar, eller känsliga ämnen"></textarea></div>
               </div>
+              </div>
             </div>
             <div class="panel">
-              <div class="panelHead"><b><i class="fa-solid fa-shield"></i> Kontroll & säkerhet</b></div>
+              <div class="panelHead"><b><i class="fa-solid fa-shield"></i> Kontroll & säkerhet</b><button class="btn ghost tiny icon" style="margin-left:auto;" type="button" onclick="togglePanel('panelSecurity')"><i class="fa-solid fa-chevron-up"></i></button></div>
+              <div id="panelSecurity">
               <div class="grid2">
                 <div><label>Förbjudna ämnen</label><textarea id="aiForbiddenTopics" class="input" rows="3" placeholder="En per rad"></textarea></div>
                 <div><label>Tillåtna formuleringar</label><textarea id="aiAllowedPhrases" class="input" rows="3" placeholder="En per rad"></textarea></div>
@@ -787,9 +817,11 @@
                 <label><input id="aiNoGuarantees" type="checkbox" /> Inga garantier</label>
                 <label><input id="aiNoPromises" type="checkbox" /> Inga löften</label>
               </div>
+              </div>
             </div>
             <div class="panel">
-              <div class="panelHead"><b><i class="fa-solid fa-diagram-project"></i> Flödesbyggare</b></div>
+              <div class="panelHead"><b><i class="fa-solid fa-diagram-project"></i> Flödesbyggare</b><button class="btn ghost tiny icon" style="margin-left:auto;" type="button" onclick="togglePanel('panelFlow')"><i class="fa-solid fa-chevron-up"></i></button></div>
+              <div id="panelFlow">
               <div id="aiFlowList" class="list" style="margin-top:10px;"></div>
               <div class="row gap" style="margin-top:10px;">
                 <select id="aiFlowStepType" class="input smallInput" style="min-width:160px;">
@@ -806,6 +838,7 @@
                 <select id="aiFlowVersionSelect" class="input smallInput" style="min-width:200px;"></select>
                 <button id="aiCreateFlowVersionBtn" class="btn ghost small" type="button"><i class="fa-solid fa-code-branch"></i> Skapa version</button>
                 <button id="aiRollbackFlowBtn" class="btn ghost small" type="button"><i class="fa-solid fa-rotate-left"></i> Återställ</button>
+              </div>
               </div>
             </div>
             <div class="panel">
@@ -855,8 +888,22 @@
               </div>
               <div id="segMappingList" class="list" style="margin-top:10px;"></div>
             </div>
+            <div class="panel" id="panelSales">
+              <div class="panelHead"><b><i class="fa-solid fa-handshake"></i> Sälj – CTA & Kontakt</b></div>
+              <div class="grid3">
+                <label><input id="salesEnableCta" type="checkbox" /> Aktivera Sälj‑CTA</label>
+                <label><input id="salesOfferDemo" type="checkbox" /> Erbjud demo</label>
+                <label><input id="salesOfferOffert" type="checkbox" /> Erbjud offert</label>
+              </div>
+              <div class="grid3" style="margin-top:10px;">
+                <label><input id="salesLinkPricing" type="checkbox" /> Hänvisa till prisplaner</label>
+                <label><input id="salesScheduleMeeting" type="checkbox" /> Föreslå möte</label>
+                <label><input id="salesRequestContact" type="checkbox" /> Be om kontaktuppgifter</label>
+              </div>
+            </div>
             <div class="panel">
-              <div class="panelHead"><b><i class="fa-solid fa-code"></i> IF/THEN‑regler</b></div>
+              <div class="panelHead"><b><i class="fa-solid fa-code"></i> IF/THEN‑regler</b><button class="btn ghost tiny icon" style="margin-left:auto;" type="button" onclick="togglePanel('panelRules')"><i class="fa-solid fa-chevron-up"></i></button></div>
+              <div id="panelRules">
               <div id="aiRulesList" class="list" style="margin-top:10px;"></div>
               <div class="row gap" style="margin-top:10px;">
                 <select id="aiRuleCondition" class="input smallInput">
@@ -873,18 +920,22 @@
                 <button id="aiAddRuleBtn" class="btn secondary small" type="button"><i class="fa-solid fa-plus"></i> Lägg till regel</button>
                 <button id="aiSaveRulesBtn" class="btn primary small" type="button"><i class="fa-solid fa-floppy-disk"></i> Spara regler</button>
               </div>
+              </div>
             </div>
             <div class="panel">
-              <div class="panelHead"><b><i class="fa-solid fa-chart-column"></i> Analys & feedback</b></div>
+              <div class="panelHead"><b><i class="fa-solid fa-chart-column"></i> Analys & feedback</b><button class="btn ghost tiny icon" style="margin-left:auto;" type="button" onclick="togglePanel('panelAnalytics')"><i class="fa-solid fa-chevron-up"></i></button></div>
+              <div id="panelAnalytics">
               <div class="row gap">
                 <button id="aiUpdateAnalyticsBtn" class="btn ghost small" type="button"><i class="fa-solid fa-rotate"></i> Uppdatera</button>
               </div>
               <div id="aiAnalyticsBox" class="list" style="margin-top:10px;">
                 <div class="muted small">Ladda AI‑analys för dialoger, eskaleringar och missförstånd.</div>
               </div>
+              </div>
             </div>
             <div class="panel">
-              <div class="panelHead"><b><i class="fa-solid fa-vial"></i> Regel‑simulator</b></div>
+              <div class="panelHead"><b><i class="fa-solid fa-vial"></i> Regel‑simulator</b><button class="btn ghost tiny icon" style="margin-left:auto;" type="button" onclick="togglePanel('panelRuleSim')"><i class="fa-solid fa-chevron-up"></i></button></div>
+              <div id="panelRuleSim">
               <textarea id="aiRuleSimInput" class="input" rows="4" placeholder="Skriv ett provmeddelande för att testa regler/segmentering..."></textarea>
               <div class="row gap" style="margin-top:10px;">
                 <button id="aiRunRuleSimBtn" class="btn secondary small" type="button"><i class="fa-solid fa-flask"></i> Kör simulering</button>
@@ -892,6 +943,7 @@
               </div>
               <div id="aiRuleSimBox" class="list" style="margin-top:10px;">
                 <div class="muted small">Resultat från simulering visas här.</div>
+              </div>
               </div>
             </div>
           </div>

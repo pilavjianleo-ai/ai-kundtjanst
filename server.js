@@ -707,6 +707,7 @@ async function generateAIResponse(companyId, messages, userMessage) {
     const rules = ai?.rules || [];
     const willWarmTone = rules.some(r => String(r.then || "").toLowerCase().includes("ändra_ton=varm") && /arg|förbannad|😡|!{2,}/i.test(userMessage));
     if (willWarmTone) p.style = "varm";
+    const sales = prof.sales || {};
     const styleDesc = p.style === "formell" ? "Formell och korrekt" :
                       p.style === "vänlig" ? "Vänlig och varm" :
                       p.style === "avslappnad" ? "Avslappnad och lugn" :
@@ -806,6 +807,15 @@ Tid: ${new Date().toLocaleString('sv-SE')}`;
     const askFollowRule = rules.some(r => String(r.then || "").toLowerCase().includes("ställ_följdfråga") && /(osäker|vet inte|\?{2,})/i.test(userMessage));
     if (askFollowRule) {
       result += " Skulle du kunna beskriva situationen lite närmare?";
+    }
+    if (dept === "sälj" && sales.enable_cta) {
+      const ctas = [];
+      if (sales.offer_demo) ctas.push("Vill du boka en kort demo?");
+      if (sales.offer_offert) ctas.push("Ska vi ta fram en offert?");
+      if (sales.link_pricing) ctas.push("Vi kan gå igenom prisplanerna tillsammans.");
+      if (sales.schedule_meeting) ctas.push("Vill du boka ett möte med en säljkollega?");
+      if (sales.request_contact) ctas.push("Kan jag få din e‑post och telefon så återkopplar vi snarast?");
+      if (ctas.length) result += " " + ctas.join(" ");
     }
     console.log("✅ AI-svar genererat.");
     return result;
