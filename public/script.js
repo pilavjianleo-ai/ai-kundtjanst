@@ -4244,15 +4244,24 @@ function aiEvaluateDecision(input) {
   const customerType = isCompany ? "b2b" : "b2c";
   const h = new Date().getHours();
   const mappings = ai.segmenting.mappings || [];
+  const dept = (() => {
+    const txt = msg.toLowerCase();
+    if (/(pris|offert|rabatt|kostnad|faktur|betal|plan|avtal)/i.test(txt)) return "sälj";
+    if (/(bugg|fel|fungerar inte|support|hjälp|problem|crash|konto)/i.test(txt)) return "support";
+    if (/(api|server|integration|deploy|docker|it|nätverk|säkerhet|oauth|webhook)/i.test(txt)) return "it";
+    if (isCompany && /(demo|avtal|offert|pris)/i.test(txt)) return "sälj";
+    return "support";
+  })();
   let profile = ai.activeProfile || "default";
-  let matched = { department: "-", language: lang, customerType, schedule: "alltid", profile };
+  let matched = { department: dept, language: lang, customerType, schedule: "alltid", profile };
   for (const m of mappings) {
     const langOk = (m.language || "sv") === lang;
     let timeOk = true;
     if (m.schedule === "kontorstid") timeOk = h >= 9 && h < 17;
     else if (m.schedule === "kväll") timeOk = h >= 17 && h < 23;
     const custOk = (m.customerType || "b2c") === customerType;
-    if (langOk && timeOk && custOk && ai.profiles[m.profile]) {
+    const deptOk = !m.department || m.department === dept;
+    if (langOk && timeOk && custOk && deptOk && ai.profiles[m.profile]) {
       profile = m.profile;
       matched = { department: m.department || "-", language: m.language, customerType: m.customerType, schedule: m.schedule, profile: m.profile };
       break;

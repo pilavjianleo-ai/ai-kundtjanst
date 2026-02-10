@@ -664,6 +664,15 @@ app.post("/admin/kb/pdf", authenticate, requireAdmin, upload.single("pdf"), asyn
 /* =====================
    OpenAI Chat Functions
 ===================== */
+function inferDepartment(userMessage, ticket) {
+  const txt = String(userMessage || "").toLowerCase();
+  const hasCompany = !!(ticket?.contactInfo?.isCompany);
+  if (/(pris|offert|rabatt|kostnad|faktur|betal|plan|avtal)/i.test(txt)) return "sälj";
+  if (/(bugg|fel|fungerar inte|support|hjälp|problem|crash|konto)/i.test(txt)) return "support";
+  if (/(api|server|integration|deploy|docker|it|nätverk|säkerhet|oauth|webhook)/i.test(txt)) return "it";
+  if (hasCompany && /(demo|avtal|offert|pris)/i.test(txt)) return "sälj";
+  return "support";
+}
 async function generateAIResponse(companyId, messages, userMessage) {
   try {
     const company = await Company.findOne({ companyId });
@@ -673,14 +682,16 @@ async function generateAIResponse(companyId, messages, userMessage) {
     const now = new Date();
     const hour = now.getHours();
     const mappings = ai?.segmenting?.mappings || [];
+    const dept = inferDepartment(userMessage);
     let profileName = activeName;
     for (const m of mappings) {
       const langOk = (m.language || "sv") === "sv";
       let timeOk = true;
       if (m.schedule === "kontorstid") timeOk = hour >= 9 && hour < 17;
       else if (m.schedule === "kväll") timeOk = hour >= 17 && hour < 23;
+      const deptOk = !m.department || m.department === dept;
       const custOk = true;
-      if (langOk && timeOk && custOk && profiles[m.profile]) { profileName = m.profile; break; }
+      if (langOk && timeOk && deptOk && custOk && profiles[m.profile]) { profileName = m.profile; break; }
     }
     const prof = profiles[profileName] || {};
     const p = prof.personality || {};
@@ -693,6 +704,9 @@ async function generateAIResponse(companyId, messages, userMessage) {
     if (forbidden.some(t => txtLow.includes(t))) {
       return "Det ämnet kan vi inte behandla här. Jag kopplar dig vidare till en mänsklig agent som kan hjälpa dig.";
     }
+    const rules = ai?.rules || [];
+    const willWarmTone = rules.some(r => String(r.then || "").toLowerCase().includes("ändra_ton=varm") && /arg|förbannad|😡|!{2,}/i.test(userMessage));
+    if (willWarmTone) p.style = "varm";
     const styleDesc = p.style === "formell" ? "Formell och korrekt" :
                       p.style === "vänlig" ? "Vänlig och varm" :
                       p.style === "avslappnad" ? "Avslappnad och lugn" :
@@ -736,6 +750,7 @@ async function generateAIResponse(companyId, messages, userMessage) {
     const tone = company?.settings?.tone || "professional";
 
     const systemPrompt = `Du är en AI‑kundtjänstagent för "${company?.displayName || "vår tjänst"}".
+Avdelning: ${dept.toUpperCase()}.
 Stil: ${styleDesc}. ${verbDesc}. ${assertDesc}. ${probDesc}. Empati=${emp}/100, Artighet=${pol}/100, Ton=${toneLevel}/100.
 Språk: Svenska.
 Tolkning: ${i.detect_emotion ? "Identifiera känsla." : "Ignorera känsla."} ${i.handle_slang ? "Förstå slang/emojis." : ""} ${i.ask_followup !== false ? "Ställ följdfråga vid oklarhet." : ""}
@@ -783,6 +798,14 @@ Tid: ${new Date().toLocaleString('sv-SE')}`;
       if (h < 9 || h >= 17) result += " Vi återkommer med mer detaljer under kontorstid.";
     } else if (timePolicy === "fördröjt") {
       result += " Jag återkommer strax med fler detaljer.";
+    }
+    const suggestComp = rules.some(r => String(r.then || "").toLowerCase().includes("föreslå_kompensation") && /(skada|försening|feldebitering|besviken|missnöjd)/i.test(userMessage));
+    if (suggestComp) {
+      result += " Vi kan titta på kompensation om det är motiverat enligt vår policy.";
+    }
+    const askFollowRule = rules.some(r => String(r.then || "").toLowerCase().includes("ställ_följdfråga") && /(osäker|vet inte|\?{2,})/i.test(userMessage));
+    if (askFollowRule) {
+      result += " Skulle du kunna beskriva situationen lite närmare?";
     }
     console.log("✅ AI-svar genererat.");
     return result;
@@ -887,13 +910,15 @@ app.post("/chat", authenticate, chatLimiter, async (req, res) => {
     let profileName = activeName;
     const isCompany = !!(ticket.contactInfo?.isCompany);
     const custType = isCompany ? "b2b" : "b2c";
+    const dept = inferDepartment(lastUserMsg, ticket);
     for (const m of mappings) {
       const langOk = (m.language || "sv") === "sv";
       let timeOk = true;
       if (m.schedule === "kontorstid") timeOk = h >= 9 && h < 17;
       else if (m.schedule === "kväll") timeOk = h >= 17 && h < 23;
       const custOk = (m.customerType || "b2c") === custType;
-      if (langOk && timeOk && custOk && profiles[m.profile]) { profileName = m.profile; break; }
+      const deptOk = !m.department || m.department === dept;
+      if (langOk && timeOk && custOk && deptOk && profiles[m.profile]) { profileName = m.profile; break; }
     }
     const logic = (profiles[profileName]?.logic) || {};
     const maxReplies = Number(logic.max_replies ?? 3);
