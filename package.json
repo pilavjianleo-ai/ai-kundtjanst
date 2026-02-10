@@ -13,7 +13,7 @@
     "@elastic/elasticsearch": "^8.15.0",
     "@mozilla/readability": "^0.6.0",
     "@sentry/node": "^8.28.0",
-    "axios": "^1.6.8",
+    "axios": "^1.13.5",
     "bcryptjs": "^3.0.3",
     "bullmq": "^5.12.10",
     "celebrate": "^15.0.3",
