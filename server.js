@@ -960,21 +960,9 @@ app.post("/chat", authenticate, chatLimiter, async (req, res) => {
       reply = "Tekniskt fel vid AI-generering. En agent har notifierats.";
     }
 
-    // AI Intent & Handoff
     const msgLow = lastUserMsg.toLowerCase();
-    let needsHuman = ["människa", "person", "agent", "riktig", "arg", "besviken"].some(w => msgLow.includes(w)) || (reply && reply.includes("koppla dig vidare"));
-    if (!needsHuman && assistantCount + 1 >= maxReplies) needsHuman = true;
-    for (const r of rules) {
-      const cond = String(r.if || "").toLowerCase();
-      const act = String(r.then || "").toLowerCase();
-      let match = false;
-      if (cond.includes("emotion=arg")) match = /arg|förbannad|😡|!{2,}/i.test(lastUserMsg);
-      else if (cond.includes("upprepning>2")) {
-        const last3 = (ticket.messages || []).slice(-6).filter(m => m.role === "user").map(m => m.content.toLowerCase());
-        match = last3.length >= 3 && (new Set(last3)).size <= 1;
-      } else if (cond.includes("osäkerhet")) match = /osäker|vet inte|\?{2,}/i.test(lastUserMsg);
-      if (match && act.includes("eskalera")) { needsHuman = true; break; }
-    }
+    const handoff = ["människa","person","agent","koppla","koppla vidare","eskalera","prata med människa","prata med en människa"].some(w => msgLow.includes(w));
+    const needsHuman = handoff;
 
     if (needsHuman) {
       ticket.priority = "high";
