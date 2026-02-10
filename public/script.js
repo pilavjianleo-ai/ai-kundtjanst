@@ -384,6 +384,7 @@ function updateRoleUI() {
     if (settingsBtn) settingsBtn.style.display = "";
     if (feedbackBtn) feedbackBtn.style.display = "";
     if (simulatorBtn) simulatorBtn.style.display = "";
+    if (aiPanelBtn) aiPanelBtn.style.display = "";
     return;
   }
 
