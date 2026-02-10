@@ -119,6 +119,7 @@
       <!-- AUTH VIEW -->
       <section id="authView" class="view">
         <div class="card authCard">
+          <form id="loginForm" onsubmit="return false;" novalidate>
           <h2>Logga in</h2>
           <p class="muted">Logga in för att starta chatt och se dina ärenden.</p>
 
@@ -158,6 +159,7 @@
           </div>
 
           <div id="authMessage" class="alert error" style="display:none;"></div>
+          </form>
         </div>
 
         <div id="forgotCard" class="card authCard" style="display:none;">
@@ -178,6 +180,7 @@
         </div>
 
         <div id="resetCard" class="card authCard" style="display:none;">
+          <form id="resetForm" onsubmit="return false;" novalidate>
           <h2>Välj nytt lösenord</h2>
           <p class="muted">Skriv ett nytt lösenord och spara.</p>
 
@@ -195,6 +198,7 @@
           </button>
 
           <div id="resetMsg" class="alert" style="display:none;"></div>
+          </form>
         </div>
       </section>
 
@@ -1019,6 +1023,7 @@
         <!-- SECURITY TAB -->
         <div id="tabSecurity" class="tabPanel" style="display:none;">
           <div class="panel" style="max-width: 500px; margin: 0 auto;">
+            <form id="changePasswordForm" onsubmit="return false;" novalidate>
             <div class="panelHead"><b>Ändra Lösenord</b></div>
             <p class="muted small">Välj ett starkt lösenord för att skydda ditt konto.</p>
 
@@ -1036,6 +1041,7 @@
             <div class="alert warn" style="font-size:12px;">
               <i class="fa-solid fa-circle-info"></i> Vi rekommenderar att du byter lösenord var 6:e månad.
             </div>
+            </form>
           </div>
         </div>
 
@@ -1530,6 +1536,7 @@
             <div class="panelHead"><b><i class="fa-solid fa-lock"></i> Säkerhet</b></div>
             <p class="muted small">Här kan du byta ditt lösenord.</p>
 
+          <form id="securityForm" onsubmit="return false;" novalidate>
             <label>Nuvarande lösenord</label>
             <div class="passRow" style="display:flex; gap:8px;">
               <input id="currentPassInput" type="password" class="input" placeholder="••••••••" />
@@ -1547,6 +1554,7 @@
             <button id="changePasswordBtn" class="btn primary full" style="margin-top:20px;">
               <i class="fa-solid fa-floppy-disk"></i> Uppdatera lösenord
             </button>
+          </form>
           </div>
         </div>
 

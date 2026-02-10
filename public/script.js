@@ -47,6 +47,8 @@ const state = {
   csatPendingTicketId: null,
   currentView: "chatView",
   slaLoadSeq: 0,
+  slaAbortController: null,
+  hasUserGesture: false,
   crmPage: 1,
   crmPageSize: 50,
 };
@@ -101,7 +103,7 @@ function toast(title, text = "", type = "info") {
 const apiCache = new Map();
 const apiControllers = new Map();
 
-async function api(path, { method = "GET", body, auth = true, cache = false, ttl = 15000, cancelKey } = {}) {
+async function api(path, { method = "GET", body, auth = true, cache = false, ttl = 15000, cancelKey, signal } = {}) {
   const headers = { "Content-Type": "application/json" };
   if (auth && state.token) {
     headers["Authorization"] = "Bearer " + state.token;
@@ -128,7 +130,7 @@ async function api(path, { method = "GET", body, auth = true, cache = false, ttl
     method,
     headers,
     body: body ? JSON.stringify(body) : undefined,
-    signal: controller ? controller.signal : undefined,
+    signal: signal ? signal : (controller ? controller.signal : undefined),
   });
 
   let data = null;
@@ -3191,16 +3193,20 @@ async function loadSlaDashboard() {
   try {
     state.slaLoadSeq = (state.slaLoadSeq || 0) + 1;
     const seq = state.slaLoadSeq;
+    if (state.slaAbortController) { try { state.slaAbortController.abort(); } catch {} }
+    const groupCtrl = new (window.AbortController || (() => null))();
+    state.slaAbortController = groupCtrl;
+
     const [overview, trend, agents, topTopics, escalation, comparison, questions, hourly, insights] = await Promise.all([
-      api(`/sla/overview?days=${encodeURIComponent(days)}`, { cache: true, ttl: 15000, cancelKey: "slaDashboard" }),
-      api(`/sla/trend?days=${encodeURIComponent(days)}`, { cache: true, ttl: 15000, cancelKey: "slaDashboard" }),
-      api(`/sla/agents/detailed?days=${encodeURIComponent(days)}`, { cache: true, ttl: 15000, cancelKey: "slaDashboard" }),
-      api(`/sla/top-topics`, { cache: true, ttl: 15000, cancelKey: "slaDashboard" }),
-      api(`/sla/escalation?days=${encodeURIComponent(days)}`, { cache: true, ttl: 15000, cancelKey: "slaDashboard" }),
-      api(`/sla/comparison?days=${encodeURIComponent(days)}`, { cache: true, ttl: 15000, cancelKey: "slaDashboard" }),
-      api(`/sla/questions?days=${encodeURIComponent(days)}`, { cache: true, ttl: 15000, cancelKey: "slaDashboard" }),
-      api(`/sla/hourly?days=${Math.min(days, 14)}`, { cache: true, ttl: 15000, cancelKey: "slaDashboard" }),
-      api(`/sla/insights?days=${encodeURIComponent(days)}`, { cache: true, ttl: 15000, cancelKey: "slaDashboard" })
+      api(`/sla/overview?days=${encodeURIComponent(days)}`, { cache: true, ttl: 15000, signal: groupCtrl?.signal }),
+      api(`/sla/trend?days=${encodeURIComponent(days)}`, { cache: true, ttl: 15000, signal: groupCtrl?.signal }),
+      api(`/sla/agents/detailed?days=${encodeURIComponent(days)}`, { cache: true, ttl: 15000, signal: groupCtrl?.signal }),
+      api(`/sla/top-topics`, { cache: true, ttl: 15000, signal: groupCtrl?.signal }),
+      api(`/sla/escalation?days=${encodeURIComponent(days)}`, { cache: true, ttl: 15000, signal: groupCtrl?.signal }),
+      api(`/sla/comparison?days=${encodeURIComponent(days)}`, { cache: true, ttl: 15000, signal: groupCtrl?.signal }),
+      api(`/sla/questions?days=${encodeURIComponent(days)}`, { cache: true, ttl: 15000, signal: groupCtrl?.signal }),
+      api(`/sla/hourly?days=${Math.min(days, 14)}`, { cache: true, ttl: 15000, signal: groupCtrl?.signal }),
+      api(`/sla/insights?days=${encodeURIComponent(days)}`, { cache: true, ttl: 15000, signal: groupCtrl?.signal })
     ]);
     if (seq !== state.slaLoadSeq) return;
 
@@ -3529,6 +3535,7 @@ async function loadSlaDashboard() {
     }
 
   } catch (e) {
+    if (e?.name === "AbortError") return;
     console.error("SLA Dashboard Error:", e);
     toast("Fel", "Kunde inte ladda dashboard-data: " + e.message, "error");
   }
@@ -4099,6 +4106,7 @@ function initSocket() {
 function playAlert() {
   const pref = localStorage.getItem("prefSoundNotif");
   if (pref === "false") return;
+  if (!state.hasUserGesture) return;
   try {
     const Ctx = window.AudioContext || window.webkitAudioContext;
     if (!Ctx) return;
@@ -4148,6 +4156,7 @@ function setupAudioUnlock() {
     try {
       if (!window._audioCtx) window._audioCtx = new Ctx();
       if (window._audioCtx.state === "suspended") window._audioCtx.resume().catch(() => {});
+      state.hasUserGesture = true;
     } catch {}
   };
   window.addEventListener("click", unlock, { once: true });
