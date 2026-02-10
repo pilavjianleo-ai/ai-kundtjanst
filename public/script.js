@@ -126,11 +126,15 @@ async function api(path, { method = "GET", body, auth = true, cache = false, ttl
     apiControllers.set(cancelKey, controller);
   }
 
+  const ctrlSignal = controller ? controller.signal : undefined;
+  const effectiveSignal = (signal && signal.aborted) ? undefined
+    : (ctrlSignal && ctrlSignal.aborted) ? undefined
+    : (signal || ctrlSignal);
   const res = await fetch(state.apiBase + path, {
     method,
     headers,
     body: body ? JSON.stringify(body) : undefined,
-    signal: signal ? signal : (controller ? controller.signal : undefined),
+    signal: effectiveSignal,
   });
 
   let data = null;

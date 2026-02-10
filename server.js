@@ -43,6 +43,8 @@ app.use(express.static(path.join(__dirname, "public"), {
       const ext = path.extname(filePath).toLowerCase();
       if (ext === ".html") {
         res.setHeader("Cache-Control", "no-store");
+      } else if (ext === ".js" || ext === ".css") {
+        res.setHeader("Cache-Control", "no-cache, must-revalidate");
       }
     } catch {}
   }
