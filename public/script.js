@@ -4756,6 +4756,8 @@ function bindEvents() {
       const id = b.getAttribute("data-target");
       const mod = document.getElementById(id);
       if (mod) mod.style.display = "";
+      const right = document.getElementById("aiRightColumn");
+      if (right) right.style.display = (id === "ccModuleOverview") ? "" : "none";
     });
   });
   on("aiRunRuleSimBtn", "click", () => {
