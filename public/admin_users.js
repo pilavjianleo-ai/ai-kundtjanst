@@ -27,6 +27,9 @@ async function loadAdminUsers() {
         });
 
         list.innerHTML = filtered.map(u => {
+          const roleClass =
+            u.role === 'admin' ? 'badge-admin' :
+            u.role === 'agent' ? 'badge-agent' : 'badge-user';
           return `
             <div class="listItem adminUserItem"
               data-id="${u._id}"
@@ -35,7 +38,8 @@ async function loadAdminUsers() {
               <div style="flex:1; min-width:0;">
                 <div style="font-weight:800; display:flex; align-items:center; gap:8px;">
                   <i class="fa-solid fa-user"></i>
-                  <span style="overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${u.username} ${u.role}</span>
+                  <span style="overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${u.username}</span>
+                  <span class="${roleClass}" style="display:inline-block; padding:4px 12px; border-radius:20px; font-size:12px; font-weight:700; text-transform:lowercase; letter-spacing:0.5px;">${u.role}</span>
                 </div>
                 <div class="muted small" style="margin-top:4px;">
                   ${u.email || 'Ingen e-post'} • ID: ${u._id}
