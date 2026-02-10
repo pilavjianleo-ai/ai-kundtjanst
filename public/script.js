@@ -4465,6 +4465,33 @@ function bindEvents() {
     }
     setAiFieldsFromSettings({});
   });
+  on("dashboardToggleSalesCtaBtn", "click", async () => {
+    const chk = $("salesEnableCta");
+    if (chk) chk.checked = !chk.checked;
+    await saveAiSettings();
+    toast("Sälj‑CTA", chk && chk.checked ? "Aktiverad" : "Avaktiverad", "info");
+  });
+  on("dashboardTestSalesFlowBtn", "click", () => {
+    const input = $("aiRuleSimInput");
+    if (input) input.value = "Hej! Vi är ett bolag och vill få offert på Pro‑planen. Finns demo?";
+    const panel = $("panelRuleSim"); if (panel) panel.style.display = "";
+    const msg = $("aiRuleSimInput")?.value || "";
+    const res = aiEvaluateDecision(msg);
+    const box = $("aiRuleSimBox");
+    if (!box) return;
+    const lines = [];
+    lines.push(`<div class="listItem"><div class="listItemTitle">Vald profil: <b>${escapeHtml(res.profile)}</b></div></div>`);
+    lines.push(`<div class="listItem"><div class="listItemTitle">Segment: ${escapeHtml(res.segment.department || "-")} • ${escapeHtml(res.segment.language)} • ${escapeHtml(res.segment.customerType)} • ${escapeHtml(res.segment.schedule)}</div></div>`);
+    lines.push(`<div class="listItem"><div class="listItemTitle">Eskalera: <b>${res.needsHuman ? "Ja" : "Nej"}</b></div></div>`);
+    if (res.triggeredRules.length) {
+      lines.push(`<div class="listItem"><div class="listItemTitle">Triggade regler</div></div>`);
+      res.triggeredRules.forEach(r => lines.push(`<div class="listItem"><div>${escapeHtml(r)}</div></div>`));
+    } else {
+      lines.push(`<div class="listItem"><div class="muted small">Inga regler triggade.</div></div>`);
+    }
+    lines.push(`<div class="listItem"><div class="listItemTitle">Svar‑preview</div><div>${escapeHtml(res.preview)}</div></div>`);
+    box.innerHTML = lines.join("");
+  });
   on("aiSimulateBtn", "click", () => {
     const ai = getAiSettingsFromFields();
     const input = $("aiSimInput")?.value || "";
