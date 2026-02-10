@@ -3906,6 +3906,7 @@ function bindEvents() {
 function initSocket() {
   if (typeof io === 'undefined') return;
   const socket = io();
+  window.socket = socket;
 
   socket.on("ticketUpdate", (data) => {
     if (state.currentView === "inboxView") loadInboxTickets();
@@ -3927,6 +3928,13 @@ function initSocket() {
       setTimeout(() => btn.classList.remove("shake-notif"), 2000);
     }
 
+    if (["agent", "admin"].includes(state.me?.role)) {
+      try {
+        playAlert();
+        notifyDesktop(data.title);
+      } catch {}
+    }
+
     if (state.currentView === "inboxView") loadInboxTickets();
   });
 
@@ -3937,6 +3945,66 @@ function initSocket() {
   });
 }
 
+function playAlert() {
+  const pref = localStorage.getItem("prefSoundNotif");
+  if (pref === "false") return;
+  try {
+    const Ctx = window.AudioContext || window.webkitAudioContext;
+    const ctx = new Ctx();
+    const o = ctx.createOscillator();
+    const g = ctx.createGain();
+    o.type = "sine";
+    o.frequency.value = 880;
+    o.connect(g);
+    g.connect(ctx.destination);
+    g.gain.setValueAtTime(0.0001, ctx.currentTime);
+    g.gain.exponentialRampToValueAtTime(0.08, ctx.currentTime + 0.02);
+    o.start();
+    setTimeout(() => {
+      g.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + 0.2);
+      o.stop(ctx.currentTime + 0.21);
+      ctx.close();
+    }, 200);
+  } catch {}
+}
+
+function notifyDesktop(title) {
+  const pref = localStorage.getItem("prefDesktopNotif");
+  if (pref === "false") return;
+  try {
+    if (!("Notification" in window)) return;
+    const show = () => {
+      try { new Notification("Viktigt ärende", { body: title || "", icon: "/favicon.ico" }); } catch {}
+    };
+    if (Notification.permission === "granted") {
+      show();
+    } else if (Notification.permission !== "denied") {
+      Notification.requestPermission().then(p => { if (p === "granted") show(); });
+    }
+  } catch {}
+}
+
+function bindPreferences() {
+  const soundEl = $("prefSoundNotif");
+  const deskEl = $("prefDesktopNotif");
+  if (soundEl) {
+    const v = localStorage.getItem("prefSoundNotif");
+    if (v === "true" || v === "false") soundEl.checked = v === "true";
+    soundEl.addEventListener("change", () => {
+      localStorage.setItem("prefSoundNotif", soundEl.checked ? "true" : "false");
+    });
+  }
+  if (deskEl) {
+    const v = localStorage.getItem("prefDesktopNotif");
+    if (v === "true" || v === "false") deskEl.checked = v === "true";
+    deskEl.addEventListener("change", () => {
+      localStorage.setItem("prefDesktopNotif", deskEl.checked ? "true" : "false");
+      if (deskEl.checked && "Notification" in window && Notification.permission !== "granted" && Notification.permission !== "denied") {
+        Notification.requestPermission();
+      }
+    });
+  }
+}
 /* =========================
    Product Simulator
 ========================= */
@@ -4239,6 +4307,7 @@ async function init() {
   loadTheme();
   initSocket();
   bindEvents();
+  bindPreferences();
   renderDebug();
 
   await loadMe();
