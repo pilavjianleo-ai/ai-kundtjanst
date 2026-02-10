@@ -1435,19 +1435,32 @@ async function deleteTicket() {
 ========================= */
 function setSlaLoading(v) {
   const ind = $("slaLoadingIndicator");
-  if (ind) ind.style.display = v ? "inline-flex" : "none";
+  if (ind) {
+    ind.style.display = v ? "inline-flex" : "none";
+    if (v) ind.innerHTML = '<span class="spinner" style="margin-right:6px;"></span>Laddar… <span id="slaProgressText">0%</span>';
+  }
   const cancelBtn = $("slaCancelBtn");
   if (cancelBtn) { cancelBtn.style.display = v ? "" : "none"; cancelBtn.disabled = !v; }
   const refreshBtn = $("slaRefreshBtn");
   if (refreshBtn) refreshBtn.disabled = v;
   const daysSel = $("slaDaysSelect");
   if (daysSel) daysSel.disabled = v;
+  const bar = $("slaProgressBar");
+  if (bar) bar.style.display = v ? "inline-block" : "none";
+  const fill = $("slaProgressBarFill");
+  if (fill) fill.style.width = v ? "0%" : "0%";
 }
 function showSlaPlaceholders() {
   const ids = ["slaOverviewBox","slaTopTopicsBox","slaDailyDistribution","compCurrentStats","compPreviousStats","slaInsightsBox","slaTipsBox"];
   ids.forEach(id => { const el = $(id); if (el) el.innerHTML = '<div class="muted small center" style="padding:10px;">Laddar...</div>'; });
   const tb = $("slaAgentsTableBody");
   if (tb) tb.innerHTML = '<tr><td colspan="9" class="muted center">Laddar...</td></tr>';
+}
+function setSlaProgress(p) {
+  const text = $("slaProgressText");
+  if (text) text.textContent = `${Math.max(0, Math.min(100, Math.round(p)))}%`;
+  const fill = $("slaProgressBarFill");
+  if (fill) fill.style.width = `${Math.max(0, Math.min(100, p))}%`;
 }
 /* =========================
    SLA - Updated for Roles
@@ -3215,16 +3228,19 @@ async function loadSlaDashboard() {
     const groupCtrl = new (window.AbortController || (() => null))();
     state.slaAbortController = groupCtrl;
 
+    let done = 0;
+    const total = 9;
+    const track = (p) => p.then(r => { done++; setSlaProgress((done / total) * 100); return r; });
     const [overview, trend, agents, topTopics, escalation, comparison, questions, hourly, insights] = await Promise.all([
-      api(`/sla/overview?days=${encodeURIComponent(days)}`, { cache: true, ttl: 15000, signal: groupCtrl?.signal }),
-      api(`/sla/trend?days=${encodeURIComponent(days)}`, { cache: true, ttl: 15000, signal: groupCtrl?.signal }),
-      api(`/sla/agents/detailed?days=${encodeURIComponent(days)}`, { cache: true, ttl: 15000, signal: groupCtrl?.signal }),
-      api(`/sla/top-topics`, { cache: true, ttl: 15000, signal: groupCtrl?.signal }),
-      api(`/sla/escalation?days=${encodeURIComponent(days)}`, { cache: true, ttl: 15000, signal: groupCtrl?.signal }),
-      api(`/sla/comparison?days=${encodeURIComponent(days)}`, { cache: true, ttl: 15000, signal: groupCtrl?.signal }),
-      api(`/sla/questions?days=${encodeURIComponent(days)}`, { cache: true, ttl: 15000, signal: groupCtrl?.signal }),
-      api(`/sla/hourly?days=${Math.min(days, 14)}`, { cache: true, ttl: 15000, signal: groupCtrl?.signal }),
-      api(`/sla/insights?days=${encodeURIComponent(days)}`, { cache: true, ttl: 15000, signal: groupCtrl?.signal })
+      track(api(`/sla/overview?days=${encodeURIComponent(days)}`, { cache: true, ttl: 15000, signal: groupCtrl?.signal })),
+      track(api(`/sla/trend?days=${encodeURIComponent(days)}`, { cache: true, ttl: 15000, signal: groupCtrl?.signal })),
+      track(api(`/sla/agents/detailed?days=${encodeURIComponent(days)}`, { cache: true, ttl: 15000, signal: groupCtrl?.signal })),
+      track(api(`/sla/top-topics`, { cache: true, ttl: 15000, signal: groupCtrl?.signal })),
+      track(api(`/sla/escalation?days=${encodeURIComponent(days)}`, { cache: true, ttl: 15000, signal: groupCtrl?.signal })),
+      track(api(`/sla/comparison?days=${encodeURIComponent(days)}`, { cache: true, ttl: 15000, signal: groupCtrl?.signal })),
+      track(api(`/sla/questions?days=${encodeURIComponent(days)}`, { cache: true, ttl: 15000, signal: groupCtrl?.signal })),
+      track(api(`/sla/hourly?days=${Math.min(days, 14)}`, { cache: true, ttl: 15000, signal: groupCtrl?.signal })),
+      track(api(`/sla/insights?days=${encodeURIComponent(days)}`, { cache: true, ttl: 15000, signal: groupCtrl?.signal }))
     ]);
     if (seq !== state.slaLoadSeq) return;
 
@@ -3887,8 +3903,13 @@ function bindEvents() {
 
   on("slaRefreshBtn", "click", loadSlaDashboard);
   on("slaCancelBtn", "click", () => {
+    const btn = $("slaCancelBtn");
+    if (btn) btn.innerHTML = '<i class="fa-solid fa-ban"></i> Ångrar…';
     try { state.slaAbortController?.abort(); } catch {}
-    setSlaLoading(false);
+    setTimeout(() => {
+      if (btn) btn.innerHTML = '<i class="fa-solid fa-ban"></i> Avbryt';
+      setSlaLoading(false);
+    }, 350);
   });
   let slaChangeTimeout = null;
   on("slaDaysSelect", "change", () => {
