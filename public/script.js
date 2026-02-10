@@ -3967,7 +3967,10 @@ function playAlert() {
   if (pref === "false") return;
   try {
     const Ctx = window.AudioContext || window.webkitAudioContext;
-    const ctx = new Ctx();
+    if (!Ctx) return;
+    if (!window._audioCtx) window._audioCtx = new Ctx();
+    const ctx = window._audioCtx;
+    if (ctx.state === "suspended") { ctx.resume().catch(() => {}); }
     const o = ctx.createOscillator();
     const g = ctx.createGain();
     o.type = "sine";
@@ -3980,7 +3983,6 @@ function playAlert() {
     setTimeout(() => {
       g.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + 0.2);
       o.stop(ctx.currentTime + 0.21);
-      ctx.close();
     }, 200);
   } catch {}
 }
@@ -4001,6 +4003,19 @@ function notifyDesktop(title) {
   } catch {}
 }
 
+function setupAudioUnlock() {
+  const Ctx = window.AudioContext || window.webkitAudioContext;
+  if (!Ctx) return;
+  const unlock = () => {
+    try {
+      if (!window._audioCtx) window._audioCtx = new Ctx();
+      if (window._audioCtx.state === "suspended") window._audioCtx.resume().catch(() => {});
+    } catch {}
+  };
+  window.addEventListener("click", unlock, { once: true });
+  window.addEventListener("keydown", unlock, { once: true });
+  window.addEventListener("touchstart", unlock, { once: true });
+}
 function bindPreferences() {
   const soundEl = $("prefSoundNotif");
   const deskEl = $("prefDesktopNotif");
@@ -4322,6 +4337,7 @@ window.setSimRoomType = setSimRoomType;
 ========================= */
 async function init() {
   loadTheme();
+  setupAudioUnlock();
   initSocket();
   bindEvents();
   bindPreferences();
