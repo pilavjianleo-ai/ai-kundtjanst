@@ -36,15 +36,26 @@ app.use(compression());
 
 // Serve frontend strictly from 'public' with caching
 app.use(express.static(path.join(__dirname, "public"), {
-  etag: true,
-  maxAge: "1d",
+  etag: process.env.NODE_ENV === "production",
+  maxAge: process.env.NODE_ENV === "production" ? "1d" : 0,
   setHeaders: (res, filePath) => {
     try {
       const ext = path.extname(filePath).toLowerCase();
+      const isProd = process.env.NODE_ENV === "production";
       if (ext === ".html") {
         res.setHeader("Cache-Control", "no-store");
+        if (!isProd) {
+          res.setHeader("Pragma", "no-cache");
+          res.setHeader("Expires", "0");
+        }
       } else if (ext === ".js" || ext === ".css") {
-        res.setHeader("Cache-Control", "no-cache, must-revalidate");
+        if (isProd) {
+          res.setHeader("Cache-Control", "no-cache, must-revalidate");
+        } else {
+          res.setHeader("Cache-Control", "no-store");
+          res.setHeader("Pragma", "no-cache");
+          res.setHeader("Expires", "0");
+        }
       }
     } catch {}
   }
@@ -1242,9 +1253,17 @@ app.get("/admin/users", authenticate, requireAdmin, async (req, res) => {
 
 app.patch("/admin/users/:id/role", authenticate, requireAdmin, async (req, res) => {
   try {
-    const { role } = req.body;
-    if (!["user", "agent", "admin"].includes(role)) return res.status(400).json({ error: "Ogiltig roll" });
-    await User.findByIdAndUpdate(req.params.id, { role });
+    let role = req.body?.role;
+    if (!role && typeof req.body === "string") {
+      try { role = JSON.parse(req.body)?.role; } catch {}
+    }
+    role = String(role || "").trim().toLowerCase();
+    if (!["user", "agent", "admin"].includes(role)) return res.status(400).json({ error: `Ogiltig roll: ${role}. Tillåtna roller: user, agent, admin` });
+    const id = req.params.id;
+    if (!mongoose.Types.ObjectId.isValid(id)) return res.status(400).json({ error: "Ogiltigt användar-ID" });
+    const u = await User.findById(id);
+    if (!u) return res.status(404).json({ error: "Användare hittades ej" });
+    await User.findByIdAndUpdate(id, { role });
     res.json({ message: "Roll uppdaterad" });
   } catch (e) { res.status(500).json({ error: e.message }); }
 });

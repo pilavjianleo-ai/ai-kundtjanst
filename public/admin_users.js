@@ -85,10 +85,7 @@ async function updateUserRole(id, role) {
     try {
         const valid = ["user", "agent", "admin"];
         if (!valid.includes(role)) return;
-        await api(`/admin/users/${id}/role`, {
-            method: "PATCH",
-            body: JSON.stringify({ role })
-        });
+        await api(`/admin/users/${id}/role`, { method: "PATCH", body: { role } });
         toast("Uppdaterad", "Roll uppdaterad", "success");
         loadAdminUsers();
     } catch (e) {

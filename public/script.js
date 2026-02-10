@@ -4446,6 +4446,11 @@ async function loadAiPanel() {
       renderAiAnalyticsBox();
       renderAiDashboardStats();
     } catch {}
+    try {
+      const o = await api(`/sla/overview?days=30`);
+      state.slaOverview = o;
+      renderAiDashboardStats();
+    } catch {}
   } catch {
     state.aiProfiles = { default: {} };
     state.aiActiveProfile = "default";
@@ -4564,6 +4569,11 @@ function bindEvents() {
     await loadAiPanel();
   });
   on("aiSaveBtn", "click", saveAiSettings);
+  on("aiManageConfigBtn", "click", () => {
+    const p = $("aiAdvancedSettings");
+    if (!p) return;
+    p.style.display = (p.style.display === "none" || p.style.display === "") ? "" : "none";
+  });
   on("aiCreateProfileBtn", "click", () => {
     const name = prompt("Profilnamn?");
     if (!name) return;
@@ -4658,6 +4668,21 @@ function bindEvents() {
     if (box) box.innerHTML = '<div class="muted small">Förhandsvisning av AI‑svar visas här</div>';
     const input = $("aiSimInput");
     if (input) input.value = "";
+  });
+  on("aiManageFlowsBtn", "click", () => {
+    const p = $("panelFlow");
+    if (!p) return;
+    p.style.display = (p.style.display === "none" || p.style.display === "") ? "" : "none";
+  });
+  on("aiManageRulesBtn", "click", () => {
+    const p = $("panelRules");
+    if (!p) return;
+    p.style.display = (p.style.display === "none" || p.style.display === "") ? "" : "none";
+  });
+  on("aiManageSegmentsBtn", "click", () => {
+    const p = $("panelSegments");
+    if (!p) return;
+    p.style.display = (p.style.display === "none" || p.style.display === "") ? "" : "none";
   });
   on("aiAddFlowStepBtn", "click", () => {
     const type = $("aiFlowStepType")?.value || "start";
@@ -4915,18 +4940,71 @@ function bindEvents() {
 }
 
 function renderAiDashboardStats() {
-  const ap = $("aiStatActiveProfile");
-  const seg = $("aiStatSegments");
-  const fl = $("aiStatFlows");
-  const rl = $("aiStatRules");
-  const cs = $("aiStatCsat");
-  const lt = $("aiStatLastSimType");
-  if (ap) ap.textContent = state.aiActiveProfile || "-";
-  if (seg) seg.textContent = String((state.aiSegmenting?.mappings || []).length);
-  if (fl) fl.textContent = String((state.aiFlows || []).length);
-  if (rl) rl.textContent = String((state.aiRules || []).length);
-  if (cs) cs.textContent = String(state.aiAnalytics?.avgCsat || "-");
-  if (lt) lt.textContent = String(state.lastSimCustomerType || "-").toUpperCase();
+  const setStatus = (elId, status) => {
+    const el = $(elId);
+    if (!el) return;
+    el.classList.remove("status-ok", "status-warn", "status-danger");
+    if (status) el.classList.add(`status-${status}`);
+  };
+  const kpiProfile = $("aiKpiProfile");
+  const kpiMode = $("aiKpiMode");
+  const kpiCsat = $("aiKpiCsat");
+  const kpiEsc = $("aiKpiEscalation");
+  const kpiSolve = $("aiKpiSolveRate");
+  if (kpiProfile) kpiProfile.textContent = state.aiActiveProfile || "-";
+  const ai = getAiSettingsFromFields();
+  const isSales = !!ai?.sales?.enable_cta;
+  if (kpiMode) kpiMode.textContent = isSales ? "Sälj+Support" : "Support";
+  const csatVal = state.aiAnalytics?.avgCsat;
+  if (kpiCsat) kpiCsat.textContent = csatVal ?? "Ej tillgängligt";
+  const escRate = Number(state.aiAnalytics?.escalationRate || 0);
+  if (kpiEsc) kpiEsc.textContent = escRate >= 50 ? "Hög" : escRate >= 20 ? "Medel" : "Låg";
+  // Status for CSAT
+  if (typeof csatVal === "string" && csatVal === "Ej beräknat") {
+    setStatus("kpiCardCsat", "warn");
+  } else {
+    const c = Number(csatVal || 0);
+    setStatus("kpiCardCsat", c >= 4 ? "ok" : c >= 3 ? "warn" : "danger");
+  }
+  // Status for Escalation
+  setStatus("kpiCardEsc", escRate >= 50 ? "danger" : escRate >= 20 ? "warn" : "ok");
+  // SLA Overview
+  const o = state.slaOverview;
+  const total = Number(o?.counts?.total || 0);
+  const solved = Number(o?.counts?.solved || 0);
+  const solveRate = total > 0 ? ((solved / total) * 100).toFixed(1) : "0.0";
+  if (kpiSolve) kpiSolve.textContent = `${solveRate}%`;
+  setStatus("kpiCardSolve", Number(solveRate) >= 80 ? "ok" : Number(solveRate) >= 50 ? "warn" : "danger");
+  // Performance cards
+  const perfSolved = $("aiPerfSolved");
+  const perfAuto = $("aiPerfAutomation");
+  const perfResp = $("aiPerfResponseTime");
+  const perfMis = $("aiPerfMisunderstanding");
+  const perfAutoNote = $("aiPerfAutomationNote");
+  const perfMisNote = $("aiPerfMisunderstandingNote");
+  const perfSolvedNote = $("aiPerfSolvedNote");
+  const perfRespNote = $("aiPerfResponseTimeNote");
+  if (perfSolved) perfSolved.textContent = String(solved);
+  if (perfSolvedNote) perfSolvedNote.textContent = total > 0 ? `${((solved / total) * 100).toFixed(1)}% av ${total}` : "-";
+  const auto = Number(o?.aiRate || 0);
+  if (perfAuto) perfAuto.textContent = `${Number(auto).toFixed(1)}%`;
+  if (perfAutoNote) perfAutoNote.textContent = "AI solve rate (andel lösta utan handoff)";
+  const avgFirst = o?.avgFirstReplyHours;
+  const avgSolve = o?.avgSolveHours;
+  if (perfResp) perfResp.textContent = `${avgFirst ?? "-"} h`;
+  if (perfRespNote) perfRespNote.textContent = `Lösningstid: ${avgSolve ?? "-"} h`;
+  const misRate = Number(state.aiAnalytics?.misunderstandingRate || 0);
+  if (perfMis) perfMis.textContent = `${misRate.toFixed(1)}%`;
+  if (perfMisNote) perfMisNote.textContent = "Dialoger ≥8 meddelanden utan lösning";
+  // Perf card statuses
+  setStatus("perfCardSolved", Number(solveRate) >= 80 ? "ok" : Number(solveRate) >= 50 ? "warn" : "danger");
+  setStatus("perfCardAutomation", auto >= 70 ? "ok" : auto >= 40 ? "warn" : "danger");
+  const respH = Number(avgFirst || 0);
+  setStatus("perfCardResponse", respH <= 1 ? "ok" : respH <= 4 ? "warn" : "danger");
+  setStatus("perfCardMis", misRate <= 10 ? "ok" : misRate <= 25 ? "warn" : "danger");
+  // Mode and profile cards styling
+  setStatus("kpiCardProfile", "ok");
+  setStatus("kpiCardMode", isSales ? "ok" : undefined);
 }
 
 function initSocket() {
