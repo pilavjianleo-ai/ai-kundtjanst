@@ -666,6 +666,50 @@ app.post("/admin/kb/pdf", authenticate, requireAdmin, upload.single("pdf"), asyn
 ===================== */
 async function generateAIResponse(companyId, messages, userMessage) {
   try {
+    const company = await Company.findOne({ companyId });
+    const ai = company?.settings?.ai || {};
+    const profiles = ai?.profiles || {};
+    const activeName = ai?.activeProfile || Object.keys(profiles)[0] || "default";
+    const now = new Date();
+    const hour = now.getHours();
+    const mappings = ai?.segmenting?.mappings || [];
+    let profileName = activeName;
+    for (const m of mappings) {
+      const langOk = (m.language || "sv") === "sv";
+      let timeOk = true;
+      if (m.schedule === "kontorstid") timeOk = hour >= 9 && hour < 17;
+      else if (m.schedule === "kväll") timeOk = hour >= 17 && hour < 23;
+      if (langOk && timeOk && profiles[m.profile]) { profileName = m.profile; break; }
+    }
+    const prof = profiles[profileName] || {};
+    const p = prof.personality || {};
+    const i = prof.interpretation || {};
+    const l = prof.logic || {};
+    const b = prof.behavior_rules || {};
+    const s = prof.safety || {};
+    const forbidden = (s.forbidden_topics || []).map(t => String(t).toLowerCase());
+    const txtLow = String(userMessage || "").toLowerCase();
+    if (forbidden.some(t => txtLow.includes(t))) {
+      return "Det ämnet kan vi inte behandla här. Jag kopplar dig vidare till en mänsklig agent som kan hjälpa dig.";
+    }
+    const styleDesc = p.style === "formell" ? "Formell och korrekt" :
+                      p.style === "vänlig" ? "Vänlig och varm" :
+                      p.style === "avslappnad" ? "Avslappnad och lugn" :
+                      p.style === "professionell" ? "Professionell och tydlig" :
+                      p.style === "varm" ? "Varm och empatisk" : "Neutral och hjälpsam";
+    const verbDesc = p.verbosity === "kort" ? "Kortfattade svar" :
+                     p.verbosity === "utförlig" ? "Utförliga svar med fler detaljer" : "Normala svar";
+    const assertDesc = p.assertiveness === "hög" ? "Tydliga rekommendationer" :
+                       p.assertiveness === "låg" ? "Försiktiga förslag" : "Balans mellan förslag och val";
+    const probDesc = p.problem_style === "vägledande" ? "Guida steg‑för‑steg" : "Aktiv problemlösning";
+    const allowed = (s.allowed_phrases || []).join(", ");
+    const rulesText = (ai.rules || []).map(r => `IF ${r.if} THEN ${r.then}`).join("; ");
+    const flowsText = (ai.flows || []).map((st, idx) => `${idx + 1}. ${st.type}: ${st.text || ""}`).join("\n");
+    const timePolicy = l.time_policy || "direkt";
+    const emp = Number(p.empathy_level ?? 50);
+    const pol = Number(p.politeness_level ?? 50);
+    const toneLevel = Number(p.tone_level ?? 50);
+
     // 1. Fetch relevant KB docs
     const keywords = userMessage.toLowerCase().split(/\s+/).filter(w => w.length > 3);
     let docs = [];
@@ -688,26 +732,24 @@ async function generateAIResponse(companyId, messages, userMessage) {
     }
 
     const context = docs.map((d) => `[Fakta: ${d.title}]\n${d.content.slice(0, 1500)}`).join("\n\n");
-    const company = await Company.findOne({ companyId });
     const tone = company?.settings?.tone || "professional";
 
-    const systemPrompt = `
-Du är en expert-AI-kundtjänstagent för företaget "${company?.displayName || "vår tjänst"}".
-DIN ROLL: Hjälp kunden snabbt, vänligt och professionellt. Du är systemets ansikte utåt.
-TONALITET: ${tone === 'friendly' ? 'Varm, glad och informell' : (tone === 'strict' ? 'Korrekt, formell och faktacentrerad' : 'Hjälpsam, lugn och professionell')}.
-SPRÅK: Alltid svenska.
+    const systemPrompt = `Du är en AI‑kundtjänstagent för "${company?.displayName || "vår tjänst"}".
+Stil: ${styleDesc}. ${verbDesc}. ${assertDesc}. ${probDesc}. Empati=${emp}/100, Artighet=${pol}/100, Ton=${toneLevel}/100.
+Språk: Svenska.
+Tolkning: ${i.detect_emotion ? "Identifiera känsla." : "Ignorera känsla."} ${i.handle_slang ? "Förstå slang/emojis." : ""} ${i.ask_followup !== false ? "Ställ följdfråga vid oklarhet." : ""}
+Tidspolicy: ${timePolicy}.
+Legal: ${s?.legal?.no_guarantees ? "Ge inga garantier." : ""} ${s?.legal?.no_promises ? "Ge inga löften." : ""}
+Säkerhet: Förbjudna ämnen hanteras med neutral avvisning. Tillåtna fraser: ${allowed || "Inga specifika"}.
+Regler: ${rulesText || "Inga"}.
+Flöden:
+${flowsText || "Inga definierade flöden"}
 
-INSTRUKTIONER:
-1. Använd endast tillhandahållen FAKTA nedan. Var källkritisk.
-2. Om svaret inte finns i fakta, säg: "Jag hittar tyvärr ingen specifik information om det, men jag skapar en prioriterad ticket så att en expert kan återkomma till dig."
-3. Om kunden verkar missnöjd eller ber om en "människa", svara: "Jag förstår, jag kopplar dig vidare till en av våra mänskliga agenter direkt så hjälper de dig vidare."
-4. Var koncis men varm. Använd emojis sparsamt och proffsigt.
+Använd endast FAKTA nedan. Om fakta saknas, skapa prioriterad ticket och be om kontaktuppgifter.
+Fakta:
+${context || "Ingen specifik fakta tillgänglig."}
 
-FAKTA/KONTEXT:
-${context || "Ingen specifik fakta tillgänglig för tillfället. Svara generellt om ditt företag och be om kontaktuppgifter."}
-
-Aktuell tid: ${new Date().toLocaleString('sv-SE')}
-    `;
+Tid: ${new Date().toLocaleString('sv-SE')}`;
 
     // Fail-safe: Check if OpenAI is actually working
     if (!process.env.OPENAI_API_KEY || process.env.OPENAI_API_KEY.includes("INSERT")) {
@@ -731,7 +773,16 @@ Aktuell tid: ${new Date().toLocaleString('sv-SE')}
       max_tokens: 800
     });
 
-    const result = completion.choices[0]?.message?.content || "Jag kunde tyvärr inte generera ett svar just nu.";
+    let result = completion.choices[0]?.message?.content || "Jag kunde tyvärr inte generera ett svar just nu.";
+    if (i.ask_followup !== false && result && userMessage && userMessage.trim().length < 8) {
+      result += " Kan du beskriva lite mer vad som inte fungerar?";
+    }
+    if (timePolicy === "kontorstid") {
+      const h = new Date().getHours();
+      if (h < 9 || h >= 17) result += " Vi återkommer med mer detaljer under kontorstid.";
+    } else if (timePolicy === "fördröjt") {
+      result += " Jag återkommer strax med fler detaljer.";
+    }
     console.log("✅ AI-svar genererat.");
     return result;
   } catch (e) {
@@ -826,6 +877,26 @@ app.post("/chat", authenticate, chatLimiter, async (req, res) => {
     if (!Array.isArray(ticket.messages)) ticket.messages = [];
     ticket.messages.push({ role: "user", content: cleanText(lastUserMsg) });
 
+    const company = await Company.findOne({ companyId });
+    const ai = company?.settings?.ai || {};
+    const profiles = ai?.profiles || {};
+    const activeName = ai?.activeProfile || Object.keys(profiles)[0] || "default";
+    const now = new Date(); const h = now.getHours();
+    const mappings = ai?.segmenting?.mappings || [];
+    let profileName = activeName;
+    for (const m of mappings) {
+      const langOk = (m.language || "sv") === "sv";
+      let timeOk = true;
+      if (m.schedule === "kontorstid") timeOk = h >= 9 && h < 17;
+      else if (m.schedule === "kväll") timeOk = h >= 17 && h < 23;
+      if (langOk && timeOk && profiles[m.profile]) { profileName = m.profile; break; }
+    }
+    const logic = (profiles[profileName]?.logic) || {};
+    const maxReplies = Number(logic.max_replies ?? 3);
+    const interpretation = profiles[profileName]?.interpretation || {};
+    const rules = ai?.rules || [];
+    const assistantCount = (ticket.messages || []).filter(m => m.role === "assistant").length;
+
     // AI Generation
     let reply = "";
     try {
@@ -840,7 +911,19 @@ app.post("/chat", authenticate, chatLimiter, async (req, res) => {
 
     // AI Intent & Handoff
     const msgLow = lastUserMsg.toLowerCase();
-    const needsHuman = ["människa", "person", "agent", "riktig", "arg", "besviken"].some(w => msgLow.includes(w)) || (reply && reply.includes("koppla dig vidare"));
+    let needsHuman = ["människa", "person", "agent", "riktig", "arg", "besviken"].some(w => msgLow.includes(w)) || (reply && reply.includes("koppla dig vidare"));
+    if (!needsHuman && assistantCount + 1 >= maxReplies) needsHuman = true;
+    for (const r of rules) {
+      const cond = String(r.if || "").toLowerCase();
+      const act = String(r.then || "").toLowerCase();
+      let match = false;
+      if (cond.includes("emotion=arg")) match = /arg|förbannad|😡|!{2,}/i.test(lastUserMsg);
+      else if (cond.includes("upprepning>2")) {
+        const last3 = (ticket.messages || []).slice(-6).filter(m => m.role === "user").map(m => m.content.toLowerCase());
+        match = last3.length >= 3 && (new Set(last3)).size <= 1;
+      } else if (cond.includes("osäkerhet")) match = /osäker|vet inte|\?{2,}/i.test(lastUserMsg);
+      if (match && act.includes("eskalera")) { needsHuman = true; break; }
+    }
 
     if (needsHuman) {
       ticket.priority = "high";
@@ -854,6 +937,9 @@ app.post("/chat", authenticate, chatLimiter, async (req, res) => {
       if (io) io.emit("newImportantTicket", { id: ticket._id, title: ticket.title });
     }
 
+    if (interpretation.ask_followup !== false && lastUserMsg.trim().length < 8) {
+      reply += " Kan du beskriva lite mer vad som inte fungerar?";
+    }
     ticket.messages.push({ role: "assistant", content: reply });
     ticket.lastActivityAt = new Date();
 
