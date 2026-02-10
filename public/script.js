@@ -1433,6 +1433,22 @@ async function deleteTicket() {
 /* =========================
    SLA
 ========================= */
+function setSlaLoading(v) {
+  const ind = $("slaLoadingIndicator");
+  if (ind) ind.style.display = v ? "inline-flex" : "none";
+  const cancelBtn = $("slaCancelBtn");
+  if (cancelBtn) { cancelBtn.style.display = v ? "" : "none"; cancelBtn.disabled = !v; }
+  const refreshBtn = $("slaRefreshBtn");
+  if (refreshBtn) refreshBtn.disabled = v;
+  const daysSel = $("slaDaysSelect");
+  if (daysSel) daysSel.disabled = v;
+}
+function showSlaPlaceholders() {
+  const ids = ["slaOverviewBox","slaTopTopicsBox","slaDailyDistribution","compCurrentStats","compPreviousStats","slaInsightsBox","slaTipsBox"];
+  ids.forEach(id => { const el = $(id); if (el) el.innerHTML = '<div class="muted small center" style="padding:10px;">Laddar...</div>'; });
+  const tb = $("slaAgentsTableBody");
+  if (tb) tb.innerHTML = '<tr><td colspan="9" class="muted center">Laddar...</td></tr>';
+}
 /* =========================
    SLA - Updated for Roles
 ========================= */
@@ -3191,6 +3207,8 @@ async function loadSlaDashboard() {
   const days = $("slaDaysSelect")?.value || "30";
 
   try {
+    showSlaPlaceholders();
+    setSlaLoading(true);
     state.slaLoadSeq = (state.slaLoadSeq || 0) + 1;
     const seq = state.slaLoadSeq;
     if (state.slaAbortController) { try { state.slaAbortController.abort(); } catch {} }
@@ -3535,9 +3553,11 @@ async function loadSlaDashboard() {
     }
 
   } catch (e) {
-    if (e?.name === "AbortError") return;
+    if (e?.name === "AbortError") { setSlaLoading(false); return; }
     console.error("SLA Dashboard Error:", e);
     toast("Fel", "Kunde inte ladda dashboard-data: " + e.message, "error");
+  } finally {
+    setSlaLoading(false);
   }
 }
 
@@ -3866,6 +3886,10 @@ function bindEvents() {
   });
 
   on("slaRefreshBtn", "click", loadSlaDashboard);
+  on("slaCancelBtn", "click", () => {
+    try { state.slaAbortController?.abort(); } catch {}
+    setSlaLoading(false);
+  });
   let slaChangeTimeout = null;
   on("slaDaysSelect", "change", () => {
     clearTimeout(slaChangeTimeout);
