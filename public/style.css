@@ -119,6 +119,10 @@ body {
   color: var(--text);
 }
 
+html {
+  font-size: clamp(14px, 1.1vw, 16px);
+}
+
 a {
   color: inherit;
 }
@@ -614,12 +618,12 @@ body[data-theme="light"] .btn.secondary:hover {
 
 .title {
   font-weight: 800;
-  font-size: 18px;
+  font-size: clamp(18px, 1.6vw, 22px);
 }
 
 .subtitle {
   margin-top: 3px;
-  font-size: 13px;
+  font-size: clamp(12px, 1vw, 14px);
   color: var(--muted);
 }
 
@@ -695,7 +699,7 @@ body[data-theme="light"] .btn.secondary:hover {
   line-height: 1.6;
   white-space: pre-wrap;
   box-shadow: var(--shadow);
-  font-size: 14.5px;
+  font-size: clamp(13px, 1.1vw, 15px);
   position: relative;
 }
 

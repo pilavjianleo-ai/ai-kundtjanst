@@ -220,10 +220,13 @@
             <button id="clearChatBtn" class="btn ghost" type="button">
               <i class="fa-solid fa-trash"></i> Rensa
             </button>
+            <button id="chatSummaryBtn" class="btn ghost" type="button" aria-label="Sammanfatta chatten" onclick="openChatSummaryModal()">
+              <i class="fa-solid fa-wand-magic-sparkles"></i> Sammanfatta
+            </button>
           </div>
         </div>
 
-        <div id="messages" class="messages"></div>
+        <div id="messages" class="messages" aria-live="polite"></div>
 
         <div id="suggestions" class="suggestions">
           <!-- Suggestion chips added by JS -->
@@ -3450,6 +3453,29 @@
       <div class="modalFooter" style="margin-top:20px; border-top:1px solid var(--border); padding-top:15px;">
         <button class="btn primary full"
           onclick="document.getElementById('ticketContactModal').style.display='none'">Stäng</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- CHAT SUMMARY MODAL -->
+  <div id="chatSummaryModal" class="modal" style="display:none;">
+    <div class="modalContent" role="dialog" aria-modal="true" aria-labelledby="chatSummaryTitle">
+      <div class="modalHeader">
+        <h3 id="chatSummaryTitle">
+          <span style="width:32px; height:32px; background:var(--primary-fade); color:var(--primary); border-radius:50%; display:flex; align-items:center; justify-content:center;">
+            <i class="fa-solid fa-clipboard-list"></i>
+          </span>
+          Chattsammanfattning
+        </h3>
+        <button class="btn ghost icon small" aria-label="Stäng" onclick="closeChatSummaryModal()"><i class="fa-solid fa-times"></i></button>
+      </div>
+      <div class="modalBody">
+        <div id="chatSummaryBody" style="display:flex; flex-direction:column; gap:10px;">
+          <div class="muted small">Genererar sammanfattning...</div>
+        </div>
+      </div>
+      <div class="modalBody">
+        <button class="btn primary full" onclick="closeChatSummaryModal()">Stäng</button>
       </div>
     </div>
   </div>

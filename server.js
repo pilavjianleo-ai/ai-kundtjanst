@@ -2,6 +2,8 @@ require("dotenv").config();
 const express = require("express");
 const cors = require("cors");
 const sanitizeHtml = require("sanitize-html");
+const helmet = require("helmet");
+const rateLimit = require("express-rate-limit");
 const mongoose = require("mongoose");
 const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
@@ -37,6 +39,10 @@ app.use(
     credentials: true,
   })
 );
+app.use(helmet({
+  contentSecurityPolicy: false,
+  crossOriginResourcePolicy: { policy: "cross-origin" }
+}));
 
 // OpenAI
 const openai = new OpenAI({
@@ -72,12 +78,16 @@ console.log("---------------------------------------");
    MongoDB
 ===================== */
 mongoose.set("strictQuery", true);
-mongoose
-  .connect(mongoUri)
-  .then(() => {
-    console.log("✅ MongoDB ansluten");
-  })
-  .catch((err) => console.error("❌ MongoDB-fel:", err));
+if (process.env.NODE_ENV !== "test") {
+  mongoose
+    .connect(mongoUri)
+    .then(() => {
+      console.log("✅ MongoDB ansluten");
+    })
+    .catch((err) => console.error("❌ MongoDB-fel:", err));
+} else {
+  mongoose.connect = async () => {};
+}
 
 /* =====================
    Multer (Uploads)
@@ -337,6 +347,20 @@ const requireAdmin = (req, res, next) => {
 ===================== */
 
 app.get("/health", (req, res) => res.json({ ok: true }));
+
+// Rate limiters
+const chatLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: 30,
+  standardHeaders: true,
+  legacyHeaders: false
+});
+const summaryLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: 20,
+  standardHeaders: true,
+  legacyHeaders: false
+});
 
 // AUTH
 app.get("/me/stats", authenticate, async (req, res) => {
@@ -727,7 +751,7 @@ app.delete("/inbox/tickets/solved", authenticate, requireAgent, async (req, res)
   }
 });
 
-app.post("/chat", authenticate, async (req, res) => {
+app.post("/chat", authenticate, chatLimiter, async (req, res) => {
   const fs = require("fs");
   const log = (msg) => fs.appendFileSync("chat_debug.log", `[${new Date().toISOString()}] ${msg}\n`);
 
@@ -837,6 +861,73 @@ app.post("/chat", authenticate, async (req, res) => {
     fs.appendFileSync("debug_crash.log", `[${new Date().toISOString()}] CHAT ERROR: ${e.stack}\n`);
     res.status(500).json({ error: "Internt fel i chat-tjänsten. Vänligen prova igen om en stund." });
   }
+});
+
+// Chat summary (for current conversation)
+app.post("/chat/summary", authenticate, summaryLimiter, async (req, res) => {
+  try {
+    const { conversation = [], companyId = "demo" } = req.body;
+    const safeConv = Array.isArray(conversation) ? conversation.slice(-20) : [];
+    const text = safeConv.map(m => `${m.role}: ${cleanText(m.content || "")}`).join("\n").slice(0, 4000);
+
+    let summary = "";
+    if (!process.env.OPENAI_API_KEY || process.env.OPENAI_API_KEY.includes("INSERT")) {
+      const sentences = text.split(/\.\s+/).slice(0, 6);
+      const keyPoints = sentences.filter(s => s && s.length > 0).slice(0, 4);
+      summary = keyPoints.map((s, i) => `${i + 1}. ${s.trim()}.`).join(" ");
+      if (!summary) summary = "Kund och AI har inlett en dialog. Ingen ytterligare information.";
+    } else {
+      const prompt = `Sammanfatta följande dialog kort, tydligt och informativt på svenska.
+Företag: ${companyId}
+Max 120 ord. Inkludera:
+- Syftet med konversationen
+- Viktiga detaljer och beslut
+- Nästa steg (om tydliga)
+
+Dialog:
+${text}`;
+      const completion = await openai.chat.completions.create({
+        model: "gpt-4o-mini",
+        messages: [{ role: "user", content: prompt }],
+        temperature: 0.2,
+        max_tokens: 300
+      });
+      summary = completion.choices?.[0]?.message?.content || "Kunde inte generera sammanfattning.";
+    }
+    res.json({ summary });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// Ticket summary
+app.get("/tickets/:id/summary", authenticate, summaryLimiter, async (req, res) => {
+  try {
+    const t = await Ticket.findById(req.params.id);
+    if (!t) return res.status(404).json({ error: "Ticket hittades ej" });
+    const isOwner = t.userId?.toString() === req.user.id;
+    const isAgentOrAdmin = ["agent", "admin"].includes(req.user.role);
+    if (!isOwner && !isAgentOrAdmin) return res.status(403).json({ error: "Ej behörig" });
+
+    const text = (t.messages || []).map(m => `${m.role}: ${cleanText(m.content || "")}`).join("\n").slice(0, 4000);
+    let summary = "";
+    if (!process.env.OPENAI_API_KEY || process.env.OPENAI_API_KEY.includes("INSERT")) {
+      const items = text.split(/\n/).filter(Boolean).slice(-8);
+      summary = items.map((s, i) => `${i + 1}. ${s}`).join(" ");
+    } else {
+      const prompt = `Sammanfatta ticket ${t.publicTicketId} kort (max 120 ord) på svenska med syfte, läge och nästa steg.
+
+${text}`;
+      const completion = await openai.chat.completions.create({
+        model: "gpt-4o-mini",
+        messages: [{ role: "user", content: prompt }],
+        temperature: 0.2,
+        max_tokens: 280
+      });
+      summary = completion.choices?.[0]?.message?.content || "Kunde inte generera sammanfattning.";
+    }
+    res.json({ summary });
+  } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
 app.post("/company/simulator", authenticate, async (req, res) => {
@@ -2374,5 +2465,13 @@ io.on("connection", (socket) => {
 });
 
 const PORT = process.env.PORT || 3000;
-server.listen(PORT, () => console.log(`🚀 AI KUNDTJÄNST 4.0: http://localhost:${PORT}`));
+if (process.env.NODE_ENV !== "test") {
+  server.listen(PORT, () => console.log(`🚀 AI KUNDTJÄNST 4.0: http://localhost:${PORT}`));
+}
+
+module.exports = {
+  app,
+  server,
+  models: { User, Company, Ticket, Document, Feedback }
+};
 // Force redeploy trigger

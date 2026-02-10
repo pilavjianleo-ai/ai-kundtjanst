@@ -91,13 +91,22 @@ function toast(title, text = "", type = "info") {
   setTimeout(() => div.remove(), 3800);
 }
 
-async function api(path, { method = "GET", body, auth = true } = {}) {
+const apiCache = new Map();
+
+async function api(path, { method = "GET", body, auth = true, cache = false, ttl = 15000 } = {}) {
   const headers = { "Content-Type": "application/json" };
   if (auth && state.token) {
     headers["Authorization"] = "Bearer " + state.token;
   } else if (auth && !state.token) {
     // If auth is required but no token, we might want to skip or handle it silently
     // For now, let's just proceed, but this is where we could redirect to login
+  }
+
+  if (cache && method === "GET") {
+    const hit = apiCache.get(path);
+    if (hit && (Date.now() - hit.t) < ttl) {
+      return hit.v;
+    }
   }
 
   const res = await fetch(state.apiBase + path, {
@@ -118,6 +127,10 @@ async function api(path, { method = "GET", body, auth = true } = {}) {
     }
     const msg = data?.error || `Serverfel (${res.status})`;
     throw new Error(msg);
+  }
+
+  if (cache && method === "GET") {
+    apiCache.set(path, { t: Date.now(), v: data });
   }
 
   return data;
@@ -726,6 +739,40 @@ async function sendChat() {
     addMsg("assistant", "❌ Fel: " + e.message);
   }
 }
+
+// Chat summary popup
+window.openChatSummaryModal = async function () {
+  const modal = $("chatSummaryModal");
+  const body = $("chatSummaryBody");
+  if (!modal || !body) return;
+
+  modal.style.display = "flex";
+  body.innerHTML = `<div class="muted small">Genererar sammanfattning...</div>`;
+
+  try {
+    const res = await api("/chat/summary", {
+      method: "POST",
+      body: {
+        companyId: state.companyId,
+        conversation: state.conversation
+      }
+    });
+    const text = res.summary || "Kunde inte generera sammanfattning.";
+    body.innerHTML = `
+      <div class="card" style="background:var(--bg-soft); border:1px solid var(--border); padding:12px; border-radius:8px;">
+        <div style="font-weight:600; margin-bottom:8px;">Sammanfattning</div>
+        <div class="small">${escapeHtml(text)}</div>
+      </div>
+    `;
+  } catch (e) {
+    body.innerHTML = `<div class="muted small">Fel: ${escapeHtml(e.message)}</div>`;
+  }
+};
+
+window.closeChatSummaryModal = function () {
+  const modal = $("chatSummaryModal");
+  if (modal) modal.style.display = "none";
+};
 
 async function requestHumanHandoff() {
   const inp = $("messageInput");
