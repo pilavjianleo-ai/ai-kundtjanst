@@ -42,10 +42,13 @@ const state = {
   inboxLoadSeq: 0,
   inboxPage: 1,
   inboxPageSize: 50,
+  inboxScrollBusy: false,
 
   csatPendingTicketId: null,
   currentView: "chatView",
   slaLoadSeq: 0,
+  crmPage: 1,
+  crmPageSize: 50,
 };
 
 /* =========================
@@ -96,8 +99,9 @@ function toast(title, text = "", type = "info") {
 }
 
 const apiCache = new Map();
+const apiControllers = new Map();
 
-async function api(path, { method = "GET", body, auth = true, cache = false, ttl = 15000 } = {}) {
+async function api(path, { method = "GET", body, auth = true, cache = false, ttl = 15000, cancelKey } = {}) {
   const headers = { "Content-Type": "application/json" };
   if (auth && state.token) {
     headers["Authorization"] = "Bearer " + state.token;
@@ -113,10 +117,18 @@ async function api(path, { method = "GET", body, auth = true, cache = false, ttl
     }
   }
 
+  let controller = null;
+  if (cancelKey) {
+    try { apiControllers.get(cancelKey)?.abort(); } catch {}
+    controller = new AbortController();
+    apiControllers.set(cancelKey, controller);
+  }
+
   const res = await fetch(state.apiBase + path, {
     method,
     headers,
     body: body ? JSON.stringify(body) : undefined,
+    signal: controller ? controller.signal : undefined,
   });
 
   let data = null;
@@ -941,7 +953,7 @@ async function loadInboxTickets() {
   const companyId = $("inboxCategoryFilter")?.value || "";
   state.inboxLoadSeq = (state.inboxLoadSeq || 0) + 1;
   const seq = state.inboxLoadSeq;
-  const tickets = await api(`/inbox/tickets?status=${encodeURIComponent(status)}&companyId=${encodeURIComponent(companyId)}`);
+  const tickets = await api(`/inbox/tickets?status=${encodeURIComponent(status)}&companyId=${encodeURIComponent(companyId)}`, { cancelKey: "inboxTickets" });
   if (seq !== state.inboxLoadSeq) return;
   state.inboxTickets = tickets || [];
   renderInboxList();
@@ -2376,21 +2388,24 @@ function renderCrmCustomersList(providedCompanies) {
     return;
   }
 
-  list.innerHTML = filtered.map(c => {
+  const total = filtered.length;
+  const end = Math.min(total, state.crmPage * state.crmPageSize);
+  const items = filtered.slice(0, end);
+  list.innerHTML = "";
+  const frag = document.createDocumentFragment();
+  items.forEach((c) => {
     const initials = (c.displayName || "??").substring(0, 2).toUpperCase();
     const plan = c.plan || "bas";
     const status = c.status || "active";
     const org = c.orgNr || c.orgNumber || "Ej angivet";
-
-    // Status Icon
     const statusIcon = status === 'active'
       ? `<i class="fa-solid fa-circle-check" style="color:var(--ok);" title="Aktiv"></i>`
       : `<i class="fa-solid fa-circle-xmark" style="color:var(--danger);" title="Inaktiv"></i>`;
-
-    return `
-      <div class="crmCustomerCard" onclick="openCustomerModal('${c.companyId}')" style="display: grid; grid-template-columns: 50px 2fr 1.5fr 1fr 1fr auto; align-items: center; gap: 15px; padding: 15px; cursor: pointer; transition: background 0.2s;">
+    const card = document.createElement("div");
+    card.className = "crmCustomerCard";
+    card.style.cssText = "display:grid; grid-template-columns:50px 2fr 1.5fr 1fr 1fr auto; align-items:center; gap:15px; padding:15px; cursor:pointer; transition:background 0.2s;";
+    card.innerHTML = `
         <div class="avatar-small" style="background:var(--primary); color:white;">${initials}</div>
-        
         <div class="info">
           <div class="name" style="font-weight:bold; font-size:16px; color:var(--text); display:flex; align-items:center; gap:8px;">
              ${escapeHtml(c.displayName)}
@@ -2400,31 +2415,47 @@ function renderCrmCustomersList(providedCompanies) {
             <i class="fa-solid fa-building"></i> ${escapeHtml(org)}
           </div>
         </div>
-        
         <div class="contact muted small">
            <div style="margin-bottom:2px;"><i class="fa-solid fa-envelope"></i> ${escapeHtml(c.contactEmail || '-')}</div>
            <div><i class="fa-solid fa-tag"></i> ${escapeHtml(c.companyId)}</div>
         </div>
-
         <div style="text-align:center;">
             <span class="planBadge ${plan}" style="padding: 4px 10px; border-radius: 12px; font-size: 12px; font-weight: bold; text-transform:uppercase;">${plan}</span>
         </div>
-        
         <div style="text-align:center;">
              <span class="statusBadge ${status}" style="font-weight:bold; text-transform:uppercase;">${status}</span>
         </div>
-        
         <div class="actions" style="display:flex; gap:10px;">
-          <button class="btn secondary small" onclick="event.stopPropagation(); editCustomer('${c.companyId}')" title="Redigera">
+          <button class="btn secondary small" title="Redigera">
             <i class="fa-solid fa-pen"></i> <span class="hide-mobile">Redigera</span>
           </button>
-          <button class="btn danger small" onclick="event.stopPropagation(); deleteCompanyFromCrm('${c.companyId}', '${escapeHtml(c.displayName)}')" title="Ta bort">
+          <button class="btn danger small" title="Ta bort">
             <i class="fa-solid fa-trash"></i>
           </button>
         </div>
-      </div>
     `;
-  }).join("");
+    card.addEventListener("click", () => openCustomerModal(c.companyId));
+    const actions = card.querySelector(".actions");
+    if (actions) {
+      const [editBtn, delBtn] = actions.querySelectorAll("button");
+      if (editBtn) editBtn.addEventListener("click", (e) => { e.stopPropagation(); editCustomer(c.companyId); });
+      if (delBtn) delBtn.addEventListener("click", (e) => { e.stopPropagation(); deleteCompanyFromCrm(c.companyId, c.displayName || c.companyId); });
+    }
+    frag.appendChild(card);
+  });
+  list.appendChild(frag);
+  list.dataset.hasMore = end < total ? "true" : "false";
+  if (end < total) {
+    const more = document.createElement("button");
+    more.className = "btn ghost small";
+    more.textContent = "Visa fler";
+    more.style.marginTop = "8px";
+    more.addEventListener("click", () => {
+      state.crmPage++;
+      renderCrmCustomersList();
+    });
+    list.appendChild(more);
+  }
 }
 
 async function deleteCompanyFromCrm(companyId, name) {
@@ -2985,6 +3016,7 @@ function renderInboxList() {
     frag.appendChild(div);
   });
   list.appendChild(frag);
+  list.dataset.hasMore = end < total ? "true" : "false";
   if (end < total) {
     const more = document.createElement("button");
     more.className = "btn ghost small";
@@ -3160,15 +3192,15 @@ async function loadSlaDashboard() {
     state.slaLoadSeq = (state.slaLoadSeq || 0) + 1;
     const seq = state.slaLoadSeq;
     const [overview, trend, agents, topTopics, escalation, comparison, questions, hourly, insights] = await Promise.all([
-      api(`/sla/overview?days=${encodeURIComponent(days)}`, { cache: true, ttl: 15000 }),
-      api(`/sla/trend?days=${encodeURIComponent(days)}`, { cache: true, ttl: 15000 }),
-      api(`/sla/agents/detailed?days=${encodeURIComponent(days)}`, { cache: true, ttl: 15000 }),
-      api(`/sla/top-topics`, { cache: true, ttl: 15000 }),
-      api(`/sla/escalation?days=${encodeURIComponent(days)}`, { cache: true, ttl: 15000 }),
-      api(`/sla/comparison?days=${encodeURIComponent(days)}`, { cache: true, ttl: 15000 }),
-      api(`/sla/questions?days=${encodeURIComponent(days)}`, { cache: true, ttl: 15000 }),
-      api(`/sla/hourly?days=${Math.min(days, 14)}`, { cache: true, ttl: 15000 }),
-      api(`/sla/insights?days=${encodeURIComponent(days)}`, { cache: true, ttl: 15000 })
+      api(`/sla/overview?days=${encodeURIComponent(days)}`, { cache: true, ttl: 15000, cancelKey: "slaDashboard" }),
+      api(`/sla/trend?days=${encodeURIComponent(days)}`, { cache: true, ttl: 15000, cancelKey: "slaDashboard" }),
+      api(`/sla/agents/detailed?days=${encodeURIComponent(days)}`, { cache: true, ttl: 15000, cancelKey: "slaDashboard" }),
+      api(`/sla/top-topics`, { cache: true, ttl: 15000, cancelKey: "slaDashboard" }),
+      api(`/sla/escalation?days=${encodeURIComponent(days)}`, { cache: true, ttl: 15000, cancelKey: "slaDashboard" }),
+      api(`/sla/comparison?days=${encodeURIComponent(days)}`, { cache: true, ttl: 15000, cancelKey: "slaDashboard" }),
+      api(`/sla/questions?days=${encodeURIComponent(days)}`, { cache: true, ttl: 15000, cancelKey: "slaDashboard" }),
+      api(`/sla/hourly?days=${Math.min(days, 14)}`, { cache: true, ttl: 15000, cancelKey: "slaDashboard" }),
+      api(`/sla/insights?days=${encodeURIComponent(days)}`, { cache: true, ttl: 15000, cancelKey: "slaDashboard" })
     ]);
     if (seq !== state.slaLoadSeq) return;
 
@@ -3827,7 +3859,11 @@ function bindEvents() {
   });
 
   on("slaRefreshBtn", "click", loadSlaDashboard);
-  on("slaDaysSelect", "change", loadSlaDashboard);
+  let slaChangeTimeout = null;
+  on("slaDaysSelect", "change", () => {
+    clearTimeout(slaChangeTimeout);
+    slaChangeTimeout = setTimeout(loadSlaDashboard, 250);
+  });
   on("slaExportCsvBtn", "click", exportSlaCsv);
   on("slaClearMyStatsBtn", "click", () => clearSla('my'));
   on("slaClearAllStatsBtn", "click", () => clearSla('all'));
@@ -3976,6 +4012,34 @@ function bindEvents() {
   on("clearChatBtn", "click", clearChat);
   on("fbUp", "click", () => sendFeedback("up"));
   on("fbDown", "click", () => sendFeedback("down"));
+
+  window.addEventListener("scroll", () => {
+    if (state.currentView === "inboxView") {
+      const nearBottom = (window.innerHeight + window.scrollY) >= (document.body.offsetHeight - 200);
+      if (nearBottom && !state.inboxScrollBusy) {
+        const total = state.inboxTickets.length;
+        const end = Math.min(total, state.inboxPage * state.inboxPageSize);
+        if (end < total) {
+          state.inboxScrollBusy = true;
+          requestAnimationFrame(() => {
+            state.inboxPage++;
+            renderInboxList();
+            state.inboxScrollBusy = false;
+          });
+        }
+      }
+    }
+    if (state.currentView === "customerAdminView") {
+      const list = $("customersList");
+      const nearBottom = (window.innerHeight + window.scrollY) >= (document.body.offsetHeight - 200);
+      if (nearBottom && list && list.dataset.hasMore === "true") {
+        requestAnimationFrame(() => {
+          state.crmPage++;
+          renderCrmCustomersList();
+        });
+      }
+    }
+  });
 }
 
 function initSocket() {
@@ -3985,8 +4049,20 @@ function initSocket() {
 
   socket.on("ticketUpdate", (data) => {
     if (state.currentView === "inboxView") loadInboxTickets();
-    if (state.currentView === "slaView" && typeof loadSlaDashboard === "function") loadSlaDashboard();
-    if (state.currentView === "adminView" && typeof loadAdminDiagnostics === "function") loadAdminDiagnostics();
+    if (state.currentView === "slaView" && typeof loadSlaDashboard === "function") {
+      const now = Date.now();
+      if (!state._lastSlaReloadAt || now - state._lastSlaReloadAt > 5000) {
+        state._lastSlaReloadAt = now;
+        loadSlaDashboard();
+      }
+    }
+    if (state.currentView === "adminView" && typeof loadAdminDiagnostics === "function") {
+      const now = Date.now();
+      if (!state._lastAdminReloadAt || now - state._lastAdminReloadAt > 5000) {
+        state._lastAdminReloadAt = now;
+        loadAdminDiagnostics();
+      }
+    }
     if (typeof renderCrmDashboard === "function") renderCrmDashboard();
   });
 
@@ -4156,7 +4232,7 @@ function handleSimImageUpload(inputId, previewId, isProduct) {
     if (preview) {
       preview.innerHTML = `
         <div style="position:relative; display:inline-block;">
-          <img src="${base64}" style="max-width:100%; max-height:150px; border-radius:8px;" />
+          <img src="${base64}" loading="lazy" style="max-width:100%; max-height:150px; border-radius:8px;" />
           <button class="btn danger small" style="position:absolute; top:5px; right:5px;" onclick="clearSimImage('${isProduct ? 'product' : 'room'}')">
             <i class="fa-solid fa-xmark"></i>
           </button>
@@ -4289,7 +4365,7 @@ async function loadSimHistory() {
       <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(80px, 1fr)); gap: 8px;">
         ${history.map(sim => `
           <div class="sim-history-item" onclick="loadSimResult('${sim.imageUrl}')" style="cursor:pointer;">
-            <img src="${sim.imageUrl}" alt="${escapeHtml(sim.productName)}" 
+            <img src="${sim.imageUrl}" alt="${escapeHtml(sim.productName)}" loading="lazy"
               style="width:100%; aspect-ratio:1; object-fit:cover; border-radius:8px; transition: transform 0.2s;" 
               onmouseover="this.style.transform='scale(1.05)'" 
               onmouseout="this.style.transform='scale(1)'" />

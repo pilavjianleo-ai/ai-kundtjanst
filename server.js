@@ -4,6 +4,7 @@ const cors = require("cors");
 const sanitizeHtml = require("sanitize-html");
 const helmet = require("helmet");
 const rateLimit = require("express-rate-limit");
+const compression = require("compression");
 const mongoose = require("mongoose");
 const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
@@ -30,8 +31,11 @@ app.set("trust proxy", 1);
 app.use(express.json({ limit: "18mb" }));
 app.use(express.urlencoded({ extended: true }));
 
-// Serve frontend strictly from 'public'
-app.use(express.static(path.join(__dirname, "public")));
+// Compression for all responses
+app.use(compression());
+
+// Serve frontend strictly from 'public' with caching
+app.use(express.static(path.join(__dirname, "public"), { etag: true, maxAge: "1d" }));
 
 app.use(
   cors({
@@ -282,8 +286,8 @@ const CrmActivity = mongoose.model("CrmActivity", crmActivitySchema);
 (async () => {
   try {
     // Wait for connection to be stable
-    setTimeout(async () => {
-      if (mongoose.connection.readyState !== 1) return;
+    if (process.env.NODE_ENV !== "test") setTimeout(async () => {
+      if (!mongoose.connection || mongoose.connection.readyState !== 1) return;
 
       console.log("🧹 DB CLEANUP: Rensar gamla index...");
       const collection = mongoose.connection.collection('tickets');
