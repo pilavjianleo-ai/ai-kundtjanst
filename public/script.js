@@ -4513,6 +4513,26 @@ function bindEvents() {
     lines.push(`<div class="listItem"><div>Segment: ${escapeHtml(b2c.segment.department || "-")} • ${escapeHtml(b2c.segment.language)} • ${escapeHtml(b2c.segment.customerType)} • ${escapeHtml(b2c.segment.schedule)}</div></div>`);
     lines.push(`<div class="listItem"><div>Svar‑preview</div><div>${escapeHtml(b2c.preview)}</div></div>`);
     box.innerHTML = lines.join("");
+    state.lastSimCustomerType = "b2b";
+    renderAiDashboardStats();
+  });
+  on("dashboardQuickSegmentB2CBtn", "click", () => {
+    const original = state.userContactInfo;
+    const msg = "Hej! Jag vill veta pris och om ni kan ge offert.";
+    const input = $("aiRuleSimInput"); if (input) input.value = msg;
+    const panel = $("panelRuleSim"); if (panel) panel.style.display = "";
+    state.userContactInfo = { ...(original || {}), isCompany: false };
+    const b2c = aiEvaluateDecision(msg);
+    state.userContactInfo = original;
+    const box = $("aiRuleSimBox"); if (!box) return;
+    const lines = [];
+    lines.push(`<div class="listItem"><div class="listItemTitle">B2C</div></div>`);
+    lines.push(`<div class="listItem"><div>Profil: <b>${escapeHtml(b2c.profile)}</b></div></div>`);
+    lines.push(`<div class="listItem"><div>Segment: ${escapeHtml(b2c.segment.department || "-")} • ${escapeHtml(b2c.segment.language)} • ${escapeHtml(b2c.segment.customerType)} • ${escapeHtml(b2c.segment.schedule)}</div></div>`);
+    lines.push(`<div class="listItem"><div>Svar‑preview</div><div>${escapeHtml(b2c.preview)}</div></div>`);
+    box.innerHTML = lines.join("");
+    state.lastSimCustomerType = "b2c";
+    renderAiDashboardStats();
   });
   on("aiSimulateBtn", "click", () => {
     const ai = getAiSettingsFromFields();

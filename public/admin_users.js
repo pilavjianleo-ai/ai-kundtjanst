@@ -17,31 +17,40 @@ async function loadAdminUsers() {
             return;
         }
 
-        list.innerHTML = users.map(u => `
-      <div class="listItem" style="display:flex; justify-content:space-between; align-items:center; padding:10px; gap:10px;">
-        <div style="flex:1; min-width:0;">
-          <div style="font-weight:600; display:flex; align-items:center; gap:8px;">
-            <i class="fa-solid fa-user"></i> ${u.username}
-            <span class="badge ${u.role === 'admin' ? 'highlight' : (u.role === 'agent' ? 'ok' : 'soft')}">${u.role}</span>
-          </div>
-          <div class="muted small" style="margin-top:4px;">
-            ${u.email || 'Ingen e-post'} • ID: ${u._id}
-          </div>
-        </div>
-        <div style="display:flex; align-items:center; gap:8px;">
-          <select class="input smallInput" onchange="updateUserRole('${u._id}', this.value)">
-            <option value="user" ${u.role === 'user' ? 'selected' : ''}>user</option>
-            <option value="agent" ${u.role === 'agent' ? 'selected' : ''}>agent</option>
-            <option value="admin" ${u.role === 'admin' ? 'selected' : ''}>admin</option>
-          </select>
-          ${(u.role !== 'admin' || (window.currentUser && window.currentUser.id !== u._id)) ? `
-            <button class="btn danger small" onclick="deleteUser('${u._id}')" title="Radera">
-              <i class="fa-solid fa-xmark"></i>
-            </button>
-          ` : ''}
-        </div>
-      </div>
-    `).join("");
+        list.innerHTML = users.map(u => {
+          const roleClass =
+            u.role === 'admin' ? 'badge-admin' :
+            u.role === 'agent' ? 'badge-agent' : 'badge-user';
+          return `
+            <div class="listItem adminUserItem"
+              data-id="${u._id}"
+              onclick="selectAdminUser('${u._id}', this)"
+              style="display:flex; justify-content:space-between; align-items:center; padding:12px; gap:10px; border:1px solid var(--border); border-radius:16px;">
+              <div style="flex:1; min-width:0;">
+                <div style="font-weight:800; display:flex; align-items:center; gap:8px;">
+                  <i class="fa-solid fa-user"></i>
+                  <span style="overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${u.username}</span>
+                  <span class="${roleClass}" style="display:inline-block; padding:4px 12px; border-radius:20px; font-size:12px; font-weight:700; text-transform:uppercase; letter-spacing:0.5px;">${u.role}</span>
+                </div>
+                <div class="muted small" style="margin-top:4px;">
+                  ${u.email || 'Ingen e-post'} • ID: ${u._id}
+                </div>
+              </div>
+              <div style="display:flex; align-items:center; gap:8px;">
+                <select class="input smallInput" onchange="updateUserRole('${u._id}', this.value)">
+                  <option value="user" ${u.role === 'user' ? 'selected' : ''}>user</option>
+                  <option value="agent" ${u.role === 'agent' ? 'selected' : ''}>agent</option>
+                  <option value="admin" ${u.role === 'admin' ? 'selected' : ''}>admin</option>
+                </select>
+                ${(u.role !== 'admin' || (window.currentUser && window.currentUser.id !== u._id)) ? `
+                  <button class="btn danger small" onclick="deleteUser('${u._id}')" title="Radera">
+                    <i class="fa-solid fa-xmark"></i>
+                  </button>
+                ` : ''}
+              </div>
+            </div>
+          `;
+        }).join("");
 
     } catch (e) {
         if (msg) {
@@ -120,4 +129,16 @@ document.addEventListener("DOMContentLoaded", () => {
     // Make deleteUser global
     window.deleteUser = deleteUser;
     window.updateUserRole = updateUserRole;
+    window.selectAdminUser = function(id, el) {
+      const list = document.getElementById("adminUsersList");
+      if (!list) return;
+      list.querySelectorAll(".adminUserItem").forEach(item => {
+        item.style.boxShadow = "";
+        item.style.borderColor = "var(--border)";
+      });
+      if (el) {
+        el.style.boxShadow = "0 0 0 2px var(--primary-fade)";
+        el.style.borderColor = "var(--primary)";
+      }
+    };
 });
