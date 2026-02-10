@@ -705,6 +705,23 @@ async function sendChat() {
       },
     });
 
+    // If server determined that human handoff is needed, highlight Inbox immediately
+    if (data?.needsHuman) {
+      const dot = $("inboxNotifDot");
+      if (dot) dot.style.display = "inline-block";
+      const btn = $("openInboxView");
+      if (btn) {
+        btn.classList.add("shake-notif");
+        setTimeout(() => btn.classList.remove("shake-notif"), 2000);
+      }
+      if (["agent", "admin"].includes(state.me?.role)) {
+        try {
+          playAlert();
+          notifyDesktop("HUMAN REQUIRED: " + (state.activeTicketPublicId || "Nytt ärende"));
+        } catch {}
+      }
+    }
+
     // Simulate thinking delay for a more natural feel
     setTimeout(async () => {
       hideTyping();
