@@ -676,12 +676,16 @@
             <div class="panel" id="panelDashboard">
               <div class="panelHead"><b><i class="fa-solid fa-gauge-simple-high"></i> Executive Overview</b></div>
               <div class="grid3" style="grid-template-columns: repeat(5, 1fr); gap:10px; margin-top:8px;">
-                <div class="resultCard" id="kpiCardProfile"><div class="resultLabel">Aktiv profil</div><div class="resultValue" id="aiKpiProfile">-</div></div>
-                <div class="resultCard" id="kpiCardMode"><div class="resultLabel">AI‑läge</div><div class="resultValue" id="aiKpiMode">-</div></div>
-                <div class="resultCard" id="kpiCardCsat"><div class="resultLabel">CSAT</div><div class="resultValue" id="aiKpiCsat">Ej tillgängligt</div></div>
-                <div class="resultCard" id="kpiCardEsc"><div class="resultLabel">Eskalering</div><div class="resultValue" id="aiKpiEscalation">-</div></div>
-                <div class="resultCard" id="kpiCardSolve"><div class="resultLabel">Solve Rate</div><div class="resultValue" id="aiKpiSolveRate">-</div></div>
+                <div class="resultCard" id="kpiCardMode"><div class="resultLabel">AI‑läge</div><div class="resultValue" id="aiKpiMode">-</div><div class="resultContext" id="aiKpiModeNote">-</div></div>
+                <div class="resultCard" id="kpiCardHealth"><div class="resultLabel">AI Hälsa</div><div class="resultValue" id="aiKpiHealth">-</div><div class="resultContext" id="aiKpiHealthNote">-</div></div>
+                <div class="resultCard" id="kpiCardAuto"><div class="resultLabel">Automatisering</div><div class="resultValue" id="aiKpiAutomation">-</div><div class="resultContext" id="aiKpiAutomationNote">-</div></div>
+                <div class="resultCard" id="kpiCardEsc"><div class="resultLabel">Eskalering</div><div class="resultValue" id="aiKpiEscalation">-</div><div class="resultContext" id="aiKpiEscNote">-</div></div>
+                <div class="resultCard" id="kpiCardCsat"><div class="resultLabel">CSAT</div><div class="resultValue" id="aiKpiCsat">Ej tillgängligt</div><div class="resultContext" id="aiKpiCsatNote">-</div></div>
               </div>
+            </div>
+            <div class="panel">
+              <div class="panelHead"><b><i class="fa-solid fa-lightbulb"></i> Insight & Story</b></div>
+              <div id="aiInsightList" class="list"></div>
             </div>
             <div class="panel">
               <div class="panelHead"><b><i class="fa-solid fa-chart-line"></i> AI Performance & Impact</b></div>
@@ -746,14 +750,28 @@
           </div>
           <div>
             <div class="panel">
-              <div class="panelHead"><b><i class="fa-solid fa-tv"></i> Live‑preview</b></div>
-              <textarea id="aiSimInput" class="input" rows="6" placeholder="Skriv ett kundmeddelande för test"></textarea>
-              <div class="row gap" style="margin-top:10px;">
-                <button id="aiSimulateBtn" class="btn secondary" type="button"><i class="fa-solid fa-flask"></i> Testa</button>
-                <button id="aiResetPreviewBtn" class="btn ghost" type="button"><i class="fa-solid fa-rotate-left"></i> Nollställ</button>
+              <div class="panelHead"><b><i class="fa-solid fa-comments"></i> Live‑preview</b></div>
+              <div class="row gap" style="margin-top:8px;">
+                <button id="aiPreviewTabLiveBtn" class="btn small primary" type="button"><i class="fa-solid fa-message"></i> Live‑konversation</button>
+                <button id="aiPreviewTabRulesBtn" class="btn small ghost" type="button"><i class="fa-solid fa-code"></i> Regel‑simulering</button>
               </div>
-              <div id="aiLivePreviewBox" class="list" style="margin-top:10px; min-height:160px;">
-                <div class="muted small">Förhandsvisning av AI‑svar visas här</div>
+              <div id="aiLiveTab" style="margin-top:10px;">
+                <div id="aiLiveIndicators" class="row gap" style="margin-bottom:8px;"></div>
+                <div id="aiLiveChatBox" class="messages" style="height: 340px;"></div>
+                <div class="composer">
+                  <input id="aiLiveInput" class="input" placeholder="Testa hur din AI svarar en kund just nu…" />
+                  <button id="aiLiveSendBtn" class="btn primary" type="button"><i class="fa-solid fa-paper-plane"></i> Skicka</button>
+                </div>
+              </div>
+              <div id="aiRuleTab" style="display:none; margin-top:10px;">
+                <div class="row gap">
+                  <input id="aiRuleSimInput" class="input" placeholder="Skriv ett scenario för simulering…" />
+                  <button id="aiRunRuleSimBtn" class="btn secondary" type="button"><i class="fa-solid fa-flask"></i> Simulera</button>
+                  <button id="aiClearRuleSimBtn" class="btn ghost" type="button"><i class="fa-solid fa-rotate-left"></i> Nollställ</button>
+                </div>
+                <div id="aiRuleSimBox" class="list" style="margin-top:10px; min-height:200px;">
+                  <div class="muted small">Visa vilka regler som triggas och vad AI gör.</div>
+                </div>
               </div>
             </div>
             <div class="panel">

@@ -803,7 +803,8 @@ Tid: ${new Date().toLocaleString('sv-SE')}`;
 
     let result = completion.choices[0]?.message?.content || "Jag kunde tyvärr inte generera ett svar just nu.";
     if (i.ask_followup !== false && result && userMessage && userMessage.trim().length < 8) {
-      result += " Kan du beskriva lite mer vad som inte fungerar?";
+      const follow = " Kan du beskriva lite mer vad som inte fungerar?";
+      if (!result.includes(follow)) result += follow;
     }
     if (timePolicy === "kontorstid") {
       const h = new Date().getHours();
@@ -988,7 +989,8 @@ app.post("/chat", authenticate, chatLimiter, async (req, res) => {
     }
 
     if (interpretation.ask_followup !== false && lastUserMsg.trim().length < 8) {
-      reply += " Kan du beskriva lite mer vad som inte fungerar?";
+      const follow = " Kan du beskriva lite mer vad som inte fungerar?";
+      if (!String(reply || "").includes(follow)) reply += follow;
     }
     ticket.messages.push({ role: "assistant", content: reply });
     ticket.lastActivityAt = new Date();

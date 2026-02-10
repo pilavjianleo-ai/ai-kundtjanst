@@ -4451,6 +4451,16 @@ async function loadAiPanel() {
       state.slaOverview = o;
       renderAiDashboardStats();
     } catch {}
+    try {
+      const ins = await api(`/sla/insights?companyId=${encodeURIComponent(state.companyId)}`);
+      state.slaInsights = ins?.insights || [];
+      renderAiInsights();
+      renderAiRecommendations();
+    } catch {
+      state.slaInsights = [];
+      renderAiInsights();
+      renderAiRecommendations();
+    }
   } catch {
     state.aiProfiles = { default: {} };
     state.aiActiveProfile = "default";
@@ -4574,6 +4584,27 @@ function bindEvents() {
     if (!p) return;
     p.style.display = (p.style.display === "none" || p.style.display === "") ? "" : "none";
   });
+  on("aiPreviewTabLiveBtn", "click", () => {
+    const a = $("aiPreviewTabLiveBtn"); const b = $("aiPreviewTabRulesBtn");
+    if (a) a.classList.add("primary");
+    if (b) { b.classList.remove("primary"); b.classList.add("ghost"); }
+    const live = $("aiLiveTab"); const rules = $("aiRuleTab");
+    if (live) live.style.display = "";
+    if (rules) rules.style.display = "none";
+  });
+  on("aiPreviewTabRulesBtn", "click", () => {
+    const a = $("aiPreviewTabLiveBtn"); const b = $("aiPreviewTabRulesBtn");
+    if (b) b.classList.add("primary");
+    if (a) { a.classList.remove("primary"); a.classList.add("ghost"); }
+    const live = $("aiLiveTab"); const rules = $("aiRuleTab");
+    if (live) live.style.display = "none";
+    if (rules) rules.style.display = "";
+  });
+  on("aiLiveSendBtn", "click", sendAiLiveMessage);
+  const liveInput = $("aiLiveInput");
+  if (liveInput) liveInput.addEventListener("keydown", (e) => {
+    if (e.key === "Enter") { e.preventDefault(); sendAiLiveMessage(); }
+  });
   on("aiCreateProfileBtn", "click", () => {
     const name = prompt("Profilnamn?");
     if (!name) return;
@@ -4596,45 +4627,23 @@ function bindEvents() {
   on("dashboardTestSalesFlowBtn", "click", () => {
     const input = $("aiRuleSimInput");
     if (input) input.value = "Hej! Vi är ett bolag och vill få offert på Pro‑planen. Finns demo?";
-    const panel = $("panelRuleSim"); if (panel) panel.style.display = "";
+    const tabBtn = $("aiPreviewTabRulesBtn"); if (tabBtn) tabBtn.click();
     const msg = $("aiRuleSimInput")?.value || "";
-    const res = aiEvaluateDecision(msg);
-    const box = $("aiRuleSimBox");
-    if (!box) return;
-    const lines = [];
-    lines.push(`<div class="listItem"><div class="listItemTitle">Vald profil: <b>${escapeHtml(res.profile)}</b></div></div>`);
-    lines.push(`<div class="listItem"><div class="listItemTitle">Segment: ${escapeHtml(res.segment.department || "-")} • ${escapeHtml(res.segment.language)} • ${escapeHtml(res.segment.customerType)} • ${escapeHtml(res.segment.schedule)}</div></div>`);
-    lines.push(`<div class="listItem"><div class="listItemTitle">Eskalera: <b>${res.needsHuman ? "Ja" : "Nej"}</b></div></div>`);
-    if (res.triggeredRules.length) {
-      lines.push(`<div class="listItem"><div class="listItemTitle">Triggade regler</div></div>`);
-      res.triggeredRules.forEach(r => lines.push(`<div class="listItem"><div>${escapeHtml(r)}</div></div>`));
-    } else {
-      lines.push(`<div class="listItem"><div class="muted small">Inga regler triggade.</div></div>`);
-    }
-    lines.push(`<div class="listItem"><div class="listItemTitle">Svar‑preview</div><div>${escapeHtml(res.preview)}</div></div>`);
-    box.innerHTML = lines.join("");
+    renderRuleSimExplanation(msg);
   });
   on("dashboardQuickSegmentB2BBtn", "click", () => {
     const original = state.userContactInfo;
     const msg = "Hej! Vi är ett företag som vill få offert på Pro‑planen. Finns demo?";
     const input = $("aiRuleSimInput"); if (input) input.value = msg;
-    const panel = $("panelRuleSim"); if (panel) panel.style.display = "";
+    const tabBtn = $("aiPreviewTabRulesBtn"); if (tabBtn) tabBtn.click();
     state.userContactInfo = { ...(original || {}), isCompany: true };
     const b2b = aiEvaluateDecision(msg);
     state.userContactInfo = { ...(original || {}), isCompany: false };
     const b2c = aiEvaluateDecision(msg);
     state.userContactInfo = original;
     const box = $("aiRuleSimBox"); if (!box) return;
-    const lines = [];
-    lines.push(`<div class="listItem"><div class="listItemTitle">B2B</div></div>`);
-    lines.push(`<div class="listItem"><div>Profil: <b>${escapeHtml(b2b.profile)}</b></div></div>`);
-    lines.push(`<div class="listItem"><div>Segment: ${escapeHtml(b2b.segment.department || "-")} • ${escapeHtml(b2b.segment.language)} • ${escapeHtml(b2b.segment.customerType)} • ${escapeHtml(b2b.segment.schedule)}</div></div>`);
-    lines.push(`<div class="listItem"><div>Svar‑preview</div><div>${escapeHtml(b2b.preview)}</div></div>`);
-    lines.push(`<div class="listItem"><div class="listItemTitle">B2C</div></div>`);
-    lines.push(`<div class="listItem"><div>Profil: <b>${escapeHtml(b2c.profile)}</b></div></div>`);
-    lines.push(`<div class="listItem"><div>Segment: ${escapeHtml(b2c.segment.department || "-")} • ${escapeHtml(b2c.segment.language)} • ${escapeHtml(b2c.segment.customerType)} • ${escapeHtml(b2c.segment.schedule)}</div></div>`);
-    lines.push(`<div class="listItem"><div>Svar‑preview</div><div>${escapeHtml(b2c.preview)}</div></div>`);
-    box.innerHTML = lines.join("");
+    box.innerHTML = "";
+    renderRuleSimExplanation(msg);
     state.lastSimCustomerType = "b2b";
     renderAiDashboardStats();
   });
@@ -4642,17 +4651,13 @@ function bindEvents() {
     const original = state.userContactInfo;
     const msg = "Hej! Jag vill veta pris och om ni kan ge offert.";
     const input = $("aiRuleSimInput"); if (input) input.value = msg;
-    const panel = $("panelRuleSim"); if (panel) panel.style.display = "";
+    const tabBtn = $("aiPreviewTabRulesBtn"); if (tabBtn) tabBtn.click();
     state.userContactInfo = { ...(original || {}), isCompany: false };
     const b2c = aiEvaluateDecision(msg);
     state.userContactInfo = original;
     const box = $("aiRuleSimBox"); if (!box) return;
-    const lines = [];
-    lines.push(`<div class="listItem"><div class="listItemTitle">B2C</div></div>`);
-    lines.push(`<div class="listItem"><div>Profil: <b>${escapeHtml(b2c.profile)}</b></div></div>`);
-    lines.push(`<div class="listItem"><div>Segment: ${escapeHtml(b2c.segment.department || "-")} • ${escapeHtml(b2c.segment.language)} • ${escapeHtml(b2c.segment.customerType)} • ${escapeHtml(b2c.segment.schedule)}</div></div>`);
-    lines.push(`<div class="listItem"><div>Svar‑preview</div><div>${escapeHtml(b2c.preview)}</div></div>`);
-    box.innerHTML = lines.join("");
+    box.innerHTML = "";
+    renderRuleSimExplanation(msg);
     state.lastSimCustomerType = "b2c";
     renderAiDashboardStats();
   });
@@ -4740,21 +4745,7 @@ function bindEvents() {
   });
   on("aiRunRuleSimBtn", "click", () => {
     const msg = $("aiRuleSimInput")?.value || "";
-    const res = aiEvaluateDecision(msg);
-    const box = $("aiRuleSimBox");
-    if (!box) return;
-    const lines = [];
-    lines.push(`<div class="listItem"><div class="listItemTitle">Vald profil: <b>${escapeHtml(res.profile)}</b></div></div>`);
-    lines.push(`<div class="listItem"><div class="listItemTitle">Segment: ${escapeHtml(res.segment.department || "-")} • ${escapeHtml(res.segment.language)} • ${escapeHtml(res.segment.customerType)} • ${escapeHtml(res.segment.schedule)}</div></div>`);
-    lines.push(`<div class="listItem"><div class="listItemTitle">Eskalera: <b>${res.needsHuman ? "Ja" : "Nej"}</b></div></div>`);
-    if (res.triggeredRules.length) {
-      lines.push(`<div class="listItem"><div class="listItemTitle">Triggade regler</div></div>`);
-      res.triggeredRules.forEach(r => lines.push(`<div class="listItem"><div>${escapeHtml(r)}</div></div>`));
-    } else {
-      lines.push(`<div class="listItem"><div class="muted small">Inga regler triggade.</div></div>`);
-    }
-    lines.push(`<div class="listItem"><div class="listItemTitle">Svar‑preview</div><div>${escapeHtml(res.preview)}</div></div>`);
-    box.innerHTML = lines.join("");
+    renderRuleSimExplanation(msg);
   });
   on("aiClearRuleSimBtn", "click", () => {
     const box = $("aiRuleSimBox"); if (box) box.innerHTML = '<div class="muted small">Resultat från simulering visas här.</div>';
@@ -4946,15 +4937,17 @@ function renderAiDashboardStats() {
     el.classList.remove("status-ok", "status-warn", "status-danger");
     if (status) el.classList.add(`status-${status}`);
   };
-  const kpiProfile = $("aiKpiProfile");
   const kpiMode = $("aiKpiMode");
   const kpiCsat = $("aiKpiCsat");
   const kpiEsc = $("aiKpiEscalation");
-  const kpiSolve = $("aiKpiSolveRate");
-  if (kpiProfile) kpiProfile.textContent = state.aiActiveProfile || "-";
+  const kpiAuto = $("aiKpiAutomation");
+  const kpiAutoNote = $("aiKpiAutomationNote");
+  const kpiHealth = $("aiKpiHealth");
+  const kpiHealthNote = $("aiKpiHealthNote");
   const ai = getAiSettingsFromFields();
   const isSales = !!ai?.sales?.enable_cta;
-  if (kpiMode) kpiMode.textContent = isSales ? "Sälj+Support" : "Support";
+  if (kpiMode) kpiMode.textContent = isSales ? "Hybrid (Sälj+Support)" : "Support";
+  if ($("aiKpiModeNote")) $("aiKpiModeNote").textContent = isSales ? "CTA aktiv – fokusera på konvertering" : "Fokus på supportupplevelse";
   const csatVal = state.aiAnalytics?.avgCsat;
   if (kpiCsat) kpiCsat.textContent = csatVal ?? "Ej tillgängligt";
   const escRate = Number(state.aiAnalytics?.escalationRate || 0);
@@ -4962,19 +4955,32 @@ function renderAiDashboardStats() {
   // Status for CSAT
   if (typeof csatVal === "string" && csatVal === "Ej beräknat") {
     setStatus("kpiCardCsat", "warn");
+    if ($("aiKpiCsatNote")) $("aiKpiCsatNote").textContent = "Samla feedback för att mäta upplevelsen";
   } else {
     const c = Number(csatVal || 0);
     setStatus("kpiCardCsat", c >= 4 ? "ok" : c >= 3 ? "warn" : "danger");
+    if ($("aiKpiCsatNote")) $("aiKpiCsatNote").textContent = c >= 4 ? "Bra nöjdhet" : c >= 3 ? "Mellannivå – finns potential" : "Risk – förbättra ton & tydlighet";
   }
   // Status for Escalation
   setStatus("kpiCardEsc", escRate >= 50 ? "danger" : escRate >= 20 ? "warn" : "ok");
+  if ($("aiKpiEscNote")) $("aiKpiEscNote").textContent = escRate >= 50 ? "Många handoffs – minska med tydliga svar" : escRate >= 20 ? "Mellannivå – justera regler" : "Stabilt – låg handoff";
   // SLA Overview
   const o = state.slaOverview;
   const total = Number(o?.counts?.total || 0);
   const solved = Number(o?.counts?.solved || 0);
-  const solveRate = total > 0 ? ((solved / total) * 100).toFixed(1) : "0.0";
-  if (kpiSolve) kpiSolve.textContent = `${solveRate}%`;
-  setStatus("kpiCardSolve", Number(solveRate) >= 80 ? "ok" : Number(solveRate) >= 50 ? "warn" : "danger");
+  const autoRate = Number(o?.aiRate || 0);
+  if (kpiAuto) kpiAuto.textContent = `${autoRate.toFixed(1)}%`;
+  if (kpiAutoNote) kpiAutoNote.textContent = "Andel AI‑lösta ärenden";
+  setStatus("kpiCardAuto", autoRate >= 70 ? "ok" : autoRate >= 40 ? "warn" : "danger");
+  // Health
+  const healthScore = (() => {
+    const c = typeof csatVal === "string" ? 3.5 : Number(csatVal || 3.5);
+    return Math.round(((autoRate / 100) * 0.4 + ((5 - (escRate / 20)) / 5) * 0.3 + (c / 5) * 0.3) * 100) / 100;
+  })();
+  const healthText = healthScore >= 0.75 ? "Bra" : healthScore >= 0.55 ? "Medium" : "Risk";
+  if (kpiHealth) kpiHealth.textContent = healthText;
+  if (kpiHealthNote) kpiHealthNote.textContent = healthText === "Bra" ? "Fortsätt optimera – finjustera flöden" : healthText === "Medium" ? "Justera ton/regler – sälj‑CTA vid behov" : "Hög risk – skapa flöden & strama regler";
+  setStatus("kpiCardHealth", healthText === "Bra" ? "ok" : healthText === "Medium" ? "warn" : "danger");
   // Performance cards
   const perfSolved = $("aiPerfSolved");
   const perfAuto = $("aiPerfAutomation");
@@ -4997,16 +5003,120 @@ function renderAiDashboardStats() {
   if (perfMis) perfMis.textContent = `${misRate.toFixed(1)}%`;
   if (perfMisNote) perfMisNote.textContent = "Dialoger ≥8 meddelanden utan lösning";
   // Perf card statuses
+  const solveRate = total > 0 ? ((solved / total) * 100).toFixed(1) : "0.0";
   setStatus("perfCardSolved", Number(solveRate) >= 80 ? "ok" : Number(solveRate) >= 50 ? "warn" : "danger");
   setStatus("perfCardAutomation", auto >= 70 ? "ok" : auto >= 40 ? "warn" : "danger");
   const respH = Number(avgFirst || 0);
   setStatus("perfCardResponse", respH <= 1 ? "ok" : respH <= 4 ? "warn" : "danger");
   setStatus("perfCardMis", misRate <= 10 ? "ok" : misRate <= 25 ? "warn" : "danger");
   // Mode and profile cards styling
-  setStatus("kpiCardProfile", "ok");
-  setStatus("kpiCardMode", isSales ? "ok" : undefined);
+  setStatus("kpiCardMode", isSales ? "ok" : "warn");
 }
 
+function renderAiInsights() {
+  const box = $("aiInsightList");
+  if (!box) return;
+  const items = state.slaInsights || [];
+  if (!items.length) {
+    box.innerHTML = `<div class="resultCard"><div class="resultLabel">Allt ser bra ut</div><div class="resultContext">Här är nästa optimeringssteg – håll koll på AI‑hälsan och justera regler vid behov.</div></div>`;
+    return;
+  }
+  box.innerHTML = items.slice(0, 4).map(i => {
+    const cls = i.type === "success" ? "status-ok" : i.type === "warning" ? "status-warn" : "status-danger";
+    return `<div class="resultCard ${cls}"><div class="resultLabel">${escapeHtml(i.text)}</div><div class="resultContext">Insikt från senaste perioden</div></div>`;
+  }).join("");
+}
+
+function renderAiRecommendations() {
+  const box = $("aiRecoList");
+  if (!box) return;
+  const auto = Number(state.slaOverview?.aiRate || 0);
+  const esc = Number(state.aiAnalytics?.escalationRate || 0);
+  const csat = state.aiAnalytics?.avgCsat;
+  const recs = [];
+  if (auto < 40) recs.push({ title: "Skapa första flödet", text: "Lås upp automation och snabba svar.", actionId: "aiManageFlowsBtn" });
+  if (esc > 30) recs.push({ title: "Justera empatinivå", text: "Minska eskalering genom varmare ton.", actionId: "aiManageConfigBtn" });
+  if (typeof csat === "string" && csat === "Ej beräknat") recs.push({ title: "Aktivera sälj‑CTA", text: "Öka konvertering och samla feedback.", actionId: "dashboardToggleSalesCtaBtn" });
+  if (!recs.length) recs.push({ title: "Finjustera regler", text: "Optimera beteende i edge‑cases.", actionId: "aiManageRulesBtn" });
+  box.innerHTML = recs.slice(0, 3).map(r => `
+    <div class="recommendationCard">
+      <div class="recIcon">🎯</div>
+      <div>
+        <div class="recTitle">${escapeHtml(r.title)}</div>
+        <div class="recText">${escapeHtml(r.text)}</div>
+        <div class="row" style="margin-top:8px;">
+          <button class="btn primary small" onclick="document.getElementById('${r.actionId}')?.click()"><i class="fa-solid fa-arrow-right"></i> Öppna</button>
+        </div>
+      </div>
+    </div>
+  `).join("");
+}
+
+function sendAiLiveMessage() {
+  const input = $("aiLiveInput");
+  if (!input) return;
+  const msg = (input.value || "").trim();
+  if (!msg) return;
+  input.value = "";
+  if (!state.aiPreviewMessages) state.aiPreviewMessages = [];
+  state.aiPreviewMessages.push({ role: "user", content: msg });
+  renderAiLiveChatBox();
+  const indicators = $("aiLiveIndicators");
+  if (indicators) indicators.innerHTML = `<span class="sectionInsight">AI svarar…</span>`;
+  setTimeout(() => {
+    const res = aiEvaluateDecision(msg);
+    state.aiPreviewMessages.push({ role: "assistant", content: res.preview, meta: res });
+    renderAiLiveChatBox();
+    renderAiLiveIndicators(res);
+  }, 600);
+}
+
+function renderAiLiveChatBox() {
+  const box = $("aiLiveChatBox");
+  if (!box) return;
+  box.innerHTML = (state.aiPreviewMessages || []).map(m => `
+    <div class="msg ${m.role === "assistant" ? "ai" : "user"}">
+      <div class="avatar">${m.role === "assistant" ? "🤖" : "🙂"}</div>
+      <div>
+        <div class="bubble">${escapeHtml(m.content)}</div>
+        ${m.role === "assistant" && m.meta ? `<div class="msgMeta">Segment: ${escapeHtml(m.meta.segment.department || "-")} • ${escapeHtml(m.meta.segment.language)} • ${escapeHtml(m.meta.segment.customerType)}</div>` : ""}
+      </div>
+    </div>
+  `).join("") || `<div class="muted small">Börja med ett meddelande och se hur AI:n svarar.</div>`;
+  box.scrollTop = box.scrollHeight;
+}
+
+function renderAiLiveIndicators(res) {
+  const indicators = $("aiLiveIndicators");
+  if (!indicators) return;
+  const chips = [];
+  chips.push(`<span class="sectionInsight ${res.needsHuman ? "status-warn" : "status-ok"}">${res.needsHuman ? "Eskalering: Ja" : "Eskalering: Nej"}</span>`);
+  if (res.triggeredRules.length) chips.push(`<span class="sectionInsight status-warn">Regel aktiverad</span>`);
+  chips.push(`<span class="sectionInsight">Profil: ${escapeHtml(res.profile)}</span>`);
+  indicators.innerHTML = chips.join(" ");
+}
+
+function renderRuleSimExplanation(msg) {
+  const res = aiEvaluateDecision(msg);
+  const box = $("aiRuleSimBox");
+  if (!box) return;
+  const cards = [];
+  const why = (() => {
+    if (/arg|förbannad|!{2,}/i.test(msg)) return "Negativt språk";
+    if (/\?{2,}/.test(msg)) return "Osäkerhet";
+    if (msg.length < 8) return "Kort input";
+    return "Tolkning av intention";
+  })();
+  cards.push(`<div class="resultCard primary"><div class="resultIcon">🧠</div><div><div class="resultLabel">Tolkning</div><div class="resultContext">${escapeHtml(why)}</div></div></div>`);
+  if (res.triggeredRules.length) {
+    cards.push(`<div class="resultCard status-warn"><div class="resultIcon">⚡</div><div><div class="resultLabel">Regel</div><div class="resultContext">En beteenderegel aktiverades</div></div></div>`);
+  } else {
+    cards.push(`<div class="resultCard"><div class="resultIcon">⚡</div><div><div class="resultLabel">Regel</div><div class="resultContext">Inga regler aktiverades</div></div></div>`);
+  }
+  cards.push(`<div class="resultCard"><div class="resultIcon">🎯</div><div><div class="resultLabel">Åtgärd</div><div class="resultContext">${escapeHtml(res.preview)}</div></div></div>`);
+  cards.push(`<div class="resultCard"><div class="resultIcon">🧭</div><div><div class="resultLabel">Eskalering</div><div class="resultContext">${res.needsHuman ? "Ja" : "Nej"}</div></div></div>`);
+  box.innerHTML = cards.join("");
+}
 function initSocket() {
   if (typeof io === 'undefined') return;
   const socket = io();
