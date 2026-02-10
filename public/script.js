@@ -39,9 +39,13 @@ const state = {
   myTickets: [],
   inboxTickets: [],
   inboxSelectedTicket: null,
+  inboxLoadSeq: 0,
+  inboxPage: 1,
+  inboxPageSize: 50,
 
   csatPendingTicketId: null,
   currentView: "chatView",
+  slaLoadSeq: 0,
 };
 
 /* =========================
@@ -192,6 +196,7 @@ function showView(viewId, menuBtnId) {
   if (viewId === "inboxView") {
     const dot = $("inboxNotifDot");
     if (dot) dot.style.display = "none";
+    state.inboxPage = 1;
     loadInboxTickets();
   }
 }
@@ -888,12 +893,16 @@ function renderInboxList() {
   if (!list) return;
   list.innerHTML = "";
 
-  if (state.inboxTickets.length === 0) {
+  const total = state.inboxTickets.length;
+  if (total === 0) {
     list.innerHTML = `<div class="muted small">Inga tickets hittades.</div>`;
     return;
   }
 
-  (state.inboxTickets || []).forEach((t) => {
+  const end = Math.min(total, state.inboxPage * state.inboxPageSize);
+  const items = state.inboxTickets.slice(0, end);
+  const frag = document.createDocumentFragment();
+  items.forEach((t) => {
     const div = document.createElement("div");
     const isHighPri = t.priority === "high";
     const shouldHighlight = isHighPri && t.status !== "solved";
@@ -910,15 +919,30 @@ function renderInboxList() {
       <div class="muted small">${escapeHtml(t.publicTicketId)} • ${escapeHtml(t.companyId)} • ${new Date(t.lastActivityAt).toLocaleString('sv-SE')}</div>
     `;
     div.addEventListener("click", () => selectInboxTicket(t._id));
-    list.appendChild(div);
+    frag.appendChild(div);
   });
+  list.appendChild(frag);
+
+  if (end < total) {
+    const more = document.createElement("button");
+    more.className = "btn ghost small";
+    more.textContent = "Visa fler";
+    more.style.marginTop = "8px";
+    more.addEventListener("click", () => {
+      state.inboxPage++;
+      renderInboxList();
+    });
+    list.appendChild(more);
+  }
 }
 
 async function loadInboxTickets() {
   const status = $("inboxStatusFilter")?.value || "";
   const companyId = $("inboxCategoryFilter")?.value || "";
-
+  state.inboxLoadSeq = (state.inboxLoadSeq || 0) + 1;
+  const seq = state.inboxLoadSeq;
   const tickets = await api(`/inbox/tickets?status=${encodeURIComponent(status)}&companyId=${encodeURIComponent(companyId)}`);
+  if (seq !== state.inboxLoadSeq) return;
   state.inboxTickets = tickets || [];
   renderInboxList();
 }
@@ -2934,11 +2958,15 @@ function renderInboxList() {
   const list = $("inboxTicketsList");
   if (!list) return;
   list.innerHTML = "";
-  if (state.inboxTickets.length === 0) {
+  const total = state.inboxTickets.length;
+  if (total === 0) {
     list.innerHTML = `<div class="muted small">Inga tickets hittades.</div>`;
     return;
   }
-  state.inboxTickets.forEach((t) => {
+  const end = Math.min(total, state.inboxPage * state.inboxPageSize);
+  const items = state.inboxTickets.slice(0, end);
+  const frag = document.createDocumentFragment();
+  items.forEach((t) => {
     const div = document.createElement("div");
     const isHighPri = t.priority === "high";
     const shouldHighlight = isHighPri && t.status !== "solved";
@@ -2954,15 +2982,30 @@ function renderInboxList() {
       <div class="muted small">${escapeHtml(t.publicTicketId)} • ${escapeHtml(t.companyId)} • ${new Date(t.lastActivityAt).toLocaleString('sv-SE')}</div>
     `;
     div.addEventListener("click", () => selectInboxTicket(t._id));
-    list.appendChild(div);
+    frag.appendChild(div);
   });
+  list.appendChild(frag);
+  if (end < total) {
+    const more = document.createElement("button");
+    more.className = "btn ghost small";
+    more.textContent = "Visa fler";
+    more.style.marginTop = "8px";
+    more.addEventListener("click", () => {
+      state.inboxPage++;
+      renderInboxList();
+    });
+    list.appendChild(more);
+  }
 }
 
 async function loadInboxTickets() {
   try {
     const status = $("inboxStatusFilter")?.value || "";
     const companyId = $("inboxCategoryFilter")?.value || "";
+    state.inboxLoadSeq = (state.inboxLoadSeq || 0) + 1;
+    const seq = state.inboxLoadSeq;
     const tickets = await api(`/inbox/tickets?status=${encodeURIComponent(status)}&companyId=${encodeURIComponent(companyId)}`);
+    if (seq !== state.inboxLoadSeq) return;
     state.inboxTickets = tickets || [];
     renderInboxList();
   } catch (e) { console.error("Inbox Load Error:", e); }
@@ -3114,18 +3157,20 @@ async function loadSlaDashboard() {
   const days = $("slaDaysSelect")?.value || "30";
 
   try {
-    // Fetch all data in parallel for performance
+    state.slaLoadSeq = (state.slaLoadSeq || 0) + 1;
+    const seq = state.slaLoadSeq;
     const [overview, trend, agents, topTopics, escalation, comparison, questions, hourly, insights] = await Promise.all([
-      api(`/sla/overview?days=${encodeURIComponent(days)}`),
-      api(`/sla/trend?days=${encodeURIComponent(days)}`),
-      api(`/sla/agents/detailed?days=${encodeURIComponent(days)}`),
-      api(`/sla/top-topics`),
-      api(`/sla/escalation?days=${encodeURIComponent(days)}`),
-      api(`/sla/comparison?days=${encodeURIComponent(days)}`),
-      api(`/sla/questions?days=${encodeURIComponent(days)}`),
-      api(`/sla/hourly?days=${Math.min(days, 14)}`),
-      api(`/sla/insights?days=${encodeURIComponent(days)}`)
+      api(`/sla/overview?days=${encodeURIComponent(days)}`, { cache: true, ttl: 15000 }),
+      api(`/sla/trend?days=${encodeURIComponent(days)}`, { cache: true, ttl: 15000 }),
+      api(`/sla/agents/detailed?days=${encodeURIComponent(days)}`, { cache: true, ttl: 15000 }),
+      api(`/sla/top-topics`, { cache: true, ttl: 15000 }),
+      api(`/sla/escalation?days=${encodeURIComponent(days)}`, { cache: true, ttl: 15000 }),
+      api(`/sla/comparison?days=${encodeURIComponent(days)}`, { cache: true, ttl: 15000 }),
+      api(`/sla/questions?days=${encodeURIComponent(days)}`, { cache: true, ttl: 15000 }),
+      api(`/sla/hourly?days=${Math.min(days, 14)}`, { cache: true, ttl: 15000 }),
+      api(`/sla/insights?days=${encodeURIComponent(days)}`, { cache: true, ttl: 15000 })
     ]);
+    if (seq !== state.slaLoadSeq) return;
 
     // ===== TAB 1: OVERVIEW =====
     const overviewBox = $("slaOverviewBox");
