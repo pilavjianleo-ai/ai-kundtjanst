@@ -3971,19 +3971,23 @@ function playAlert() {
     if (!window._audioCtx) window._audioCtx = new Ctx();
     const ctx = window._audioCtx;
     if (ctx.state === "suspended") { ctx.resume().catch(() => {}); }
-    const o = ctx.createOscillator();
-    const g = ctx.createGain();
-    o.type = "sine";
-    o.frequency.value = 880;
-    o.connect(g);
-    g.connect(ctx.destination);
-    g.gain.setValueAtTime(0.0001, ctx.currentTime);
-    g.gain.exponentialRampToValueAtTime(0.08, ctx.currentTime + 0.02);
-    o.start();
-    setTimeout(() => {
-      g.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + 0.2);
-      o.stop(ctx.currentTime + 0.21);
-    }, 200);
+    const now = ctx.currentTime;
+    const peak = 0.06;
+    const note = (freq, start, dur) => {
+      const o = ctx.createOscillator();
+      const g = ctx.createGain();
+      o.type = "sine";
+      o.frequency.setValueAtTime(freq, start);
+      o.connect(g);
+      g.connect(ctx.destination);
+      g.gain.setValueAtTime(0.0001, start);
+      g.gain.exponentialRampToValueAtTime(peak, start + 0.02);
+      g.gain.exponentialRampToValueAtTime(0.0001, start + Math.max(0.04, dur - 0.02));
+      o.start(start);
+      o.stop(start + dur);
+    };
+    note(784, now, 0.14);
+    note(1046.5, now + 0.16, 0.18);
   } catch {}
 }
 
