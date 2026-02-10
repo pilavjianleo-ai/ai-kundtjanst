@@ -58,6 +58,7 @@ const state = {
   aiSegmenting: { mappings: [] },
   aiRules: [],
   aiAnalytics: null,
+  userContactInfo: null,
 };
 
 /* =========================
@@ -4229,6 +4230,53 @@ function aiSimulateResponse(input, ai) {
   return `${pre}${styleAdj}. ${body} ${action} ${tail}${extra}`.trim();
 }
 
+function aiEvaluateDecision(input) {
+  const ai = {
+    profiles: state.aiProfiles || {},
+    activeProfile: state.aiActiveProfile || "default",
+    segmenting: state.aiSegmenting || { mappings: [] },
+    rules: state.aiRules || []
+  };
+  const msg = String(input || "");
+  const lang = "sv";
+  const contactInfo = state.userContactInfo || (sessionStorage.getItem('contactInfo') ? JSON.parse(sessionStorage.getItem('contactInfo')) : null);
+  const isCompany = !!(contactInfo?.isCompany);
+  const customerType = isCompany ? "b2b" : "b2c";
+  const h = new Date().getHours();
+  const mappings = ai.segmenting.mappings || [];
+  let profile = ai.activeProfile || "default";
+  let matched = { department: "-", language: lang, customerType, schedule: "alltid", profile };
+  for (const m of mappings) {
+    const langOk = (m.language || "sv") === lang;
+    let timeOk = true;
+    if (m.schedule === "kontorstid") timeOk = h >= 9 && h < 17;
+    else if (m.schedule === "kväll") timeOk = h >= 17 && h < 23;
+    const custOk = (m.customerType || "b2c") === customerType;
+    if (langOk && timeOk && custOk && ai.profiles[m.profile]) {
+      profile = m.profile;
+      matched = { department: m.department || "-", language: m.language, customerType: m.customerType, schedule: m.schedule, profile: m.profile };
+      break;
+    }
+  }
+  const triggered = [];
+  for (const r of ai.rules) {
+    const cond = String(r.if || "").toLowerCase();
+    const act = String(r.then || "").toLowerCase();
+    let match = false;
+    if (cond.includes("emotion=arg")) match = /arg|förbannad|😡|!{2,}/i.test(msg);
+    else if (cond.includes("upprepning>2")) {
+      const last3 = (state.conversation || []).slice(-6).filter(m => m.role === "user").map(m => m.content.toLowerCase());
+      match = last3.length >= 3 && (new Set(last3)).size <= 1;
+    } else if (cond.includes("osäkerhet")) match = /osäker|vet inte|\?{2,}/i.test(msg);
+    if (match) triggered.push(`IF ${r.if} THEN ${r.then}`);
+  }
+  const maxReplies = Number((ai.profiles[profile]?.logic?.max_replies) ?? 3);
+  const assistantCount = (state.conversation || []).filter(m => m.role === "assistant").length;
+  let needsHuman = triggered.some(t => t.toLowerCase().includes("eskalera")) || (assistantCount + 1 >= maxReplies);
+  const preview = aiSimulateResponse(input, ai.profiles[profile] || {});
+  return { profile, segment: matched, triggeredRules: triggered, needsHuman, preview };
+}
+
 async function loadAiPanel() {
   try {
     const res = await api(`/company/settings?companyId=${encodeURIComponent(state.companyId)}`);
@@ -4445,6 +4493,28 @@ function bindEvents() {
       state.aiAnalytics = a;
       renderAiAnalyticsBox();
     } catch (e) { toast("Fel", e.message, "error"); }
+  });
+  on("aiRunRuleSimBtn", "click", () => {
+    const msg = $("aiRuleSimInput")?.value || "";
+    const res = aiEvaluateDecision(msg);
+    const box = $("aiRuleSimBox");
+    if (!box) return;
+    const lines = [];
+    lines.push(`<div class="listItem"><div class="listItemTitle">Vald profil: <b>${escapeHtml(res.profile)}</b></div></div>`);
+    lines.push(`<div class="listItem"><div class="listItemTitle">Segment: ${escapeHtml(res.segment.department || "-")} • ${escapeHtml(res.segment.language)} • ${escapeHtml(res.segment.customerType)} • ${escapeHtml(res.segment.schedule)}</div></div>`);
+    lines.push(`<div class="listItem"><div class="listItemTitle">Eskalera: <b>${res.needsHuman ? "Ja" : "Nej"}</b></div></div>`);
+    if (res.triggeredRules.length) {
+      lines.push(`<div class="listItem"><div class="listItemTitle">Triggade regler</div></div>`);
+      res.triggeredRules.forEach(r => lines.push(`<div class="listItem"><div>${escapeHtml(r)}</div></div>`));
+    } else {
+      lines.push(`<div class="listItem"><div class="muted small">Inga regler triggade.</div></div>`);
+    }
+    lines.push(`<div class="listItem"><div class="listItemTitle">Svar‑preview</div><div>${escapeHtml(res.preview)}</div></div>`);
+    box.innerHTML = lines.join("");
+  });
+  on("aiClearRuleSimBtn", "click", () => {
+    const box = $("aiRuleSimBox"); if (box) box.innerHTML = '<div class="muted small">Resultat från simulering visas här.</div>';
+    const input = $("aiRuleSimInput"); if (input) input.value = "";
   });
   // ✅ ADMIN
   on("openAdminView", "click", async () => {

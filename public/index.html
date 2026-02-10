@@ -883,6 +883,17 @@
                 <div class="muted small">Ladda AI‑analys för dialoger, eskaleringar och missförstånd.</div>
               </div>
             </div>
+            <div class="panel">
+              <div class="panelHead"><b><i class="fa-solid fa-vial"></i> Regel‑simulator</b></div>
+              <textarea id="aiRuleSimInput" class="input" rows="4" placeholder="Skriv ett provmeddelande för att testa regler/segmentering..."></textarea>
+              <div class="row gap" style="margin-top:10px;">
+                <button id="aiRunRuleSimBtn" class="btn secondary small" type="button"><i class="fa-solid fa-flask"></i> Kör simulering</button>
+                <button id="aiClearRuleSimBtn" class="btn ghost small" type="button"><i class="fa-solid fa-eraser"></i> Rensa</button>
+              </div>
+              <div id="aiRuleSimBox" class="list" style="margin-top:10px;">
+                <div class="muted small">Resultat från simulering visas här.</div>
+              </div>
+            </div>
           </div>
           <div>
             <div class="panel">

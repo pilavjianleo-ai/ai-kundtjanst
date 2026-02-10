@@ -679,7 +679,8 @@ async function generateAIResponse(companyId, messages, userMessage) {
       let timeOk = true;
       if (m.schedule === "kontorstid") timeOk = hour >= 9 && hour < 17;
       else if (m.schedule === "kväll") timeOk = hour >= 17 && hour < 23;
-      if (langOk && timeOk && profiles[m.profile]) { profileName = m.profile; break; }
+      const custOk = true;
+      if (langOk && timeOk && custOk && profiles[m.profile]) { profileName = m.profile; break; }
     }
     const prof = profiles[profileName] || {};
     const p = prof.personality || {};
@@ -884,12 +885,15 @@ app.post("/chat", authenticate, chatLimiter, async (req, res) => {
     const now = new Date(); const h = now.getHours();
     const mappings = ai?.segmenting?.mappings || [];
     let profileName = activeName;
+    const isCompany = !!(ticket.contactInfo?.isCompany);
+    const custType = isCompany ? "b2b" : "b2c";
     for (const m of mappings) {
       const langOk = (m.language || "sv") === "sv";
       let timeOk = true;
       if (m.schedule === "kontorstid") timeOk = h >= 9 && h < 17;
       else if (m.schedule === "kväll") timeOk = h >= 17 && h < 23;
-      if (langOk && timeOk && profiles[m.profile]) { profileName = m.profile; break; }
+      const custOk = (m.customerType || "b2c") === custType;
+      if (langOk && timeOk && custOk && profiles[m.profile]) { profileName = m.profile; break; }
     }
     const logic = (profiles[profileName]?.logic) || {};
     const maxReplies = Number(logic.max_replies ?? 3);
