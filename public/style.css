@@ -1465,20 +1465,20 @@ body[data-theme="light"] .btn.secondary:hover {
 }
 
 .badge-admin {
-  background: rgba(255, 184, 0, 0.15);
-  color: #ffb800;
-  border: 1px solid rgba(255, 184, 0, 0.3);
+  background: var(--primary-fade);
+  color: var(--primary);
+  border: 1px solid var(--primary);
 }
 
 .badge-agent {
-  background: rgba(55, 214, 122, 0.15);
-  color: #37d67a;
-  border: 1px solid rgba(55, 214, 122, 0.3);
+  background: var(--success-fade);
+  color: var(--success);
+  border: 1px solid var(--success);
 }
 
 .badge-user {
   background: rgba(166, 171, 198, 0.15);
-  color: #a6abc6;
+  color: var(--muted);
   border: 1px solid rgba(166, 171, 198, 0.3);
 }
 
