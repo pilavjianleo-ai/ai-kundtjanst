@@ -81,7 +81,7 @@
         </button>
 
         <button id="openAiPanelView" class="menuBtn" style="display:none;" type="button">
-          <i class="fa-solid fa-brain"></i> AI Kontrollpanel
+          <i class="fa-solid fa-brain"></i> AI Control Center
         </button>
 
         <button id="openScenarioView" class="menuBtn" style="display:none;" type="button">
@@ -661,7 +661,7 @@
           <div style="display:flex; align-items:center;">
             <button class="btn ghost icon menu-toggle" onclick="toggleSidebar()"><i class="fa-solid fa-bars"></i></button>
             <div>
-              <div class="title"><i class="fa-solid fa-brain" style="color:var(--primary);"></i> AI Kontrollpanel</div>
+              <div class="title"><i class="fa-solid fa-brain" style="color:var(--primary);"></i> AI Control Center</div>
               <div class="subtitle muted">Styr AI‑personlighet, förståelse, agerande och säkerhet</div>
             </div>
           </div>
@@ -673,97 +673,75 @@
         </div>
         <div class="grid2">
           <div>
-            <div class="tabs" style="margin-top: 15px;">
-              <button class="tabBtn active" data-tab="aiTabOverview" type="button"><i class="fa-solid fa-gauge-high"></i> Översikt</button>
-              <button class="tabBtn" data-tab="aiTabInsights" type="button"><i class="fa-solid fa-lightbulb"></i> Insikter</button>
-              <button class="tabBtn" data-tab="aiTabConfig" type="button"><i class="fa-solid fa-sliders"></i> Konfiguration</button>
-              <button class="tabBtn" data-tab="aiTabSystem" type="button"><i class="fa-solid fa-diagram-project"></i> System</button>
-              <button class="tabBtn" data-tab="aiTabAnalytics" type="button"><i class="fa-solid fa-chart-column"></i> Analys</button>
+            <div class="row gap" style="margin-bottom:12px;">
+              <button id="aiManageConfigBtn" class="btn ghost small" type="button"><i class="fa-solid fa-sliders"></i> Hantera konfiguration</button>
+              <button id="aiManageFlowsBtn" class="btn ghost small" type="button"><i class="fa-solid fa-diagram-project"></i> Flöden</button>
+              <button id="aiManageRulesBtn" class="btn ghost small" type="button"><i class="fa-solid fa-code"></i> Regler</button>
+              <button id="aiUpdateAnalyticsBtn" class="btn ghost small" type="button"><i class="fa-solid fa-rotate"></i> Uppdatera analys</button>
             </div>
-            <div id="aiTabOverview" class="tabPanel">
-              <div class="panel soft" id="panelDashboard">
-                <div class="panelHead"><b><i class="fa-solid fa-gauge-simple-high"></i> Executive Overview</b></div>
-                <div class="grid3">
-                  <div class="resultCard" id="kpiCardMode"><div class="resultLabel">AI‑läge</div><div class="resultValue" id="aiKpiMode">-</div><div class="resultContext" id="aiKpiModeNote">-</div></div>
-                  <div class="resultCard" id="kpiCardHealth"><div class="resultLabel">AI Hälsa</div><div class="resultValue" id="aiKpiHealth">-</div><div class="resultContext" id="aiKpiHealthNote">-</div></div>
-                  <div class="resultCard" id="kpiCardAuto"><div class="resultLabel">Automatisering</div><div class="resultValue" id="aiKpiAutomation">-</div><div class="resultContext" id="aiKpiAutomationNote">-</div></div>
-                  <div class="resultCard" id="kpiCardEsc"><div class="resultLabel">Eskalering</div><div class="resultValue" id="aiKpiEscalation">-</div><div class="resultContext" id="aiKpiEscNote">-</div></div>
-                  <div class="resultCard" id="kpiCardCsat"><div class="resultLabel">CSAT</div><div class="resultValue" id="aiKpiCsat">Ej tillgängligt</div><div class="resultContext" id="aiKpiCsatNote">-</div></div>
-                </div>
-              </div>
-              <div class="panel soft">
-                <div class="panelHead"><b><i class="fa-solid fa-chart-line"></i> AI Performance & Impact</b></div>
-                <div class="grid4">
-                  <div class="resultCard" id="perfCardSolved"><div class="resultLabel">Lösta ärenden</div><div class="resultValue" id="aiPerfSolved">-</div><div class="resultContext" id="aiPerfSolvedNote">-</div></div>
-                  <div class="resultCard" id="perfCardAutomation"><div class="resultLabel">Automatiseringsgrad</div><div class="resultValue" id="aiPerfAutomation">-</div><div class="resultContext" id="aiPerfAutomationNote">-</div></div>
-                  <div class="resultCard" id="perfCardResponse"><div class="resultLabel">Svarstid</div><div class="resultValue" id="aiPerfResponseTime">-</div><div class="resultContext" id="aiPerfResponseTimeNote">-</div></div>
-                  <div class="resultCard" id="perfCardMis"><div class="resultLabel">Missförstånd</div><div class="resultValue" id="aiPerfMisunderstanding">-</div><div class="resultContext" id="aiPerfMisunderstandingNote">-</div></div>
-                </div>
+            <div class="panel soft" id="ccNav">
+              <div class="panelHead"><b><i class="fa-solid fa-gauge-high"></i> Moduler</b></div>
+              <div class="menu">
+                <button class="menuBtn ccNavBtn active" data-target="ccModuleOverview"><i class="fa-solid fa-gauge-high"></i> Översikt</button>
+                <button class="menuBtn ccNavBtn" data-target="ccModuleInsights"><i class="fa-solid fa-lightbulb"></i> Insikter & åtgärder</button>
+                <button class="menuBtn ccNavBtn" data-target="ccModuleSystem"><i class="fa-solid fa-diagram-project"></i> System & segment</button>
+                <button class="menuBtn ccNavBtn" data-target="ccModuleAnalytics"><i class="fa-solid fa-chart-column"></i> Analys</button>
               </div>
             </div>
-            <div id="aiTabInsights" class="tabPanel" style="display:none;">
-              <div class="panel soft">
-                <div class="panelHead"><b><i class="fa-solid fa-lightbulb"></i> Insikter</b></div>
-                <div id="aiInsightList" class="list"></div>
-              </div>
-              <div class="panel soft">
-                <div class="panelHead"><b><i class="fa-solid fa-list-check"></i> Rekommenderade åtgärder</b></div>
-                <div id="aiRecoList" class="list"></div>
-              </div>
-            </div>
-            <div id="aiTabConfig" class="tabPanel" style="display:none;">
-              <div class="panel soft">
-                <div class="panelHead"><b><i class="fa-solid fa-sliders"></i> AI Konfiguration</b></div>
-                <div class="grid4">
-                  <div class="card soft" style="padding:12px;"><div class="muted small">Ton & stil</div><div id="aiConfTone" style="font-weight:800;">-</div></div>
-                  <div class="card soft" style="padding:12px;"><div class="muted small">Empati‑nivå</div><div id="aiConfEmpathy" style="font-weight:800;">-</div></div>
-                  <div class="card soft" style="padding:12px;"><div class="muted small">Beteende‑läge</div><div id="aiConfMode" style="font-weight:800;">-</div></div>
-                  <div class="card soft" style="padding:12px;"><div class="muted small">Eskalering</div><div id="aiConfEscalation" style="font-weight:800;">-</div></div>
+            <div id="ccModules">
+              <div id="ccModuleOverview" class="ccModule">
+                <div class="panel soft">
+                  <div class="panelHead"><b><i class="fa-solid fa-gauge-simple-high"></i> Executive Overview</b></div>
+                  <div class="grid3">
+                    <div class="resultCard" id="kpiCardMode"><div class="resultLabel">AI‑läge</div><div class="resultValue" id="aiKpiMode">-</div><div class="resultContext" id="aiKpiModeNote">-</div></div>
+                    <div class="resultCard" id="kpiCardHealth"><div class="resultLabel">AI Hälsa</div><div class="resultValue" id="aiKpiHealth">-</div><div class="resultContext" id="aiKpiHealthNote">-</div></div>
+                    <div class="resultCard" id="kpiCardAuto"><div class="resultLabel">Automatisering</div><div class="resultValue" id="aiKpiAutomation">-</div><div class="resultContext" id="aiKpiAutomationNote">-</div></div>
+                    <div class="resultCard" id="kpiCardEsc"><div class="resultLabel">Eskalering</div><div class="resultValue" id="aiKpiEscalation">-</div><div class="resultContext" id="aiKpiEscNote">-</div></div>
+                    <div class="resultCard" id="kpiCardCsat"><div class="resultLabel">CSAT</div><div class="resultValue" id="aiKpiCsat">Ej tillgängligt</div><div class="resultContext" id="aiKpiCsatNote">-</div></div>
+                  </div>
                 </div>
-                <div class="row gap" style="margin-top:10px;">
-                  <button id="aiManageConfigBtn" class="btn secondary small" type="button"><i class="fa-solid fa-wrench"></i> Hantera avancerat</button>
-                </div>
-                <div id="aiAdvancedSettings" style="display:none; margin-top:10px;">
-                  <div class="panel soft"><div class="panelHead"><b>Personlighet & beteende</b></div><div class="grid2"><div><label>Stil</label><select id="aiStyleSelect" class="input"><option value="formell">Formell</option><option value="vänlig">Vänlig</option><option value="avslappnad">Avslappnad</option><option value="professionell">Professionell</option><option value="varm">Varm</option><option value="neutral">Neutral</option></select></div><div><label>Verbosity</label><select id="aiVerbositySelect" class="input"><option value="kort">Kort</option><option value="normal">Normal</option><option value="utförlig">Utförlig</option></select></div></div><div class="grid3" style="margin-top:10px;"><div><label>Ton (0–100)</label><input id="aiToneLevel" type="range" min="0" max="100" class="input" /></div><div><label>Empati (0–100)</label><input id="aiEmpathyLevel" type="range" min="0" max="100" class="input" /></div><div><label>Artighet (0–100)</label><input id="aiPolitenessLevel" type="range" min="0" max="100" class="input" /></div></div><div class="grid2" style="margin-top:10px;"><div><label>Självsäkerhet</label><select id="aiAssertivenessSelect" class="input"><option value="låg">Låg</option><option value="medel">Medel</option><option value="hög">Hög</option></select></div><div><label>Beskrivning</label><select id="aiProblemStyleSelect" class="input"><option value="aktiv">Aktiv problemlösning</option><option value="vägledande">Vägledande</option></select></div></div></div>
-                  <div class="panel soft" style="margin-top:10px;"><div class="panelHead"><b>Förståelse & tolkning</b></div><div class="grid3"><label><input id="aiDetectEmotion" type="checkbox" /> Känsloidentifiering</label><label><input id="aiHandleSlang" type="checkbox" /> Slang/felstavningar/emojis</label><label><input id="aiAskFollowup" type="checkbox" /> Följdfrågor vid oklarhet</label></div><div class="grid2" style="margin-top:10px;"><div><label>Max svar innan eskalering</label><input id="aiMaxReplies" type="number" min="1" max="10" class="input" /></div><div><label>Tidsstyrning</label><select id="aiTimePolicy" class="input"><option value="direkt">Direkt</option><option value="kontorstid">Kontorstid</option><option value="fördröjt">Fördröjt</option></select></div></div></div>
-                  <div class="panel soft" style="margin-top:10px;"><div class="panelHead"><b>Kontroll & säkerhet</b></div><div class="grid2"><div><label>Förbjudna ämnen</label><textarea id="aiForbiddenTopics" class="input" rows="3" placeholder="En per rad"></textarea></div><div><label>Tillåtna formuleringar</label><textarea id="aiAllowedPhrases" class="input" rows="3" placeholder="En per rad"></textarea></div></div><div class="grid2" style="margin-top:10px;"><label><input id="aiNoGuarantees" type="checkbox" /> Inga garantier</label><label><input id="aiNoPromises" type="checkbox" /> Inga löften</label></div></div>
-                  <div class="panel soft" id="panelFlow" style="display:none; margin-top:10px;"><div class="panelHead"><b>Flödesbyggare</b></div><div id="aiFlowList" class="list" style="margin-top:10px;"></div><div class="row gap" style="margin-top:10px;"><select id="aiFlowStepType" class="input smallInput" style="min-width:160px;"><option value="start">Start</option><option value="fråga">Fråga</option><option value="svar">Svar</option><option value="åtgärd">Åtgärd</option></select><input id="aiFlowStepText" class="input smallInput" placeholder="Beskrivning..." /><button id="aiAddFlowStepBtn" class="btn secondary small" type="button"><i class="fa-solid fa-plus"></i> Lägg till</button><button id="aiSaveFlowBtn" class="btn primary small" type="button"><i class="fa-solid fa-floppy-disk"></i> Spara flöde</button></div><div class="row gap" style="margin-top:10px;"><select id="aiFlowVersionSelect" class="input smallInput" style="min-width:200px;"></select><button id="aiCreateFlowVersionBtn" class="btn ghost small" type="button"><i class="fa-solid fa-code-branch"></i> Skapa version</button><button id="aiRollbackFlowBtn" class="btn ghost small" type="button"><i class="fa-solid fa-rotate-left"></i> Återställ</button></div></div>
-                  <div class="panel soft" id="panelSegments" style="display:none; margin-top:10px;"><div class="panelHead"><b>Multi‑AI & Segmentering</b></div><div class="grid3"><div><label>Avdelning</label><select id="segDepartmentSelect" class="input"><option value="support">Support</option><option value="sälj">Sälj</option><option value="it">IT</option></select></div><div><label>Språk</label><select id="segLanguageSelect" class="input"><option value="sv">Svenska</option><option value="en">Engelska</option></select></div><div><label>Kundtyp</label><select id="segCustomerTypeSelect" class="input"><option value="b2c">B2C</option><option value="b2b">B2B</option><option value="vip">VIP</option></select></div></div><div class="grid2" style="margin-top:10px;"><div><label>Profil</label><select id="segProfileSelect" class="input"></select></div><div><label>Tidsschema</label><select id="segScheduleSelect" class="input"><option value="alltid">Alltid</option><option value="kontorstid">Kontorstid</option><option value="kväll">Kväll</option></select></div></div><div class="row gap" style="margin-top:10px;"><button id="segAssignBtn" class="btn secondary small" type="button"><i class="fa-solid fa-link"></i> Tilldela</button><button id="segClearBtn" class="btn ghost small" type="button"><i class="fa-solid fa-eraser"></i> Rensa</button></div><div id="segMappingList" class="list" style="margin-top:10px;"></div></div>
-                  <div class="panel soft" id="panelSales" style="display:none; margin-top:10px;"><div class="panelHead"><b>Sälj – CTA & Kontakt</b></div><div class="grid3"><label><input id="salesEnableCta" type="checkbox" /> Aktivera Sälj‑CTA</label><label><input id="salesOfferDemo" type="checkbox" /> Erbjud demo</label><label><input id="salesOfferOffert" type="checkbox" /> Erbjud offert</label></div><div class="grid3" style="margin-top:10px;"><label><input id="salesLinkPricing" type="checkbox" /> Hänvisa till prisplaner</label><label><input id="salesScheduleMeeting" type="checkbox" /> Föreslå möte</label><label><input id="salesRequestContact" type="checkbox" /> Be om kontaktuppgifter</label></div></div>
-                  <div class="panel soft" id="panelRules" style="display:none; margin-top:10px;"><div class="panelHead"><b>IF/THEN‑regler</b></div><div id="aiRulesList" class="list" style="margin-top:10px;"></div><div class="row gap" style="margin-top:10px;"><select id="aiRuleCondition" class="input smallInput"><option value="emotion=arg">Emotion=arg</option><option value="upprepning>2">Upprepning>2</option><option value="osäkerhet">Osäkerhet</option></select><select id="aiRuleAction" class="input smallInput"><option value="ändra_ton=varm">Ändra ton=varm</option><option value="föreslå_kompensation">Föreslå kompensation</option><option value="eskalera">Eskalera</option><option value="ställ_följdfråga">Ställ följdfråga</option></select><button id="aiAddRuleBtn" class="btn secondary small" type="button"><i class="fa-solid fa-plus"></i> Lägg till regel</button><button id="aiSaveRulesBtn" class="btn primary small" type="button"><i class="fa-solid fa-floppy-disk"></i> Spara regler</button></div></div>
+                <div class="panel soft">
+                  <div class="panelHead"><b><i class="fa-solid fa-chart-line"></i> AI Performance & Impact</b></div>
+                  <div class="grid4">
+                    <div class="resultCard" id="perfCardSolved"><div class="resultLabel">Lösta ärenden</div><div class="resultValue" id="aiPerfSolved">-</div><div class="resultContext" id="aiPerfSolvedNote">-</div></div>
+                    <div class="resultCard" id="perfCardAutomation"><div class="resultLabel">Automatiseringsgrad</div><div class="resultValue" id="aiPerfAutomation">-</div><div class="resultContext" id="aiPerfAutomationNote">-</div></div>
+                    <div class="resultCard" id="perfCardResponse"><div class="resultLabel">Svarstid</div><div class="resultValue" id="aiPerfResponseTime">-</div><div class="resultContext" id="aiPerfResponseTimeNote">-</div></div>
+                    <div class="resultCard" id="perfCardMis"><div class="resultLabel">Missförstånd</div><div class="resultValue" id="aiPerfMisunderstanding">-</div><div class="resultContext" id="aiPerfMisunderstandingNote">-</div></div>
+                  </div>
                 </div>
               </div>
-            </div>
-            <div id="aiTabSystem" class="tabPanel" style="display:none;">
-              <div class="panel soft">
-                <div class="panelHead"><b><i class="fa-solid fa-diagram-project"></i> Flöden & Regler</b></div>
-                <div class="grid2">
-                  <div class="card soft" style="padding:12px;"><div class="muted small">Flöden (översikt)</div><div id="aiFlowSummary" style="font-weight:800;">-</div><div class="row gap" style="margin-top:8px;"><button id="aiManageFlowsBtn" class="btn ghost small" type="button"><i class="fa-solid fa-diagram-project"></i> Hantera</button></div></div>
-                  <div class="card soft" style="padding:12px;"><div class="muted small">Regler (IF/THEN)</div><div id="aiRulesSummary" style="font-weight:800;">-</div><div class="row gap" style="margin-top:8px;"><button id="aiManageRulesBtn" class="btn ghost small" type="button"><i class="fa-solid fa-code"></i> Hantera</button></div></div>
+              <div id="ccModuleInsights" class="ccModule" style="display:none;">
+                <div class="panel soft">
+                  <div class="panelHead"><b><i class="fa-solid fa-lightbulb"></i> Insikter & åtgärder</b></div>
+                  <div class="grid2">
+                    <div class="card soft" style="padding:12px;"><div class="muted small">Insikter</div><div id="aiInsightList" class="list"></div></div>
+                    <div class="card soft" style="padding:12px;"><div class="muted small">Rekommenderade åtgärder</div><div id="aiRecoList" class="list"></div></div>
+                  </div>
                 </div>
               </div>
-              <div class="panel soft">
-                <div class="panelHead"><b><i class="fa-solid fa-layer-group"></i> Segment & Multi‑AI</b></div>
-                <div class="card soft" style="padding:12px;">
-                  <div class="muted small">Aktiva segment</div>
-                  <div id="aiSegSummary" style="font-weight:800;">-</div>
-                  <div class="row gap" style="margin-top:8px;">
-                    <button id="aiManageSegmentsBtn" class="btn ghost small" type="button"><i class="fa-solid fa-layer-group"></i> Hantera</button>
+              <div id="ccModuleSystem" class="ccModule" style="display:none;">
+                <div class="panel soft">
+                  <div class="panelHead"><b><i class="fa-solid fa-diagram-project"></i> System & segment</b></div>
+                  <div class="grid2">
+                    <div class="card soft" style="padding:12px;"><div class="muted small">Flöden (översikt)</div><div id="aiFlowSummary" style="font-weight:800;">-</div><div class="row gap" style="margin-top:8px;"><button id="aiManageFlowsBtn" class="btn ghost small" type="button"><i class="fa-solid fa-diagram-project"></i> Hantera</button></div></div>
+                    <div class="card soft" style="padding:12px;"><div class="muted small">Regler (IF/THEN)</div><div id="aiRulesSummary" style="font-weight:800;">-</div><div class="row gap" style="margin-top:8px;"><button id="aiManageRulesBtn" class="btn ghost small" type="button"><i class="fa-solid fa-code"></i> Hantera</button></div></div>
+                    <div class="card soft" style="padding:12px;"><div class="muted small">Aktiva segment</div><div id="aiSegSummary" style="font-weight:800;">-</div><div class="row gap" style="margin-top:8px;"><button id="aiManageSegmentsBtn" class="btn ghost small" type="button"><i class="fa-solid fa-layer-group"></i> Hantera</button></div></div>
+                  </div>
+                </div>
+              </div>
+              <div id="ccModuleAnalytics" class="ccModule" style="display:none;">
+                <div class="panel soft">
+                  <div class="panelHead"><b><i class="fa-solid fa-chart-column"></i> Analys & historik</b></div>
+                  <div id="aiAnalyticsBox" class="list">
+                    <div class="muted small">Ladda AI‑analys för dialoger, eskaleringar och missförstånd.</div>
+                  </div>
+                  <div class="row gap" style="margin-top:10px;">
+                    <button id="aiUpdateAnalyticsBtn" class="btn ghost small" type="button"><i class="fa-solid fa-rotate"></i> Uppdatera</button>
                   </div>
                 </div>
               </div>
             </div>
-            <div id="aiTabAnalytics" class="tabPanel" style="display:none;">
-              <div class="panel soft">
-                <div class="panelHead"><b><i class="fa-solid fa-chart-column"></i> Analys & historik</b></div>
-                <div id="aiAnalyticsBox" class="list">
-                  <div class="muted small">Ladda AI‑analys för dialoger, eskaleringar och missförstånd.</div>
-                </div>
-                <div class="row gap" style="margin-top:10px;">
-                  <button id="aiUpdateAnalyticsBtn" class="btn ghost small" type="button"><i class="fa-solid fa-rotate"></i> Uppdatera</button>
-                </div>
-              </div>
-            </div>
+          </div>
           </div>
           <div>
             <div class="panel soft">
@@ -771,6 +749,7 @@
               <div class="row gap" style="margin-top:8px;">
                 <button id="aiPreviewTabLiveBtn" class="btn small primary" type="button"><i class="fa-solid fa-message"></i> Live‑konversation</button>
                 <button id="aiPreviewTabRulesBtn" class="btn small ghost" type="button"><i class="fa-solid fa-code"></i> Regel‑simulering</button>
+                <button id="aiLiveResetBtn" class="btn small ghost" type="button"><i class="fa-solid fa-rotate-left"></i> Nollställ chat</button>
               </div>
               <div id="aiLiveTab" style="margin-top:10px;">
                 <div id="aiLiveIndicators" class="row gap" style="margin-bottom:8px;"></div>
@@ -791,7 +770,27 @@
                 </div>
               </div>
             </div>
-            <!-- Config flyttad till vänster tabs -->
+            <div class="panel soft">
+              <div class="panelHead"><b><i class="fa-solid fa-sliders"></i> AI Konfiguration</b></div>
+              <div class="grid4">
+                <div class="card soft" style="padding:12px;"><div class="muted small">Ton & stil</div><div id="aiConfTone" style="font-weight:800;">-</div></div>
+                <div class="card soft" style="padding:12px;"><div class="muted small">Empati‑nivå</div><div id="aiConfEmpathy" style="font-weight:800;">-</div></div>
+                <div class="card soft" style="padding:12px;"><div class="muted small">Beteende‑läge</div><div id="aiConfMode" style="font-weight:800;">-</div></div>
+                <div class="card soft" style="padding:12px;"><div class="muted small">Eskalering</div><div id="aiConfEscalation" style="font-weight:800;">-</div></div>
+              </div>
+              <div class="row gap" style="margin-top:10px;">
+                <button id="aiManageConfigBtn" class="btn secondary small" type="button"><i class="fa-solid fa-wrench"></i> Hantera avancerat</button>
+              </div>
+              <div id="aiAdvancedSettings" style="display:none; margin-top:10px;">
+                <div class="panel soft"><div class="panelHead"><b>Personlighet & beteende</b></div><div class="grid2"><div><label>Stil</label><select id="aiStyleSelect" class="input"><option value="formell">Formell</option><option value="vänlig">Vänlig</option><option value="avslappnad">Avslappnad</option><option value="professionell">Professionell</option><option value="varm">Varm</option><option value="neutral">Neutral</option></select></div><div><label>Verbosity</label><select id="aiVerbositySelect" class="input"><option value="kort">Kort</option><option value="normal">Normal</option><option value="utförlig">Utförlig</option></select></div></div><div class="grid3" style="margin-top:10px;"><div><label>Ton (0–100)</label><input id="aiToneLevel" type="range" min="0" max="100" class="input" /></div><div><label>Empati (0–100)</label><input id="aiEmpathyLevel" type="range" min="0" max="100" class="input" /></div><div><label>Artighet (0–100)</label><input id="aiPolitenessLevel" type="range" min="0" max="100" class="input" /></div></div><div class="grid2" style="margin-top:10px;"><div><label>Självsäkerhet</label><select id="aiAssertivenessSelect" class="input"><option value="låg">Låg</option><option value="medel">Medel</option><option value="hög">Hög</option></select></div><div><label>Beskrivning</label><select id="aiProblemStyleSelect" class="input"><option value="aktiv">Aktiv problemlösning</option><option value="vägledande">Vägledande</option></select></div></div></div>
+                <div class="panel soft" style="margin-top:10px;"><div class="panelHead"><b>Förståelse & tolkning</b></div><div class="grid3"><label><input id="aiDetectEmotion" type="checkbox" /> Känsloidentifiering</label><label><input id="aiHandleSlang" type="checkbox" /> Slang/felstavningar/emojis</label><label><input id="aiAskFollowup" type="checkbox" /> Följdfrågor vid oklarhet</label></div><div class="grid2" style="margin-top:10px;"><div><label>Max svar innan eskalering</label><input id="aiMaxReplies" type="number" min="1" max="10" class="input" /></div><div><label>Tidsstyrning</label><select id="aiTimePolicy" class="input"><option value="direkt">Direkt</option><option value="kontorstid">Kontorstid</option><option value="fördröjt">Fördröjt</option></select></div></div></div>
+                <div class="panel soft" style="margin-top:10px;"><div class="panelHead"><b>Kontroll & säkerhet</b></div><div class="grid2"><div><label>Förbjudna ämnen</label><textarea id="aiForbiddenTopics" class="input" rows="3" placeholder="En per rad"></textarea></div><div><label>Tillåtna formuleringar</label><textarea id="aiAllowedPhrases" class="input" rows="3" placeholder="En per rad"></textarea></div></div><div class="grid2" style="margin-top:10px;"><label><input id="aiNoGuarantees" type="checkbox" /> Inga garantier</label><label><input id="aiNoPromises" type="checkbox" /> Inga löften</label></div></div>
+                <div class="panel soft" id="panelFlow" style="display:none; margin-top:10px;"><div class="panelHead"><b>Flödesbyggare</b></div><div id="aiFlowList" class="list" style="margin-top:10px;"></div><div class="row gap" style="margin-top:10px;"><select id="aiFlowStepType" class="input smallInput" style="min-width:160px;"><option value="start">Start</option><option value="fråga">Fråga</option><option value="svar">Svar</option><option value="åtgärd">Åtgärd</option></select><input id="aiFlowStepText" class="input smallInput" placeholder="Beskrivning..." /><button id="aiAddFlowStepBtn" class="btn secondary small" type="button"><i class="fa-solid fa-plus"></i> Lägg till</button><button id="aiSaveFlowBtn" class="btn primary small" type="button"><i class="fa-solid fa-floppy-disk"></i> Spara flöde</button></div><div class="row gap" style="margin-top:10px;"><select id="aiFlowVersionSelect" class="input smallInput" style="min-width:200px;"></select><button id="aiCreateFlowVersionBtn" class="btn ghost small" type="button"><i class="fa-solid fa-code-branch"></i> Skapa version</button><button id="aiRollbackFlowBtn" class="btn ghost small" type="button"><i class="fa-solid fa-rotate-left"></i> Återställ</button></div></div>
+                <div class="panel soft" id="panelSegments" style="display:none; margin-top:10px;"><div class="panelHead"><b>Multi‑AI & Segmentering</b></div><div class="grid3"><div><label>Avdelning</label><select id="segDepartmentSelect" class="input"><option value="support">Support</option><option value="sälj">Sälj</option><option value="it">IT</option></select></div><div><label>Språk</label><select id="segLanguageSelect" class="input"><option value="sv">Svenska</option><option value="en">Engelska</option></select></div><div><label>Kundtyp</label><select id="segCustomerTypeSelect" class="input"><option value="b2c">B2C</option><option value="b2b">B2B</option><option value="vip">VIP</option></select></div></div><div class="grid2" style="margin-top:10px;"><div><label>Profil</label><select id="segProfileSelect" class="input"></select></div><div><label>Tidsschema</label><select id="segScheduleSelect" class="input"><option value="alltid">Alltid</option><option value="kontorstid">Kontorstid</option><option value="kväll">Kväll</option></select></div></div><div class="row gap" style="margin-top:10px;"><button id="segAssignBtn" class="btn secondary small" type="button"><i class="fa-solid fa-link"></i> Tilldela</button><button id="segClearBtn" class="btn ghost small" type="button"><i class="fa-solid fa-eraser"></i> Rensa</button></div><div id="segMappingList" class="list" style="margin-top:10px;"></div></div>
+                <div class="panel soft" id="panelSales" style="display:none; margin-top:10px;"><div class="panelHead"><b>Sälj – CTA & Kontakt</b></div><div class="grid3"><label><input id="salesEnableCta" type="checkbox" /> Aktivera Sälj‑CTA</label><label><input id="salesOfferDemo" type="checkbox" /> Erbjud demo</label><label><input id="salesOfferOffert" type="checkbox" /> Erbjud offert</label></div><div class="grid3" style="margin-top:10px;"><label><input id="salesLinkPricing" type="checkbox" /> Hänvisa till prisplaner</label><label><input id="salesScheduleMeeting" type="checkbox" /> Föreslå möte</label><label><input id="salesRequestContact" type="checkbox" /> Be om kontaktuppgifter</label></div></div>
+                <div class="panel soft" id="panelRules" style="display:none; margin-top:10px;"><div class="panelHead"><b>IF/THEN‑regler</b></div><div id="aiRulesList" class="list" style="margin-top:10px;"></div><div class="row gap" style="margin-top:10px;"><select id="aiRuleCondition" class="input smallInput"><option value="emotion=arg">Emotion=arg</option><option value="upprepning>2">Upprepning>2</option><option value="osäkerhet">Osäkerhet</option></select><select id="aiRuleAction" class="input smallInput"><option value="ändra_ton=varm">Ändra ton=varm</option><option value="föreslå_kompensation">Föreslå kompensation</option><option value="eskalera">Eskalera</option><option value="ställ_följdfråga">Ställ följdfråga</option></select><button id="aiAddRuleBtn" class="btn secondary small" type="button"><i class="fa-solid fa-plus"></i> Lägg till regel</button><button id="aiSaveRulesBtn" class="btn primary small" type="button"><i class="fa-solid fa-floppy-disk"></i> Spara regler</button></div></div>
+              </div>
+            </div>
       </section>
 
       <!-- INBOX VIEW -->

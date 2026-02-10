@@ -4605,6 +4605,11 @@ function bindEvents() {
   if (liveInput) liveInput.addEventListener("keydown", (e) => {
     if (e.key === "Enter") { e.preventDefault(); sendAiLiveMessage(); }
   });
+  on("aiLiveResetBtn", "click", () => {
+    state.aiPreviewMessages = [];
+    renderAiLiveChatBox();
+    const ind = $("aiLiveIndicators"); if (ind) ind.innerHTML = "";
+  });
   on("aiCreateProfileBtn", "click", () => {
     const name = prompt("Profilnamn?");
     if (!name) return;
@@ -4742,6 +4747,16 @@ function bindEvents() {
       renderAiAnalyticsBox();
       renderAiDashboardStats();
     } catch (e) { toast("Fel", e.message, "error"); }
+  });
+  document.querySelectorAll(".ccNavBtn").forEach((b) => {
+    b.addEventListener("click", () => {
+      document.querySelectorAll(".ccNavBtn").forEach(x => x.classList.remove("active"));
+      b.classList.add("active");
+      document.querySelectorAll(".ccModule").forEach(m => m.style.display = "none");
+      const id = b.getAttribute("data-target");
+      const mod = document.getElementById(id);
+      if (mod) mod.style.display = "";
+    });
   });
   on("aiRunRuleSimBtn", "click", () => {
     const msg = $("aiRuleSimInput")?.value || "";
