@@ -35,7 +35,18 @@ app.use(express.urlencoded({ extended: true }));
 app.use(compression());
 
 // Serve frontend strictly from 'public' with caching
-app.use(express.static(path.join(__dirname, "public"), { etag: true, maxAge: "1d" }));
+app.use(express.static(path.join(__dirname, "public"), {
+  etag: true,
+  maxAge: "1d",
+  setHeaders: (res, filePath) => {
+    try {
+      const ext = path.extname(filePath).toLowerCase();
+      if (ext === ".html") {
+        res.setHeader("Cache-Control", "no-store");
+      }
+    } catch {}
+  }
+}));
 
 app.use(
   cors({

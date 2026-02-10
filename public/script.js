@@ -1462,6 +1462,13 @@ function setSlaProgress(p) {
   const fill = $("slaProgressBarFill");
   if (fill) fill.style.width = `${Math.max(0, Math.min(100, p))}%`;
 }
+function isAbortError(e) {
+  if (!e) return false;
+  if (e.name === "AbortError") return true;
+  if (typeof DOMException !== "undefined" && e instanceof DOMException && e.name === "AbortError") return true;
+  if (typeof e.message === "string" && /aborted/i.test(e.message)) return true;
+  return false;
+}
 /* =========================
    SLA - Updated for Roles
 ========================= */
@@ -1507,6 +1514,7 @@ async function loadSlaDashboard() {
       if ($("slaAgentsTableBody")) $("slaAgentsTableBody").innerHTML = "";
       if (window.__slaChart) window.__slaChart.destroy();
     } catch (e) {
+      if (isAbortError(e)) { setSlaLoading(false); return; }
       console.error("My Stats Error:", e);
       toast("Fel", "Kunde inte ladda din statistik", "error");
     } finally {
@@ -1830,7 +1838,7 @@ async function loadSlaDashboard() {
       }
     }
   } catch (e) {
-    if (e?.name === "AbortError") { setSlaLoading(false); return; }
+    if (isAbortError(e)) { setSlaLoading(false); return; }
     console.error("SLA Dashboard Error:", e);
     toast("Fel", "Kunde inte ladda dashboard-data: " + e.message, "error");
   } finally {
