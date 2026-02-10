@@ -671,11 +671,11 @@
             <button id="aiSaveBtn" class="btn primary" type="button"><i class="fa-solid fa-save"></i> Spara</button>
           </div>
         </div>
-        <div class="grid2" style="gap:16px; margin-top:15px;">
+        <div class="grid2">
           <div>
-            <div class="panel" id="panelDashboard">
+            <div class="panel soft" id="panelDashboard">
               <div class="panelHead"><b><i class="fa-solid fa-gauge-simple-high"></i> Executive Overview</b></div>
-              <div class="grid3" style="grid-template-columns: repeat(5, 1fr); gap:10px; margin-top:8px;">
+              <div class="grid3">
                 <div class="resultCard" id="kpiCardMode"><div class="resultLabel">AI‑läge</div><div class="resultValue" id="aiKpiMode">-</div><div class="resultContext" id="aiKpiModeNote">-</div></div>
                 <div class="resultCard" id="kpiCardHealth"><div class="resultLabel">AI Hälsa</div><div class="resultValue" id="aiKpiHealth">-</div><div class="resultContext" id="aiKpiHealthNote">-</div></div>
                 <div class="resultCard" id="kpiCardAuto"><div class="resultLabel">Automatisering</div><div class="resultValue" id="aiKpiAutomation">-</div><div class="resultContext" id="aiKpiAutomationNote">-</div></div>
@@ -683,24 +683,24 @@
                 <div class="resultCard" id="kpiCardCsat"><div class="resultLabel">CSAT</div><div class="resultValue" id="aiKpiCsat">Ej tillgängligt</div><div class="resultContext" id="aiKpiCsatNote">-</div></div>
               </div>
             </div>
-            <div class="panel">
+            <div class="panel soft">
               <div class="panelHead"><b><i class="fa-solid fa-lightbulb"></i> Insight & Story</b></div>
               <div id="aiInsightList" class="list"></div>
             </div>
-            <div class="panel">
+            <div class="panel soft">
               <div class="panelHead"><b><i class="fa-solid fa-chart-line"></i> AI Performance & Impact</b></div>
-              <div class="grid3" style="grid-template-columns: repeat(4, 1fr); gap:10px; margin-top:8px;">
+              <div class="grid4">
                 <div class="resultCard" id="perfCardSolved"><div class="resultLabel">Lösta ärenden</div><div class="resultValue" id="aiPerfSolved">-</div><div class="resultContext" id="aiPerfSolvedNote">-</div></div>
                 <div class="resultCard" id="perfCardAutomation"><div class="resultLabel">Automatiseringsgrad</div><div class="resultValue" id="aiPerfAutomation">-</div><div class="resultContext" id="aiPerfAutomationNote">-</div></div>
                 <div class="resultCard" id="perfCardResponse"><div class="resultLabel">Svarstid</div><div class="resultValue" id="aiPerfResponseTime">-</div><div class="resultContext" id="aiPerfResponseTimeNote">-</div></div>
                 <div class="resultCard" id="perfCardMis"><div class="resultLabel">Missförstånd</div><div class="resultValue" id="aiPerfMisunderstanding">-</div><div class="resultContext" id="aiPerfMisunderstandingNote">-</div></div>
               </div>
             </div>
-            <div class="panel">
+            <div class="panel soft">
               <div class="panelHead"><b><i class="fa-solid fa-list-check"></i> Rekommenderade åtgärder</b></div>
               <div id="aiRecoList" class="list"></div>
             </div>
-            <div class="panel">
+            <div class="panel soft">
               <div class="panelHead"><b><i class="fa-solid fa-sliders"></i> AI Konfiguration (förenklad)</b></div>
               <div class="grid4" style="gap:10px;">
                 <div class="card soft" style="padding:12px;"><div class="muted small">Ton & stil</div><div id="aiConfTone" style="font-weight:800;">-</div></div>
@@ -721,14 +721,14 @@
                 <div class="panel soft" id="panelRules" style="display:none; margin-top:10px;"><div class="panelHead"><b>IF/THEN‑regler</b></div><div id="aiRulesList" class="list" style="margin-top:10px;"></div><div class="row gap" style="margin-top:10px;"><select id="aiRuleCondition" class="input smallInput"><option value="emotion=arg">Emotion=arg</option><option value="upprepning>2">Upprepning>2</option><option value="osäkerhet">Osäkerhet</option></select><select id="aiRuleAction" class="input smallInput"><option value="ändra_ton=varm">Ändra ton=varm</option><option value="föreslå_kompensation">Föreslå kompensation</option><option value="eskalera">Eskalera</option><option value="ställ_följdfråga">Ställ följdfråga</option></select><button id="aiAddRuleBtn" class="btn secondary small" type="button"><i class="fa-solid fa-plus"></i> Lägg till regel</button><button id="aiSaveRulesBtn" class="btn primary small" type="button"><i class="fa-solid fa-floppy-disk"></i> Spara regler</button></div></div>
               </div>
             </div>
-            <div class="panel">
+            <div class="panel soft">
               <div class="panelHead"><b><i class="fa-solid fa-diagram-project"></i> Flöden & Regler</b></div>
               <div class="grid2">
                 <div class="card soft" style="padding:12px;"><div class="muted small">Flöden (översikt)</div><div id="aiFlowSummary" style="font-weight:800;">-</div><div class="row gap" style="margin-top:8px;"><button id="aiManageFlowsBtn" class="btn ghost small" type="button"><i class="fa-solid fa-diagram-project"></i> Hantera</button></div></div>
                 <div class="card soft" style="padding:12px;"><div class="muted small">Regler (IF/THEN)</div><div id="aiRulesSummary" style="font-weight:800;">-</div><div class="row gap" style="margin-top:8px;"><button id="aiManageRulesBtn" class="btn ghost small" type="button"><i class="fa-solid fa-code"></i> Hantera</button></div></div>
               </div>
             </div>
-            <div class="panel">
+            <div class="panel soft">
               <div class="panelHead"><b><i class="fa-solid fa-layer-group"></i> Segment & Multi‑AI</b></div>
               <div class="card soft" style="padding:12px;">
                 <div class="muted small">Aktiva segment</div>
@@ -738,7 +738,7 @@
                 </div>
               </div>
             </div>
-            <div class="panel">
+            <div class="panel soft">
               <div class="panelHead"><b><i class="fa-solid fa-chart-column"></i> Analys & historik</b></div>
               <div id="aiAnalyticsBox" class="list">
                 <div class="muted small">Ladda AI‑analys för dialoger, eskaleringar och missförstånd.</div>
@@ -749,7 +749,7 @@
             </div>
           </div>
           <div>
-            <div class="panel">
+            <div class="panel soft">
               <div class="panelHead"><b><i class="fa-solid fa-comments"></i> Live‑preview</b></div>
               <div class="row gap" style="margin-top:8px;">
                 <button id="aiPreviewTabLiveBtn" class="btn small primary" type="button"><i class="fa-solid fa-message"></i> Live‑konversation</button>
@@ -772,17 +772,6 @@
                 <div id="aiRuleSimBox" class="list" style="margin-top:10px; min-height:200px;">
                   <div class="muted small">Visa vilka regler som triggas och vad AI gör.</div>
                 </div>
-              </div>
-            </div>
-            <div class="panel">
-              <div class="panelHead"><b><i class="fa-solid fa-vial"></i> Regel‑simulator</b></div>
-              <textarea id="aiRuleSimInput" class="input" rows="4" placeholder="Skriv ett provmeddelande för att testa regler/segmentering..."></textarea>
-              <div class="row gap" style="margin-top:10px;">
-                <button id="aiRunRuleSimBtn" class="btn secondary small" type="button"><i class="fa-solid fa-flask"></i> Kör simulering</button>
-                <button id="aiClearRuleSimBtn" class="btn ghost small" type="button"><i class="fa-solid fa-eraser"></i> Rensa</button>
-              </div>
-              <div id="aiRuleSimBox" class="list" style="margin-top:10px;">
-                <div class="muted small">Resultat från simulering visas här.</div>
               </div>
             </div>
           </div>
