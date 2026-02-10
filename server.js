@@ -1678,6 +1678,9 @@ app.patch("/company/settings", authenticate, requireAgent, async (req, res) => {
     if (settings.greeting) c.settings.greeting = settings.greeting;
     if (settings.tone) c.settings.tone = settings.tone;
     if (settings.widgetColor) c.settings.widgetColor = settings.widgetColor;
+    if (settings.ai) {
+      c.settings.ai = { ...(c.settings.ai || {}), ...settings.ai };
+    }
 
     // Root fields
     if (settings.displayName) c.displayName = settings.displayName;
@@ -2086,6 +2089,29 @@ app.get("/sla/insights", authenticate, requireAgent, async (req, res) => {
     tips.push({ icon: "fa-star", text: "Be om feedback efter lösta ärenden för att förbättra CSAT.", priority: "low" });
 
     res.json({ insights, tips });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// AI Analytics (non-KB, behavior-focused)
+app.get("/ai/analytics", authenticate, requireAgent, async (req, res) => {
+  try {
+    const { companyId } = req.query;
+    const filter = companyId ? { companyId } : {};
+    const tickets = await Ticket.find(filter);
+    const total = tickets.length;
+    const solved = tickets.filter(t => t.status === "solved");
+    const escalated = tickets.filter(t => t.assignedToUserId);
+    const ratings = solved.filter(t => t.csatRating).map(t => t.csatRating);
+    const avgCsat = ratings.length ? (ratings.reduce((a, b) => a + b, 0) / ratings.length).toFixed(1) : "Ej beräknat";
+    const escalationRate = total > 0 ? ((escalated.length / total) * 100).toFixed(1) : "0.0";
+    const misunderstandings = tickets.filter(t => (t.messages?.length || 0) >= 8 && (t.status !== "solved"));
+    const misunderstandingRate = total > 0 ? ((misunderstandings.length / total) * 100).toFixed(1) : "0.0";
+    const suggestions = [];
+    if (Number(escalationRate) > 40) suggestions.push("Minska eskaleringar genom att stärka AI:s svarsmallar för vanliga frågor.");
+    if (avgCsat !== "Ej beräknat" && Number(avgCsat) < 3.5) suggestions.push("Fokusera på empatisk ton och kortare lösningssteg för att höja CSAT.");
+    if (Number(misunderstandingRate) > 20) suggestions.push("Inför följdfrågor vid oklar input och förtydliga policyer.");
+    if (suggestions.length === 0) suggestions.push("Fortsätt som nu, mät regelbundet och iterera flöden/regler.");
+    res.json({ avgCsat, escalationRate, misunderstandingRate, suggestions });
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 

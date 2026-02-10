@@ -80,6 +80,10 @@
           <span id="feedbackNotifDot" class="notifDot" style="display:none;"></span>
         </button>
 
+        <button id="openAiPanelView" class="menuBtn" style="display:none;" type="button">
+          <i class="fa-solid fa-brain"></i> AI Kontrollpanel
+        </button>
+
         <button id="openScenarioView" class="menuBtn" style="display:none;" type="button">
           <i class="fa-solid fa-crystal-ball"></i> Scenarioplanering
         </button>
@@ -645,6 +649,251 @@
                 <div class="avatar-large" id="topPerformerAvatar" style="margin: 0 auto;">🏆</div>
                 <h3 id="topPerformerName" style="margin-top: 10px;">-</h3>
                 <div class="muted small" id="topPerformerStats">Laddar...</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- AI CONTROL PANEL VIEW -->
+      <section id="aiPanelView" class="view" style="display:none;">
+        <div class="topbar">
+          <div style="display:flex; align-items:center;">
+            <button class="btn ghost icon menu-toggle" onclick="toggleSidebar()"><i class="fa-solid fa-bars"></i></button>
+            <div>
+              <div class="title"><i class="fa-solid fa-brain" style="color:var(--primary);"></i> AI Control Center</div>
+              <div class="subtitle muted">Styr AI‑personlighet, förståelse, agerande och säkerhet</div>
+            </div>
+          </div>
+          <div class="topbarActions">
+            <select id="aiProfileSelect" class="input smallInput" style="min-width:180px;"></select>
+            <button id="aiCreateProfileBtn" class="btn ghost" type="button"><i class="fa-solid fa-plus"></i> Ny profil</button>
+            <button id="aiSaveBtn" class="btn primary" type="button"><i class="fa-solid fa-save"></i> Spara</button>
+          </div>
+        </div>
+        <div class="grid3" style="grid-template-columns: 260px 1fr 380px; gap:16px; margin-top:15px;">
+          <div class="panel">
+            <div class="panelHead"><b>Navigering</b></div>
+            <div class="list">
+              <div class="listItem" style="cursor:default">Personlighet</div>
+              <div class="listItem" style="cursor:default">Förståelse</div>
+              <div class="listItem" style="cursor:default">Agerande</div>
+              <div class="listItem" style="cursor:default">Flöden</div>
+              <div class="listItem" style="cursor:default">Multi‑AI</div>
+              <div class="listItem" style="cursor:default">Säkerhet</div>
+              <div class="listItem" style="cursor:default">Analys</div>
+            </div>
+          </div>
+          <div>
+            <div class="panel">
+              <div class="panelHead"><b><i class="fa-solid fa-user-astronaut"></i> Personlighet & beteende</b></div>
+              <div class="grid2">
+                <div>
+                  <label>Stil</label>
+                  <select id="aiStyleSelect" class="input">
+                    <option value="formell">Formell</option>
+                    <option value="vänlig">Vänlig</option>
+                    <option value="avslappnad">Avslappnad</option>
+                    <option value="professionell">Professionell</option>
+                    <option value="varm">Varm</option>
+                    <option value="neutral">Neutral</option>
+                  </select>
+                </div>
+                <div>
+                  <label>Verbosity</label>
+                  <select id="aiVerbositySelect" class="input">
+                    <option value="kort">Kort</option>
+                    <option value="normal">Normal</option>
+                    <option value="utförlig">Utförlig</option>
+                  </select>
+                </div>
+              </div>
+              <div class="grid3" style="margin-top:10px;">
+                <div>
+                  <label>Ton (0–100)</label>
+                  <input id="aiToneLevel" type="range" min="0" max="100" class="input" />
+                </div>
+                <div>
+                  <label>Empati (0–100)</label>
+                  <input id="aiEmpathyLevel" type="range" min="0" max="100" class="input" />
+                </div>
+                <div>
+                  <label>Artighet (0–100)</label>
+                  <input id="aiPolitenessLevel" type="range" min="0" max="100" class="input" />
+                </div>
+              </div>
+              <div class="grid2" style="margin-top:10px;">
+                <div>
+                  <label>Självsäkerhet</label>
+                  <select id="aiAssertivenessSelect" class="input">
+                    <option value="låg">Låg</option>
+                    <option value="medel">Medel</option>
+                    <option value="hög">Hög</option>
+                  </select>
+                </div>
+                <div>
+                  <label>Beskrivning</label>
+                  <select id="aiProblemStyleSelect" class="input">
+                    <option value="aktiv">Aktiv problemlösning</option>
+                    <option value="vägledande">Vägledande</option>
+                  </select>
+                </div>
+              </div>
+            </div>
+            <div class="panel">
+              <div class="panelHead"><b><i class="fa-solid fa-brain-circuit"></i> Förståelse & tolkning</b></div>
+              <div class="grid3">
+                <label><input id="aiDetectEmotion" type="checkbox" /> Känsloidentifiering</label>
+                <label><input id="aiHandleSlang" type="checkbox" /> Slang/felstavningar/emojis</label>
+                <label><input id="aiAskFollowup" type="checkbox" /> Följdfrågor vid oklarhet</label>
+              </div>
+              <div class="grid2" style="margin-top:10px;">
+                <div>
+                  <label>Max svar innan eskalering</label>
+                  <input id="aiMaxReplies" type="number" min="1" max="10" class="input" />
+                </div>
+                <div>
+                  <label>Tidsstyrning</label>
+                  <select id="aiTimePolicy" class="input">
+                    <option value="direkt">Direkt</option>
+                    <option value="kontorstid">Kontorstid</option>
+                    <option value="fördröjt">Fördröjt</option>
+                  </select>
+                </div>
+              </div>
+            </div>
+            <div class="panel">
+              <div class="panelHead"><b><i class="fa-solid fa-list-check"></i> Beteenderegler</b></div>
+              <div class="grid2">
+                <div><label>Arga kunder</label><textarea id="aiRuleAngry" class="input" rows="3" placeholder="T.ex. lugn, empatisk, erbjud kompensation vid skada"></textarea></div>
+                <div><label>Osäkra kunder</label><textarea id="aiRuleUncertain" class="input" rows="3" placeholder="T.ex. ställ tydliga följdfrågor, be om exempel"></textarea></div>
+              </div>
+              <div class="grid2">
+                <div><label>Stressade kunder</label><textarea id="aiRuleStressed" class="input" rows="3" placeholder="T.ex. korta svar, tydliga steg"></textarea></div>
+                <div><label>Be om ursäkt</label><textarea id="aiRuleApologize" class="input" rows="3" placeholder="T.ex. be om ursäkt utan att lova kompensation direkt"></textarea></div>
+              </div>
+              <div class="grid2">
+                <div><label>Avslå förfrågningar</label><textarea id="aiRuleDecline" class="input" rows="3" placeholder="T.ex. förklara policy, ge alternativ"></textarea></div>
+                <div><label>Eskalera till människa</label><textarea id="aiRuleEscalate" class="input" rows="3" placeholder="T.ex. vid max svar, eller känsliga ämnen"></textarea></div>
+              </div>
+            </div>
+            <div class="panel">
+              <div class="panelHead"><b><i class="fa-solid fa-shield"></i> Kontroll & säkerhet</b></div>
+              <div class="grid2">
+                <div><label>Förbjudna ämnen</label><textarea id="aiForbiddenTopics" class="input" rows="3" placeholder="En per rad"></textarea></div>
+                <div><label>Tillåtna formuleringar</label><textarea id="aiAllowedPhrases" class="input" rows="3" placeholder="En per rad"></textarea></div>
+              </div>
+              <div class="grid2" style="margin-top:10px;">
+                <label><input id="aiNoGuarantees" type="checkbox" /> Inga garantier</label>
+                <label><input id="aiNoPromises" type="checkbox" /> Inga löften</label>
+              </div>
+            </div>
+            <div class="panel">
+              <div class="panelHead"><b><i class="fa-solid fa-diagram-project"></i> Flödesbyggare</b></div>
+              <div id="aiFlowList" class="list" style="margin-top:10px;"></div>
+              <div class="row gap" style="margin-top:10px;">
+                <select id="aiFlowStepType" class="input smallInput" style="min-width:160px;">
+                  <option value="start">Start</option>
+                  <option value="fråga">Fråga</option>
+                  <option value="svar">Svar</option>
+                  <option value="åtgärd">Åtgärd</option>
+                </select>
+                <input id="aiFlowStepText" class="input smallInput" placeholder="Beskrivning..." />
+                <button id="aiAddFlowStepBtn" class="btn secondary small" type="button"><i class="fa-solid fa-plus"></i> Lägg till</button>
+                <button id="aiSaveFlowBtn" class="btn primary small" type="button"><i class="fa-solid fa-floppy-disk"></i> Spara flöde</button>
+              </div>
+              <div class="row gap" style="margin-top:10px;">
+                <select id="aiFlowVersionSelect" class="input smallInput" style="min-width:200px;"></select>
+                <button id="aiCreateFlowVersionBtn" class="btn ghost small" type="button"><i class="fa-solid fa-code-branch"></i> Skapa version</button>
+                <button id="aiRollbackFlowBtn" class="btn ghost small" type="button"><i class="fa-solid fa-rotate-left"></i> Återställ</button>
+              </div>
+            </div>
+            <div class="panel">
+              <div class="panelHead"><b><i class="fa-solid fa-layer-group"></i> Multi‑AI & Segmentering</b></div>
+              <div class="grid3">
+                <div>
+                  <label>Avdelning</label>
+                  <select id="segDepartmentSelect" class="input">
+                    <option value="support">Support</option>
+                    <option value="sälj">Sälj</option>
+                    <option value="it">IT</option>
+                  </select>
+                </div>
+                <div>
+                  <label>Språk</label>
+                  <select id="segLanguageSelect" class="input">
+                    <option value="sv">Svenska</option>
+                    <option value="en">Engelska</option>
+                  </select>
+                </div>
+                <div>
+                  <label>Kundtyp</label>
+                  <select id="segCustomerTypeSelect" class="input">
+                    <option value="b2c">B2C</option>
+                    <option value="b2b">B2B</option>
+                    <option value="vip">VIP</option>
+                  </select>
+                </div>
+              </div>
+              <div class="grid2" style="margin-top:10px;">
+                <div>
+                  <label>Profil</label>
+                  <select id="segProfileSelect" class="input"></select>
+                </div>
+                <div>
+                  <label>Tidsschema</label>
+                  <select id="segScheduleSelect" class="input">
+                    <option value="alltid">Alltid</option>
+                    <option value="kontorstid">Kontorstid</option>
+                    <option value="kväll">Kväll</option>
+                  </select>
+                </div>
+              </div>
+              <div class="row gap" style="margin-top:10px;">
+                <button id="segAssignBtn" class="btn secondary small" type="button"><i class="fa-solid fa-link"></i> Tilldela</button>
+                <button id="segClearBtn" class="btn ghost small" type="button"><i class="fa-solid fa-eraser"></i> Rensa</button>
+              </div>
+              <div id="segMappingList" class="list" style="margin-top:10px;"></div>
+            </div>
+            <div class="panel">
+              <div class="panelHead"><b><i class="fa-solid fa-code"></i> IF/THEN‑regler</b></div>
+              <div id="aiRulesList" class="list" style="margin-top:10px;"></div>
+              <div class="row gap" style="margin-top:10px;">
+                <select id="aiRuleCondition" class="input smallInput">
+                  <option value="emotion=arg">Emotion=arg</option>
+                  <option value="upprepning>2">Upprepning>2</option>
+                  <option value="osäkerhet">Osäkerhet</option>
+                </select>
+                <select id="aiRuleAction" class="input smallInput">
+                  <option value="ändra_ton=varm">Ändra ton=varm</option>
+                  <option value="föreslå_kompensation">Föreslå kompensation</option>
+                  <option value="eskalera">Eskalera</option>
+                  <option value="ställ_följdfråga">Ställ följdfråga</option>
+                </select>
+                <button id="aiAddRuleBtn" class="btn secondary small" type="button"><i class="fa-solid fa-plus"></i> Lägg till regel</button>
+                <button id="aiSaveRulesBtn" class="btn primary small" type="button"><i class="fa-solid fa-floppy-disk"></i> Spara regler</button>
+              </div>
+            </div>
+            <div class="panel">
+              <div class="panelHead"><b><i class="fa-solid fa-chart-column"></i> Analys & feedback</b></div>
+              <div class="row gap">
+                <button id="aiUpdateAnalyticsBtn" class="btn ghost small" type="button"><i class="fa-solid fa-rotate"></i> Uppdatera</button>
+              </div>
+              <div id="aiAnalyticsBox" class="list" style="margin-top:10px;">
+                <div class="muted small">Ladda AI‑analys för dialoger, eskaleringar och missförstånd.</div>
+              </div>
+            </div>
+          </div>
+          <div>
+            <div class="panel">
+              <div class="panelHead"><b><i class="fa-solid fa-tv"></i> Live‑preview</b></div>
+              <textarea id="aiSimInput" class="input" rows="6" placeholder="Skriv ett kundmeddelande för test"></textarea>
+              <div class="row gap" style="margin-top:10px;">
+                <button id="aiSimulateBtn" class="btn secondary" type="button"><i class="fa-solid fa-flask"></i> Testa</button>
+                <button id="aiResetPreviewBtn" class="btn ghost" type="button"><i class="fa-solid fa-rotate-left"></i> Nollställ</button>
+              </div>
+              <div id="aiLivePreviewBox" class="list" style="margin-top:10px; min-height:160px;">
+                <div class="muted small">Förhandsvisning av AI‑svar visas här</div>
               </div>
             </div>
           </div>

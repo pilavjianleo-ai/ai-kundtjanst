@@ -51,6 +51,13 @@ const state = {
   hasUserGesture: false,
   crmPage: 1,
   crmPageSize: 50,
+  aiProfiles: {},
+  aiActiveProfile: "default",
+  aiFlows: [],
+  aiFlowVersions: [],
+  aiSegmenting: { mappings: [] },
+  aiRules: [],
+  aiAnalytics: null,
 };
 
 /* =========================
@@ -170,6 +177,7 @@ function hideAllViews() {
     "adminView",
     "settingsView",
     "slaView",
+    "aiPanelView",
     "customerAdminView",
     "billingView",
     "customerSettingsView",
@@ -192,6 +200,7 @@ function setActiveMenu(btnId) {
     "openAdminView",
     "openSettingsView",
     "openSlaView",
+    "openAiPanelView",
     "openCustomerAdminView",
     "openBillingView",
     "openCustomerSettingsView",
@@ -219,6 +228,95 @@ function showView(viewId, menuBtnId) {
   }
 }
 
+function renderAiFlows() {
+  const list = $("aiFlowList");
+  if (!list) return;
+  list.innerHTML = state.aiFlows.length ? state.aiFlows.map((step, i) => `
+    <div class="listItem">
+      <div class="listItemTitle"><span class="pill">${i + 1}</span> <b>${escapeHtml(step.type)}</b> – ${escapeHtml(step.text || "")}
+        <span style="margin-left:auto; display:flex; gap:6px;">
+          <button class="btn ghost tiny" data-act="up" data-i="${i}"><i class="fa-solid fa-arrow-up"></i></button>
+          <button class="btn ghost tiny" data-act="down" data-i="${i}"><i class="fa-solid fa-arrow-down"></i></button>
+          <button class="btn ghost tiny danger" data-act="del" data-i="${i}"><i class="fa-solid fa-trash"></i></button>
+        </span>
+      </div>
+    </div>
+  `).join("") : '<div class="muted small">Inga steg ännu. Lägg till via fälten ovan.</div>';
+  list.querySelectorAll("button[data-act]").forEach(btn => {
+    btn.addEventListener("click", () => {
+      const act = btn.getAttribute("data-act"); const i = parseInt(btn.getAttribute("data-i"));
+      if (act === "up" && i > 0) { const tmp = state.aiFlows[i - 1]; state.aiFlows[i - 1] = state.aiFlows[i]; state.aiFlows[i] = tmp; }
+      if (act === "down" && i < state.aiFlows.length - 1) { const tmp = state.aiFlows[i + 1]; state.aiFlows[i + 1] = state.aiFlows[i]; state.aiFlows[i] = tmp; }
+      if (act === "del") { state.aiFlows.splice(i, 1); }
+      renderAiFlows();
+    });
+  });
+  const verSel = $("aiFlowVersionSelect");
+  if (verSel) {
+    verSel.innerHTML = state.aiFlowVersions.map(v => `<option value="${escapeHtml(v.id)}">${new Date(v.ts).toLocaleString()}</option>`).join("");
+  }
+}
+
+function renderAiSegmenting() {
+  const sel = $("segProfileSelect");
+  if (sel) {
+    const profiles = Object.keys(state.aiProfiles || {});
+    sel.innerHTML = profiles.map(p => `<option value="${escapeHtml(p)}">${escapeHtml(p)}</option>`).join("");
+  }
+  const list = $("segMappingList");
+  if (list) {
+    list.innerHTML = (state.aiSegmenting.mappings || []).map((m, i) => `
+      <div class="listItem">
+        <div class="listItemTitle">
+          <b>${escapeHtml(m.department)}</b> • ${escapeHtml(m.language)} • ${escapeHtml(m.customerType)} 
+          <span class="pill" style="margin-left:auto">${escapeHtml(m.profile)} (${escapeHtml(m.schedule)})</span>
+          <button class="btn ghost tiny danger" data-del="${i}" style="margin-left:8px;"><i class="fa-solid fa-trash"></i></button>
+        </div>
+      </div>
+    `).join("") || '<div class="muted small">Inga tilldelningar ännu.</div>';
+    list.querySelectorAll("button[data-del]").forEach(btn => {
+      btn.addEventListener("click", () => {
+        const i = parseInt(btn.getAttribute("data-del"));
+        state.aiSegmenting.mappings.splice(i, 1);
+        renderAiSegmenting();
+      });
+    });
+  }
+}
+
+function renderAiRules() {
+  const list = $("aiRulesList");
+  if (!list) return;
+  list.innerHTML = state.aiRules.length ? state.aiRules.map((r, i) => `
+    <div class="listItem">
+      <div class="listItemTitle"><span class="pill">${i + 1}</span> IF <b>${escapeHtml(r.if)}</b> THEN <b>${escapeHtml(r.then)}</b>
+        <button class="btn ghost tiny danger" data-del="${i}" style="margin-left:auto;"><i class="fa-solid fa-trash"></i></button>
+      </div>
+    </div>
+  `).join("") : '<div class="muted small">Inga regler ännu.</div>';
+  list.querySelectorAll("button[data-del]").forEach(btn => {
+    btn.addEventListener("click", () => {
+      const i = parseInt(btn.getAttribute("data-del"));
+      state.aiRules.splice(i, 1);
+      renderAiRules();
+    });
+  });
+}
+
+function renderAiAnalyticsBox() {
+  const box = $("aiAnalyticsBox");
+  if (!box) return;
+  const a = state.aiAnalytics;
+  if (!a) { box.innerHTML = '<div class="muted small">Ingen analys ännu.</div>'; return; }
+  box.innerHTML = `
+    <div class="listItem"><div class="listItemTitle">CSAT Snitt: <b>${escapeHtml(a.avgCsat)}</b></div></div>
+    <div class="listItem"><div class="listItemTitle">Eskalering: <b>${escapeHtml(a.escalationRate)}%</b></div></div>
+    <div class="listItem"><div class="listItemTitle">Missförstånd: <b>${escapeHtml(a.misunderstandingRate)}%</b></div></div>
+    <div class="listItem"><div class="listItemTitle">Förbättringsförslag</div></div>
+    ${(a.suggestions || []).map(s => `<div class="listItem"><div>${escapeHtml(s)}</div></div>`).join("")}
+  `;
+}
+
 function updateRoleUI() {
   const role = state.me?.role || "";
   const roleBadge = $("roleBadge");
@@ -237,6 +335,7 @@ function updateRoleUI() {
 
   // Admin specific
   const adminBtn = $("openAdminView");
+  const aiPanelBtn = $("openAiPanelView");
   const customerAdminBtn = $("openCustomerAdminView");
   const billingBtn = $("openBillingView");
   const customerSettingsBtn = $("openCustomerSettingsView");
@@ -246,7 +345,7 @@ function updateRoleUI() {
 
   // 1. Reset all to hidden first
   [logoutBtn, settingsBtn, chatBtn, myTicketsBtn, simulatorBtn,
-    inboxBtn, slaBtn, feedbackBtn, adminBtn, customerAdminBtn,
+    inboxBtn, slaBtn, feedbackBtn, adminBtn, aiPanelBtn, customerAdminBtn,
     billingBtn, customerSettingsBtn, scenarioBtn, salesBtn, slaClearAllStatsBtn]
     .forEach(el => { if (el) el.style.display = "none"; });
 
@@ -282,7 +381,7 @@ function updateRoleUI() {
 
   // 5. Admin Role
   if (role === "admin") {
-    [chatBtn, myTicketsBtn, inboxBtn, slaBtn, adminBtn, settingsBtn,
+    [chatBtn, myTicketsBtn, inboxBtn, slaBtn, adminBtn, aiPanelBtn, settingsBtn,
       customerAdminBtn, billingBtn, customerSettingsBtn, simulatorBtn,
       feedbackBtn, scenarioBtn, salesBtn, slaClearAllStatsBtn]
       .forEach(el => { if (el) el.style.display = ""; });
@@ -4028,6 +4127,160 @@ async function loadKb() {
 /* =========================
    Events
 ========================= */
+function getAiSettingsFromFields() {
+  const toLines = (v) => String(v || "").split(/\r?\n/).map(s => s.trim()).filter(Boolean);
+  return {
+    personality: {
+      style: $("aiStyleSelect")?.value || "neutral",
+      tone_level: Number($("aiToneLevel")?.value || 50),
+      empathy_level: Number($("aiEmpathyLevel")?.value || 50),
+      politeness_level: Number($("aiPolitenessLevel")?.value || 50),
+      verbosity: $("aiVerbositySelect")?.value || "normal",
+      assertiveness: $("aiAssertivenessSelect")?.value || "medel",
+      problem_style: $("aiProblemStyleSelect")?.value || "aktiv",
+    },
+    interpretation: {
+      detect_emotion: $("aiDetectEmotion")?.checked || false,
+      handle_slang: $("aiHandleSlang")?.checked || false,
+      ask_followup: $("aiAskFollowup")?.checked !== false,
+    },
+    logic: {
+      max_replies: Number($("aiMaxReplies")?.value || 3),
+      time_policy: $("aiTimePolicy")?.value || "direkt",
+    },
+    behavior_rules: {
+      angry: $("aiRuleAngry")?.value || "",
+      uncertain: $("aiRuleUncertain")?.value || "",
+      stressed: $("aiRuleStressed")?.value || "",
+      apologize: $("aiRuleApologize")?.value || "",
+      decline: $("aiRuleDecline")?.value || "",
+      escalate: $("aiRuleEscalate")?.value || "",
+    },
+    safety: {
+      forbidden_topics: toLines($("aiForbiddenTopics")?.value || ""),
+      allowed_phrases: toLines($("aiAllowedPhrases")?.value || ""),
+      legal: {
+        no_guarantees: $("aiNoGuarantees")?.checked || false,
+        no_promises: $("aiNoPromises")?.checked || false,
+      }
+    }
+  };
+}
+
+function setAiFieldsFromSettings(ai) {
+  const s = ai?.personality || {};
+  if ($("aiStyleSelect")) $("aiStyleSelect").value = s.style || "neutral";
+  if ($("aiVerbositySelect")) $("aiVerbositySelect").value = s.verbosity || "normal";
+  if ($("aiToneLevel")) $("aiToneLevel").value = String(s.tone_level ?? 50);
+  if ($("aiEmpathyLevel")) $("aiEmpathyLevel").value = String(s.empathy_level ?? 50);
+  if ($("aiPolitenessLevel")) $("aiPolitenessLevel").value = String(s.politeness_level ?? 50);
+  if ($("aiAssertivenessSelect")) $("aiAssertivenessSelect").value = s.assertiveness || "medel";
+  if ($("aiProblemStyleSelect")) $("aiProblemStyleSelect").value = s.problem_style || "aktiv";
+  const i = ai?.interpretation || {};
+  if ($("aiDetectEmotion")) $("aiDetectEmotion").checked = !!i.detect_emotion;
+  if ($("aiHandleSlang")) $("aiHandleSlang").checked = !!i.handle_slang;
+  if ($("aiAskFollowup")) $("aiAskFollowup").checked = i.ask_followup !== false;
+  const l = ai?.logic || {};
+  if ($("aiMaxReplies")) $("aiMaxReplies").value = String(l.max_replies ?? 3);
+  if ($("aiTimePolicy")) $("aiTimePolicy").value = l.time_policy || "direkt";
+  const b = ai?.behavior_rules || {};
+  if ($("aiRuleAngry")) $("aiRuleAngry").value = b.angry || "";
+  if ($("aiRuleUncertain")) $("aiRuleUncertain").value = b.uncertain || "";
+  if ($("aiRuleStressed")) $("aiRuleStressed").value = b.stressed || "";
+  if ($("aiRuleApologize")) $("aiRuleApologize").value = b.apologize || "";
+  if ($("aiRuleDecline")) $("aiRuleDecline").value = b.decline || "";
+  if ($("aiRuleEscalate")) $("aiRuleEscalate").value = b.escalate || "";
+  const sa = ai?.safety || {};
+  if ($("aiForbiddenTopics")) $("aiForbiddenTopics").value = (sa.forbidden_topics || []).join("\n");
+  if ($("aiAllowedPhrases")) $("aiAllowedPhrases").value = (sa.allowed_phrases || []).join("\n");
+  if ($("aiNoGuarantees")) $("aiNoGuarantees").checked = !!(sa.legal?.no_guarantees);
+  if ($("aiNoPromises")) $("aiNoPromises").checked = !!(sa.legal?.no_promises);
+}
+
+function aiSimulateResponse(input, ai) {
+  const s = ai?.personality || {};
+  const tone = s.style || "neutral";
+  const emp = Number(s.empathy_level || 50);
+  const pol = Number(s.politeness_level || 50);
+  const verb = s.verbosity || "normal";
+  const asrt = s.assertiveness || "medel";
+  const prob = s.problem_style || "aktiv";
+  const i = ai?.interpretation || {};
+  let pre = "";
+  if (emp > 60) pre += "Jag förstår hur det känns. ";
+  if (pol > 70) pre += "Tack för att du hör av dig. ";
+  let body = "";
+  if (prob === "aktiv") body = "Här är vad jag kan göra direkt: ";
+  else body = "Låt mig guida dig steg för steg: ";
+  const tail = (verb === "utförlig") ? " Om du vill kan jag förklara mer i detalj." :
+               (verb === "kort") ? "" : " Återkom gärna om något är oklart.";
+  const styleAdj = tone === "formell" ? "Vänligen" :
+                   tone === "vänlig" ? "Gärna" :
+                   tone === "avslappnad" ? "Inga problem" :
+                   tone === "professionell" ? "Självklart" :
+                   tone === "varm" ? "Mer än gärna" : "Okej";
+  const action = asrt === "hög" ? "Jag föreslår följande åtgärd." :
+                 asrt === "låg" ? "Jag kan föreslå ett par alternativ." :
+                 "Mitt rekommenderade nästa steg är:";
+  const text = (input || "").trim();
+  let extra = "";
+  if (i.detect_emotion && /!|😡|ARG|FÖRBANNAD/i.test(text)) extra = " Jag ser att du är frustrerad; jag hjälper dig direkt.";
+  if (i.ask_followup && text.length < 8) extra += " Kan du beskriva lite mer vad som inte fungerar?";
+  return `${pre}${styleAdj}. ${body} ${action} ${tail}${extra}`.trim();
+}
+
+async function loadAiPanel() {
+  try {
+    const res = await api(`/company/settings?companyId=${encodeURIComponent(state.companyId)}`);
+    const ai = (res && res.ai) ? res.ai : (res || {}).ai;
+    const profiles = ai?.profiles || { default: ai || {} };
+    const active = ai?.activeProfile || Object.keys(profiles)[0] || "default";
+    state.aiProfiles = profiles;
+    state.aiActiveProfile = active;
+    state.aiFlows = ai?.flows || [];
+    state.aiFlowVersions = ai?.flow_versions || [];
+    state.aiSegmenting = ai?.segmenting || { mappings: [] };
+    state.aiRules = ai?.rules || [];
+    const sel = $("aiProfileSelect");
+    if (sel) {
+      sel.innerHTML = Object.keys(profiles).map(p => `<option value="${escapeHtml(p)}"${p===active?' selected':''}>${escapeHtml(p)}</option>`).join("");
+    }
+    setAiFieldsFromSettings(profiles[active] || {});
+    renderAiFlows();
+    renderAiSegmenting();
+    renderAiRules();
+  } catch {
+    state.aiProfiles = { default: {} };
+    state.aiActiveProfile = "default";
+    state.aiFlows = [];
+    state.aiFlowVersions = [];
+    state.aiSegmenting = { mappings: [] };
+    state.aiRules = [];
+    const sel = $("aiProfileSelect");
+    if (sel) sel.innerHTML = `<option value="default">default</option>`;
+    setAiFieldsFromSettings({});
+    renderAiFlows();
+    renderAiSegmenting();
+    renderAiRules();
+  }
+}
+
+async function saveAiSettings() {
+  const profile = $("aiProfileSelect")?.value || "default";
+  const ai = getAiSettingsFromFields();
+  const payload = { companyId: state.companyId, settings: { ai: {
+    activeProfile: profile,
+    profiles: { ...(state.aiProfiles||{}), [profile]: ai },
+    flows: state.aiFlows,
+    flow_versions: state.aiFlowVersions,
+    segmenting: state.aiSegmenting,
+    rules: state.aiRules
+  } } };
+  await api("/company/settings", { method: "PATCH", body: payload });
+  toast("Sparat", "AI‑profil uppdaterad", "info");
+  await loadAiPanel();
+}
+
 function bindEvents() {
   const on = (id, event, fn) => {
     const el = $(id);
@@ -4109,6 +4362,90 @@ function bindEvents() {
   on("slaClearMyStatsBtn", "click", () => clearSla('my'));
   on("slaClearAllStatsBtn", "click", () => clearSla('all'));
 
+  on("openAiPanelView", "click", async () => {
+    showView("aiPanelView", "openAiPanelView");
+    await loadAiPanel();
+  });
+  on("aiSaveBtn", "click", saveAiSettings);
+  on("aiCreateProfileBtn", "click", () => {
+    const name = prompt("Profilnamn?");
+    if (!name) return;
+    const sel = $("aiProfileSelect");
+    if (sel) {
+      const opt = document.createElement("option");
+      opt.value = name;
+      opt.textContent = name;
+      sel.appendChild(opt);
+      sel.value = name;
+    }
+    setAiFieldsFromSettings({});
+  });
+  on("aiSimulateBtn", "click", () => {
+    const ai = getAiSettingsFromFields();
+    const input = $("aiSimInput")?.value || "";
+    const out = aiSimulateResponse(input, ai);
+    const box = $("aiLivePreviewBox");
+    if (box) box.innerHTML = `<div class="listItem"><div class="listItemTitle"><i class="fa-solid fa-robot"></i> AI</div><div>${escapeHtml(out)}</div></div>`;
+  });
+  on("aiResetPreviewBtn", "click", () => {
+    const box = $("aiLivePreviewBox");
+    if (box) box.innerHTML = '<div class="muted small">Förhandsvisning av AI‑svar visas här</div>';
+    const input = $("aiSimInput");
+    if (input) input.value = "";
+  });
+  on("aiAddFlowStepBtn", "click", () => {
+    const type = $("aiFlowStepType")?.value || "start";
+    const text = $("aiFlowStepText")?.value || "";
+    state.aiFlows.push({ type, text });
+    if ($("aiFlowStepText")) $("aiFlowStepText").value = "";
+    renderAiFlows();
+  });
+  on("aiSaveFlowBtn", "click", saveAiSettings);
+  on("aiCreateFlowVersionBtn", "click", () => {
+    const snapshot = JSON.parse(JSON.stringify(state.aiFlows));
+    state.aiFlowVersions.push({ id: String(Date.now()), ts: Date.now(), flow: snapshot });
+    renderAiFlows();
+    toast("Version", "Flödesversion skapad", "info");
+  });
+  on("aiRollbackFlowBtn", "click", () => {
+    const sel = $("aiFlowVersionSelect");
+    const id = sel?.value;
+    const ver = (state.aiFlowVersions || []).find(v => v.id === id);
+    if (!ver) return toast("Saknas", "Ingen version vald", "error");
+    state.aiFlows = JSON.parse(JSON.stringify(ver.flow || []));
+    renderAiFlows();
+    toast("Återställd", "Flöde återställt från version", "info");
+  });
+  on("segAssignBtn", "click", () => {
+    const m = {
+      department: $("segDepartmentSelect")?.value || "support",
+      language: $("segLanguageSelect")?.value || "sv",
+      customerType: $("segCustomerTypeSelect")?.value || "b2c",
+      profile: $("segProfileSelect")?.value || "default",
+      schedule: $("segScheduleSelect")?.value || "alltid",
+    };
+    state.aiSegmenting.mappings.push(m);
+    renderAiSegmenting();
+    toast("Tilldelat", "Segmentering uppdaterad", "info");
+  });
+  on("segClearBtn", "click", () => {
+    state.aiSegmenting.mappings = [];
+    renderAiSegmenting();
+  });
+  on("aiAddRuleBtn", "click", () => {
+    const cond = $("aiRuleCondition")?.value || "";
+    const act = $("aiRuleAction")?.value || "";
+    state.aiRules.push({ if: cond, then: act });
+    renderAiRules();
+  });
+  on("aiSaveRulesBtn", "click", saveAiSettings);
+  on("aiUpdateAnalyticsBtn", "click", async () => {
+    try {
+      const a = await api(`/ai/analytics?companyId=${encodeURIComponent(state.companyId)}`);
+      state.aiAnalytics = a;
+      renderAiAnalyticsBox();
+    } catch (e) { toast("Fel", e.message, "error"); }
+  });
   // ✅ ADMIN
   on("openAdminView", "click", async () => {
     showView("adminView", "openAdminView");
