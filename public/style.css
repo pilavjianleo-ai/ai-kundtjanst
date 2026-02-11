@@ -1380,7 +1380,6 @@ body[data-theme="light"] .btn.secondary:hover {
   box-shadow: 0 0 6px var(--warn);
 }
 
-/* Responsive additions (non-intrusive to current viewport) */
 img {
   max-width: 100%;
   height: auto;
@@ -1389,23 +1388,34 @@ img {
 
 @media (max-width: 480px) {
   html { font-size: clamp(15px, 4vw, 16px); }
-  .bubble { max-width: 100%; }
-  .messages { height: 62vh; }
+  .bubble { max-width: 100%; overflow-wrap: anywhere; word-break: break-word; }
+  .messages { height: auto; min-height: 55vh; }
   .view { max-width: 100%; margin: 0 auto; }
   .main { padding: 12px; }
-  body, .app { overflow-x: hidden; }
+  .sidebar { flex-direction: column; position: static; padding: 10px; gap: 8px; overflow: visible; }
+  .menu { flex-direction: column; flex-wrap: nowrap; gap: 8px; }
+  .menuBtn { width: 100%; white-space: normal; }
+  .split { grid-template-columns: 1fr; }
+  .grid2, .grid3, .grid4 { grid-template-columns: 1fr; gap: 12px; }
+  .panel { padding: 12px; }
+  .table { min-width: 0; }
+  .table th, .table td { padding: 8px 10px; font-size: 12px; }
 }
 
 @media (min-width: 481px) and (max-width: 1024px) {
   html { font-size: clamp(14px, 1.4vw, 16px); }
-  .bubble { max-width: 90%; }
+  .bubble { max-width: 90%; overflow-wrap: anywhere; word-break: break-word; }
   .messages { height: 65vh; }
-  body, .app { overflow-x: hidden; }
+  .view { max-width: 100%; margin: 0 auto; }
+  .menu { flex-wrap: wrap; }
+  .menuBtn { flex: 1 1 auto; white-space: normal; }
+  .table { min-width: 600px; }
+  .table th, .table td { padding: 9px 11px; font-size: 12.5px; }
 }
 
 @media (min-width: 1921px) {
   .main { margin: 0 auto; }
-  body, .app { overflow-x: hidden; }
+  .view { max-width: 1200px; margin: 0 auto; }
 }
 /* Billing Table & Cards */
 #billingHistoryList td {
