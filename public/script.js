@@ -4975,16 +4975,20 @@ function bindEvents() {
     const input = $("aiSimInput");
     if (input) input.value = "";
   });
-  on("aiManageFlowsBtn", "click", () => {
-    const p = $("panelFlow");
+  function openAdvancedAndShow(panelId) {
+    const adv = $("aiAdvancedSettings");
+    if (adv) adv.style.display = "";
+    const ids = ["panelFlow","panelRules","panelSegments","panelSales"];
+    ids.forEach(id => { const el = $(id); if (el) el.style.display = "none"; });
+    const p = $(panelId);
     if (!p) return;
-    p.style.display = (p.style.display === "none" || p.style.display === "") ? "" : "none";
-  });
-  on("aiManageFlowsBtn2", "click", () => {
-    const p = $("panelFlow");
-    if (!p) return;
-    p.style.display = (p.style.display === "none" || p.style.display === "") ? "" : "none";
-  });
+    p.style.display = "";
+    try { p.scrollIntoView({ behavior: "smooth", block: "start" }); } catch {}
+  }
+  on("aiManageFlowsBtn", "click", () => openAdvancedAndShow("panelFlow"));
+  on("aiManageFlowsBtn2", "click", () => openAdvancedAndShow("panelFlow"));
+  on("aiManageRulesBtn", "click", () => openAdvancedAndShow("panelRules"));
+  on("aiManageSegmentsBtn", "click", () => openAdvancedAndShow("panelSegments"));
   on("aiManageRulesBtn", "click", () => {
     const p = $("panelRules");
     if (!p) return;
@@ -5060,7 +5064,7 @@ function bindEvents() {
       const mod = document.getElementById(id);
       if (mod) mod.style.display = "";
       const right = document.getElementById("aiRightColumn");
-      if (right) right.style.display = "";
+      if (right) right.style.display = (id === "ccModuleOverview") ? "" : "none";
     });
   });
   on("aiRunRuleSimBtn", "click", () => {
