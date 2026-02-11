@@ -49,6 +49,13 @@ window.syncCrmData = async function (manual = false) {
                 const ts = new Date();
                 el.textContent = `Senast synkad: ${ts.toLocaleTimeString('sv-SE')}`;
             }
+            const ind = document.getElementById('aiLiveIndicators');
+            if (ind) {
+                const c = (window.crmState?.customers || []).length;
+                const d = (window.crmState?.deals || []).length;
+                const a = (window.crmState?.activities || []).length;
+                ind.innerHTML = `<span class="pill">Kunder: ${c}</span><span class="pill">Affärer: ${d}</span><span class="pill">Aktiviteter: ${a}</span>`;
+            }
         }
     } catch (e) {
         console.error("CRM Sync Error:", e.message);

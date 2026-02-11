@@ -1562,6 +1562,7 @@ app.post("/admin/companies", authenticate, requireAdmin, async (req, res) => {
       createdAt: new Date()
     });
     await company.save();
+    if (io) io.emit("crmUpdate", { companyId });
     res.json({ message: "Skapat", company });
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
@@ -1998,6 +1999,7 @@ app.post("/admin/companies", authenticate, requireAdmin, async (req, res) => {
       createdAt: new Date()
     });
     await c.save();
+    if (io) io.emit("crmUpdate", { companyId });
     res.json(c);
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
@@ -2012,6 +2014,7 @@ app.put("/admin/companies/:id", authenticate, requireAdmin, async (req, res) => 
       { new: true }
     );
     if (!c) return res.status(404).json({ error: "Bolag hittades ej" });
+    if (io) io.emit("crmUpdate", { companyId });
     res.json(c);
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
@@ -2023,6 +2026,7 @@ app.delete("/admin/companies/:id", authenticate, requireAdmin, async (req, res) 
     // await User.deleteMany({ companyId }); // REMOVED: DANGEROUS! Users might not have companyId set yet, leading to empty filter {} delete
     await Ticket.deleteMany({ companyId });
     await Document.deleteMany({ companyId });
+    if (io) io.emit("crmUpdate", { companyId });
     res.json({ message: "Bolag och all data raderad" });
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
@@ -2067,6 +2071,7 @@ app.patch("/company/settings", authenticate, requireAgent, async (req, res) => {
 
     c.markModified('settings');
     await c.save();
+    if (io) io.emit("crmUpdate", { companyId });
     res.json(c);
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
