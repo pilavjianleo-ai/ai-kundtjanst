@@ -1219,10 +1219,14 @@ app.post("/ingest/email", async (req, res) => {
     t.lastActivityAt = new Date();
     await t.save();
     try {
-      const reply = await generateAIResponse(comp, t.messages, text);
-      t.messages.push({ role: "assistant", content: reply });
-      t.lastActivityAt = new Date();
-      await t.save();
+      const c = await Company.findOne({ companyId: comp });
+      const auto = c?.settings?.ai?.autoReply || {};
+      if (auto.email !== false) {
+        const reply = await generateAIResponse(comp, t.messages, text);
+        t.messages.push({ role: "assistant", content: reply });
+        t.lastActivityAt = new Date();
+        await t.save();
+      }
     } catch (aiErr) {
       console.log("EMAIL AI ERROR:", aiErr.message);
     }
@@ -1252,10 +1256,14 @@ app.post("/ingest/sms", async (req, res) => {
     t.lastActivityAt = new Date();
     await t.save();
     try {
-      const reply = await generateAIResponse(comp, t.messages, content);
-      t.messages.push({ role: "assistant", content: reply });
-      t.lastActivityAt = new Date();
-      await t.save();
+      const c = await Company.findOne({ companyId: comp });
+      const auto = c?.settings?.ai?.autoReply || {};
+      if (auto.sms !== false) {
+        const reply = await generateAIResponse(comp, t.messages, content);
+        t.messages.push({ role: "assistant", content: reply });
+        t.lastActivityAt = new Date();
+        await t.save();
+      }
     } catch (aiErr) {
       console.log("SMS AI ERROR:", aiErr.message);
     }
@@ -1285,10 +1293,14 @@ app.post("/ingest/whatsapp", async (req, res) => {
     t.lastActivityAt = new Date();
     await t.save();
     try {
-      const reply = await generateAIResponse(comp, t.messages, content);
-      t.messages.push({ role: "assistant", content: reply });
-      t.lastActivityAt = new Date();
-      await t.save();
+      const c = await Company.findOne({ companyId: comp });
+      const auto = c?.settings?.ai?.autoReply || {};
+      if (auto.whatsapp !== false) {
+        const reply = await generateAIResponse(comp, t.messages, content);
+        t.messages.push({ role: "assistant", content: reply });
+        t.lastActivityAt = new Date();
+        await t.save();
+      }
     } catch (aiErr) {
       console.log("WHATSAPP AI ERROR:", aiErr.message);
     }
@@ -1318,10 +1330,14 @@ app.post("/ingest/facebook", async (req, res) => {
     t.lastActivityAt = new Date();
     await t.save();
     try {
-      const reply = await generateAIResponse(comp, t.messages, content);
-      t.messages.push({ role: "assistant", content: reply });
-      t.lastActivityAt = new Date();
-      await t.save();
+      const c = await Company.findOne({ companyId: comp });
+      const auto = c?.settings?.ai?.autoReply || {};
+      if (auto.facebook !== false) {
+        const reply = await generateAIResponse(comp, t.messages, content);
+        t.messages.push({ role: "assistant", content: reply });
+        t.lastActivityAt = new Date();
+        await t.save();
+      }
     } catch (aiErr) {
       console.log("FACEBOOK AI ERROR:", aiErr.message);
     }

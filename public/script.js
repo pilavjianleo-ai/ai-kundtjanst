@@ -59,6 +59,8 @@ const state = {
   aiRules: [],
   aiAnalytics: null,
   userContactInfo: null,
+  aiAbConfig: { active: false, variants: [] },
+  aiAutoReply: { email: true, sms: true, whatsapp: true, facebook: true },
 };
 
 /* =========================
@@ -4624,6 +4626,8 @@ async function loadAiPanel() {
     state.aiFlowVersions = ai?.flow_versions || [];
     state.aiSegmenting = ai?.segmenting || { mappings: [] };
     state.aiRules = ai?.rules || [];
+    state.aiAbConfig = ai?.ab || ai?.abTesting || { active: false, variants: [] };
+    state.aiAutoReply = ai?.autoReply || { email: true, sms: true, whatsapp: true, facebook: true };
     const sel = $("aiProfileSelect");
     if (sel) {
       sel.innerHTML = Object.keys(profiles).map(p => `<option value="${escapeHtml(p)}"${p===active?' selected':''}>${escapeHtml(p)}</option>`).join("");
@@ -4632,6 +4636,8 @@ async function loadAiPanel() {
     renderAiFlows();
     renderAiSegmenting();
     renderAiRules();
+    renderAutoReplyToggles();
+    renderAbAdmin();
     try {
       const a = await api(`/ai/analytics?companyId=${encodeURIComponent(state.companyId)}`);
       state.aiAnalytics = a;
@@ -4672,17 +4678,73 @@ async function loadAiPanel() {
 async function saveAiSettings() {
   const profile = $("aiProfileSelect")?.value || "default";
   const ai = getAiSettingsFromFields();
+  const autoReply = {
+    email: $("autoReplyEmail")?.checked !== false,
+    sms: $("autoReplySms")?.checked !== false,
+    whatsapp: $("autoReplyWhatsapp")?.checked !== false,
+    facebook: $("autoReplyFacebook")?.checked !== false,
+  };
   const payload = { companyId: state.companyId, settings: { ai: {
     activeProfile: profile,
     profiles: { ...(state.aiProfiles||{}), [profile]: ai },
     flows: state.aiFlows,
     flow_versions: state.aiFlowVersions,
     segmenting: state.aiSegmenting,
-    rules: state.aiRules
+    rules: state.aiRules,
+    abTesting: state.aiAbConfig,
+    autoReply
   } } };
   await api("/company/settings", { method: "PATCH", body: payload });
   toast("Sparat", "AI‑profil uppdaterad", "info");
   await loadAiPanel();
+}
+
+function renderAutoReplyToggles() {
+  const a = state.aiAutoReply || {};
+  if ($("autoReplyEmail")) $("autoReplyEmail").checked = a.email !== false;
+  if ($("autoReplySms")) $("autoReplySms").checked = a.sms !== false;
+  if ($("autoReplyWhatsapp")) $("autoReplyWhatsapp").checked = a.whatsapp !== false;
+  if ($("autoReplyFacebook")) $("autoReplyFacebook").checked = a.facebook !== false;
+}
+
+function renderAbAdmin() {
+  const cfg = state.aiAbConfig || { active: false, variants: [] };
+  const activeEl = $("abActive");
+  if (activeEl) activeEl.checked = !!cfg.active;
+  const list = $("abVariantsList");
+  if (!list) return;
+  const items = (cfg.variants || []).map((v, i) => `
+    <div class="listItem">
+      <div class="listItemTitle"><b>${escapeHtml(v.name || ("Variant " + (i+1)))}</b> — Ton: ${escapeHtml(v.tone || "-")} — Hälsning: ${escapeHtml(v.greeting || "-")}</div>
+      <div class="row gap" style="margin-top:6px;">
+        <button class="btn ghost tiny danger" data-del="${i}" type="button"><i class="fa-solid fa-trash"></i> Ta bort</button>
+      </div>
+    </div>
+  `).join("") || '<div class="muted small">Inga varianter ännu.</div>';
+  list.innerHTML = items;
+  list.querySelectorAll("button[data-del]").forEach(btn => {
+    btn.addEventListener("click", () => {
+      const idx = Number(btn.getAttribute("data-del"));
+      const arr = Array.isArray(state.aiAbConfig.variants) ? state.aiAbConfig.variants.slice() : [];
+      arr.splice(idx, 1);
+      state.aiAbConfig.variants = arr;
+      renderAbAdmin();
+    });
+  });
+}
+
+function abAddVariant() {
+  const name = $("abNameInput")?.value?.trim() || "";
+  const tone = $("abToneInput")?.value?.trim() || "";
+  const greeting = $("abGreetingInput")?.value?.trim() || "";
+  const v = { name, tone, greeting };
+  const arr = Array.isArray(state.aiAbConfig.variants) ? state.aiAbConfig.variants.slice() : [];
+  arr.push(v);
+  state.aiAbConfig.variants = arr;
+  if ($("abNameInput")) $("abNameInput").value = "";
+  if ($("abToneInput")) $("abToneInput").value = "";
+  if ($("abGreetingInput")) $("abGreetingInput").value = "";
+  renderAbAdmin();
 }
 
 function bindEvents() {
@@ -5169,6 +5231,8 @@ function bindEvents() {
       }
     }
   });
+  on("abAddVariantBtn", "click", abAddVariant);
+  on("abActive", "change", () => { const el = $("abActive"); if (el) state.aiAbConfig.active = el.checked; });
 }
 
 async function kbGenerateFromTicket() {
