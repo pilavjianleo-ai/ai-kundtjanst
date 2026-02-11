@@ -317,10 +317,35 @@ document.addEventListener("DOMContentLoaded", () => {
   window.addEventListener("error", (e) => {
     const b = $("globalErr");
     if (b) {
-      b.textContent = "Fel: " + (e.message || "Okänt fel");
+      const msg = e.message || "Okänt fel";
+      const fn = e.filename ? (" @ " + e.filename) : "";
+      const lc = (typeof e.lineno !== "undefined") ? (":" + e.lineno + (e.colno ? (":" + e.colno) : "")) : "";
+      const stack = e.error && e.error.stack ? ("\n" + e.error.stack) : "";
+      b.textContent = "Fel: " + msg + fn + lc + stack;
       b.style.display = "";
     }
   });
+  window.addEventListener("unhandledrejection", (e) => {
+    const b = $("globalErr");
+    if (b) {
+      const reason = e.reason;
+      const msg = (reason && reason.message) ? reason.message : String(reason || "Okänt löfte‑fel");
+      const stack = (reason && reason.stack) ? ("\n" + reason.stack) : "";
+      b.textContent = "Fel (Promise): " + msg + stack;
+      b.style.display = "";
+    }
+  });
+  try {
+    const __origWarn = console.warn.bind(console);
+    console.warn = function () {
+      const msg = Array.from(arguments).map(a => String(a)).join(" ");
+      if (msg.includes("TT: undefined function")) {
+        const b = $("globalErr");
+        if (b) { b.textContent = msg; b.style.display = ""; }
+      }
+      return __origWarn(...arguments);
+    };
+  } catch {}
 });
 
 function renderAiSegmenting() {
@@ -978,6 +1003,23 @@ async function sendChat() {
     hideTyping();
     addMsg("assistant", "❌ Fel: " + e.message);
   }
+}
+
+function optimizeUserText(t) {
+  let s = String(t || "").trim().replace(/\s+/g, " ");
+  s = s.replace(/([.!?]){2,}/g, "$1");
+  s = s.replace(/(.)\1{2,}/g, "$1$1");
+  const map = [
+    ["asså", "alltså"], ["typ ", ""], [" typ", ""], ["pls", "var snäll och"], ["plz", "var snäll och"],
+    ["wtf", "vad i hela friden"], ["lol", ""], ["lmao", ""], ["idk", "jag vet inte"], ["btw", "förresten"],
+    ["imho", "enligt min åsikt"], ["u ", "du "], [" ur ", " din "], ["thx", "tack"], ["thanks", "tack"]
+  ];
+  for (const [a, b] of map) { s = s.replace(new RegExp(a, "gi"), b); }
+  s = s.replace(/\s*([,.!?;:])\s*/g, "$1 ");
+  s = s.replace(/\s{2,}/g, " ").trim();
+  if (s && !/[.!?]$/.test(s)) s += ".";
+  s = s.replace(/^([a-zåäö])/i, (m) => m.toUpperCase());
+  return s;
 }
 
 // Chat summary popup
@@ -5311,6 +5353,23 @@ function bindEvents() {
   on("sendBtn", "click", sendChat);
   on("messageInput", "keydown", (e) => {
     if (e.key === "Enter") sendChat();
+    if ((e.ctrlKey || e.metaKey) && e.shiftKey && String(e.key).toLowerCase() === "o") {
+      const inp = $("messageInput");
+      if (inp && inp.value.trim()) {
+        inp.value = optimizeUserText(inp.value);
+        toast("Optimerad", "Texten förbättrades lätt", "info");
+        e.preventDefault();
+      }
+    }
+  });
+  on("optimizeInputBtn", "click", () => {
+    const inp = $("messageInput");
+    if (!inp) return;
+    const v = inp.value.trim();
+    if (!v) return;
+    inp.value = optimizeUserText(v);
+    toast("Optimerad", "Texten förbättrades lätt", "info");
+    inp.focus();
   });
   on("talkToHumanBtn", "click", requestHumanHandoff);
   on("newTicketBtn", "click", resetConversation);
