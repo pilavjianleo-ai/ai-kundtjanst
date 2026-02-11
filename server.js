@@ -961,12 +961,13 @@ app.post("/chat", authenticate, chatLimiter, async (req, res) => {
     }
 
     const msgLow = lastUserMsg.toLowerCase();
-    const handoff = ["människa","person","agent","koppla","koppla vidare","eskalera","prata med människa","prata med en människa"].some(w => msgLow.includes(w));
+    const handoff = ["människa","person","medarbetare","riktig person","mänsklig","mänsklig agent","koppla","koppla vidare","vidarekoppla","eskalera","prata med människa","prata med en människa"].some(w => msgLow.includes(w));
     const needsHuman = handoff;
 
     if (needsHuman) {
       ticket.priority = "high";
       ticket.status = "open";
+      reply = "Självklart! Jag kopplar dig vidare till en mänsklig medarbetare nu. Ditt ärende har prioriterats. Vill du lämna e‑post eller telefon för snabb återkoppling?";
       if (io) io.emit("newImportantTicket", { id: ticket._id, title: "HUMAN REQUIRED: " + ticket.title });
     }
 
