@@ -1156,6 +1156,18 @@ async function loadInboxTickets() {
   renderInboxList();
 }
 
+function showInboxAutoReloadBadge() {
+  const badge = $("inboxAutoReloadBadge");
+  if (!badge) return;
+  badge.style.display = "inline-block";
+  badge.style.opacity = "1";
+  setTimeout(() => {
+    badge.style.transition = "opacity 300ms ease";
+    badge.style.opacity = "0";
+    setTimeout(() => { badge.style.display = "none"; badge.style.opacity = "1"; }, 320);
+  }, 1000);
+}
+
 function filterInboxBySearch() {
   const query = $("inboxSearchInput")?.value?.toLowerCase()?.trim() || "";
 
@@ -2791,6 +2803,32 @@ async function refreshCustomers() {
   }
 }
 
+// Real-time CRM sync for the active company
+async function syncCrmData() {
+  try {
+    const companyId = state.companyId || state.currentCompany?.companyId || "demo";
+    const res = await api(`/crm/state?companyId=${encodeURIComponent(companyId)}`);
+    const data = res || {};
+    window.crmState = window.crmState || { customers: [], deals: [], activities: [], stats: {} };
+    crmData = window.crmState;
+    crmData.customers = Array.isArray(data.customers) ? data.customers : [];
+    crmData.deals = Array.isArray(data.deals) ? data.deals : [];
+    crmData.activities = Array.isArray(data.activities) ? data.activities : [];
+    try {
+      localStorage.setItem('crmCustomers', JSON.stringify(crmData.customers));
+      localStorage.setItem('crmDeals', JSON.stringify(crmData.deals));
+      localStorage.setItem('crmActivities', JSON.stringify(crmData.activities));
+    } catch {}
+    if (state.currentView === "customerAdminView") {
+      renderCrmCustomersList();
+      renderCrmActivity();
+      renderCrmOverview();
+    }
+  } catch (e) {
+    console.error("CRM sync error:", e);
+  }
+}
+window.syncCrmData = syncCrmData;
 function calculateAvgCsat(tickets) {
   const rated = tickets.filter(t => t.csatRating);
   if (rated.length === 0) return null;
@@ -5176,12 +5214,23 @@ function bindEvents() {
 
   // Inbox category filter - reload inbox when changed
   on("inboxCategoryFilter", "change", () => {
+    state.inboxPage = 1;
     loadInboxTickets();
+    showInboxAutoReloadBadge();
   });
 
   // Inbox status filter - reload inbox when changed
   on("inboxStatusFilter", "change", () => {
+    state.inboxPage = 1;
     loadInboxTickets();
+    showInboxAutoReloadBadge();
+  });
+
+  // Inbox channel filter - reload inbox when changed
+  on("inboxChannelFilter", "change", () => {
+    state.inboxPage = 1;
+    loadInboxTickets();
+    showInboxAutoReloadBadge();
   });
 
   // Inbox search - debounced search
@@ -5513,6 +5562,12 @@ function initSocket() {
   socket.on("crmUpdate", (data) => {
     if (typeof window.syncCrmData === "function") {
       window.syncCrmData();
+    }
+    if (typeof refreshCustomers === "function") {
+      refreshCustomers();
+    }
+    if (typeof loadCompanies === "function") {
+      loadCompanies();
     }
   });
 

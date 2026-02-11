@@ -850,6 +850,7 @@
               </select>
 
               <input id="inboxSearchInput" class="input smallInput" placeholder="Sök title/ID/kategori..." />
+              <span id="inboxAutoReloadBadge" class="pill info" style="margin-left:auto; display:none;">Auto‑reload</span>
             </div>
 
             <div id="inboxMsg" class="alert error" style="display:none;"></div>
@@ -1281,6 +1282,7 @@
           <div>
             <div class="title">CRM & Försäljning</div>
             <div class="subtitle muted">Hantera kunder, affärer och pipeline på ett ställe.</div>
+            <div class="muted tiny" id="crmLastSynced" style="margin-top:4px;">Senast synkad: --</div>
           </div>
           <div class="topbarActions">
             <button id="addDealBtn" class="btn primary" onclick="openDealModal()">

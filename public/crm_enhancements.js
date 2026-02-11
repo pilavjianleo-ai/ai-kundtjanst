@@ -44,6 +44,11 @@ window.syncCrmData = async function (manual = false) {
             if (typeof calculateAiMargins === 'function') calculateAiMargins();
 
             updateChatCategoriesFromCRM();
+            const el = document.getElementById('crmLastSynced');
+            if (el) {
+                const ts = new Date();
+                el.textContent = `Senast synkad: ${ts.toLocaleTimeString('sv-SE')}`;
+            }
         }
     } catch (e) {
         console.error("CRM Sync Error:", e.message);
