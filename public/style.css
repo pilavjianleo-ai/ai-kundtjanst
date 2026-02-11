@@ -1380,6 +1380,33 @@ body[data-theme="light"] .btn.secondary:hover {
   box-shadow: 0 0 6px var(--warn);
 }
 
+/* Responsive additions (non-intrusive to current viewport) */
+img {
+  max-width: 100%;
+  height: auto;
+  display: block;
+}
+
+@media (max-width: 480px) {
+  html { font-size: clamp(15px, 4vw, 16px); }
+  .bubble { max-width: 100%; }
+  .messages { height: 62vh; }
+  .view { max-width: 100%; margin: 0 auto; }
+  .main { padding: 12px; }
+  body, .app { overflow-x: hidden; }
+}
+
+@media (min-width: 481px) and (max-width: 1024px) {
+  html { font-size: clamp(14px, 1.4vw, 16px); }
+  .bubble { max-width: 90%; }
+  .messages { height: 65vh; }
+  body, .app { overflow-x: hidden; }
+}
+
+@media (min-width: 1921px) {
+  .main { margin: 0 auto; }
+  body, .app { overflow-x: hidden; }
+}
 /* Billing Table & Cards */
 #billingHistoryList td {
   vertical-align: middle;
