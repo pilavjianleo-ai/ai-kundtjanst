@@ -5022,6 +5022,20 @@ function bindEvents() {
     renderAiFlows();
     toast("Återställd", "Flöde återställt från version", "info");
   });
+  on("aiDeleteFlowVersionBtn", "click", () => {
+    const sel = $("aiFlowVersionSelect");
+    const id = sel?.value;
+    if (!id) return toast("Saknas", "Ingen version vald", "error");
+    state.aiFlowVersions = (state.aiFlowVersions || []).filter(v => v.id !== id);
+    renderAiFlows();
+    toast("Rensat", "Version borttagen", "info");
+  });
+  on("aiClearFlowBtn", "click", () => {
+    if (!confirm("Är du säker på att du vill rensa alla steg i flödet?")) return;
+    state.aiFlows = [];
+    renderAiFlows();
+    toast("Rensat", "Flödessteg rensade", "info");
+  });
   on("segAssignBtn", "click", () => {
     const m = {
       department: $("segDepartmentSelect")?.value || "support",
@@ -5045,6 +5059,12 @@ function bindEvents() {
     renderAiRules();
   });
   on("aiSaveRulesBtn", "click", saveAiSettings);
+  on("aiClearRulesBtn", "click", () => {
+    if (!confirm("Rensa alla IF/THEN‑regler?")) return;
+    state.aiRules = [];
+    renderAiRules();
+    toast("Rensat", "Regler rensade", "info");
+  });
   on("aiUpdateAnalyticsBtn", "click", async () => {
     try {
       const a = await api(`/ai/analytics?companyId=${encodeURIComponent(state.companyId)}`);
@@ -5291,6 +5311,12 @@ function bindEvents() {
   });
   on("abAddVariantBtn", "click", abAddVariant);
   on("abActive", "change", () => { const el = $("abActive"); if (el) state.aiAbConfig.active = el.checked; });
+  on("abClearVariantsBtn", "click", () => {
+    if (!confirm("Rensa alla A/B‑varianter?")) return;
+    state.aiAbConfig.variants = [];
+    renderAbAdmin();
+    toast("Rensat", "A/B‑varianter rensade", "info");
+  });
 }
 
 async function kbGenerateFromTicket() {
