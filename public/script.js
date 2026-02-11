@@ -4980,6 +4980,11 @@ function bindEvents() {
     if (!p) return;
     p.style.display = (p.style.display === "none" || p.style.display === "") ? "" : "none";
   });
+  on("aiManageFlowsBtn2", "click", () => {
+    const p = $("panelFlow");
+    if (!p) return;
+    p.style.display = (p.style.display === "none" || p.style.display === "") ? "" : "none";
+  });
   on("aiManageRulesBtn", "click", () => {
     const p = $("panelRules");
     if (!p) return;
@@ -5055,7 +5060,7 @@ function bindEvents() {
       const mod = document.getElementById(id);
       if (mod) mod.style.display = "";
       const right = document.getElementById("aiRightColumn");
-      if (right) right.style.display = (id === "ccModuleOverview") ? "" : "none";
+      if (right) right.style.display = "";
     });
   });
   on("aiRunRuleSimBtn", "click", () => {
