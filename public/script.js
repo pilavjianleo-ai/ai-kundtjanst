@@ -256,7 +256,6 @@ function renderAiFlows() {
   list.querySelectorAll("button[data-act]").forEach(btn => {
     btn.addEventListener("click", () => {
       const act = btn.getAttribute("data-act"); const i = parseInt(btn.getAttribute("data-i"));
-      flowPushUndo();
       if (act === "up" && i > 0) { const tmp = state.aiFlows[i - 1]; state.aiFlows[i - 1] = state.aiFlows[i]; state.aiFlows[i] = tmp; }
       if (act === "down" && i < state.aiFlows.length - 1) { const tmp = state.aiFlows[i + 1]; state.aiFlows[i + 1] = state.aiFlows[i]; state.aiFlows[i] = tmp; }
       if (act === "edit") {
@@ -288,7 +287,6 @@ function renderAiFlows() {
       const from = parseInt(e.dataTransfer.getData("text/plain"));
       const to = parseInt(item.getAttribute("data-index"));
       if (!isNaN(from) && !isNaN(to) && from !== to) {
-        flowPushUndo();
         const moved = state.aiFlows.splice(from, 1)[0];
         state.aiFlows.splice(to, 0, moved);
         renderAiFlows();
@@ -299,29 +297,6 @@ function renderAiFlows() {
   if (verSel) {
     verSel.innerHTML = state.aiFlowVersions.map(v => `<option value="${escapeHtml(v.id)}">${new Date(v.ts).toLocaleString()}</option>`).join("");
   }
-}
-function flowPushUndo() {
-  state.aiFlowUndo = state.aiFlowUndo || [];
-  state.aiFlowRedo = [];
-  state.aiFlowUndo.push(JSON.parse(JSON.stringify(state.aiFlows)));
-}
-function flowUndo() {
-  if (!state.aiFlowUndo || state.aiFlowUndo.length === 0) return;
-  state.aiFlowRedo = state.aiFlowRedo || [];
-  state.aiFlowRedo.push(JSON.parse(JSON.stringify(state.aiFlows)));
-  const prev = state.aiFlowUndo.pop();
-  state.aiFlows = prev;
-  renderAiFlows();
-  toast("Ångra", "Senaste ändring ångrad", "info");
-}
-function flowRedo() {
-  if (!state.aiFlowRedo || state.aiFlowRedo.length === 0) return;
-  state.aiFlowUndo = state.aiFlowUndo || [];
-  state.aiFlowUndo.push(JSON.parse(JSON.stringify(state.aiFlows)));
-  const nxt = state.aiFlowRedo.pop();
-  state.aiFlows = nxt;
-  renderAiFlows();
-  toast("Gör om", "Ändring återställd", "info");
 }
 document.addEventListener("DOMContentLoaded", () => {
   if (!$("globalErr")) {
@@ -5027,7 +5002,6 @@ function bindEvents() {
   on("aiAddFlowStepBtn", "click", () => {
     const type = $("aiFlowStepType")?.value || "start";
     const text = $("aiFlowStepText")?.value || "";
-    flowPushUndo();
     state.aiFlows.push({ type, text });
     if ($("aiFlowStepText")) $("aiFlowStepText").value = "";
     renderAiFlows();
@@ -5044,7 +5018,6 @@ function bindEvents() {
     const id = sel?.value;
     const ver = (state.aiFlowVersions || []).find(v => v.id === id);
     if (!ver) return toast("Saknas", "Ingen version vald", "error");
-    flowPushUndo();
     state.aiFlows = JSON.parse(JSON.stringify(ver.flow || []));
     renderAiFlows();
     toast("Återställd", "Flöde återställt från version", "info");
@@ -5059,7 +5032,6 @@ function bindEvents() {
   });
   on("aiClearFlowBtn", "click", () => {
     if (!confirm("Är du säker på att du vill rensa alla steg i flödet?")) return;
-    flowPushUndo();
     state.aiFlows = [];
     renderAiFlows();
     toast("Rensat", "Flödessteg rensade", "info");
@@ -5093,8 +5065,6 @@ function bindEvents() {
     renderAiRules();
     toast("Rensat", "Regler rensade", "info");
   });
-  on("aiUndoFlowBtn", "click", () => { flowUndo(); });
-  on("aiRedoFlowBtn", "click", () => { flowRedo(); });
   on("aiUpdateAnalyticsBtn", "click", async () => {
     try {
       const a = await api(`/ai/analytics?companyId=${encodeURIComponent(state.companyId)}`);
