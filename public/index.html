@@ -1,4 +1,4 @@
-﻿﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="sv">
 
 <head>
@@ -801,7 +801,7 @@
                 class="fa-solid fa-bars"></i></button>
             <div>
               <div class="title">Inbox</div>
-              <div class="subtitle muted">Hantera inkomna ärenden (agent/admin).</div>
+              <div class="subtitle muted" id="inboxSubtitle">Hantera inkomna ärenden (agent/admin).</div>
             </div>
           </div>
 
@@ -836,6 +836,15 @@
 
               <select id="inboxCategoryFilter" class="input smallInput">
                 <option value="">Alla kategorier</option>
+              </select>
+
+              <select id="inboxChannelFilter" class="input smallInput">
+                <option value="">Alla kanaler</option>
+                <option value="chat">Chat</option>
+                <option value="email">Email</option>
+                <option value="sms">SMS</option>
+                <option value="whatsapp">WhatsApp</option>
+                <option value="facebook">Facebook</option>
               </select>
 
               <input id="inboxSearchInput" class="input smallInput" placeholder="Sök title/ID/kategori..." />
@@ -989,6 +998,7 @@
                 <button id="kbRefreshBtn" class="btn ghost small" type="button">
                   <i class="fa-solid fa-rotate"></i> Uppdatera
                 </button>
+                <input id="kbSearchInput" class="input smallInput" placeholder="Sök i KB..." />
                 <button id="kbBulkDeleteBtn" class="btn danger small" type="button">
                   <i class="fa-solid fa-trash-can"></i> Rensa Allt
                 </button>
@@ -1001,8 +1011,19 @@
               <div class="panel soft">
                 <b>Upload text</b>
                 <input id="kbTextTitle" class="input" placeholder="Titel" />
-                <textarea id="kbTextContent" class="input textarea" placeholder="Klistra in text..."></textarea>
+                <div class="row gap" style="margin:8px 0; align-items:center;">
+                  <button id="kbEditorBoldBtn" class="btn ghost tiny icon" type="button"><i class="fa-solid fa-bold"></i></button>
+                  <button id="kbEditorItalicBtn" class="btn ghost tiny icon" type="button"><i class="fa-solid fa-italic"></i></button>
+                  <button id="kbEditorUnderlineBtn" class="btn ghost tiny icon" type="button"><i class="fa-solid fa-underline"></i></button>
+                  <button id="kbEditorBulletsBtn" class="btn ghost tiny icon" type="button"><i class="fa-solid fa-list-ul"></i></button>
+                  <button id="kbEditorClearBtn" class="btn ghost tiny" type="button"><i class="fa-solid fa-eraser"></i> Rensa</button>
+                  <span id="kbEditorCount" class="muted tiny" style="margin-left:auto;">0 tecken</span>
+                </div>
+                <div id="kbTextEditor" class="input" contenteditable="true" style="min-height:140px;"></div>
                 <button id="kbUploadTextBtn" class="btn primary full" type="button">Ladda upp text</button>
+                <button id="kbGenerateFromTicketBtn" class="btn secondary full" type="button" style="margin-top:8px;">
+                  <i class="fa-solid fa-wand-magic-sparkles"></i> Generera från chat‑logg
+                </button>
               </div>
 
               <div class="panel soft">

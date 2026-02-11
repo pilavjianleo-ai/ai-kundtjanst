@@ -185,8 +185,8 @@ const Company = mongoose.model("Company", companySchema);
 const documentSchema = new mongoose.Schema({
   companyId: { type: String, required: true, index: true },
   title: { type: String, required: true },
-  content: { type: String, required: true }, // The indexed text
-  sourceType: { type: String, enum: ["text", "url", "pdf"], required: true },
+  content: { type: String, required: true },
+  sourceType: { type: String, enum: ["text", "url", "pdf", "generated"], required: true },
   sourceUrl: { type: String, default: "" },
   createdAt: { type: Date, default: Date.now },
 });
@@ -203,6 +203,7 @@ const ticketSchema = new mongoose.Schema({
   publicTicketId: { type: String, unique: true, index: true, default: () => genPublicId("T") },
   userId: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true },
   companyId: { type: String, required: true, index: true },
+  channel: { type: String, enum: ["chat","email","sms","whatsapp","facebook"], default: "chat" },
   status: { type: String, enum: ["open", "pending", "solved"], default: "open" },
   priority: { type: String, enum: ["low", "normal", "high"], default: "normal" },
   ticketIdInput: { type: String, default: "" }, // user provided reference
@@ -225,6 +226,11 @@ const ticketSchema = new mongoose.Schema({
   messages: [messageSchema],
   lastActivityAt: { type: Date, default: Date.now },
   createdAt: { type: Date, default: Date.now },
+  abVariant: {
+    name: { type: String, default: "" },
+    tone: { type: String, default: "" },
+    greeting: { type: String, default: "" }
+  },
   csatRating: { type: Number, min: 1, max: 5, default: null },
 });
 const Ticket = mongoose.model("Ticket", ticketSchema);
@@ -595,6 +601,26 @@ app.delete("/admin/kb/:id", authenticate, requireAdmin, async (req, res) => {
   }
 });
 
+// Search KB
+app.get("/kb/search", authenticate, requireAdmin, async (req, res) => {
+  try {
+    const { companyId, q } = req.query;
+    const query = {};
+    if (companyId) query.companyId = String(companyId).trim();
+    if (q && String(q).trim().length > 1) {
+      const term = escapeRegExp(String(q).trim());
+      query.$or = [
+        { title: { $regex: term, $options: 'i' } },
+        { content: { $regex: term, $options: 'i' } }
+      ];
+    }
+    const docs = await Document.find(query).sort({ createdAt: -1 }).limit(50);
+    res.json(docs || []);
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
 // Upload Text
 app.post("/admin/kb/text", authenticate, requireAdmin, async (req, res) => {
   const { companyId, title, content } = req.body;
@@ -672,6 +698,46 @@ app.post("/admin/kb/pdf", authenticate, requireAdmin, upload.single("pdf"), asyn
   }
 });
 
+// Generate KB article from ticket chat log
+app.post("/admin/kb/generate-from-ticket", authenticate, requireAdmin, async (req, res) => {
+  try {
+    const { companyId, ticketId, title } = req.body;
+    if (!companyId || !ticketId) return res.status(400).json({ error: "Saknar companyId eller ticketId" });
+    const t = await Ticket.findById(ticketId);
+    if (!t) return res.status(404).json({ error: "Ticket hittades ej" });
+    const text = (t.messages || []).map(m => `${m.role}: ${cleanText(m.content || "")}`).join("\n").slice(0, 4000);
+    let article = "";
+    if (!process.env.OPENAI_API_KEY || process.env.OPENAI_API_KEY.includes("INSERT")) {
+      const parts = text.split(/\n/).filter(Boolean).slice(0, 40);
+      const header = "Sammanfattning och FAQ utifrån dialog:";
+      article = [header, "", ...parts.map((p, i) => `- ${p}`)].join("\n");
+    } else {
+      const prompt = `Skapa en svensk kundtjänstartikel baserat på följande dialog. 
+Format:
+- Kort sammanfattning (2-4 meningar)
+- Vanliga frågor (3-6 punkter) med tydliga svar
+- Rekommenderad nästa steg om ärendet återkommer
+
+Dialog:
+${text}`;
+      const completion = await openai.chat.completions.create({
+        model: "gpt-4o-mini",
+        messages: [{ role: "user", content: prompt }],
+        temperature: 0.3,
+        max_tokens: 700
+      });
+      article = completion.choices?.[0]?.message?.content || "Kunde inte generera artikel.";
+    }
+    const doc = await new Document({
+      companyId,
+      title: title || (`Artikel från ${t.publicTicketId}`),
+      content: cleanText(article),
+      sourceType: "generated",
+    }).save();
+    res.json({ message: "Artikel genererad", id: doc._id });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
 /* =====================
    OpenAI Chat Functions
 ===================== */
@@ -684,7 +750,7 @@ function inferDepartment(userMessage, ticket) {
   if (hasCompany && /(demo|avtal|offert|pris)/i.test(txt)) return "sälj";
   return "support";
 }
-async function generateAIResponse(companyId, messages, userMessage) {
+async function generateAIResponse(companyId, messages, userMessage, abTone) {
   try {
     const company = await Company.findOne({ companyId });
     const ai = company?.settings?.ai || {};
@@ -759,7 +825,7 @@ async function generateAIResponse(companyId, messages, userMessage) {
     }
 
     const context = docs.map((d) => `[Fakta: ${d.title}]\n${d.content.slice(0, 1500)}`).join("\n\n");
-    const tone = company?.settings?.tone || "professional";
+    const tone = abTone || company?.settings?.tone || "professional";
 
     const systemPrompt = `Du är en AI‑kundtjänstagent för "${company?.displayName || "vår tjänst"}".
 Avdelning: ${dept.toUpperCase()}.
@@ -948,12 +1014,27 @@ app.post("/chat", authenticate, chatLimiter, async (req, res) => {
     const rules = ai?.rules || [];
     const assistantCount = (ticket.messages || []).filter(m => m.role === "assistant").length;
 
+    // Assign A/B variant if enabled and not already set
+    try {
+      const ab = ai?.ab || ai?.abTesting;
+      if (ab && ab.active && Array.isArray(ab.variants) && ab.variants.length > 0 && !ticket.abVariant?.name) {
+        const variant = ab.variants[Math.floor(Math.random() * ab.variants.length)];
+        ticket.abVariant = {
+          name: String(variant.name || ""),
+          tone: String(variant.tone || ""),
+          greeting: String(variant.greeting || "")
+        };
+      }
+    } catch (e) {
+      log(`AB ERROR: ${e.message}`);
+    }
+
     // AI Generation
     let reply = "";
     try {
       log("START AI GENERATION");
       if (io) io.emit("aiTyping", { ticketId: ticket._id, companyId });
-      reply = await generateAIResponse(companyId, ticket.messages, lastUserMsg);
+      reply = await generateAIResponse(companyId, ticket.messages, lastUserMsg, ticket.abVariant?.tone || undefined);
       log("FINISH AI GENERATION");
     } catch (aiErr) {
       log(`AI CRASH: ${aiErr.message}`);
@@ -1015,7 +1096,7 @@ app.post("/chat/summary", authenticate, summaryLimiter, async (req, res) => {
     const text = safeConv.map(m => `${m.role}: ${cleanText(m.content || "")}`).join("\n").slice(0, 4000);
 
     let summary = "";
-    if (!process.env.OPENAI_API_KEY || process.env.OPENAI_API_KEY.includes("INSERT")) {
+    if (process.env.NODE_ENV === "test" || !process.env.OPENAI_API_KEY || process.env.OPENAI_API_KEY.includes("INSERT")) {
       const sentences = text.split(/\.\s+/).slice(0, 6);
       const keyPoints = sentences.filter(s => s && s.length > 0).slice(0, 4);
       summary = keyPoints.map((s, i) => `${i + 1}. ${s.trim()}.`).join(" ");
@@ -1055,7 +1136,7 @@ app.get("/tickets/:id/summary", authenticate, summaryLimiter, async (req, res) =
 
     const text = (t.messages || []).map(m => `${m.role}: ${cleanText(m.content || "")}`).join("\n").slice(0, 4000);
     let summary = "";
-    if (!process.env.OPENAI_API_KEY || process.env.OPENAI_API_KEY.includes("INSERT")) {
+    if (process.env.NODE_ENV === "test" || !process.env.OPENAI_API_KEY || process.env.OPENAI_API_KEY.includes("INSERT")) {
       const items = text.split(/\n/).filter(Boolean).slice(-8);
       summary = items.map((s, i) => `${i + 1}. ${s}`).join(" ");
     } else {
@@ -1113,6 +1194,141 @@ app.get("/tickets/:id", authenticate, async (req, res) => {
   }
 });
 
+app.post("/ingest/email", async (req, res) => {
+  try {
+    const token = req.headers["x-webhook-token"];
+    if (process.env.EMAIL_WEBHOOK_TOKEN && !process.env.EMAIL_WEBHOOK_TOKEN.includes("INSERT")) {
+      if (!token || token !== process.env.EMAIL_WEBHOOK_TOKEN) return res.status(401).json({ error: "Fel token" });
+    }
+    const { from, subject, body, companyId } = req.body || {};
+    const email = String(from || "").trim().toLowerCase();
+    const comp = String(companyId || "demo").trim();
+    const title = String(subject || "").trim() || "Email ticket";
+    const text = cleanText(String(body || ""));
+    if (!email || !text) return res.status(400).json({ error: "Saknar avsändare eller innehåll" });
+    let user = await User.findOne({ email });
+    if (!user) {
+      const unameBase = email.replace(/[^a-z0-9]/g, "_").slice(0, 24) || "email_user";
+      let uname = unameBase;
+      let n = 0;
+      while (await User.findOne({ username: uname })) { n++; uname = unameBase + "_" + n; }
+      user = await new User({ username: uname, email, password: await bcrypt.hash(crypto.randomBytes(8).toString("hex"), 10), role: "user", companyId: comp }).save();
+    }
+    const t = new Ticket({ userId: user._id, companyId: comp, channel: "email", title, contactInfo: { email }, messages: [], priority: "normal" });
+    t.messages.push({ role: "user", content: text });
+    t.lastActivityAt = new Date();
+    await t.save();
+    try {
+      const reply = await generateAIResponse(comp, t.messages, text);
+      t.messages.push({ role: "assistant", content: reply });
+      t.lastActivityAt = new Date();
+      await t.save();
+    } catch (aiErr) {
+      console.log("EMAIL AI ERROR:", aiErr.message);
+    }
+    if (io) io.emit("ticketUpdate", { ticketId: t._id, companyId: comp, type: "created" });
+    res.json({ ticketId: t._id, publicTicketId: t.publicTicketId });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+app.post("/ingest/sms", async (req, res) => {
+  try {
+    const token = req.headers["x-webhook-token"];
+    if (process.env.SMS_WEBHOOK_TOKEN && !process.env.SMS_WEBHOOK_TOKEN.includes("INSERT")) {
+      if (!token || token !== process.env.SMS_WEBHOOK_TOKEN) return res.status(401).json({ error: "Fel token" });
+    }
+    const { from, text, companyId } = req.body || {};
+    const phone = String(from || "").trim();
+    const comp = String(companyId || "demo").trim();
+    const content = cleanText(String(text || ""));
+    if (!phone || !content) return res.status(400).json({ error: "Saknar avsändare eller innehåll" });
+    let user = await User.findOne({ username: phone });
+    if (!user) {
+      const uname = ("sms_" + phone.replace(/[^0-9]/g, "").slice(-12)) || ("sms_" + Date.now());
+      user = await new User({ username: uname, email: "", password: await bcrypt.hash(crypto.randomBytes(8).toString("hex"), 10), role: "user", companyId: comp }).save();
+    }
+    const t = new Ticket({ userId: user._id, companyId: comp, channel: "sms", title: content.slice(0, 50), contactInfo: { phone }, messages: [], priority: "normal" });
+    t.messages.push({ role: "user", content: content });
+    t.lastActivityAt = new Date();
+    await t.save();
+    try {
+      const reply = await generateAIResponse(comp, t.messages, content);
+      t.messages.push({ role: "assistant", content: reply });
+      t.lastActivityAt = new Date();
+      await t.save();
+    } catch (aiErr) {
+      console.log("SMS AI ERROR:", aiErr.message);
+    }
+    if (io) io.emit("ticketUpdate", { ticketId: t._id, companyId: comp, type: "created" });
+    res.json({ ticketId: t._id, publicTicketId: t.publicTicketId });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+app.post("/ingest/whatsapp", async (req, res) => {
+  try {
+    const token = req.headers["x-webhook-token"];
+    if (process.env.WHATSAPP_WEBHOOK_TOKEN && !process.env.WHATSAPP_WEBHOOK_TOKEN.includes("INSERT")) {
+      if (!token || token !== process.env.WHATSAPP_WEBHOOK_TOKEN) return res.status(401).json({ error: "Fel token" });
+    }
+    const { from, text, companyId } = req.body || {};
+    const phone = String(from || "").trim();
+    const comp = String(companyId || "demo").trim();
+    const content = cleanText(String(text || ""));
+    if (!phone || !content) return res.status(400).json({ error: "Saknar avsändare eller innehåll" });
+    let user = await User.findOne({ username: "wa_" + phone });
+    if (!user) {
+      const uname = ("wa_" + phone.replace(/[^0-9]/g, "").slice(-12)) || ("wa_" + Date.now());
+      user = await new User({ username: uname, email: "", password: await bcrypt.hash(crypto.randomBytes(8).toString("hex"), 10), role: "user", companyId: comp }).save();
+    }
+    const t = new Ticket({ userId: user._id, companyId: comp, channel: "whatsapp", title: content.slice(0, 50), contactInfo: { phone }, messages: [], priority: "normal" });
+    t.messages.push({ role: "user", content: content });
+    t.lastActivityAt = new Date();
+    await t.save();
+    try {
+      const reply = await generateAIResponse(comp, t.messages, content);
+      t.messages.push({ role: "assistant", content: reply });
+      t.lastActivityAt = new Date();
+      await t.save();
+    } catch (aiErr) {
+      console.log("WHATSAPP AI ERROR:", aiErr.message);
+    }
+    if (io) io.emit("ticketUpdate", { ticketId: t._id, companyId: comp, type: "created" });
+    res.json({ ticketId: t._id, publicTicketId: t.publicTicketId });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+// Facebook Messenger ingest
+app.post("/ingest/facebook", async (req, res) => {
+  try {
+    const token = req.headers["x-webhook-token"];
+    if (process.env.FACEBOOK_WEBHOOK_TOKEN && !process.env.FACEBOOK_WEBHOOK_TOKEN.includes("INSERT")) {
+      if (!token || token !== process.env.FACEBOOK_WEBHOOK_TOKEN) return res.status(401).json({ error: "Fel token" });
+    }
+    const { senderId, text, companyId } = req.body || {};
+    const sender = String(senderId || "").trim();
+    const comp = String(companyId || "demo").trim();
+    const content = cleanText(String(text || ""));
+    if (!sender || !content) return res.status(400).json({ error: "Saknar avsändare eller innehåll" });
+    let user = await User.findOne({ username: "fb_" + sender });
+    if (!user) {
+      const uname = ("fb_" + sender.replace(/[^a-zA-Z0-9]/g, "").slice(-24)) || ("fb_" + Date.now());
+      user = await new User({ username: uname, email: "", password: await bcrypt.hash(crypto.randomBytes(8).toString("hex"), 10), role: "user", companyId: comp }).save();
+    }
+    const t = new Ticket({ userId: user._id, companyId: comp, channel: "facebook", title: content.slice(0, 50), contactInfo: { social: "facebook", senderId: sender }, messages: [], priority: "normal" });
+    t.messages.push({ role: "user", content: content });
+    t.lastActivityAt = new Date();
+    await t.save();
+    try {
+      const reply = await generateAIResponse(comp, t.messages, content);
+      t.messages.push({ role: "assistant", content: reply });
+      t.lastActivityAt = new Date();
+      await t.save();
+    } catch (aiErr) {
+      console.log("FACEBOOK AI ERROR:", aiErr.message);
+    }
+    if (io) io.emit("ticketUpdate", { ticketId: t._id, companyId: comp, type: "created" });
+    res.json({ ticketId: t._id, publicTicketId: t.publicTicketId });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
 app.post("/tickets/:id/reply", authenticate, async (req, res) => {
   const ticket = await Ticket.findById(req.params.id);
   if (ticket.userId.toString() !== req.user.id) return res.status(403).json({ error: "Ej behörig" });
@@ -1136,10 +1352,11 @@ app.post("/tickets/:id/reply", authenticate, async (req, res) => {
    Inbox (Agent)
 ===================== */
 app.get("/inbox/tickets", authenticate, requireAgent, async (req, res) => {
-  const { status, companyId } = req.query;
+  const { status, companyId, channel } = req.query;
   const q = {};
   if (status) q.status = status;
   if (companyId) q.companyId = companyId;
+  if (channel) q.channel = channel;
   const tickets = await Ticket.find(q).sort({ lastActivityAt: -1 }).limit(1000);
   res.json(tickets);
 });
@@ -1173,6 +1390,7 @@ app.post("/inbox/tickets/:id/reply", authenticate, requireAgent, async (req, res
     t.status = "pending"; // Auto-status change when agent replies
     t.lastActivityAt = new Date();
     await t.save();
+    if (io) io.emit("ticketUpdate", { ticketId: t._id, companyId: t.companyId, type: "agentReply" });
     res.json({ message: "Svarat" });
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
@@ -1181,8 +1399,9 @@ app.post("/inbox/tickets/:id/note", authenticate, requireAgent, async (req, res)
   try {
     const t = await Ticket.findById(req.params.id);
     if (!t) return res.status(404).json({ error: "Ticket hittades ej" });
-    t.internalNotes.push({ createdBy: req.user.id, content: req.body.content, createdAt: new Date() });
+    t.internalNotes.push({ createdBy: req.user.id, content: cleanText(req.body.content), createdAt: new Date() });
     await t.save();
+    if (io) io.emit("noteUpdate", { ticketId: t._id, companyId: t.companyId, action: "added" });
     res.json({ message: "Note sparad" });
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
@@ -1193,6 +1412,7 @@ app.patch("/tickets/:id/assign", authenticate, requireAgent, async (req, res) =>
     if (!t) return res.status(404).json({ error: "Ej hittad" });
     t.assignedToUserId = req.body.assignedToUserId;
     await t.save();
+    if (io) io.emit("assignmentUpdate", { ticketId: t._id, companyId: t.companyId, assignedToUserId: t.assignedToUserId });
     res.json(t);
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
@@ -1210,6 +1430,7 @@ app.delete("/inbox/tickets/:id/notes", authenticate, requireAgent, async (req, r
     if (!t) return res.status(404).json({ error: "Ticket hittades ej" });
     t.internalNotes = [];
     await t.save();
+    if (io) io.emit("noteUpdate", { ticketId: t._id, companyId: t.companyId, action: "cleared" });
     res.json({ message: "Notes raderade" });
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
@@ -1221,6 +1442,7 @@ app.patch("/inbox/tickets/:id/assign", authenticate, requireAgent, async (req, r
     if (!t) return res.status(404).json({ error: "Ticket hittades ej" });
     t.assignedToUserId = userId || null;
     await t.save();
+    if (io) io.emit("assignmentUpdate", { ticketId: t._id, companyId: t.companyId, assignedToUserId: t.assignedToUserId });
     res.json({ message: "Ticket tilldelad" });
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
@@ -2250,6 +2472,34 @@ app.get("/ai/analytics", authenticate, requireAgent, async (req, res) => {
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
+// A/B Testing analytics
+app.get("/ai/ab-stats", authenticate, requireAgent, async (req, res) => {
+  try {
+    const { companyId } = req.query;
+    const filter = companyId ? { companyId } : {};
+    const tickets = await Ticket.find(filter);
+    const groups = {};
+    tickets.forEach(t => {
+      const key = t.abVariant?.name || "unknown";
+      if (!groups[key]) groups[key] = { total: 0, solved: 0, escalated: 0, ratings: [] };
+      groups[key].total += 1;
+      if (t.status === "solved") {
+        groups[key].solved += 1;
+        if (t.csatRating) groups[key].ratings.push(t.csatRating);
+      }
+      if (t.assignedToUserId) groups[key].escalated += 1;
+    });
+    const stats = Object.entries(groups).map(([name, g]) => ({
+      name,
+      total: g.total,
+      solvedRate: g.total > 0 ? ((g.solved / g.total) * 100).toFixed(1) : "0.0",
+      escalationRate: g.total > 0 ? ((g.escalated / g.total) * 100).toFixed(1) : "0.0",
+      avgCsat: g.ratings.length ? (g.ratings.reduce((a, b) => a + b, 0) / g.ratings.length).toFixed(1) : "Ej beräknat"
+    }));
+    res.json({ variants: stats });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
 // Extended Agent Performance
 app.get("/sla/agents/detailed", authenticate, requireAgent, async (req, res) => {
   try {
@@ -2585,6 +2835,7 @@ app.post("/crm/customers/sync", authenticate, async (req, res) => {
     }));
 
     if (ops.length > 0) await CrmCustomer.bulkWrite(ops);
+    if (io) io.emit("crmUpdate", { companyId });
     res.json({ message: "Kunder synkade" });
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
@@ -2604,6 +2855,7 @@ app.post("/crm/deals/sync", authenticate, async (req, res) => {
     }));
 
     if (ops.length > 0) await CrmDeal.bulkWrite(ops);
+    if (io) io.emit("crmUpdate", { companyId });
     res.json({ message: "Pipeline synkad" });
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
@@ -2623,6 +2875,7 @@ app.post("/crm/activities/sync", authenticate, async (req, res) => {
     }));
 
     if (ops.length > 0) await CrmActivity.bulkWrite(ops);
+    if (io) io.emit("crmUpdate", { companyId });
     res.json({ message: "Aktiviteter synkade" });
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
@@ -2637,9 +2890,18 @@ app.get(/(.*)/, (req, res) => {
 /* =====================
    Socket.io
 ===================== */
+const onlineAgents = new Map();
 io.on("connection", (socket) => {
   console.log("⚡ Ny klient ansluten:", socket.id);
-  socket.on("disconnect", () => console.log("🔌 Klient bortkopplad"));
+  socket.on("agentOnline", (data) => {
+    onlineAgents.set(socket.id, { username: String(data?.username || "okänd"), role: String(data?.role || "agent") });
+    io.emit("presenceUpdate", Array.from(onlineAgents.values()));
+  });
+  socket.on("disconnect", () => {
+    console.log("🔌 Klient bortkopplad");
+    onlineAgents.delete(socket.id);
+    io.emit("presenceUpdate", Array.from(onlineAgents.values()));
+  });
 });
 
 const PORT = process.env.PORT || 3000;

@@ -240,11 +240,12 @@ function renderAiFlows() {
   const list = $("aiFlowList");
   if (!list) return;
   list.innerHTML = state.aiFlows.length ? state.aiFlows.map((step, i) => `
-    <div class="listItem">
+    <div class="listItem" draggable="true" data-index="${i}">
       <div class="listItemTitle"><span class="pill">${i + 1}</span> <b>${escapeHtml(step.type)}</b> – ${escapeHtml(step.text || "")}
         <span style="margin-left:auto; display:flex; gap:6px;">
           <button class="btn ghost tiny" data-act="up" data-i="${i}"><i class="fa-solid fa-arrow-up"></i></button>
           <button class="btn ghost tiny" data-act="down" data-i="${i}"><i class="fa-solid fa-arrow-down"></i></button>
+          <button class="btn ghost tiny" data-act="edit" data-i="${i}"><i class="fa-solid fa-pen"></i></button>
           <button class="btn ghost tiny danger" data-act="del" data-i="${i}"><i class="fa-solid fa-trash"></i></button>
         </span>
       </div>
@@ -255,8 +256,39 @@ function renderAiFlows() {
       const act = btn.getAttribute("data-act"); const i = parseInt(btn.getAttribute("data-i"));
       if (act === "up" && i > 0) { const tmp = state.aiFlows[i - 1]; state.aiFlows[i - 1] = state.aiFlows[i]; state.aiFlows[i] = tmp; }
       if (act === "down" && i < state.aiFlows.length - 1) { const tmp = state.aiFlows[i + 1]; state.aiFlows[i + 1] = state.aiFlows[i]; state.aiFlows[i] = tmp; }
+      if (act === "edit") {
+        const cur = state.aiFlows[i];
+        const nv = prompt("Ändra stegtext:", String(cur.text || ""));
+        if (nv !== null) { state.aiFlows[i] = { ...cur, text: nv.trim() }; }
+      }
       if (act === "del") { state.aiFlows.splice(i, 1); }
       renderAiFlows();
+    });
+  });
+  list.querySelectorAll(".listItem").forEach(item => {
+    item.addEventListener("dragstart", (e) => {
+      e.dataTransfer.setData("text/plain", item.getAttribute("data-index"));
+      item.style.opacity = "0.6";
+    });
+    item.addEventListener("dragend", () => {
+      item.style.opacity = "";
+    });
+    item.addEventListener("dragover", (e) => {
+      e.preventDefault();
+      item.style.borderColor = "var(--primary)";
+    });
+    item.addEventListener("dragleave", () => {
+      item.style.borderColor = "var(--border)";
+    });
+    item.addEventListener("drop", (e) => {
+      e.preventDefault();
+      const from = parseInt(e.dataTransfer.getData("text/plain"));
+      const to = parseInt(item.getAttribute("data-index"));
+      if (!isNaN(from) && !isNaN(to) && from !== to) {
+        const moved = state.aiFlows.splice(from, 1)[0];
+        state.aiFlows.splice(to, 0, moved);
+        renderAiFlows();
+      }
     });
   });
   const verSel = $("aiFlowVersionSelect");
@@ -264,6 +296,21 @@ function renderAiFlows() {
     verSel.innerHTML = state.aiFlowVersions.map(v => `<option value="${escapeHtml(v.id)}">${new Date(v.ts).toLocaleString()}</option>`).join("");
   }
 }
+document.addEventListener("DOMContentLoaded", () => {
+  if (!$("globalErr")) {
+    const d = document.createElement("div");
+    d.id = "globalErr";
+    d.style.cssText = "position:fixed;bottom:10px;right:10px;z-index:9999;max-width:420px;padding:10px;border-radius:8px;background:#ffefef;color:#900;border:1px solid #f99;display:none;";
+    document.body.appendChild(d);
+  }
+  window.addEventListener("error", (e) => {
+    const b = $("globalErr");
+    if (b) {
+      b.textContent = "Fel: " + (e.message || "Okänt fel");
+      b.style.display = "";
+    }
+  });
+});
 
 function renderAiSegmenting() {
   const sel = $("segProfileSelect");
@@ -316,13 +363,24 @@ function renderAiAnalyticsBox() {
   if (!box) return;
   const a = state.aiAnalytics;
   if (!a) { box.innerHTML = '<div class="muted small">Ingen analys ännu.</div>'; return; }
-  box.innerHTML = `
+  let html = `
     <div class="listItem"><div class="listItemTitle">CSAT Snitt: <b>${escapeHtml(a.avgCsat)}</b></div></div>
     <div class="listItem"><div class="listItemTitle">Eskalering: <b>${escapeHtml(a.escalationRate)}%</b></div></div>
     <div class="listItem"><div class="listItemTitle">Missförstånd: <b>${escapeHtml(a.misunderstandingRate)}%</b></div></div>
     <div class="listItem"><div class="listItemTitle">Förbättringsförslag</div></div>
     ${(a.suggestions || []).map(s => `<div class="listItem"><div>${escapeHtml(s)}</div></div>`).join("")}
   `;
+  const ab = state.aiAbStats;
+  if (ab && Array.isArray(ab.variants)) {
+    html += `<div class="divider"></div><div class="listItem"><div class="listItemTitle">A/B‑varianter</div></div>`;
+    html += ab.variants.map(v => `
+      <div class="listItem">
+        <div class="listItemTitle"><b>${escapeHtml(v.name)}</b> — Tickets: ${escapeHtml(String(v.total))}</div>
+        <div class="muted small">Solved: ${escapeHtml(v.solvedRate)}% • Escalation: ${escapeHtml(v.escalationRate)}% • CSAT: ${escapeHtml(v.avgCsat)}</div>
+      </div>
+    `).join("");
+  }
+  box.innerHTML = html;
 }
 
 function updateRoleUI() {
@@ -717,6 +775,23 @@ async function loadCompanies() {
   renderChatHeader();
 }
 
+async function chooseAbVariant() {
+  try {
+    const settings = await api(`/company/settings?companyId=${encodeURIComponent(state.companyId)}`);
+    const ab = settings?.ai?.ab || settings?.ai?.abTesting;
+    if (ab && ab.active && Array.isArray(ab.variants) && ab.variants.length > 0) {
+      const v = ab.variants[Math.floor(Math.random() * ab.variants.length)];
+      state.abVariant = v;
+      const subtitle = $("chatSubtitle");
+      if (subtitle && v.greeting) subtitle.textContent = v.greeting;
+    } else {
+      state.abVariant = null;
+    }
+  } catch {
+    state.abVariant = null;
+  }
+}
+
 /* Switch between companies */
 async function switchCompany(newCompanyId) {
   if (!newCompanyId || newCompanyId === state.companyId) return;
@@ -808,6 +883,10 @@ async function bootstrapAfterLogin() {
   const current = state.companyId || 'demo';
   state.companyId = null;
   await switchCompany(current);
+
+  try {
+    await chooseAbVariant();
+  } catch {}
 }
 
 /* =========================
@@ -833,7 +912,8 @@ async function sendChat() {
         companyId: state.companyId,
         conversation: state.conversation,
         ticketId: state.activeTicketId || undefined,
-        contactInfo: state.userContactInfo || (sessionStorage.getItem('contactInfo') ? JSON.parse(sessionStorage.getItem('contactInfo')) : undefined)
+        contactInfo: state.userContactInfo || (sessionStorage.getItem('contactInfo') ? JSON.parse(sessionStorage.getItem('contactInfo')) : undefined),
+        abVariant: state.abVariant || undefined
       },
     });
 
@@ -1181,6 +1261,7 @@ async function selectInboxTicket(ticketId) {
                 <span class="pill muted">#${escapeHtml(t.publicTicketId)}</span>
                 <span class="pill ${t.status === 'solved' ? 'ok' : t.status === 'high' ? 'danger' : 'info'}">${escapeHtml(t.status?.toUpperCase())}</span>
                 <span class="muted small"><i class="fa-solid fa-building" style="font-size:10px;"></i> ${escapeHtml(t.companyId || 'demo')}</span>
+                <span class="pill small">${escapeHtml(t.channel || 'chat')}</span>
                 
                 <!-- CUSTOMER CARD BUTTON - More prominent placement -->
                 <button class="btn ${t.contactInfo && (t.contactInfo.name || t.contactInfo.email) ? 'primary' : 'ghost'} tiny" 
@@ -1213,14 +1294,16 @@ async function selectInboxTicket(ticketId) {
 
     // Show internal notes (orphaned fix)
     if (t.internalNotes && t.internalNotes.length > 0) {
-      const notesHtml = t.internalNotes.map(n => `
-            <div class="alert info tiny" style="margin-top:5px; border-style:dashed;">
+      const notesHtml = t.internalNotes.map(n => {
+        const ts = n.createdAt ? new Date(n.createdAt).toLocaleString() : "";
+        return `<div class="alert info tiny" style="margin-top:5px; border-style:dashed;">
                 <i class="fa-solid fa-note-sticky"></i> ${escapeHtml(n.content)}
-            </div>
-          `).join("");
+                <span class="muted tiny" style="margin-left:8px;">${escapeHtml(ts)}</span>
+            </div>`;
+      }).join("");
       box.innerHTML += `
             <div style="margin-top:15px;">
-                <b>Interna noter:</b>
+                <b>Interna noter (${t.internalNotes.length}):</b>
                 ${notesHtml}
             </div>
           `;
@@ -2344,11 +2427,22 @@ async function loadKb() {
       div.className = "listItem";
 
       const icon = d.sourceType === "pdf" ? "fa-file-pdf" : d.sourceType === "url" ? "fa-link" : "fa-file-lines";
+      const snippet = (d.content || "").slice(0, 160);
+      const len = (d.content || "").length;
 
       div.innerHTML = `
         <div class="listItemTitle">
           <i class="fa-solid ${icon}"></i> ${escapeHtml(d.title)} 
           <span class="muted small">(${d.sourceType})</span>
+        </div>
+        <div class="muted tiny" style="margin-top:4px;">
+          ${escapeHtml(snippet)}${len > 160 ? "..." : ""} <span class="muted tiny">· ${len} tecken</span>
+        </div>
+        <div style="margin-top:6px;">
+          <button class="btn ghost tiny" data-more="${d._id}">Visa mer</button>
+        </div>
+        <div class="muted tiny" id="kbFull_${d._id}" style="display:none; margin-top:4px;">
+          ${escapeHtml(d.content || "")}
         </div>
       `;
 
@@ -2357,7 +2451,7 @@ async function loadKb() {
       delBtn.innerHTML = '<i class="fa-solid fa-trash"></i>';
       delBtn.onclick = async (e) => {
         e.stopPropagation();
-        if (!confirm(`Ta bort "${d.title}"?`)) return;
+        if (!confirm('Ta bort "' + (d.title || "") + '"?')) return;
         await api("/admin/kb/" + d._id, { method: "DELETE" });
         await loadKb();
       };
@@ -2365,15 +2459,99 @@ async function loadKb() {
       div.appendChild(delBtn);
       list.appendChild(div);
     });
+    list.querySelectorAll("button[data-more]").forEach(btn => {
+      btn.addEventListener("click", () => {
+        const id = btn.getAttribute("data-more");
+        const el = $(`kbFull_${id}`);
+        if (el) el.style.display = el.style.display === "none" || el.style.display === "" ? "" : "none";
+      });
+    });
   } catch (e) {
     list.textContent = "Fel: " + e.message;
   }
 }
 
+async function searchKb() {
+  const companyId = $("kbCategorySelect")?.value || "demo";
+  const q = $("kbSearchInput")?.value.trim() || "";
+  const list = $("kbList");
+  if (!list) return;
+  if (!q) return loadKb();
+  try {
+    const docs = await api(`/kb/search?companyId=${encodeURIComponent(companyId)}&q=${encodeURIComponent(q)}`);
+    list.innerHTML = "";
+    if (docs.length === 0) {
+      list.innerHTML = "<div class='muted small'>Inga träffar.</div>";
+      return;
+    }
+    docs.forEach((d) => {
+      const div = document.createElement("div");
+      div.className = "listItem";
+      const icon = d.sourceType === "pdf" ? "fa-file-pdf" : d.sourceType === "url" ? "fa-link" : "fa-file-lines";
+      const snippet = (d.content || "").slice(0, 160);
+      const len = (d.content || "").length;
+      const snippetEsc = escapeHtml(snippet);
+      const rx = new RegExp(q.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "gi");
+      const snippetHl = snippetEsc.replace(rx, (m) => `<mark>${m}</mark>`);
+      div.innerHTML = `
+        <div class="listItemTitle">
+          <i class="fa-solid ${icon}"></i> ${escapeHtml(d.title)} 
+          <span class="muted small">(${d.sourceType})</span>
+        </div>
+        <div class="muted tiny" style="margin-top:4px;">
+          ${snippetHl}${len > 160 ? "..." : ""} <span class="muted tiny">· ${len} tecken</span>
+        </div>
+        <div style="margin-top:6px;">
+          <button class="btn ghost tiny" data-more="${d._id}">Visa mer</button>
+        </div>
+        <div class="muted tiny" id="kbFull_${d._id}" style="display:none; margin-top:4px;">
+          ${escapeHtml(d.content || "")}
+        </div>
+      `;
+      const delBtn = document.createElement("button");
+      delBtn.className = "btn ghost small danger";
+      delBtn.innerHTML = '<i class="fa-solid fa-trash"></i>';
+      delBtn.onclick = async (e) => {
+        e.stopPropagation();
+        if (!confirm('Ta bort "' + (d.title || "") + '"?')) return;
+        await api("/admin/kb/" + d._id, { method: "DELETE" });
+        await searchKb();
+      };
+      div.appendChild(delBtn);
+      list.appendChild(div);
+    });
+    list.querySelectorAll("button[data-more]").forEach(btn => {
+      btn.addEventListener("click", () => {
+        const id = btn.getAttribute("data-more");
+        const el = $(`kbFull_${id}`);
+        if (el) el.style.display = el.style.display === "none" || el.style.display === "" ? "" : "none";
+      });
+    });
+  } catch (e) {
+    list.textContent = "Fel: " + e.message;
+  }
+}
+function kbEditorGetText() {
+  const ed = $("kbTextEditor");
+  if (ed) return (ed.innerText || "").trim();
+  const ta = $("kbTextContent");
+  return (ta?.value || "").trim();
+}
+
+function kbUpdateEditorCount() {
+  const cnt = $("kbEditorCount");
+  if (cnt) cnt.textContent = `${kbEditorGetText().length} tecken`;
+}
+
+function kbEditorExec(cmd) {
+  try { document.execCommand(cmd, false, null); } catch {}
+  kbUpdateEditorCount();
+}
+
 async function uploadKbText() {
   const companyId = $("kbCategorySelect")?.value || "demo";
   const title = $("kbTextTitle")?.value.trim();
-  const content = $("kbTextContent")?.value.trim();
+  const content = kbEditorGetText();
 
   if (!title || !content) return toast("Saknas", "Fyll i titel och innehåll", "error");
 
@@ -2381,7 +2559,9 @@ async function uploadKbText() {
     await api("/admin/kb/text", { method: "POST", body: { companyId, title, content } });
     toast("Sparat", "Textblock sparad", "info");
     $("kbTextTitle").value = "";
-    $("kbTextContent").value = "";
+    const ed = $("kbTextEditor");
+    if (ed) ed.innerText = "";
+    kbUpdateEditorCount();
     await loadKb();
   } catch (e) {
     toast("Fel", e.message, "error");
@@ -3351,13 +3531,20 @@ function renderInboxList() {
   const list = $("inboxTicketsList");
   if (!list) return;
   list.innerHTML = "";
-  const total = state.inboxTickets.length;
+  const q = ($("inboxSearchInput")?.value || "").trim().toLowerCase();
+  const filtered = q ? state.inboxTickets.filter(t => {
+    const title = String(t.title || "").toLowerCase();
+    const id = String(t.publicTicketId || "").toLowerCase();
+    const comp = String(t.companyId || "").toLowerCase();
+    return title.includes(q) || id.includes(q) || comp.includes(q);
+  }) : state.inboxTickets;
+  const total = filtered.length;
   if (total === 0) {
     list.innerHTML = `<div class="muted small">Inga tickets hittades.</div>`;
     return;
   }
   const end = Math.min(total, state.inboxPage * state.inboxPageSize);
-  const items = state.inboxTickets.slice(0, end);
+  const items = filtered.slice(0, end);
   const frag = document.createDocumentFragment();
   items.forEach((t) => {
     const div = document.createElement("div");
@@ -3396,9 +3583,10 @@ async function loadInboxTickets() {
   try {
     const status = $("inboxStatusFilter")?.value || "";
     const companyId = $("inboxCategoryFilter")?.value || "";
+    const channel = $("inboxChannelFilter")?.value || "";
     state.inboxLoadSeq = (state.inboxLoadSeq || 0) + 1;
     const seq = state.inboxLoadSeq;
-    const tickets = await api(`/inbox/tickets?status=${encodeURIComponent(status)}&companyId=${encodeURIComponent(companyId)}`);
+    const tickets = await api(`/inbox/tickets?status=${encodeURIComponent(status)}&companyId=${encodeURIComponent(companyId)}&channel=${encodeURIComponent(channel)}`);
     if (seq !== state.inboxLoadSeq) return;
     state.inboxTickets = tickets || [];
     renderInboxList();
@@ -3428,6 +3616,7 @@ async function selectInboxTicket(ticketId) {
                 <span class="pill muted">#${escapeHtml(t.publicTicketId)}</span>
                 <span class="pill ${t.status === 'solved' ? 'ok' : t.status === 'high' ? 'danger' : 'info'}">${escapeHtml(t.status?.toUpperCase())}</span>
                 <span class="muted small"><i class="fa-solid fa-building" style="font-size:10px;"></i> ${escapeHtml(t.companyId || 'demo')}</span>
+                <span class="pill small">${escapeHtml(t.channel || 'chat')}</span>
                 
                 <!-- CUSTOMER CARD BUTTON -->
                 <button class="btn ${t.contactInfo && (t.contactInfo.name || t.contactInfo.email) ? 'primary' : 'ghost'} tiny" 
@@ -3452,8 +3641,11 @@ async function selectInboxTicket(ticketId) {
     if (priSel) priSel.value = t.priority || "normal";
 
     if (t.internalNotes && t.internalNotes.length > 0) {
-      const notesHtml = t.internalNotes.map(n => `<div class="alert info tiny" style="margin-top:5px; border-style:dashed;"><i class="fa-solid fa-note-sticky"></i> ${escapeHtml(n.content)}</div>`).join("");
-      box.innerHTML += `<div style="margin-top:15px;"><b>Interna noter:</b>${notesHtml}</div>`;
+      const notesHtml = t.internalNotes.map(n => {
+        const ts = n.createdAt ? new Date(n.createdAt).toLocaleString() : "";
+        return `<div class="alert info tiny" style="margin-top:5px; border-style:dashed;"><i class="fa-solid fa-note-sticky"></i> ${escapeHtml(n.content)} <span class="muted tiny" style="margin-left:8px;">${escapeHtml(ts)}</span></div>`;
+      }).join("");
+      box.innerHTML += `<div style="margin-top:15px;"><b>Interna noter (${t.internalNotes.length}):</b>${notesHtml}</div>`;
     }
     const userSel = $("assignUserSelect");
     if (userSel) userSel.value = t.assignedToUserId || "";
@@ -4539,6 +4731,10 @@ function bindEvents() {
       await loadInboxTickets();
     } catch (e) { toast("Fel", e.message, "error"); }
   });
+  on("inboxSearchInput", "input", () => {
+    state.inboxPage = 1;
+    renderInboxList();
+  });
   on("setStatusOpen", "click", () => setInboxStatus("open"));
   on("setStatusPending", "click", () => setInboxStatus("pending"));
   on("setStatusSolved", "click", () => setInboxStatus("solved"));
@@ -4743,7 +4939,9 @@ function bindEvents() {
   on("aiUpdateAnalyticsBtn", "click", async () => {
     try {
       const a = await api(`/ai/analytics?companyId=${encodeURIComponent(state.companyId)}`);
+      const ab = await api(`/ai/ab-stats?companyId=${encodeURIComponent(state.companyId)}`);
       state.aiAnalytics = a;
+      state.aiAbStats = ab;
       renderAiAnalyticsBox();
       renderAiDashboardStats();
     } catch (e) { toast("Fel", e.message, "error"); }
@@ -4790,7 +4988,33 @@ function bindEvents() {
   on("kbUploadTextBtn", "click", uploadKbText);
   on("kbUploadUrlBtn", "click", uploadKbUrl);
   on("kbUploadPdfBtn", "click", uploadKbPdf);
+  on("kbGenerateFromTicketBtn", "click", kbGenerateFromTicket);
   on("kbCategorySelect", "change", loadKb); // reload when changing KB company dropdown
+  on("kbSearchInput", "input", () => {
+    clearTimeout(window.__kbSearchDeb);
+    window.__kbSearchDeb = setTimeout(searchKb, 250);
+  });
+  on("kbEditorBoldBtn", "click", () => kbEditorExec("bold"));
+  on("kbEditorItalicBtn", "click", () => kbEditorExec("italic"));
+  on("kbEditorUnderlineBtn", "click", () => kbEditorExec("underline"));
+  on("kbEditorBulletsBtn", "click", () => kbEditorExec("insertUnorderedList"));
+  on("kbEditorClearBtn", "click", () => {
+    const ed = $("kbTextEditor");
+    if (ed) { ed.innerText = ed.innerText || ""; kbUpdateEditorCount(); }
+  });
+  {
+    const ed = $("kbTextEditor");
+    if (ed) {
+      ed.addEventListener("input", kbUpdateEditorCount);
+      ed.addEventListener("paste", (e) => {
+        e.preventDefault();
+        const text = (e.clipboardData || window.clipboardData).getData("text");
+        try { document.execCommand("insertText", false, text); } catch { ed.innerText += text; }
+        kbUpdateEditorCount();
+      });
+      kbUpdateEditorCount();
+    }
+  }
 
   // ✅ CRM
   on("openCustomerAdminView", "click", async () => {
@@ -4947,6 +5171,22 @@ function bindEvents() {
   });
 }
 
+async function kbGenerateFromTicket() {
+  try {
+    const tId = prompt("Ticket ID?");
+    if (!tId) return;
+    const title = prompt("Titel för artikel (valfritt)");
+    const companyId = $("kbCategorySelect")?.value || state.companyId || "demo";
+    const res = await api("/admin/kb/generate-from-ticket", {
+      method: "POST",
+      body: { companyId, ticketId: tId, title: title || undefined }
+    });
+    toast("KB", "Artikel genererad ✅", "info");
+    await loadKb();
+  } catch (e) {
+    toast("Fel", e.message, "error");
+  }
+}
 function renderAiDashboardStats() {
   const setStatus = (elId, status) => {
     const el = $(elId);
@@ -5158,6 +5398,25 @@ function initSocket() {
     if (typeof renderCrmDashboard === "function") renderCrmDashboard();
   });
 
+  socket.on("noteUpdate", (data) => {
+    if (state.currentView === "inboxView") {
+      if (state.inboxSelectedTicket?._id === data.ticketId) {
+        selectInboxTicket(data.ticketId);
+      } else {
+        loadInboxTickets();
+      }
+    }
+  });
+
+  socket.on("assignmentUpdate", (data) => {
+    if (state.currentView === "inboxView") {
+      if (state.inboxSelectedTicket?._id === data.ticketId) {
+        selectInboxTicket(data.ticketId);
+      }
+      loadInboxTickets();
+    }
+  });
+
   socket.on("newImportantTicket", (data) => {
     toast("Viktigt!", "Nytt brådskande ärende: " + data.title, "warning");
 
@@ -5186,6 +5445,28 @@ function initSocket() {
       // Logic to show typing for agent (optional)
     }
   });
+
+  socket.on("crmUpdate", (data) => {
+    if (typeof window.syncCrmData === "function") {
+      window.syncCrmData();
+    }
+  });
+
+  socket.on("presenceUpdate", (list) => {
+    state.agentsOnline = Array.isArray(list) ? list : [];
+    const count = state.agentsOnline.length;
+    if (["agent","admin"].includes(state.me?.role)) {
+      toast("Närvaro", `Agenter online: ${count}`, "info");
+    }
+    const sub = $("inboxSubtitle");
+    if (sub) {
+      sub.textContent = `Hantera inkomna ärenden (agent/admin). Online: ${count}`;
+    }
+  });
+
+  if (["agent","admin"].includes(state.me?.role)) {
+    socket.emit("agentOnline", { username: state.me?.username || "agent", role: state.me?.role || "agent" });
+  }
 }
 
 function playAlert() {
