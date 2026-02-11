@@ -5691,7 +5691,7 @@ function initSocket() {
 
   socket.on("crmUpdate", (data) => {
     if (typeof window.syncCrmData === "function") {
-      window.syncCrmData();
+      window.syncCrmData(false, data?.companyId);
     }
     if (typeof refreshCustomers === "function") {
       refreshCustomers();

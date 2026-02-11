@@ -14,9 +14,9 @@ if (typeof window.crmState === 'undefined') {
 /**
  * SYNC CRM DATA WITH BACKEND (Multi-device support)
  */
-window.syncCrmData = async function (manual = false) {
+window.syncCrmData = async function (manual = false, companyIdOverride) {
     if (!window.api || !window.state || !window.state.token) return;
-    const companyId = window.state.companyId || (window.state.me ? window.state.me.companyId : 'demo');
+    const companyId = companyIdOverride || window.state.companyId || (window.state.me ? window.state.me.companyId : 'demo');
 
     if (manual) console.log("🔄 Manual Sync initiated...");
 
@@ -68,41 +68,62 @@ window.syncCrmData = async function (manual = false) {
 window.pushCrmToBackend = async function (type) {
     if (!window.api || !window.state || !window.state.token || !window.state.me) return;
     const companyId = window.state.companyId || (window.state.me ? window.state.me.companyId : 'demo');
-
-    try {
-        if (type === 'customers' || !type) {
+    const setFlag = (k, v) => { try { localStorage.setItem(k, v ? 'true' : 'false'); } catch {} };
+    if (type === 'customers' || !type) {
+        try {
             const customers = JSON.parse(localStorage.getItem('crmCustomers') || '[]');
-            await api('/crm/customers/sync', {
-                method: 'POST',
-                body: { companyId, customers }
-            });
+            await api('/crm/customers/sync', { method: 'POST', body: { companyId, customers } });
+            setFlag('crmUnsyncedCustomers', false);
+        } catch (e) {
+            setFlag('crmUnsyncedCustomers', true);
+            console.error("Cloud Push Failed:", e.message);
         }
-        if (type === 'deals' || !type) {
-            const deals = JSON.parse(localStorage.getItem('crmDeals') || '[]');
-            await api('/crm/deals/sync', {
-                method: 'POST',
-                body: { companyId, deals }
-            });
-        }
-        if (type === 'activities' || !type) {
-            const activities = JSON.parse(localStorage.getItem('crmActivities') || '[]');
-            // Filter to only send recent ones if needed, or just send provide
-            await api('/crm/activities/sync', {
-                method: 'POST',
-                body: { companyId, activities: activities.slice(0, 50) }
-            });
-        }
-    } catch (e) {
-        console.error("Cloud Push Failed:", e.message);
     }
+    if (type === 'deals' || !type) {
+        try {
+            const deals = JSON.parse(localStorage.getItem('crmDeals') || '[]');
+            await api('/crm/deals/sync', { method: 'POST', body: { companyId, deals } });
+            setFlag('crmUnsyncedDeals', false);
+        } catch (e) {
+            setFlag('crmUnsyncedDeals', true);
+            console.error("Cloud Push Failed:", e.message);
+        }
+    }
+    if (type === 'activities' || !type) {
+        try {
+            const activities = JSON.parse(localStorage.getItem('crmActivities') || '[]');
+            await api('/crm/activities/sync', { method: 'POST', body: { companyId, activities: activities.slice(0, 50) } });
+            setFlag('crmUnsyncedActivities', false);
+        } catch (e) {
+            setFlag('crmUnsyncedActivities', true);
+            console.error("Cloud Push Failed:", e.message);
+        }
+    }
+};
+
+window.flushCrmUnsynced = async function () {
+    if (!window.state || !window.state.token) return;
+    const needsCust = localStorage.getItem('crmUnsyncedCustomers') === 'true';
+    const needsDeals = localStorage.getItem('crmUnsyncedDeals') === 'true';
+    const needsActs = localStorage.getItem('crmUnsyncedActivities') === 'true';
+    if (needsCust) await window.pushCrmToBackend('customers');
+    if (needsDeals) await window.pushCrmToBackend('deals');
+    if (needsActs) await window.pushCrmToBackend('activities');
 };
 
 // Auto-sync when window gains focus
 window.addEventListener('focus', () => {
     if (window.state && window.state.token) {
+        window.flushCrmUnsynced();
         window.syncCrmData();
     }
 });
+
+setInterval(() => {
+    if (window.state && window.state.token) {
+        window.flushCrmUnsynced();
+    }
+}, 15000);
 
 /**
  * Sync CRM Customers (AI Active) to Chat Dropdown
