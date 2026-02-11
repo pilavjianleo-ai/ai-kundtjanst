@@ -2855,10 +2855,10 @@ async function refreshCustomers() {
 }
 
 // Real-time CRM sync for the active company
-async function syncCrmData() {
+async function syncCrmData(companyIdOverride) {
   try {
-    const companyId = state.companyId || state.currentCompany?.companyId || "demo";
-    const res = await api(`/crm/state?companyId=${encodeURIComponent(companyId)}`);
+    const companyId = companyIdOverride || state.companyId || state.currentCompany?.companyId || "demo";
+    const res = await api(`/crm/sync?companyId=${encodeURIComponent(companyId)}`);
     const data = res || {};
     window.crmState = window.crmState || { customers: [], deals: [], activities: [], stats: {} };
     crmData = window.crmState;
