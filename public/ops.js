@@ -370,8 +370,7 @@ async function buildInsights({ tickets, events }) {
       impact: withoutAgent.length ? `${withoutAgent.length} unowned conversations` : "Low impact",
       confidence: 0.74,
       cta: "Fix in AI Control Center",
-      next: "Adjust Automations for better failover assignment.",
-      route: "ai-control-center"
+      action: () => { window.gotoAiOs("flows"); }
     },
     {
       sev: "ok",
@@ -381,8 +380,7 @@ async function buildInsights({ tickets, events }) {
       impact: `${Math.round(estLift * 100)}% conversion lift`,
       confidence: 0.68,
       cta: "Optimize in AI Control Center",
-      next: "Tweak AI Behavior Engine for faster first response.",
-      route: "ai-control-center"
+      action: () => { window.gotoAiOs("behavior"); }
     }
   ];
 
