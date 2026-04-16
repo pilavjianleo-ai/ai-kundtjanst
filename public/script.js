@@ -2507,6 +2507,82 @@ async function uploadKbPdf() {
 }
 
 /* =========================
+   Admin KB Uploads (URL, PDF, Text)
+ ========================= */
+function kbEditorGetText() {
+  const ed = $("kbTextEditor");
+  if (ed) return (ed.innerText || "").trim();
+  return "";
+}
+
+function kbUpdateEditorCount() {
+  const cnt = $("kbEditorCount");
+  if (cnt) cnt.textContent = `${kbEditorGetText().length} tecken`;
+}
+
+function kbEditorExec(cmd) {
+  try { document.execCommand(cmd, false, null); } catch {}
+  kbUpdateEditorCount();
+}
+
+async function uploadKbText() {
+  const companyId = $("kbCategorySelect")?.value || "demo";
+  const title = $("kbTextTitle")?.value.trim();
+  const content = kbEditorGetText();
+
+  if (!title || !content) return toast("Saknas", "Fyll i titel och innehåll", "error");
+
+  try {
+    await api("/admin/kb/text", { method: "POST", body: { companyId, title, content } });
+    toast("Sparat", "Textblock sparad", "info");
+    $("kbTextTitle").value = "";
+    const ed = $("kbTextEditor");
+    if (ed) ed.innerText = "";
+    kbUpdateEditorCount();
+    await loadKb();
+  } catch (e) {
+    toast("Fel", e.message, "error");
+  }
+}
+
+async function adminUploadKbUrl() {
+  const companyId = $("kbCategorySelect")?.value || "demo";
+  const url = $("adminKbUrlInput")?.value.trim();
+  if (!url) return toast("Saknas", "Fyll i URL", "error");
+  try {
+    toast("Laddar...", "Hämtar URL innehåll...", "info");
+    await api("/admin/kb/url", { method: "POST", body: { companyId, url } });
+    toast("Klar", "URL sparad", "info");
+    $("adminKbUrlInput").value = "";
+    await loadKb();
+  } catch (e) { toast("Fel", e.message, "error"); }
+}
+
+async function adminUploadKbPdf() {
+  const companyId = $("kbCategorySelect")?.value || "demo";
+  const fileInput = $("adminKbPdfFile");
+  const file = fileInput?.files?.[0];
+  if (!file) return toast("Saknas", "Välj en fil", "error");
+
+  const formData = new FormData();
+  formData.append("pdf", file);
+  formData.append("companyId", companyId);
+
+  try {
+    toast("Laddar...", "Laddar upp PDF...", "info");
+    const res = await fetch(state.apiBase + "/admin/kb/pdf", {
+      method: "POST",
+      headers: { "Authorization": "Bearer " + state.token },
+      body: formData
+    });
+    if (!res.ok) throw new Error("Upload failed");
+    toast("Klar", "PDF sparad", "info");
+    fileInput.value = "";
+    await loadKb();
+  } catch (e) { toast("Fel", e.message, "error"); }
+}
+
+/* =========================
    Categories / Companies (CRM)
  ========================= */
 async function loadCategories() {
@@ -5666,6 +5742,39 @@ function bindEvents() {
 
   // KB Events
   initTabs();
+
+  // Admin KB Uploads
+  on("kbUploadTextBtn", "click", uploadKbText);
+  on("adminKbUploadUrlBtn", "click", adminUploadKbUrl);
+  on("adminKbUploadPdfBtn", "click", adminUploadKbPdf);
+  on("kbGenerateFromTicketBtn", "click", kbGenerateFromTicket);
+  on("kbBulkDeleteBtn", "click", bulkDeleteKb);
+  on("kbCategorySelect", "change", loadKb);
+  on("kbSearchInput", "input", () => {
+    clearTimeout(window.__kbSearchDeb);
+    window.__kbSearchDeb = setTimeout(searchKb, 250);
+  });
+  on("kbEditorBoldBtn", "click", () => kbEditorExec("bold"));
+  on("kbEditorItalicBtn", "click", () => kbEditorExec("italic"));
+  on("kbEditorUnderlineBtn", "click", () => kbEditorExec("underline"));
+  on("kbEditorBulletsBtn", "click", () => kbEditorExec("insertUnorderedList"));
+  on("kbEditorClearBtn", "click", () => {
+    const ed = $("kbTextEditor");
+    if (ed) { ed.innerText = ed.innerText || ""; kbUpdateEditorCount(); }
+  });
+  {
+    const ed = $("kbTextEditor");
+    if (ed) {
+      ed.addEventListener("input", kbUpdateEditorCount);
+      ed.addEventListener("paste", (e) => {
+        e.preventDefault();
+        const text = (e.clipboardData || window.clipboardData).getData("text");
+        try { document.execCommand("insertText", false, text); } catch { ed.innerText += text; }
+        kbUpdateEditorCount();
+      });
+      kbUpdateEditorCount();
+    }
+  }
 
   // ✅ CRM
   on("openCustomerAdminView", "click", async () => {
