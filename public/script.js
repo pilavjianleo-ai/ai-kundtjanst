@@ -83,6 +83,13 @@ function applyAutoReloadForView(viewId) {
   stopAutoReload();
   updateInboxAutoReloadBadge();
   if (!state.autoReloadEnabled) return;
+  
+  // AVSTÄNGD ENLIGT ANVÄNDARENS BEGÄRAN: 
+  // Paneler ska inte ladda om sig själva automatiskt längre.
+  // Istället måste man uppdatera manuellt eller via webhooks (reactivity).
+  return;
+  
+  /*
   const configs = {
     inboxView: { ms: 15000, run: () => loadInboxTickets() },
     dashboardView: { ms: 30000, run: () => (typeof loadDashboard === "function" ? loadDashboard() : null) },
@@ -99,6 +106,7 @@ function applyAutoReloadForView(viewId) {
     try { cfg.run(); } catch {}
     updateInboxAutoReloadBadge();
   }, cfg.ms);
+  */
 }
 
 /* =========================
@@ -5635,7 +5643,6 @@ function bindEvents() {
     clearTimeout(window.__adminUsersSearchDeb);
     window.__adminUsersSearchDeb = setTimeout(loadAdminUsers, 250);
   });
-  on("kbBulkDeleteBtn", "click", bulkDeleteKb);
 
   on("enterpriseAnalyticsRefreshBtn", "click", loadEnterpriseAnalytics);
   on("enterpriseCompanySelect", "change", loadEnterpriseAnalytics);
@@ -5646,37 +5653,6 @@ function bindEvents() {
 
   // KB Events
   initTabs();
-  on("kbRefreshBtn", "click", loadKb);
-  on("kbUploadTextBtn", "click", uploadKbText);
-  on("kbUploadUrlBtn", "click", uploadKbUrl);
-  on("kbUploadPdfBtn", "click", uploadKbPdf);
-  on("kbGenerateFromTicketBtn", "click", kbGenerateFromTicket);
-  on("kbCategorySelect", "change", loadKb); // reload when changing KB company dropdown
-  on("kbSearchInput", "input", () => {
-    clearTimeout(window.__kbSearchDeb);
-    window.__kbSearchDeb = setTimeout(searchKb, 250);
-  });
-  on("kbEditorBoldBtn", "click", () => kbEditorExec("bold"));
-  on("kbEditorItalicBtn", "click", () => kbEditorExec("italic"));
-  on("kbEditorUnderlineBtn", "click", () => kbEditorExec("underline"));
-  on("kbEditorBulletsBtn", "click", () => kbEditorExec("insertUnorderedList"));
-  on("kbEditorClearBtn", "click", () => {
-    const ed = $("kbTextEditor");
-    if (ed) { ed.innerText = ed.innerText || ""; kbUpdateEditorCount(); }
-  });
-  {
-    const ed = $("kbTextEditor");
-    if (ed) {
-      ed.addEventListener("input", kbUpdateEditorCount);
-      ed.addEventListener("paste", (e) => {
-        e.preventDefault();
-        const text = (e.clipboardData || window.clipboardData).getData("text");
-        try { document.execCommand("insertText", false, text); } catch { ed.innerText += text; }
-        kbUpdateEditorCount();
-      });
-      kbUpdateEditorCount();
-    }
-  }
 
   // ✅ CRM
   on("openCustomerAdminView", "click", async () => {
