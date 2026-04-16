@@ -60,7 +60,7 @@ function initAiOs() {
 
 function renderAiOsModule() {
   document.querySelectorAll("#aiOsNav .menuBtn").forEach(b => b.classList.remove("active"));
-  const activeBtn = document.querySelector(\`#aiOsNav .menuBtn[data-aios="\${currentAiOsRoute}"]\`);
+  const activeBtn = document.querySelector(`#aiOsNav .menuBtn[data-aios="${currentAiOsRoute}"]`);
   if (activeBtn) activeBtn.classList.add("active");
 
   const main = document.getElementById("aiOsMainWorkspace");
@@ -82,7 +82,7 @@ function renderAiOsModule() {
     case "experiments": renderOsExperiments(main, right); break;
     case "performance": renderOsPerformance(main, right); break;
     case "logs": renderOsLogs(main, right); break;
-    default: main.innerHTML = \`<div style="padding:40px;">Module not found</div>\`;
+    default: main.innerHTML = `<div style="padding:40px;">Module not found</div>`;
   }
 }
 
@@ -90,7 +90,7 @@ function renderAiOsModule() {
 // 1. LIVE STUDIO
 // ---------------------------------------------------------
 function renderOsLiveStudio(main, right) {
-  main.innerHTML = \`
+  main.innerHTML = `
     <div style="display:flex; height:100%; width:100%;">
       <div style="width:280px; border-right:1px solid var(--border); display:flex; flex-direction:column; background:var(--panel2);">
         <div style="padding:20px; border-bottom:1px solid var(--border);">
@@ -134,9 +134,9 @@ function renderOsLiveStudio(main, right) {
         </div>
       </div>
     </div>
-  \`;
+  `;
 
-  right.innerHTML = \`
+  right.innerHTML = `
     <div style="padding:20px; border-bottom:1px solid var(--border); background:var(--panel2);">
       <div class="title" style="font-size:14px; text-transform:uppercase; letter-spacing:0.05em; font-weight:800;">AI Reasoning</div>
     </div>
@@ -177,14 +177,14 @@ function renderOsLiveStudio(main, right) {
       </div>
 
     </div>
-  \`;
+  `;
 }
 
 // ---------------------------------------------------------
 // 2. CONVERSATIONS
 // ---------------------------------------------------------
 function renderOsConversations(main, right) {
-  main.innerHTML = \`
+  main.innerHTML = `
     <div style="display:flex; height:100%; width:100%;">
       <div style="width:280px; border-right:1px solid var(--border); display:flex; flex-direction:column; background:var(--panel2);">
         <div style="padding:20px; border-bottom:1px solid var(--border); display:flex; justify-content:space-between; align-items:center;">
@@ -243,9 +243,9 @@ function renderOsConversations(main, right) {
         </div>
       </div>
     </div>
-  \`;
+  `;
 
-  right.innerHTML = \`
+  right.innerHTML = `
     <div style="padding:20px; border-bottom:1px solid var(--border); background:var(--panel2);">
       <div class="title" style="font-size:14px; text-transform:uppercase; letter-spacing:0.05em; font-weight:800;">Settings</div>
     </div>
@@ -272,14 +272,14 @@ function renderOsConversations(main, right) {
         <button class="btn ghost danger full taLeft"><i class="fa-solid fa-trash" style="margin-right:8px;"></i> Delete Flow</button>
       </div>
     </div>
-  \`;
+  `;
 }
 
 // ---------------------------------------------------------
 // 3. FLOW BUILDER
 // ---------------------------------------------------------
 function renderOsFlows(main, right) {
-  main.innerHTML = \`
+  main.innerHTML = `
     <!-- Infinite Canvas Simulation -->
     <div style="width:100%; height:100%; position:relative; background: radial-gradient(circle, var(--border) 1.5px, transparent 1.5px); background-size: 24px 24px; background-color: var(--bg); overflow:hidden;">
       
@@ -362,9 +362,9 @@ function renderOsFlows(main, right) {
         <button class="btn ghost small icon"><i class="fa-solid fa-plus"></i></button>
       </div>
     </div>
-  \`;
+  `;
 
-  right.innerHTML = \`
+  right.innerHTML = `
     <div style="padding:20px; border-bottom:1px solid var(--border); background:var(--panel2); display:flex; align-items:center; gap:12px;">
       <div style="width:32px; height:32px; border-radius:8px; background:color-mix(in srgb, var(--warn) 10%, transparent); color:var(--warn); display:flex; align-items:center; justify-content:center;"><i class="fa-solid fa-code-branch"></i></div>
       <div>
@@ -394,14 +394,14 @@ function renderOsFlows(main, right) {
         <button class="btn ghost danger full"><i class="fa-solid fa-trash"></i> Delete Node</button>
       </div>
     </div>
-  \`;
+  `;
 }
 
 // ---------------------------------------------------------
 // 4. BEHAVIOR
 // ---------------------------------------------------------
 function renderOsBehavior(main, right) {
-  main.innerHTML = \`
+  main.innerHTML = `
     <div style="padding:40px; max-width:900px; margin:0 auto; width:100%;">
       <div style="margin-bottom:32px;">
         <div class="title" style="font-size:28px; font-weight:900; letter-spacing:-0.02em;">Behavior Presets</div>
@@ -455,9 +455,9 @@ function renderOsBehavior(main, right) {
         </div>
       </div>
     </div>
-  \`;
+  `;
 
-  right.innerHTML = \`
+  right.innerHTML = `
     <div style="padding:20px; border-bottom:1px solid var(--border); background:var(--panel2);">
       <div class="title" style="font-size:14px; text-transform:uppercase; letter-spacing:0.05em; font-weight:800;">Advanced Controls</div>
     </div>
@@ -500,14 +500,14 @@ function renderOsBehavior(main, right) {
       </div>
 
     </div>
-  \`;
+  `;
 }
 
 // ---------------------------------------------------------
 // 5. RULES (AUTOMATIONS)
 // ---------------------------------------------------------
 function renderOsRules(main, right) {
-  main.innerHTML = \`
+  main.innerHTML = `
     <div style="padding:40px; max-width:900px; margin:0 auto; width:100%;">
       <div style="display:flex; justify-content:space-between; align-items:flex-end; margin-bottom:32px;">
         <div>
@@ -545,9 +545,9 @@ function renderOsRules(main, right) {
         </div>
       </div>
     </div>
-  \`;
+  `;
 
-  right.innerHTML = \`
+  right.innerHTML = `
     <div style="padding:20px; border-bottom:1px solid var(--border); background:var(--panel2);">
       <div class="title" style="font-size:14px; text-transform:uppercase; letter-spacing:0.05em; font-weight:800;">Rule Editor</div>
     </div>
@@ -585,14 +585,14 @@ function renderOsRules(main, right) {
 
       <button class="btn primary full mt-10">Save Rule</button>
     </div>
-  \`;
+  `;
 }
 
 // ---------------------------------------------------------
 // 6. KNOWLEDGE
 // ---------------------------------------------------------
 function renderOsKnowledge(main, right) {
-  main.innerHTML = \`
+  main.innerHTML = `
     <div style="padding:40px; max-width:1000px; margin:0 auto; width:100%;">
       <div style="display:flex; justify-content:space-between; align-items:flex-end; margin-bottom:32px;">
         <div>
@@ -647,9 +647,9 @@ function renderOsKnowledge(main, right) {
         </table>
       </div>
     </div>
-  \`;
+  `;
 
-  right.innerHTML = \`
+  right.innerHTML = `
     <div style="padding:20px; border-bottom:1px solid var(--border); background:var(--panel2);">
       <div class="title" style="font-size:14px; text-transform:uppercase; letter-spacing:0.05em; font-weight:800;">Source Details</div>
     </div>
@@ -691,14 +691,14 @@ function renderOsKnowledge(main, right) {
       </div>
 
     </div>
-  \`;
+  `;
 }
 
 // ---------------------------------------------------------
 // 7. TRAINING
 // ---------------------------------------------------------
 function renderOsTraining(main, right) {
-  main.innerHTML = \`
+  main.innerHTML = `
     <div style="padding:40px; max-width:1000px; margin:0 auto; width:100%;">
       <div style="display:flex; justify-content:space-between; align-items:flex-end; margin-bottom:32px;">
         <div>
@@ -753,9 +753,9 @@ function renderOsTraining(main, right) {
         </div>
       </div>
     </div>
-  \`;
+  `;
 
-  right.innerHTML = \`
+  right.innerHTML = `
     <div style="padding:20px; border-bottom:1px solid var(--border); background:var(--panel2);">
       <div class="title" style="font-size:14px; text-transform:uppercase; letter-spacing:0.05em; font-weight:800;">Intent Details</div>
     </div>
@@ -784,14 +784,14 @@ function renderOsTraining(main, right) {
       </div>
 
     </div>
-  \`;
+  `;
 }
 
 // ---------------------------------------------------------
 // 8. EXPERIMENTS
 // ---------------------------------------------------------
 function renderOsExperiments(main, right) {
-  main.innerHTML = \`
+  main.innerHTML = `
     <div style="padding:40px; max-width:1000px; margin:0 auto; width:100%;">
       <div style="display:flex; justify-content:space-between; align-items:flex-end; margin-bottom:32px;">
         <div>
@@ -841,9 +841,9 @@ function renderOsExperiments(main, right) {
         </table>
       </div>
     </div>
-  \`;
+  `;
 
-  right.innerHTML = \`
+  right.innerHTML = `
     <div style="padding:20px; border-bottom:1px solid var(--border); background:var(--panel2);">
       <div class="title" style="font-size:14px; text-transform:uppercase; letter-spacing:0.05em; font-weight:800;">Experiment Details</div>
     </div>
@@ -874,14 +874,14 @@ function renderOsExperiments(main, right) {
 
       <button class="btn primary full mt-10">End & Deploy Variant B</button>
     </div>
-  \`;
+  `;
 }
 
 // ---------------------------------------------------------
 // 9. PERFORMANCE
 // ---------------------------------------------------------
 function renderOsPerformance(main, right) {
-  main.innerHTML = \`
+  main.innerHTML = `
     <div style="padding:40px; max-width:1000px; margin:0 auto; width:100%;">
       <div style="display:flex; justify-content:space-between; align-items:flex-end; margin-bottom:32px;">
         <div>
@@ -926,9 +926,9 @@ function renderOsPerformance(main, right) {
         </div>
       </div>
     </div>
-  \`;
+  `;
 
-  right.innerHTML = \`
+  right.innerHTML = `
     <div style="padding:20px; border-bottom:1px solid var(--border); background:var(--panel2);">
       <div class="title" style="font-size:14px; text-transform:uppercase; letter-spacing:0.05em; font-weight:800;">Filters</div>
     </div>
@@ -942,14 +942,14 @@ function renderOsPerformance(main, right) {
         <select class="input full"><option>All Channels</option><option>Web Chat</option></select>
       </div>
     </div>
-  \`;
+  `;
 }
 
 // ---------------------------------------------------------
 // 10. LOGS & REPLAY
 // ---------------------------------------------------------
 function renderOsLogs(main, right) {
-  main.innerHTML = \`
+  main.innerHTML = `
     <div style="display:flex; flex-direction:column; height:100%;">
       <div style="padding:24px 32px; border-bottom:1px solid var(--border); display:flex; justify-content:space-between; align-items:center; background:var(--panel);">
         <div class="title" style="font-size:20px; font-weight:900;">Activity Logs</div>
@@ -996,9 +996,9 @@ function renderOsLogs(main, right) {
         </table>
       </div>
     </div>
-  \`;
+  `;
 
-  right.innerHTML = \`
+  right.innerHTML = `
     <div style="padding:20px; border-bottom:1px solid var(--border); background:var(--panel2);">
       <div class="title" style="font-size:14px; text-transform:uppercase; letter-spacing:0.05em; font-weight:800;">Playback & Reasoning</div>
     </div>
@@ -1030,5 +1030,5 @@ function renderOsLogs(main, right) {
         <button class="btn secondary small mt-10" onclick="gotoAiOs('training')">Edit Training Data</button>
       </div>
     </div>
-  \`;
+  `;
 }
