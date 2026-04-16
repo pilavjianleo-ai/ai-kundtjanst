@@ -803,14 +803,8 @@ window.renderCustomerList = function () {
     // Fix: Remove undefined/corrupt entries from view
     customers = customers.filter(c => c && c.name && c.name !== 'undefined');
 
-    // FILTER BY CURRENT COMPANY CONTEXT
-    const activeCompanyId = window.state?.companyId;
-    if (activeCompanyId && activeCompanyId !== 'demo') {
-        const hasLinkedData = customers.some(c => c.companyId === activeCompanyId || c.id === activeCompanyId);
-        if (hasLinkedData) {
-            customers = customers.filter(c => c.companyId === activeCompanyId || c.id === activeCompanyId);
-        }
-    }
+    // FILTER BY CURRENT COMPANY CONTEXT (REMOVED: Visa alla kunder oavsett valt "företag" i sidopanelen)
+    // Syftet med CRM-Kunder är att se hela sin portfölj av kunder, inte filtrera dem per företagsval.
 
     if (customers.length === 0) {
         tbody.innerHTML = `<tr><td colspan="6" class="muted center" style="padding:20px;">Inga kunder hittades för ${window.state?.currentCompany?.displayName || 'detta företag'}.</td></tr>`;
