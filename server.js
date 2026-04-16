@@ -1145,6 +1145,8 @@ app.post("/tickets/:id/reply", authenticate, async (req, res) => {
 
   ticket.lastActivityAt = new Date();
   await ticket.save();
+  if (io) io.emit("ticketUpdate", { ticketId: ticket._id, companyId: ticket.companyId, type: "userReply" });
+
   const payload = ticket.toObject ? ticket.toObject() : ticket;
   payload.stats = computeTicketStats(payload);
   res.json({ message: "Skickat", ticket: payload });
@@ -2817,6 +2819,234 @@ app.post("/crm/activities/sync", authenticate, async (req, res) => {
     if (io) io.emit("crmUpdate", { companyId });
     res.json({ message: "Aktiviteter synkade" });
   } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+
+/* =====================
+   AI OS - REAL BACKEND ENGINE
+===================== */
+
+// In-memory config store for prototype (would be DB in production)
+let aiOsConfigStore = {
+  chatExperience: { greeting: "Hi! I'm the AI assistant. How can I help you today?", botName: "AI Support", color: "#4F46E5", quickReplies: ["Pricing", "Support"], position: "right", requireEmail: false, placeholder: "Type a message..." },
+  behavior: { persona: "professional", tone: 80, empathy: 50, risk: 20 },
+  rules: [
+    { id: 1, name: "High-Value Lead Escalation", intent: "pricing", sentiment: "positive", action: "Escalate to Sales Team", active: true }
+  ],
+  flows: [
+    { id: 1, name: "Refund Flow", trigger: "refund_request", logic: "order.days_ago < 30", trueAction: "Process Refund", falseAction: "Deny Refund" }
+  ],
+  knowledge: [
+    { id: 1, name: "Return_Policy_2025.pdf", type: "PDF", priority: "High", status: "Synced", tags: ["refunds", "policy"], usage: 1240, confidence: 98 },
+    { id: 2, name: "Pricing FAQs", type: "Text", priority: "Normal", status: "Synced", tags: ["sales", "pricing"], usage: 450, confidence: 92 },
+    { id: 3, name: "https://example.com/help", type: "URL", priority: "Low", status: "Syncing...", tags: ["general"], usage: 12, confidence: 60 }
+  ],
+  training: [
+    { id: 1, intent: "refund_request", examples: ["I need a refund", "Give me my money back", "Return order 1234"], accuracy: 98 },
+    { id: 2, intent: "pricing_inquiry", examples: ["How much does it cost", "What is the price"], accuracy: 92 }
+  ],
+  experiments: [
+    { id: 1, name: "Greeting Optimization", desc: "Testing conversion impact of opening line", status: "Running", varA: { name: "Friendly", conv: 45.2 }, varB: { name: "Professional", conv: 52.1 } }
+  ],
+  logs: []
+};
+
+// GET /aios/config
+app.get("/aios/config", (req, res) => {
+  res.json(aiOsConfigStore);
+});
+
+// PATCH /aios/config
+app.patch("/aios/config", (req, res) => {
+  aiOsConfigStore = { ...aiOsConfigStore, ...req.body };
+  
+  // Broadcast change instantly
+  if (io) {
+    io.emit("aios_config_update", aiOsConfigStore);
+  }
+  
+  res.json(aiOsConfigStore);
+});
+
+// ---------------------------------------------------------
+// SESSION MANAGER (In-memory for prototype)
+// ---------------------------------------------------------
+const aiOsSessions = new Map();
+
+// ---------------------------------------------------------
+// PIPELINE 1: USER CHAT (AI ENABLED)
+// ---------------------------------------------------------
+app.post("/aios/chat", (req, res) => {
+  const { message, sessionId = 'default' } = req.body;
+  const config = aiOsConfigStore;
+  
+  if (!aiOsSessions.has(sessionId)) {
+    aiOsSessions.set(sessionId, { id: sessionId, mode: 'AI', messages: [] });
+  }
+  const session = aiOsSessions.get(sessionId);
+
+  // 1. Store user message
+  const userMsg = {
+    id: Date.now().toString(),
+    conversationId: sessionId,
+    role: "user",
+    source: "chat",
+    content: message,
+    createdAt: new Date()
+  };
+  session.messages.push(userMsg);
+
+  // Broadcast user message instantly
+  if (io) {
+    io.emit("aios_message", { message: userMsg });
+  }
+
+  // STOP HERE IF IN HUMAN MODE (Agent has taken over)
+  if (session.mode === 'HUMAN') {
+    return res.json({
+      response: "",
+      debug: { intent: "N/A", ruleTriggered: "Human Mode", flowTriggered: "None", persona: "N/A" }
+    });
+  }
+
+  // 2. Intent Detection
+  let intent = "unknown";
+  const text = (message || "").toLowerCase();
+  if (text.includes("refund") || text.includes("broken") || text.includes("return")) {
+    intent = "refund_request";
+  } else if (text.includes("price") || text.includes("cost") || text.includes("buy")) {
+    intent = "pricing";
+  } else if (text.includes("support") || text.includes("help") || text.includes("issue")) {
+    intent = "support";
+  }
+
+  // 3. Rule Engine
+  let ruleTriggered = null;
+  let finalResponse = "";
+  const activeRule = config.rules.find(r => r.active && r.intent === intent);
+  if (activeRule) {
+    ruleTriggered = activeRule.name;
+    if (activeRule.action.includes("Escalate")) {
+      finalResponse = `I have escalated this to the ${activeRule.action.replace('Escalate to ', '')}.`;
+      session.mode = 'HUMAN'; // Auto-escalate switches to human mode
+    }
+  }
+
+  // 4. Flow Engine
+  let flowTriggered = null;
+  if (!finalResponse) {
+    const activeFlow = config.flows.find(f => f.trigger === intent);
+    if (activeFlow) {
+      flowTriggered = activeFlow.name;
+      finalResponse = activeFlow.trueAction;
+    }
+  }
+
+  // 5. Fallback AI
+  if (!finalResponse) {
+    if (intent === "unknown") {
+      finalResponse = "I'm not sure I understand. Could you clarify?";
+    } else {
+      finalResponse = "I understand you need help with " + intent + ". Let me check.";
+    }
+  }
+
+  // 6. Behavior System
+  if (config.behavior.persona === "professional") {
+    finalResponse = "Professional Assistant: " + finalResponse;
+  } else if (config.behavior.persona === "friendly") {
+    finalResponse = "😊 " + finalResponse + " Have a great day!";
+  } else if (config.behavior.persona === "sales") {
+    finalResponse = finalResponse + " Would you like to upgrade your plan?";
+  }
+
+  // 7. Store AI message
+  const aiMsg = {
+    id: (Date.now() + 1).toString(),
+    conversationId: sessionId,
+    role: "ai",
+    source: "chat",
+    content: finalResponse,
+    createdAt: new Date()
+  };
+  session.messages.push(aiMsg);
+
+  // 8. Log for analytics
+  config.logs.unshift({
+    id: Date.now(),
+    sessionId,
+    input: message,
+    intent,
+    rule: ruleTriggered,
+    flow: flowTriggered,
+    response: finalResponse,
+    timestamp: new Date()
+  });
+  if (config.logs.length > 100) config.logs.pop();
+
+  // Broadcast AI message
+  if (io) {
+    setTimeout(() => io.emit("aios_message", { message: aiMsg }), 100);
+  }
+
+  res.json({
+    response: finalResponse,
+    debug: { intent, ruleTriggered, flowTriggered, persona: config.behavior.persona }
+  });
+});
+// ---------------------------------------------------------
+// PIPELINE 2: AGENT INBOX (AI DISABLED)
+// ---------------------------------------------------------
+app.post("/aios/agent/reply", (req, res) => {
+  const { content, sessionId = 'default' } = req.body;
+  
+  if (!aiOsSessions.has(sessionId)) {
+    aiOsSessions.set(sessionId, { id: sessionId, mode: 'HUMAN', messages: [] });
+  }
+  const session = aiOsSessions.get(sessionId);
+
+  // Force human mode if an agent replies
+  session.mode = 'HUMAN';
+
+  // 1. Store agent message
+  const agentMsg = {
+    id: Date.now().toString(),
+    conversationId: sessionId,
+    role: "agent",
+    source: "inbox",
+    content: content,
+    createdAt: new Date()
+  };
+  session.messages.push(agentMsg);
+
+  // NO AI CALLS. NO FLOWS. NO RULES.
+
+  // 2. Broadcast via WebSocket
+  if (io) {
+    io.emit("aios_message", { message: agentMsg });
+    // Broadcast session update to sync the mode switch
+    io.emit("aios_session_update", { sessionId, mode: session.mode });
+  }
+
+  res.json({ success: true, message: agentMsg });
+});
+
+// New endpoint to toggle mode manually
+app.post("/aios/agent/mode", (req, res) => {
+  const { sessionId, mode } = req.body;
+  if (aiOsSessions.has(sessionId)) {
+    const session = aiOsSessions.get(sessionId);
+    session.mode = mode;
+    if (io) io.emit("aios_session_update", { sessionId, mode });
+    res.json({ success: true, mode });
+  } else {
+    res.status(404).json({ error: "Session not found" });
+  }
+});
+
+// GET /aios/conversations
+app.get("/aios/conversations", (req, res) => {
+  res.json(Array.from(aiOsSessions.values()));
 });
 
 app.use(errorHandler);
