@@ -314,14 +314,14 @@
         </div>
       </section>
 
-      <!-- KNOWLEDGE VIEW -->
+      <!-- KNOWLEDGE VIEW (Optimized Enterprise Design) -->
       <section id="knowledgeView" class="view" style="display:none;">
         <div class="topbar">
           <div style="display:flex; align-items:center;">
             <button class="btn ghost icon menu-toggle" onclick="toggleSidebar()"><i class="fa-solid fa-bars"></i></button>
             <div>
-              <div class="title">Knowledge</div>
-              <div class="subtitle muted">Skapa, lista och ta bort kunskapsartiklar</div>
+              <div class="title"><i class="fa-solid fa-book-open-reader" style="color:var(--primary); margin-right:8px;"></i> Knowledge Base</div>
+              <div class="subtitle muted">Skapa, kategorisera och optimera kunskapsartiklar för AI och agenter</div>
             </div>
           </div>
           <div class="topbarActions">
@@ -329,51 +329,137 @@
               <i class="fa-solid fa-rotate"></i> Uppdatera
             </button>
             <button id="knowledgeExportBtn" class="btn ghost" type="button">
-              <i class="fa-solid fa-file-export"></i> Export
+              <i class="fa-solid fa-file-export"></i> Exportera
             </button>
             <button id="knowledgeImportBtn" class="btn ghost" type="button">
-              <i class="fa-solid fa-file-import"></i> Import
+              <i class="fa-solid fa-file-import"></i> Importera
             </button>
             <input id="knowledgeImportFile" type="file" accept="application/json" style="display:none;" />
+            <button id="knowledgeNewBtn" class="btn primary" type="button" onclick="resetKnowledgeForm()">
+              <i class="fa-solid fa-plus"></i> Ny artikel
+            </button>
           </div>
         </div>
 
-        <div class="split">
-          <div class="card">
-            <div class="panelHead" style="margin-bottom:15px; border-bottom:1px solid var(--border); padding-bottom:10px; display:flex; align-items:center;">
-              <b><i class="fa-solid fa-file-pen" style="color:var(--primary); margin-right:8px;"></i> Artikel</b>
-              <span class="muted small" id="knowledgeEditHint" style="margin-left:auto;"></span>
-            </div>
-            <label>Titel</label>
-            <input id="knowledgeTitle" class="input" placeholder="t.ex. Ångerrätt och reklamation" />
-            <label>Kategori</label>
-            <input id="knowledgeCategory" class="input" placeholder="t.ex. policy" />
-            <label>Taggar (komma-separerade)</label>
-            <input id="knowledgeTags" class="input" placeholder="t.ex. återbetalning, reklamation" />
-            <label>Innehåll</label>
-            <textarea id="knowledgeContent" class="input textarea" placeholder="Skriv innehållet här..."></textarea>
-            <button id="knowledgeSaveBtn" class="btn primary full" type="button">
-              <i class="fa-solid fa-floppy-disk"></i> Spara
-            </button>
-            <button id="knowledgeResetBtn" class="btn ghost full" type="button" style="margin-top:10px;">
-              <i class="fa-solid fa-eraser"></i> Nollställ
-            </button>
-            <div id="knowledgeMsg" class="alert" style="display:none;"></div>
+        <div class="grid4 gap" style="margin-top:20px; margin-bottom:20px;">
+          <div class="card statCard">
+            <div class="statIcon" style="color:var(--primary);"><i class="fa-solid fa-file-lines"></i></div>
+            <div class="statValue" id="kbTotalArticles">-</div>
+            <div class="statLabel">Totalt antal artiklar</div>
           </div>
+          <div class="card statCard">
+            <div class="statIcon" style="color:var(--ok);"><i class="fa-solid fa-eye"></i></div>
+            <div class="statValue" id="kbTotalViews">-</div>
+            <div class="statLabel">Visningar (30 dgr)</div>
+          </div>
+          <div class="card statCard">
+            <div class="statIcon" style="color:var(--warn);"><i class="fa-solid fa-robot"></i></div>
+            <div class="statValue" id="kbAiUsage">-</div>
+            <div class="statLabel">AI-användning</div>
+          </div>
+          <div class="card statCard">
+            <div class="statIcon" style="color:var(--danger);"><i class="fa-solid fa-triangle-exclamation"></i></div>
+            <div class="statValue" id="kbNeedsUpdate">-</div>
+            <div class="statLabel">Kräver uppdatering</div>
+          </div>
+        </div>
 
-          <div class="card">
+        <div class="split" style="grid-template-columns: 1fr 2fr;">
+          <!-- LISTA / SÖK -->
+          <div class="card" style="display:flex; flex-direction:column;">
             <div class="panelHead" style="margin-bottom:15px; border-bottom:1px solid var(--border); padding-bottom:10px; display:flex; align-items:center; justify-content:space-between;">
-              <b><i class="fa-solid fa-list" style="color:var(--primary); margin-right:8px;"></i> Lista</b>
+              <b><i class="fa-solid fa-list" style="color:var(--primary); margin-right:8px;"></i> Artiklar</b>
               <span class="muted small" id="knowledgeHint"></span>
             </div>
-            <div class="filterBar">
-              <input id="knowledgeSearchInput" class="input smallInput" placeholder="Sök titel/innehåll/tag..." />
-              <input id="knowledgeCategoryFilter" class="input smallInput" placeholder="Kategori..." style="max-width:160px;" />
-              <button id="knowledgeSearchBtn" class="btn ghost small" type="button">
-                <i class="fa-solid fa-magnifying-glass"></i> Sök
+            <div class="filterBar" style="display:flex; flex-direction:column; gap:10px; margin-bottom:15px;">
+              <div class="search-box" style="position:relative;">
+                <i class="fa-solid fa-magnifying-glass" style="position:absolute; left:12px; top:50%; transform:translateY(-50%); color:var(--muted);"></i>
+                <input id="knowledgeSearchInput" class="input" placeholder="Sök titel, innehåll, taggar..." style="padding-left:35px; width:100%; box-sizing:border-box;" />
+              </div>
+              <div style="display:flex; gap:10px;">
+                <select id="knowledgeCategoryFilter" class="input smallInput" style="flex:1;">
+                  <option value="">Alla kategorier</option>
+                  <option value="Fakturering">Fakturering</option>
+                  <option value="Teknisk Support">Teknisk Support</option>
+                  <option value="Policy">Policy</option>
+                  <option value="Allmänt">Allmänt</option>
+                </select>
+                <select id="knowledgeStatusFilter" class="input smallInput" style="flex:1;">
+                  <option value="">Alla statusar</option>
+                  <option value="published">Publicerad</option>
+                  <option value="draft">Utkast</option>
+                  <option value="archived">Arkiverad</option>
+                </select>
+              </div>
+            </div>
+            <div id="knowledgeList" class="list" style="flex:1; overflow-y:auto; max-height:600px; border:1px solid var(--border); border-radius:var(--radius-1); background:var(--bg);"></div>
+          </div>
+
+          <!-- EDITOR -->
+          <div class="card">
+            <div class="panelHead" style="margin-bottom:15px; border-bottom:1px solid var(--border); padding-bottom:10px; display:flex; align-items:center; justify-content:space-between;">
+              <b><i class="fa-solid fa-file-pen" style="color:var(--primary); margin-right:8px;"></i> Redigerare</b>
+              <span class="muted small" id="knowledgeEditHint">Skapar ny artikel</span>
+            </div>
+            
+            <div class="grid2 gap" style="margin-bottom:15px;">
+              <div>
+                <label>Titel <span style="color:var(--danger);">*</span></label>
+                <input id="knowledgeTitle" class="input" placeholder="t.ex. Ångerrätt och reklamation" />
+              </div>
+              <div>
+                <label>Kategori</label>
+                <input id="knowledgeCategory" class="input" placeholder="t.ex. Policy, Support, Fakturering" list="kbCategoriesList" />
+                <datalist id="kbCategoriesList">
+                  <option value="Fakturering">
+                  <option value="Teknisk Support">
+                  <option value="Policy">
+                  <option value="Allmänt">
+                </datalist>
+              </div>
+            </div>
+
+            <div class="grid2 gap" style="margin-bottom:15px;">
+              <div>
+                <label>Taggar (komma-separerade för AI-matchning)</label>
+                <input id="knowledgeTags" class="input" placeholder="t.ex. återbetalning, reklamation, retur" />
+              </div>
+              <div>
+                <label>Status</label>
+                <select id="knowledgeStatus" class="input">
+                  <option value="published">Publicerad (Synlig för AI & Agenter)</option>
+                  <option value="draft">Utkast (Endast redaktörer)</option>
+                  <option value="archived">Arkiverad</option>
+                </select>
+              </div>
+            </div>
+
+            <label>Innehåll <span style="color:var(--danger);">*</span></label>
+            <div class="kb-toolbar" style="display:flex; gap:5px; padding:8px; background:var(--bg); border:1px solid var(--border); border-bottom:none; border-radius:var(--radius-1) var(--radius-1) 0 0;">
+              <button class="btn ghost tiny icon" type="button" title="Fetstil"><i class="fa-solid fa-bold"></i></button>
+              <button class="btn ghost tiny icon" type="button" title="Kursiv"><i class="fa-solid fa-italic"></i></button>
+              <button class="btn ghost tiny icon" type="button" title="Stryk under"><i class="fa-solid fa-underline"></i></button>
+              <div style="width:1px; background:var(--border); margin:0 5px;"></div>
+              <button class="btn ghost tiny icon" type="button" title="Rubrik 1"><i class="fa-solid fa-heading"></i></button>
+              <button class="btn ghost tiny icon" type="button" title="Punktlista"><i class="fa-solid fa-list-ul"></i></button>
+              <button class="btn ghost tiny icon" type="button" title="Länk"><i class="fa-solid fa-link"></i></button>
+              <div style="width:1px; background:var(--border); margin:0 5px;"></div>
+              <button class="btn ghost tiny icon" type="button" title="AI Optimera text" style="color:var(--primary);"><i class="fa-solid fa-wand-magic-sparkles"></i></button>
+            </div>
+            <textarea id="knowledgeContent" class="input textarea" placeholder="Skriv det fullständiga innehållet här. Använd tydliga stycken och punkter för bästa AI-förståelse..." style="height:300px; border-radius:0 0 var(--radius-1) var(--radius-1); margin-bottom:15px; font-family:inherit;"></textarea>
+            
+            <div class="row gap" style="justify-content:flex-end;">
+              <button id="knowledgeDeleteBtn" class="btn ghost danger" type="button" style="display:none; margin-right:auto;">
+                <i class="fa-solid fa-trash"></i> Ta bort
+              </button>
+              <button id="knowledgeResetBtn" class="btn ghost" type="button">
+                Avbryt
+              </button>
+              <button id="knowledgeSaveBtn" class="btn primary" type="button">
+                <i class="fa-solid fa-floppy-disk"></i> Spara artikel
               </button>
             </div>
-            <div id="knowledgeList" class="list"></div>
+            <div id="knowledgeMsg" class="alert" style="display:none; margin-top:15px;"></div>
           </div>
         </div>
       </section>
@@ -2472,37 +2558,38 @@
         <div class="scenarioContent">
 
           <!-- VIEW MODE SELECTOR & SUMMARY -->
-          <div class="scenarioHeaderPanel">
+          <div class="scenarioHeaderPanel card" style="margin-bottom:20px; padding:20px;">
             <div class="headerTopRow"
               style="display:flex; justify-content:space-between; align-items:center; margin-bottom:15px;">
-              <h2 style="margin:0; font-size:20px;">Scenario & Prognos</h2>
-              <div class="scenarioTimeFilter">
-                <span class="filterLabel">Prognosperiod:</span>
-                <div class="segmentedControl">
-                  <button class="timeFilterBtn" onclick="setScenarioTime(1)" id="tf_1">1 Mån</button>
-                  <button class="timeFilterBtn active" onclick="setScenarioTime(12)" id="tf_12">1 År</button>
-                  <button class="timeFilterBtn" onclick="setScenarioTime(36)" id="tf_36">3 År</button>
+              <h2 style="margin:0; font-size:20px;"><i class="fa-solid fa-chart-line" style="color:var(--primary); margin-right:8px;"></i> Scenario & Prognos</h2>
+              <div class="scenarioTimeFilter" style="display:flex; align-items:center; gap:10px;">
+                <span class="filterLabel muted small">Prognosperiod:</span>
+                <div class="segmentedControl" style="display:flex; background:var(--panel2); border-radius:var(--radius-1); padding:2px;">
+                  <button class="btn ghost small" onclick="setScenarioTime(1)" id="tf_1" style="border-radius:var(--radius-1);">1 Mån</button>
+                  <button class="btn primary small" onclick="setScenarioTime(12)" id="tf_12" style="border-radius:var(--radius-1);">1 År</button>
+                  <button class="btn ghost small" onclick="setScenarioTime(36)" id="tf_36" style="border-radius:var(--radius-1);">3 År</button>
                 </div>
               </div>
             </div>
 
             <!-- Sticky Summary with Dynamic Time -->
-            <div class="scenarioSummaryBar">
-              <div class="summaryStats">
-                <div class="summaryStat primary">
-                  <span class="label" id="summary_save_label">Besparing (1 år)</span>
-                  <span class="value positive giant" id="sc_summaryYearSave">810 000 kr</span>
-                </div>
-                <div class="summaryStat warning">
-                  <span class="label" id="summary_time_label">Sparad Tid</span>
-                  <span class="value" id="sc_summaryTime">4 000 h</span>
-                </div>
-                <div class="summaryStat ok">
-                  <span class="label">ROI</span>
-                  <span class="value positive" id="sc_summaryRoi">340%</span>
-                </div>
+            <div class="scenarioSummaryBar grid3 gap" style="margin-top:20px;">
+              <div class="card statCard" style="border-left:3px solid var(--ok); background:var(--panel2);">
+                <div class="statIcon" style="color:var(--ok);"><i class="fa-solid fa-sack-dollar"></i></div>
+                <div class="statValue positive giant" id="sc_summaryYearSave">810 000 kr</div>
+                <div class="statLabel" id="summary_save_label">Besparing (1 år)</div>
               </div>
-              <div class="topbarActions">
+              <div class="card statCard" style="border-left:3px solid var(--warn); background:var(--panel2);">
+                <div class="statIcon" style="color:var(--warn);"><i class="fa-solid fa-clock"></i></div>
+                <div class="statValue" id="sc_summaryTime">4 000 h</div>
+                <div class="statLabel" id="summary_time_label">Sparad Tid</div>
+              </div>
+              <div class="card statCard" style="border-left:3px solid var(--success); background:var(--panel2);">
+                <div class="statIcon" style="color:var(--success);"><i class="fa-solid fa-rocket"></i></div>
+                <div class="statValue positive" id="sc_summaryRoi">340%</div>
+                <div class="statLabel">ROI (Return on Investment)</div>
+              </div>
+              <div class="topbarActions" style="margin-top:15px; display:flex; gap:10px;">
                 <button class="btn ghost small" onclick="toggleScenarioOnboarding()">
                   <i class="fa-solid fa-circle-question"></i> Hjälp
                 </button>
@@ -2513,17 +2600,17 @@
             </div>
 
             <!-- Mode Tabs -->
-            <div class="scenarioModeTabs">
-              <button class="modeTab active" onclick="setScenarioMode('overview')" id="tab_overview">
+            <div class="scenarioModeTabs" style="display:flex; gap:10px; margin-top:20px; border-bottom:1px solid var(--border); padding-bottom:10px;">
+              <button class="btn ghost small active" onclick="setScenarioMode('overview')" id="tab_overview" style="font-weight:bold;">
                 <i class="fa-solid fa-chart-pie"></i> Översikt
               </button>
-              <button class="modeTab" onclick="setScenarioMode('optimization')" id="tab_optimization">
+              <button class="btn ghost small" onclick="setScenarioMode('optimization')" id="tab_optimization">
                 <i class="fa-solid fa-rocket"></i> Optimering
               </button>
-              <button class="modeTab" onclick="setScenarioMode('strategy')" id="tab_strategy">
+              <button class="btn ghost small" onclick="setScenarioMode('strategy')" id="tab_strategy">
                 <i class="fa-solid fa-chess"></i> Strategi
               </button>
-              <button class="modeTab" onclick="setScenarioMode('myView')" id="tab_myView">
+              <button class="btn ghost small" onclick="setScenarioMode('myView')" id="tab_myView">
                 <i class="fa-solid fa-star"></i> Min Vy
               </button>
             </div>
@@ -2576,7 +2663,7 @@
                 <div class="statIcon" style="color:var(--ok);"><i class="fa-solid fa-sack-dollar"></i></div>
                 <div class="statValue" id="hero_money_val">810 000 kr</div>
                 <div class="statLabel" id="hero_money_label">Besparing (1 år)</div>
-                <div class="statTrend" id="hero_money_sub"><i class="fa-solid fa-arrow-trend-down"></i> Minskad driftskostnad</div>
+                <div class="statTrend" id="hero_money_sub" style="color:var(--ok);"><i class="fa-solid fa-arrow-trend-down"></i> Minskad driftskostnad</div>
               </div>
 
               <!-- Card 2: TIME -->
@@ -2585,25 +2672,25 @@
                 <div class="statIcon" style="color:var(--primary);"><i class="fa-solid fa-clock"></i></div>
                 <div class="statValue" id="hero_time_val">4 000 h</div>
                 <div class="statLabel" id="hero_time_label">Sparad Tid (1 år)</div>
-                <div class="statTrend" id="hero_time_sub"><i class="fa-solid fa-users"></i> Motsvarar <span id="hero_fte_val" style="margin-left:4px;">2.5</span> heltidstjänster</div>
+                <div class="statTrend" id="hero_time_sub" style="color:var(--primary);"><i class="fa-solid fa-users"></i> Motsvarar <span id="hero_fte_val" style="margin-left:4px;">2.5</span> heltidstjänster</div>
               </div>
 
               <!-- Card 3: VOLUME -->
-              <div class="card statCard">
+              <div class="card statCard" style="border-left:3px solid var(--warn);">
                 <button class="btn ghost icon small" style="position:absolute; top:10px; right:10px;" onclick="toggleFavorite('sc_aiTickets', 'AI-ärenden')"><i class="fa-regular fa-star"></i></button>
-                <div class="statIcon"><i class="fa-solid fa-robot"></i></div>
+                <div class="statIcon" style="color:var(--warn);"><i class="fa-solid fa-robot"></i></div>
                 <div class="statValue" id="hero_vol_val">2 400</div>
                 <div class="statLabel" id="hero_vol_label">AI-hanterade ärenden</div>
-                <div class="statTrend"><i class="fa-solid fa-bolt"></i> Automatiserade ärenden</div>
+                <div class="statTrend" style="color:var(--warn);"><i class="fa-solid fa-bolt"></i> Automatiserade ärenden</div>
               </div>
 
               <!-- Card 4: QUALITY -->
-              <div class="card statCard">
+              <div class="card statCard" style="border-left:3px solid var(--success);">
                 <button class="btn ghost icon small" style="position:absolute; top:10px; right:10px;" onclick="toggleFavorite('sc_currentSla', 'Servicekvalitet')"><i class="fa-regular fa-star"></i></button>
-                <div class="statIcon"><i class="fa-solid fa-heart"></i></div>
+                <div class="statIcon" style="color:var(--success);"><i class="fa-solid fa-heart"></i></div>
                 <div class="statValue" id="sc_currentSla">92%</div>
                 <div class="statLabel">Servicekvalitet</div>
-                <div class="statTrend" style="color:var(--ok);"><i class="fa-solid fa-check-circle"></i> Uppnår SLA-mål</div>
+                <div class="statTrend" style="color:var(--success);"><i class="fa-solid fa-check-circle"></i> Uppnår SLA-mål</div>
               </div>
             </div>
 
@@ -2612,7 +2699,7 @@
               <div class="panelHead" onclick="toggleSection('sc_assumptions_content')" style="cursor:pointer; display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid var(--border); padding-bottom:10px; margin-bottom:15px;">
                 <div>
                   <b style="font-size:16px; display:block;"><i class="fa-solid fa-sliders" style="color:var(--primary); margin-right:8px;"></i> Justera simulering</b>
-                  <span class="muted small">Dra i reglagen för att se effekten direkt</span>
+                  <span class="muted small">Dra i reglagen för att se effekten direkt på din verksamhet (använder live-data där möjligt)</span>
                 </div>
                 <i class="fa-solid fa-chevron-down toggleIcon"></i>
               </div>
@@ -2621,7 +2708,7 @@
                   <div class="assumptionCard">
                     <div class="assumptionQuestion">Ärenden / månad</div>
                     <div class="assumptionInput">
-                      <input type="range" id="sc_tickets" class="slider" min="100" max="5000" value="500" step="50">
+                      <input type="range" id="sc_tickets" class="slider" min="10" max="5000" value="500" step="10">
                       <div class="sliderValue"><span id="sc_tickets_val">500</span> st</div>
                     </div>
                   </div>
@@ -2635,8 +2722,7 @@
                   <div class="assumptionCard">
                     <div class="assumptionQuestion">Personalkostnad / mån</div>
                     <div class="assumptionInput">
-                      <input type="range" id="sc_staffCost" class="slider" min="25000" max="80000" value="45000"
-                        step="1000">
+                      <input type="range" id="sc_staffCost" class="slider" min="25000" max="80000" value="45000" step="1000">
                       <div class="sliderValue"><span id="sc_staffCost_val">45 000</span> kr</div>
                     </div>
                   </div>
@@ -2672,7 +2758,7 @@
                 <div style="flex:1;">
                   <div style="font-weight:700; margin-bottom:4px; font-size:16px;">AI Rekommendation</div>
                   <div class="muted" id="sc_recText">
-                    Analysera...
+                    Laddar analys och rekommendationer baserat på live-data...
                   </div>
                   <!-- Hidden hidden inputs for calculation reference -->
                   <div style="display:none">
