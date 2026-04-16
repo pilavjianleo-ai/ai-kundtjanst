@@ -1,8 +1,8 @@
 
 /* Contact Logic & Modal */
 const contactModalHTML = `
-<div id="contactFormModal" class="modal" style="display:none; align-items:center; justify-content:center; backdrop-filter:blur(5px); z-index:9999; position:fixed; top:0; left:0; right:0; bottom:0; background:rgba(0,0,0,0.5);">
-  <div class="modalContent" style="width:100%; max-width:480px; padding:30px; border-radius:16px; box-shadow:0 20px 60px rgba(0,0,0,0.3); background:var(--panel); color:var(--text); border:1px solid var(--border);">
+<div id="contactFormModal" class="modal" style="display:none; align-items:center; justify-content:center; backdrop-filter:blur(5px); z-index:9999; position:fixed; top:0; left:0; right:0; bottom:0; background:rgba(0,0,0,0.5); padding:16px; overflow-y:auto; -webkit-overflow-scrolling:touch;">
+  <div class="modalContent" style="width:100%; max-width:480px; max-height:calc(100vh - 32px); overflow-y:auto; padding:30px; border-radius:16px; box-shadow:0 20px 60px rgba(0,0,0,0.3); background:var(--panel); color:var(--text); border:1px solid var(--border);">
     <div style="text-align:center; margin-bottom:24px;">
         <div style="width:64px; height:64px; background:var(--primary-fade); color:var(--primary); border-radius:50%; display:inline-flex; align-items:center; justify-content:center; margin-bottom:16px;">
             <i class="fa-solid fa-address-card" style="font-size:28px;"></i>
@@ -17,7 +17,7 @@ const contactModalHTML = `
             <button type="button" class="tab" onclick="setMode('company')" id="tabCompany" style="flex:1; padding:10px; border:none; background:transparent; border-radius:8px; cursor:pointer; color:var(--muted); font-weight:600;">Företag</button>
         </div>
 
-        <div style="display:grid; grid-template-columns:1fr 1fr; gap:15px; margin-bottom:15px;">
+        <div id="contactNameGrid" style="display:grid; grid-template-columns:1fr 1fr; gap:15px; margin-bottom:15px;">
             <div>
                 <label style="display:block; font-size:12px; font-weight:600; margin-bottom:6px; color:var(--muted);">Förnamn</label>
                 <input type="text" name="name" style="width:100%; padding:12px; border-radius:8px; border:1px solid var(--border); background:var(--bg); color:var(--text); outline:none;" required placeholder="Ditt namn">
@@ -39,7 +39,7 @@ const contactModalHTML = `
         </div>
 
         <div id="companyFields" style="display:none; margin-bottom:15px; border-top:1px solid var(--border); padding-top:15px;">
-            <div style="display:grid; grid-template-columns:1fr 1fr; gap:15px;">
+            <div id="contactCompanyGrid" style="display:grid; grid-template-columns:1fr 1fr; gap:15px;">
                 <div>
                      <label style="display:block; font-size:12px; font-weight:600; margin-bottom:6px; color:var(--muted);">Företagsnamn</label>
                      <input type="text" name="orgName" style="width:100%; padding:12px; border-radius:8px; border:1px solid var(--border); background:var(--bg); color:var(--text); outline:none;" placeholder="Företaget AB">
@@ -56,7 +56,7 @@ const contactModalHTML = `
             <input type="text" name="ticketIdInput" style="width:100%; padding:12px; border-radius:8px; border:1px solid var(--border); background:var(--bg); color:var(--text); outline:none;" placeholder="T.ex. T-12345">
         </div>
 
-        <div style="display:flex; gap:12px;">
+        <div id="contactFormActions" style="display:flex; gap:12px;">
             <button type="button" class="btn ghost" onclick="skipDetails()" style="flex:1; background:transparent; border:1px solid var(--border); color:var(--text); padding:12px; border-radius:8px; cursor:pointer; transition:all 0.2s;">Hoppa över</button>
             <button type="submit" class="btn primary" style="flex:2; background:var(--primary); color:white; border:none; padding:12px; border-radius:8px; cursor:pointer; font-weight:600; box-shadow:0 4px 12px var(--primary-fade); transition:all 0.2s;">Starta Chatt</button>
         </div>

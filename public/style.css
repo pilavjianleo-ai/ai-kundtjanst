@@ -199,6 +199,33 @@ body[data-theme="dark"] .suggestions .chip:hover {
   border-color: rgba(99, 102, 241, 0.38) !important;
 }
 
+@media (max-width: 900px) {
+  #contactFormModal {
+    align-items: flex-start !important;
+    padding: 12px !important;
+  }
+
+  #contactFormModal .modalContent {
+    margin: 0 auto;
+    width: 100% !important;
+    max-width: 100% !important;
+    max-height: calc(100vh - 24px) !important;
+    padding: 18px !important;
+    border-radius: 16px !important;
+  }
+
+  #contactNameGrid,
+  #contactCompanyGrid,
+  #contactFormActions {
+    display: flex !important;
+    flex-direction: column !important;
+  }
+
+  #contactFormActions .btn {
+    width: 100% !important;
+  }
+}
+
 * {
   box-sizing: border-box;
 }
@@ -4820,6 +4847,30 @@ body[data-theme="light"] .messages {
     flex: 1 1 auto;
     justify-content: center;
     padding: 10px 14px !important;
+  }
+
+  /* CRM – förbättra navigation och höjd på mobil */
+  #customerAdminView {
+    height: auto;
+    min-height: 100vh;
+  }
+
+  .crmNav {
+    margin-top: 8px;
+    padding-bottom: 8px;
+    overflow-x: auto;
+    white-space: nowrap;
+    gap: 12px;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .crmNavBtn {
+    flex: 0 0 auto;
+    padding: 6px 12px;
+  }
+
+  .crmTabContent {
+    padding-bottom: 16px;
   }
 
   /* Knowledge Base – mobilanpassning */
