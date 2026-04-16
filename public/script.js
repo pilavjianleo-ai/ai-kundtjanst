@@ -2540,6 +2540,7 @@ async function uploadKbText() {
     if (ed) ed.innerText = "";
     kbUpdateEditorCount();
     await loadKb();
+    await loadKbLegacy();
   } catch (e) {
     toast("Fel", e.message, "error");
   }
@@ -2555,6 +2556,7 @@ async function adminUploadKbUrl() {
     toast("Klar", "URL sparad", "info");
     $("adminKbUrlInput").value = "";
     await loadKb();
+    await loadKbLegacy();
   } catch (e) { toast("Fel", e.message, "error"); }
 }
 
@@ -2579,6 +2581,7 @@ async function adminUploadKbPdf() {
     toast("Klar", "PDF sparad", "info");
     fileInput.value = "";
     await loadKb();
+    await loadKbLegacy();
   } catch (e) { toast("Fel", e.message, "error"); }
 }
 
@@ -4895,16 +4898,33 @@ async function loadKbLegacy() {
   try {
     const docs = await api(`/admin/kb?companyId=${encodeURIComponent(companyId)}`);
     list.innerHTML = "";
-    if (docs.length === 0) { list.innerHTML = "<div class='muted small'>Inga dokument ännu.</div>"; return; }
+    if (docs.length === 0) { list.innerHTML = "<div class='muted small center' style='padding:16px;'>Inga dokument ännu.</div>"; return; }
     docs.forEach((d) => {
       const div = document.createElement("div"); div.className = "listItem";
+      div.style.display = "flex"; div.style.justifyContent = "space-between"; div.style.alignItems = "center";
       const icon = d.sourceType === "pdf" ? "fa-file-pdf" : d.sourceType === "url" ? "fa-link" : "fa-file-lines";
-      div.innerHTML = `<div class="listItemTitle"><i class="fa-solid ${icon}"></i> ${escapeHtml(d.title)} <span class="muted small">(${d.sourceType})</span></div>`;
-      const delBtn = document.createElement("button"); delBtn.className = "btn ghost small danger"; delBtn.innerHTML = '<i class="fa-solid fa-trash"></i>';
-      delBtn.onclick = async (e) => { e.stopPropagation(); if (!confirm(`Ta bort "${d.title}"?`)) return; await api("/admin/kb/" + d._id, { method: "DELETE" }); await loadKb(); };
-      div.appendChild(delBtn); list.appendChild(div);
+      
+      const snippet = (d.content || "").slice(0, 100);
+      
+      div.innerHTML = `
+        <div style="flex:1;">
+          <div class="listItemTitle"><i class="fa-solid ${icon}" style="color:var(--primary); margin-right:6px;"></i> <b>${escapeHtml(d.title)}</b></div>
+          <div class="muted tiny" style="margin-top:4px;">${escapeHtml(snippet)}...</div>
+        </div>
+      `;
+      const delBtn = document.createElement("button"); 
+      delBtn.className = "btn ghost small danger"; 
+      delBtn.innerHTML = '<i class="fa-solid fa-trash"></i>';
+      delBtn.onclick = async (e) => { 
+        e.stopPropagation(); 
+        if (!confirm(`Ta bort "${d.title}"?`)) return; 
+        await api("/admin/kb/" + d._id, { method: "DELETE" }); 
+        await loadKbLegacy(); 
+      };
+      div.appendChild(delBtn); 
+      list.appendChild(div);
     });
-  } catch (e) { list.textContent = "Fel: " + e.message; }
+  } catch (e) { list.innerHTML = `<div class="alert error">Fel: ${e.message}</div>`; }
 }
 
 /* =========================
@@ -5744,12 +5764,13 @@ function bindEvents() {
   initTabs();
 
   // Admin KB Uploads
+  on("kbRefreshBtn", "click", loadKbLegacy);
   on("kbUploadTextBtn", "click", uploadKbText);
   on("adminKbUploadUrlBtn", "click", adminUploadKbUrl);
   on("adminKbUploadPdfBtn", "click", adminUploadKbPdf);
   on("kbGenerateFromTicketBtn", "click", kbGenerateFromTicket);
   on("kbBulkDeleteBtn", "click", bulkDeleteKb);
-  on("kbCategorySelect", "change", loadKb);
+  on("kbCategorySelect", "change", loadKbLegacy);
   on("kbSearchInput", "input", () => {
     clearTimeout(window.__kbSearchDeb);
     window.__kbSearchDeb = setTimeout(searchKb, 250);
