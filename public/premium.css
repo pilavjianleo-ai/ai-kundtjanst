@@ -322,7 +322,7 @@ body {
 }
 
 body[data-theme="light"] .messages {
-  background: var(--panel) !important;
+  background: #f0f4fc !important;
   border: 1px solid var(--border) !important;
   box-shadow: var(--shadow) !important;
 }
