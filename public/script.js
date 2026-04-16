@@ -3239,36 +3239,10 @@ function renderCrmAnalytics() {
     });
   }
 
-  // Analytics Table
+  // Analytics Table (REMOVED: Was overriding the CRM Kunder list with the old Trial/Bas/Pro summary)
   const tableBody = $("crmAnalyticsTable");
   if (tableBody) {
-    const plans = ["trial", "bas", "pro", "enterprise"];
-    const prices = { trial: 0, bas: 0, pro: 499, enterprise: 2999 };
-
-    tableBody.innerHTML = plans.map(plan => {
-      const count = crmData.customers.filter(c => (c.plan || "bas") === plan).length;
-      const pct = s.total ? Math.round(count / s.total * 100) : 0;
-      const mrr = count * prices[plan];
-
-      return `
-        <tr>
-          <td style="padding: 12px;"><span class="planBadge ${plan}">${plan.toUpperCase()}</span></td>
-          <td style="padding: 12px; text-align: right;">${count}</td>
-          <td style="padding: 12px; text-align: right;">${pct}%</td>
-          <td style="padding: 12px; text-align: right;">${mrr.toLocaleString('sv-SE')} kr</td>
-          <td style="padding: 12px; text-align: right;">--</td>
-        </tr>
-      `;
-    }).join("") + `
-      <tr style="font-weight: bold; background: var(--panel2);">
-        <td style="padding: 12px;">TOTALT</td>
-        <td style="padding: 12px; text-align: right;">${s.total}</td>
-        <td style="padding: 12px; text-align: right;">100%</td>
-        <td style="padding: 12px; text-align: right;">${crmData.customers.reduce((sum, c) => sum + (prices[c.plan || "bas"] || 0), 0).toLocaleString('sv-SE')
-      } kr</td>
-        <td style="padding: 12px; text-align: right;">--</td>
-      </tr>
-    `;
+    // DO NOTHING HERE, let window.renderCustomerList() handle the #crmAnalyticsTable
   }
 }
 
