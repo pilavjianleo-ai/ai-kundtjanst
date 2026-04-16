@@ -3347,8 +3347,7 @@
       </section>
 
       <!-- AI CONTROL CENTER (NEW OS) -->
-            <!-- AI CONTROL CENTER (Standalone Enterprise OS) -->
-      <section id="aiOsView" class="view" style="display:none; position:fixed; top:0; left:0; width:100vw; height:100vh; z-index:9999; background:var(--bg); display:flex; flex-direction:column; overflow-y:auto; overflow-x:hidden; font-family:system-ui, sans-serif;">
+      <section id="aiOsView" class="view" style="display:none;">
         <!-- TOP BAR -->
         <header style="height:56px; border-bottom:1px solid var(--border); display:flex; align-items:center; justify-content:space-between; padding:0 20px; background:var(--panel); flex-shrink:0;">
           <div style="display:flex; align-items:center; gap:20px;">
@@ -3370,23 +3369,24 @@
         </header>
 
         <!-- BODY -->
-        <div style="display:flex; flex:1; min-height:0; overflow:hidden;">
-          <!-- LEFT SIDEBAR -->
-          <aside style="width:240px; background:var(--panel2); border-right:1px solid var(--border); display:flex; flex-direction:column; padding:16px 0; z-index:10; flex-shrink:0;">
-            <div id="aiOsNav" style="display:flex; flex-direction:column; gap:2px; padding:0 12px; overflow-y:auto;">
-              <!-- Nav Items Injected by JS -->
-            </div>
-          </aside>
+        <div style="display:flex; flex-direction:column; flex:1; min-height:0; overflow:hidden; background:var(--bg);">
+          <!-- INLINE NAV (no extra sidebar) -->
+          <nav id="aiOsNav" style="display:flex; gap:4px; padding:8px 16px; border-bottom:1px solid var(--border); background:var(--panel2); flex-shrink:0; overflow-x:auto;">
+            <!-- Nav Items Injected by JS -->
+          </nav>
 
-          <!-- MAIN WORKSPACE -->
-          <main id="aiOsMainWorkspace" style="flex:1; display:flex; flex-direction:column; position:relative; overflow:hidden; background:var(--bg); min-height:0;">
-            <!-- Rendered content -->
-          </main>
+          <!-- MAIN + RIGHT PANEL -->
+          <div style="display:flex; flex:1; min-height:0; overflow:hidden;">
+            <!-- MAIN WORKSPACE -->
+            <main id="aiOsMainWorkspace" style="flex:1; display:flex; flex-direction:column; position:relative; overflow:hidden; background:var(--bg); min-height:0;">
+              <!-- Rendered content -->
+            </main>
 
-          <!-- RIGHT PANEL -->
-          <aside id="aiOsRightPanel" style="width:360px; background:var(--panel); border-left:1px solid var(--border); display:flex; flex-direction:column; overflow-y:auto; z-index:10; flex-shrink:0;">
-            <!-- Context aware properties -->
-          </aside>
+            <!-- RIGHT PANEL -->
+            <aside id="aiOsRightPanel" style="width:360px; background:var(--panel); border-left:1px solid var(--border); display:flex; flex-direction:column; overflow-y:auto; flex-shrink:0;">
+              <!-- Context aware properties -->
+            </aside>
+          </div>
         </div>
       </section>
 

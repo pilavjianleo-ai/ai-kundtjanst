@@ -523,7 +523,6 @@ function updateRoleUI() {
     if (knowledgeBtn) knowledgeBtn.style.display = "";
     if (settingsBtn) settingsBtn.style.display = "";
     if (simulatorBtn) simulatorBtn.style.display = "";
-    if (aiPanelBtn) aiPanelBtn.style.display = "";
     if (opsBtn) opsBtn.style.display = "";
     return;
   }
@@ -539,14 +538,13 @@ function updateRoleUI() {
     if (settingsBtn) settingsBtn.style.display = "";
     if (feedbackBtn) feedbackBtn.style.display = "";
     if (simulatorBtn) simulatorBtn.style.display = "";
-    if (aiPanelBtn) aiPanelBtn.style.display = "";
     if (opsBtn) opsBtn.style.display = "";
     return;
   }
 
   // 5. Admin Role
   if (role === "admin") {
-    [dashboardBtn, chatBtn, myTicketsBtn, inboxBtn, slaBtn, adminBtn, opsBtn, aiPanelBtn, settingsBtn, knowledgeBtn,
+    [dashboardBtn, chatBtn, myTicketsBtn, inboxBtn, slaBtn, adminBtn, opsBtn, settingsBtn, knowledgeBtn,
       customerAdminBtn, billingBtn, customerSettingsBtn, simulatorBtn,
       feedbackBtn, scenarioBtn, salesBtn, slaClearAllStatsBtn]
       .forEach(el => { if (el) el.style.display = ""; });
@@ -1000,12 +998,15 @@ async function switchCompany(newCompanyId) {
   state.conversation.push({ role: "assistant", content: greeting });
 
   setTimeout(() => {
-    // Restore the greeting bubble (user request)
     addMsg("assistant", greeting);
-
-    // Hide default suggestions bar
+    const baseSuggestions = [
+      "Hur fungerar det?",
+      "Vilka priser har ni?",
+      "Prata med person"
+    ];
+    renderSuggestions(baseSuggestions);
     const sugg = $("suggestions");
-    if (sugg) sugg.style.display = "none";
+    if (sugg) sugg.style.display = "flex";
   }, 100);
 
   // Reload inbox if we're currently viewing it
@@ -4419,7 +4420,7 @@ async function loadEnterpriseAnalytics() {
       </div>
       <div class="panel" style="margin-top:14px;">
         <div class="panelHead"><b><i class="fa-solid fa-list"></i> Senaste AI-händelser</b></div>
-        <div class="list">
+        <div class="list" id="adminEventsList">
           ${
             Array.isArray(events) && events.length
               ? events.map((e) => {
@@ -4429,13 +4430,23 @@ async function loadEnterpriseAnalytics() {
                   const tok = Number(e.tokensApprox || 0);
                   const ms = Number(e.latencyMs || 0);
                   const ok = e.ok === false ? "❌" : "✅";
-                  return `<div class="listItem" style="cursor:default; display:flex; justify-content:space-between; gap:12px; flex-wrap:wrap;">
-                    <div style="min-width:240px;">
-                      <div style="font-weight:800;">${ok} ${escapeHtml(String(t))}</div>
-                      <div class="muted tiny">${escapeHtml(String(when))} • ${escapeHtml(String(c))}</div>
+                  return `<div class="listItem adminEventItem" style="cursor:default;">
+                    <div style="display:flex; justify-content:space-between; gap:12px; flex-wrap:wrap; align-items:center;">
+                      <div style="min-width:240px;">
+                        <div style="font-weight:800;">${ok} ${escapeHtml(String(t))}</div>
+                        <div class="muted tiny">${escapeHtml(String(when))} • ${escapeHtml(String(c))}</div>
+                      </div>
+                      <div style="display:flex; align-items:center; gap:8px;">
+                        <span class="pill soft muted small">${tok} tok</span>
+                        <span class="pill soft muted small"><i class="fa-solid fa-stopwatch"></i> ${ms} ms</span>
+                        <button type="button" class="btn ghost tiny adminEventToggle">
+                          <i class="fa-solid fa-chevron-down"></i>
+                        </button>
+                      </div>
                     </div>
-                    <div class="muted small" style="text-align:right;">
-                      ${tok} tok • ${ms} ms
+                    <div class="adminEventDetails" style="display:none; margin-top:8px; padding:10px; background:var(--panel2); border-radius:8px;">
+                      <div class="muted tiny" style="margin-bottom:4px;">Detaljer</div>
+                      <pre style="margin:0; font-size:11px; max-height:220px; overflow-y:auto;">${escapeHtml(JSON.stringify(e, null, 2))}</pre>
                     </div>
                   </div>`;
                 }).join("")
@@ -4444,6 +4455,19 @@ async function loadEnterpriseAnalytics() {
         </div>
       </div>
     `;
+    const eventsList = box.querySelectorAll(".adminEventToggle");
+    eventsList.forEach((btn) => {
+      btn.addEventListener("click", () => {
+        const li = btn.closest(".adminEventItem");
+        if (!li) return;
+        const details = li.querySelector(".adminEventDetails");
+        if (!details) return;
+        const isOpen = details.style.display === "block";
+        details.style.display = isOpen ? "none" : "block";
+        const icon = btn.querySelector("i");
+        if (icon) icon.className = isOpen ? "fa-solid fa-chevron-down" : "fa-solid fa-chevron-up";
+      });
+    });
   } catch (e) {
     box.innerHTML = `<div class="alert error">Kunde inte ladda analytics: ${escapeHtml(e.message)}</div>`;
   }
@@ -4553,21 +4577,42 @@ async function loadDashboard() {
           const when = e.createdAt ? new Date(e.createdAt).toLocaleString("sv-SE") : "";
           const ok = e.ok === false ? "❌" : "✅";
           return `
-            <div class="listItem" style="cursor:default; display:flex; justify-content:space-between; gap:12px; flex-wrap:wrap;">
-              <div style="display:flex; gap:12px; align-items:center;">
-                <div class="avatar-small" style="background:var(--panel2);"><i class="fa-solid fa-bolt" style="color:var(${e.ok === false ? '--danger' : '--ok'});"></i></div>
-                <div>
-                  <div style="font-weight:600;">${escapeHtml(String(e.type || ""))}</div>
-                  <div class="muted tiny">${escapeHtml(when)} • ID: ${escapeHtml(String(e.companyId || "-"))}</div>
+            <div class="listItem" style="cursor:default;">
+              <div style="display:flex; justify-content:space-between; gap:12px; flex-wrap:wrap; align-items:center;">
+                <div style="display:flex; gap:12px; align-items:center;">
+                  <div class="avatar-small" style="background:var(--panel2);"><i class="fa-solid fa-bolt" style="color:var(${e.ok === false ? '--danger' : '--ok'});"></i></div>
+                  <div>
+                    <div style="font-weight:600;">${ok} ${escapeHtml(String(e.type || ""))}</div>
+                    <div class="muted tiny">${escapeHtml(when)} • ID: ${escapeHtml(String(e.companyId || "-"))}</div>
+                  </div>
+                </div>
+                <div style="display:flex; align-items:center; gap:8px;">
+                  <span class="pill soft muted small">${Number(e.tokensApprox || 0)} tokens</span> 
+                  <span class="pill soft muted small"><i class="fa-solid fa-stopwatch"></i> ${Number(e.latencyMs || 0)} ms</span>
+                  <button type="button" class="btn ghost tiny dashboardEventToggle" style="min-width:32px;">
+                    <i class="fa-solid fa-chevron-down"></i>
+                  </button>
                 </div>
               </div>
-              <div class="muted small" style="text-align:right; display:flex; align-items:center; gap:8px;">
-                <span class="pill soft">${Number(e.tokensApprox || 0)} tokens</span> 
-                <span class="pill soft"><i class="fa-solid fa-stopwatch"></i> ${Number(e.latencyMs || 0)} ms</span>
+              <div class="dashboardEventDetails" style="display:none; margin-top:8px; padding:10px; background:var(--panel2); border-radius:8px;">
+                <div class="muted tiny" style="margin-bottom:4px;">Detaljer</div>
+                <pre style="margin:0; font-size:11px; max-height:200px; overflow-y:auto;">${escapeHtml(JSON.stringify(e, null, 2))}</pre>
               </div>
             </div>
           `;
         }).join("");
+        eventsBox.querySelectorAll(".dashboardEventToggle").forEach((btn) => {
+          btn.addEventListener("click", () => {
+            const li = btn.closest(".listItem");
+            if (!li) return;
+            const details = li.querySelector(".dashboardEventDetails");
+            if (!details) return;
+            const isOpen = details.style.display === "block";
+            details.style.display = isOpen ? "none" : "block";
+            const icon = btn.querySelector("i");
+            if (icon) icon.className = isOpen ? "fa-solid fa-chevron-down" : "fa-solid fa-chevron-up";
+          });
+        });
       }
     }
   } catch (e) {
