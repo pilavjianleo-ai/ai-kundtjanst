@@ -852,17 +852,26 @@ async function loadCompanies() {
     }
   }
 
-  // Also populate KB select
+  // Also populate KB selects
   const kbSel = $("kbCategorySelect");
-  if (kbSel) {
-    kbSel.innerHTML = "";
-    state.companies.forEach((c) => {
+  const knowledgeSel = $("knowledgeCompanySelect");
+  if (kbSel) kbSel.innerHTML = "";
+  if (knowledgeSel) knowledgeSel.innerHTML = "";
+  state.companies.forEach((c) => {
+    const optText = `${c.companyId} - ${c.displayName}`;
+    if (kbSel) {
       const opt = document.createElement("option");
       opt.value = c.companyId;
-      opt.textContent = `${c.companyId} - ${c.displayName}`;
+      opt.textContent = optText;
       kbSel.appendChild(opt);
-    });
-  }
+    }
+    if (knowledgeSel) {
+      const opt2 = document.createElement("option");
+      opt2.value = c.companyId;
+      opt2.textContent = optText;
+      knowledgeSel.appendChild(opt2);
+    }
+  });
 
   const entSel = $("enterpriseCompanySelect");
   if (entSel) {
@@ -2284,7 +2293,7 @@ function initTabs() {
 }
 
 async function loadKb() {
-  const companyId = $("kbCategorySelect")?.value || "demo";
+  const companyId = $("knowledgeCompanySelect")?.value || "demo";
   const list = $("knowledgeList");
   if (!list) return;
 
@@ -2371,7 +2380,7 @@ function resetKnowledgeForm() {
 }
 
 async function searchKb() {
-  const companyId = $("kbCategorySelect")?.value || "demo";
+  const companyId = $("knowledgeCompanySelect")?.value || "demo";
   const q = $("kbSearchInput")?.value.trim() || "";
   const list = $("kbList");
   if (!list) return;
@@ -2432,7 +2441,7 @@ async function searchKb() {
 }
 // Ny spara funktion för knowledge
 async function saveKnowledgeArticle() {
-  const companyId = $("kbCategorySelect")?.value || "demo";
+  const companyId = $("knowledgeCompanySelect")?.value || "demo";
   const title = $("knowledgeTitle")?.value.trim();
   const content = $("knowledgeContent")?.value.trim();
   const category = $("knowledgeCategory")?.value.trim();
@@ -2470,7 +2479,7 @@ async function saveKnowledgeArticle() {
 }
 
 async function uploadKbUrl() {
-  const companyId = state.companyId || "demo";
+  const companyId = $("knowledgeCompanySelect")?.value || "demo";
   const url = $("kbUrlInput")?.value.trim();
   if (!url) return toast("Saknas", "Fyll i URL", "error");
   try {
@@ -2483,7 +2492,7 @@ async function uploadKbUrl() {
 }
 
 async function uploadKbPdf() {
-  const companyId = state.companyId || "demo";
+  const companyId = $("knowledgeCompanySelect")?.value || "demo";
   const fileInput = $("kbPdfFile");
   const file = fileInput?.files?.[0];
   if (!file) return toast("Saknas", "Välj en fil", "error");
@@ -5333,11 +5342,18 @@ function bindEvents() {
   on("openKnowledgeView", "click", async () => {
     if (!state.me) return showView("authView", "openChatView");
     showView("knowledgeView", "openKnowledgeView");
+    
+    // Sätt initialt företag baserat på det globala valet
+    if ($("knowledgeCompanySelect") && state.companyId) {
+      $("knowledgeCompanySelect").value = state.companyId;
+    }
+    
     await loadKb(); // was loadKnowledge()
   });
 
   on("dashboardRefreshBtn", "click", loadDashboard);
   on("knowledgeRefreshBtn", "click", loadKb);
+  on("knowledgeCompanySelect", "change", loadKb);
   on("knowledgeSaveBtn", "click", saveKnowledgeArticle);
   on("knowledgeResetBtn", "click", resetKnowledgeForm);
   on("knowledgeSearchBtn", "click", loadKb);

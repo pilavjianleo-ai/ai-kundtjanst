@@ -1126,14 +1126,12 @@ window.saveCustomerEdits = async function (id) {
 window.goToCustomerKB = function (companyId) {
     window.closeCrmModal('crmCustomerModal');
     if (typeof showView === 'function') {
-        showView('adminView');
-        const tabBtn = document.querySelector('.tabBtn[data-tab="tabKB"]');
-        if (tabBtn) tabBtn.click();
+        showView('knowledgeView', 'openKnowledgeView');
         setTimeout(() => {
-            const kbSel = document.getElementById('kbCategorySelect');
+            const kbSel = document.getElementById('knowledgeCompanySelect');
             if (kbSel) {
                 kbSel.value = companyId;
-                const refreshBtn = document.getElementById('kbRefreshBtn');
+                const refreshBtn = document.getElementById('knowledgeRefreshBtn');
                 if (refreshBtn) refreshBtn.click();
             }
         }, 150);
