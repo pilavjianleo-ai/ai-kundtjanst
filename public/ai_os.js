@@ -21,6 +21,33 @@ window.closeAiOs = function() {
   if (typeof setRoute === 'function') setRoute("overview");
 };
 
+function osToast(title, text) {
+  if (!document.getElementById("osToastStyles")) {
+    const style = document.createElement("style");
+    style.id = "osToastStyles";
+    style.innerHTML = `
+      @keyframes osSlideIn { from { transform: translateX(100%); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
+      @keyframes osSlideOut { from { transform: translateX(0); opacity: 1; } to { transform: translateX(100%); opacity: 0; } }
+    `;
+    document.head.appendChild(style);
+  }
+  let wrap = document.getElementById("osToastWrap");
+  if (!wrap) {
+    wrap = document.createElement("div");
+    wrap.id = "osToastWrap";
+    wrap.style.cssText = "position:fixed; bottom:20px; right:20px; display:flex; flex-direction:column; gap:10px; z-index:10000;";
+    document.body.appendChild(wrap);
+  }
+  const div = document.createElement("div");
+  div.style.cssText = "background:var(--panel); border:1px solid var(--primary); border-left:4px solid var(--primary); padding:12px 16px; border-radius:8px; box-shadow:var(--shadow); min-width:250px; animation:osSlideIn 0.3s ease forwards; color:var(--text); font-family:system-ui, sans-serif;";
+  div.innerHTML = `<div style="font-weight:800; font-size:14px; margin-bottom:4px;">${title}</div><div class="muted small" style="color:var(--muted);">${text}</div>`;
+  wrap.appendChild(div);
+  setTimeout(() => {
+    div.style.animation = "osSlideOut 0.3s ease forwards";
+    setTimeout(() => div.remove(), 300);
+  }, 3000);
+}
+
 function initAiOs() {
   if (aiOsInitialized) {
     renderAiOsModule();
@@ -52,6 +79,81 @@ function initAiOs() {
       currentAiOsRoute = btn.getAttribute("data-aios");
       renderAiOsModule();
     });
+  });
+
+  // Add global interaction handler for mock elements
+  const aiOsView = document.getElementById("aiOsView");
+  
+  aiOsView.addEventListener("click", (e) => {
+    const btn = e.target.closest("button");
+      if (btn && !btn.classList.contains("menuBtn") && !btn.hasAttribute("onclick")) {
+        osToast("AI Control Center", "Action registered (UI Mockup)");
+      }
+      
+      // Toggle switches
+      const toggle = e.target.closest('input[type="checkbox"]');
+      if (toggle && e.target.tagName !== "INPUT") {
+        // let it naturally toggle
+      }
+      
+      // Select lists
+      const listItem = e.target.closest(".listItem, .panel.soft.cursor-pointer");
+      if (listItem) {
+        const siblings = listItem.parentElement.querySelectorAll(".listItem, .panel.soft.cursor-pointer");
+        siblings.forEach(s => {
+          s.classList.remove("active");
+          s.style.borderColor = "transparent";
+          s.style.boxShadow = "none";
+          const check = s.querySelector(".fa-circle-check");
+          if(check && s !== listItem) check.parentElement.remove();
+        });
+        listItem.classList.add("active");
+        if (listItem.classList.contains("panel")) {
+          listItem.style.borderColor = "var(--primary)";
+          listItem.style.boxShadow = "0 8px 24px -8px color-mix(in srgb, var(--primary) 30%, transparent)";
+        }
+        osToast("Selection", "Context updated");
+      }
+  });
+
+  // Flow Builder drag and drop
+  let draggedNode = null;
+  let offsetX = 0, offsetY = 0;
+  
+  aiOsView.addEventListener("mousedown", (e) => {
+    const node = e.target.closest(".flow-node");
+    if (node && !e.target.closest("button") && !e.target.closest("input")) {
+      draggedNode = node;
+      const rect = node.getBoundingClientRect();
+      const parentRect = node.parentElement.getBoundingClientRect();
+      offsetX = e.clientX - parseInt(node.style.left || 0);
+      offsetY = e.clientY - parseInt(node.style.top || 0);
+      node.style.cursor = "grabbing";
+      node.style.zIndex = 100;
+    }
+  });
+
+  document.addEventListener("mousemove", (e) => {
+    if (draggedNode) {
+      draggedNode.style.left = (e.clientX - offsetX) + "px";
+      draggedNode.style.top = (e.clientY - offsetY) + "px";
+      
+      // Update SVG paths roughly
+      const paths = document.querySelectorAll("#aiOsMainWorkspace svg path");
+      paths.forEach(p => p.setAttribute("opacity", "0.2"));
+    }
+  });
+
+  document.addEventListener("mouseup", () => {
+    if (draggedNode) {
+      draggedNode.style.cursor = "grab";
+      draggedNode.style.zIndex = 5;
+      draggedNode = null;
+      
+      const paths = document.querySelectorAll("#aiOsMainWorkspace svg path");
+      paths.forEach(p => p.setAttribute("opacity", "1"));
+      osToast("Flow Builder", "Node position saved");
+    }
   });
 
   renderAiOsModule();
@@ -294,7 +396,7 @@ function renderOsFlows(main, right) {
 
       <!-- Nodes -->
       <!-- Node 1: Start/Intent -->
-      <div style="position:absolute; top:120px; left:100px; width:280px; background:var(--panel); border:1px solid var(--border); border-top:4px solid var(--primary); border-radius:12px; box-shadow:var(--shadow); z-index:5; cursor:grab;">
+      <div class="flow-node" style="position:absolute; top:120px; left:100px; width:280px; background:var(--panel); border:1px solid var(--border); border-top:4px solid var(--primary); border-radius:12px; box-shadow:var(--shadow); z-index:5; cursor:grab;">
         <div style="padding:16px;">
           <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:12px;">
             <div>
@@ -309,7 +411,7 @@ function renderOsFlows(main, right) {
       </div>
 
       <!-- Node 2: Condition -->
-      <div style="position:absolute; top:100px; left:480px; width:280px; background:var(--panel); border:2px solid var(--primary); border-top:4px solid var(--primary); border-radius:12px; box-shadow:0 0 0 4px color-mix(in srgb, var(--primary) 15%, transparent); z-index:6; cursor:grab;">
+      <div class="flow-node" style="position:absolute; top:100px; left:480px; width:280px; background:var(--panel); border:2px solid var(--primary); border-top:4px solid var(--primary); border-radius:12px; box-shadow:0 0 0 4px color-mix(in srgb, var(--primary) 15%, transparent); z-index:6; cursor:grab;">
         <div style="width:14px; height:14px; border-radius:50%; background:var(--border); position:absolute; left:-8px; top:50%; transform:translateY(-50%); border:3px solid var(--panel);"></div>
         <div style="padding:16px;">
           <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:12px;">
@@ -333,7 +435,7 @@ function renderOsFlows(main, right) {
       </div>
 
       <!-- Node 3: Action -->
-      <div style="position:absolute; top:280px; left:860px; width:280px; background:var(--panel); border:1px solid var(--border); border-top:4px solid var(--warn); border-radius:12px; box-shadow:var(--shadow); z-index:5; cursor:grab;">
+      <div class="flow-node" style="position:absolute; top:280px; left:860px; width:280px; background:var(--panel); border:1px solid var(--border); border-top:4px solid var(--warn); border-radius:12px; box-shadow:var(--shadow); z-index:5; cursor:grab;">
         <div style="width:14px; height:14px; border-radius:50%; background:var(--border); position:absolute; left:-8px; top:50%; transform:translateY(-50%); border:3px solid var(--panel);"></div>
         <div style="padding:16px;">
           <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:12px;">
