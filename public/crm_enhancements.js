@@ -816,7 +816,7 @@ window.renderCustomerList = function () {
         tbody.innerHTML = `<tr><td colspan="6" class="muted center" style="padding:20px;">Inga kunder hittades för ${window.state?.currentCompany?.displayName || 'detta företag'}.</td></tr>`;
         ['crmTotalValueHeader', 'crmTotalValueFooter'].forEach(id => {
             const el = document.getElementById(id);
-            if (el) el.innerText = '0 kr';
+            if (el) el.innerText = '0,00 kr';
         });
         const countHeader = document.getElementById('crmTotalCustomersHeader');
         if (countHeader) countHeader.innerText = '0 st';
