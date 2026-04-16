@@ -55,6 +55,11 @@
         <button class="opsNavItem" data-route="security"><i class="fa-solid fa-shield"></i> Security & Compliance</button>
       </div>
 
+      <div class="opsNavGroup">
+        <div class="opsNavLabel">AI Control Center</div>
+        <button class="opsNavItem" data-route="ai-control-center"><i class="fa-solid fa-microchip"></i> Open Control Center</button>
+      </div>
+
       <div class="opsSidebarFooter">
         <button id="opsThemeToggle" class="btn ghost full" type="button">
           <i class="fa-solid fa-moon"></i> Theme
@@ -87,7 +92,7 @@
       <div id="opsNotifPanel" class="opsPopover panel soft" style="display:none;"></div>
       <div id="opsUserPanel" class="opsPopover panel soft" style="display:none;"></div>
 
-      <section class="opsPage">
+      <section class="opsPage" id="opsPageMain">
         <div class="opsHeader">
           <div>
             <div class="title" id="opsPageTitle" style="font-size: clamp(22px, 2vw, 30px);">Overview</div>
@@ -107,9 +112,45 @@
 
         <div id="opsContent" style="display: grid; grid-template-columns: 1fr 380px; gap: 14px; margin-top: 14px;"></div>
       </section>
+
+      <!-- AI CONTROL CENTER (Standalone Panel inside Ops Platform) -->
+      <section id="aiOsView" class="opsPage" style="display:none; max-width:none; margin:0; padding:0; height:calc(100vh - 74px); overflow:hidden;">
+        <div style="display:flex; height:100%;">
+          <aside style="width:260px; background:var(--panel2); border-right:1px solid var(--border); display:flex; flex-direction:column; padding-top:20px;">
+            <div style="padding:0 20px 20px 20px; font-weight:900; font-size:16px; border-bottom:1px solid var(--border); margin-bottom:12px;">
+              <i class="fa-solid fa-microchip" style="color:var(--primary); margin-right:8px;"></i> AI Control Center
+            </div>
+            <div id="aiOsNav" style="display:flex; flex-direction:column; gap:4px; padding:0 12px; overflow-y:auto;">
+              <button class="menuBtn active" data-aios="live-studio"><i class="fa-solid fa-play-circle"></i> Live Studio</button>
+              <button class="menuBtn" data-aios="conversations"><i class="fa-solid fa-pen-to-square"></i> Conversations</button>
+              <button class="menuBtn" data-aios="behavior"><i class="fa-solid fa-brain"></i> Behavior</button>
+              <button class="menuBtn" data-aios="flows"><i class="fa-solid fa-diagram-project"></i> Flows</button>
+              <button class="menuBtn" data-aios="knowledge"><i class="fa-solid fa-book-bookmark"></i> Knowledge</button>
+              <button class="menuBtn" data-aios="training"><i class="fa-solid fa-crosshairs"></i> Training</button>
+              <button class="menuBtn" data-aios="performance"><i class="fa-solid fa-chart-pie"></i> Performance</button>
+              <button class="menuBtn" data-aios="experiments"><i class="fa-solid fa-flask"></i> Experiments</button>
+              <button class="menuBtn" data-aios="automations"><i class="fa-solid fa-bolt"></i> Automations</button>
+              <button class="menuBtn" data-aios="logs"><i class="fa-solid fa-clipboard-list"></i> Logs</button>
+            </div>
+          </aside>
+          <div style="flex:1; display:flex; flex-direction:column; background:var(--bg);">
+            <div style="height:70px; border-bottom:1px solid var(--border); display:flex; align-items:center; padding:0 30px; justify-content:space-between; background:var(--panel);">
+              <div>
+                <div id="aiOsHeaderTitle" class="title" style="font-size:20px; font-weight:800;">Live Studio</div>
+                <div id="aiOsHeaderSub" class="muted small" style="margin-top:4px;">Test AI in real-time and understand behavior.</div>
+              </div>
+              <div id="aiOsHeaderActions"></div>
+            </div>
+            <div id="aiOsContent" style="flex:1; overflow:auto; padding:30px;">
+              <!-- Dynamic module content -->
+            </div>
+          </div>
+        </div>
+      </section>
     </main>
   </div>
 
   <script src="ops.js?v=2026.32"></script>
+  <script src="ai_os.js?v=2026.55"></script>
 </body>
 </html>

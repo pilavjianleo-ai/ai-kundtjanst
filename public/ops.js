@@ -356,9 +356,9 @@ async function buildInsights({ tickets, events }) {
         : "Escalation signals look stable for the selected scope.",
       impact: failedEscalations ? revenueLeak : "Low impact",
       confidence: failedEscalations ? 0.82 : 0.66,
-      cta: failedEscalations ? "Fix now" : "Review",
-      next: failedEscalations ? "Escalate refunds and high-risk intents to humans." : "Keep monitoring high-risk intents.",
-      route: "opportunities"
+      cta: failedEscalations ? "Fix in AI Control Center" : "Review in AI Control Center",
+      next: failedEscalations ? "Update Intent Routing to catch edge cases." : "Monitor high-risk intents in Logs.",
+      route: "ai-control-center"
     },
     {
       sev: withoutAgent.length ? "warn" : "ok",
@@ -369,9 +369,9 @@ async function buildInsights({ tickets, events }) {
         : "Ownership coverage is stable for the selected scope.",
       impact: withoutAgent.length ? `${withoutAgent.length} unowned conversations` : "Low impact",
       confidence: 0.74,
-      cta: "Take action",
-      next: "Assign owners or take over high-risk conversations.",
-      route: "live-ai"
+      cta: "Fix in AI Control Center",
+      next: "Adjust Automations for better failover assignment.",
+      route: "ai-control-center"
     },
     {
       sev: "ok",
@@ -380,9 +380,9 @@ async function buildInsights({ tickets, events }) {
       body: "Reducing first response time improves trust and reduces purchase drop-offs.",
       impact: `${Math.round(estLift * 100)}% conversion lift`,
       confidence: 0.68,
-      cta: "Optimize",
-      next: "Reduce handoff latency and improve routing.",
-      route: "support-performance"
+      cta: "Optimize in AI Control Center",
+      next: "Tweak AI Behavior Engine for faster first response.",
+      route: "ai-control-center"
     }
   ];
 
@@ -504,8 +504,7 @@ async function renderOverview({ tickets, events }) {
         <div class="muted small">Next best actions</div>
         <div style="margin-top:10px; display:flex; gap:10px; flex-wrap:wrap;">
           <button class="btn primary" type="button" id="opsGoLiveAi"><i class="fa-solid fa-signal"></i> Live AI</button>
-          <button class="btn secondary" type="button" id="opsGoRules"><i class="fa-solid fa-diagram-project"></i> Automation Rules</button>
-          <button class="btn ghost" type="button" id="opsGoConfig"><i class="fa-solid fa-sliders"></i> AI Configuration</button>
+          <button class="btn secondary" type="button" id="opsGoRules"><i class="fa-solid fa-microchip"></i> Open AI Control Center</button>
         </div>
       </div>
     </div>
@@ -561,8 +560,7 @@ async function renderOverview({ tickets, events }) {
 
   $("opsContent").innerHTML = left + right;
   $("opsGoLiveAi")?.addEventListener("click", () => setRoute("live-ai"));
-  $("opsGoRules")?.addEventListener("click", () => setRoute("automation-rules"));
-  $("opsGoConfig")?.addEventListener("click", () => setRoute("ai-configuration"));
+  $("opsGoRules")?.addEventListener("click", () => setRoute("ai-control-center"));
 }
 
 async function renderLiveAi({ tickets }) {
@@ -2022,6 +2020,22 @@ async function renderGeneric({ title, subtitle, ctaLabel, ctaRoute }) {
 async function renderPage() {
   const { tickets } = await fetchTicketsForOps().catch(() => ({ tickets: [] }));
   const events = await fetchUsageEvents(30);
+
+  // Show AI Control Center full view, hide main Ops page
+  if (ops.route === "ai-control-center") {
+    const mainPage = document.getElementById("opsPageMain");
+    const aiOsView = document.getElementById("aiOsView");
+    if (mainPage) mainPage.style.display = "none";
+    if (aiOsView) aiOsView.style.display = "block";
+    if (typeof initAiOs === "function") initAiOs();
+    return;
+  }
+  
+  // Otherwise, hide AI OS and show Main Ops page
+  const mainPage = document.getElementById("opsPageMain");
+  const aiOsView = document.getElementById("aiOsView");
+  if (aiOsView) aiOsView.style.display = "none";
+  if (mainPage) mainPage.style.display = "block";
 
   if (ops.route === "overview") return renderOverview({ tickets, events });
   if (ops.route === "live-ai") return renderLiveAi({ tickets });

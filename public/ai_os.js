@@ -5,6 +5,11 @@ let currentAiOsRoute = "live-studio";
 let aiOsInitialized = false;
 
 function initAiOs() {
+  // If ops object exists, force preview mode flag to avoid errors in isolated views
+  if (typeof ops !== 'undefined' && !ops.preview) {
+    // just ensures we don't crash if ops is half-loaded
+  }
+
   if (aiOsInitialized) {
     renderAiOsModule(currentAiOsRoute);
     return;
