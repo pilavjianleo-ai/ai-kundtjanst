@@ -2469,86 +2469,8 @@ async function saveKnowledgeArticle() {
   }
 }
 
-function initKnowledgeEvents() {
-    const saveBtn = $("knowledgeSaveBtn");
-    if(saveBtn) saveBtn.onclick = saveKnowledgeArticle;
-    
-    const resetBtn = $("knowledgeResetBtn");
-    if(resetBtn) resetBtn.onclick = resetKnowledgeForm;
-
-    const searchInput = $("knowledgeSearchInput");
-    if(searchInput) {
-        searchInput.addEventListener('input', (e) => {
-            const val = e.target.value.toLowerCase();
-            const items = document.querySelectorAll('#knowledgeList .listItem');
-            items.forEach(item => {
-                const text = item.innerText.toLowerCase();
-                item.style.display = text.includes(val) ? "flex" : "none";
-            });
-        });
-    }
-
-    const catFilter = $("knowledgeCategoryFilter");
-    if(catFilter) {
-        catFilter.addEventListener('change', (e) => {
-            const val = e.target.value.toLowerCase();
-            const items = document.querySelectorAll('#knowledgeList .listItem');
-            items.forEach(item => {
-                if(!val) item.style.display = "flex";
-                else item.style.display = item.innerText.toLowerCase().includes(val) ? "flex" : "none";
-            });
-        });
-    }
-
-    // Helper for event binding within this function
-    const bindBtn = (id, event, handler) => {
-        const el = $(id);
-        if (el) el.addEventListener(event, handler);
-    };
-
-    // URL & PDF Upload toggles
-    bindBtn("kbUploadUrlBtn", "click", () => {
-        const box = $("kbUploadUrlBox");
-        if (box) box.style.display = box.style.display === "none" ? "block" : "none";
-        if ($("kbUploadPdfBox")) $("kbUploadPdfBox").style.display = "none";
-    });
-
-    bindBtn("kbUploadPdfBtn", "click", () => {
-        const box = $("kbUploadPdfBox");
-        if (box) box.style.display = box.style.display === "none" ? "block" : "none";
-        if ($("kbUploadUrlBox")) $("kbUploadUrlBox").style.display = "none";
-    });
-
-    bindBtn("kbConfirmUrlBtn", "click", async () => {
-        const btn = $("kbConfirmUrlBtn");
-        if(!btn) return;
-        const oldHtml = btn.innerHTML;
-        btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i>';
-        btn.disabled = true;
-        await uploadKbUrl();
-        btn.innerHTML = oldHtml;
-        btn.disabled = false;
-    });
-
-    bindBtn("kbConfirmPdfBtn", "click", async () => {
-        const btn = $("kbConfirmPdfBtn");
-        if(!btn) return;
-        const oldHtml = btn.innerHTML;
-        btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i>';
-        btn.disabled = true;
-        await uploadKbPdf();
-        btn.innerHTML = oldHtml;
-        btn.disabled = false;
-    });
-}
-
-// Koppla initKnowledgeEvents till bindEvents eller window load
-document.addEventListener('DOMContentLoaded', () => {
-    setTimeout(initKnowledgeEvents, 1000);
-});
-
 async function uploadKbUrl() {
-  const companyId = $("kbCategorySelect")?.value || "demo";
+  const companyId = state.companyId || "demo";
   const url = $("kbUrlInput")?.value.trim();
   if (!url) return toast("Saknas", "Fyll i URL", "error");
   try {
@@ -2561,7 +2483,7 @@ async function uploadKbUrl() {
 }
 
 async function uploadKbPdf() {
-  const companyId = $("kbCategorySelect")?.value || "demo";
+  const companyId = state.companyId || "demo";
   const fileInput = $("kbPdfFile");
   const file = fileInput?.files?.[0];
   if (!file) return toast("Saknas", "Välj en fil", "error");
@@ -5315,16 +5237,31 @@ function bindEvents() {
   on("openKnowledgeView", "click", async () => {
     if (!state.me) return showView("authView", "openChatView");
     showView("knowledgeView", "openKnowledgeView");
-    await loadKnowledge();
+    await loadKb(); // was loadKnowledge()
   });
 
   on("dashboardRefreshBtn", "click", loadDashboard);
-  on("knowledgeRefreshBtn", "click", loadKnowledge);
-  on("knowledgeSaveBtn", "click", saveKnowledge);
+  on("knowledgeRefreshBtn", "click", loadKb);
+  on("knowledgeSaveBtn", "click", saveKnowledgeArticle);
   on("knowledgeResetBtn", "click", resetKnowledgeForm);
-  on("knowledgeSearchBtn", "click", loadKnowledge);
-  on("knowledgeSearchInput", "keydown", (e) => { if (e.key === "Enter") loadKnowledge(); });
-  on("knowledgeCategoryFilter", "keydown", (e) => { if (e.key === "Enter") loadKnowledge(); });
+  on("knowledgeSearchBtn", "click", loadKb);
+  on("knowledgeSearchInput", "input", (e) => {
+    const val = e.target.value.toLowerCase();
+    const items = document.querySelectorAll('#knowledgeList .listItem');
+    items.forEach(item => {
+        const text = item.innerText.toLowerCase();
+        item.style.display = text.includes(val) ? "flex" : "none";
+    });
+  });
+
+  on("knowledgeCategoryFilter", "change", (e) => {
+    const val = e.target.value.toLowerCase();
+    const items = document.querySelectorAll('#knowledgeList .listItem');
+    items.forEach(item => {
+        if(!val) item.style.display = "flex";
+        else item.style.display = item.innerText.toLowerCase().includes(val) ? "flex" : "none";
+    });
+  });
   on("knowledgeExportBtn", "click", exportKnowledge);
   on("knowledgeImportBtn", "click", () => $("knowledgeImportFile")?.click());
   on("knowledgeImportFile", "change", async (e) => {
@@ -5332,6 +5269,41 @@ function bindEvents() {
     await importKnowledgeFile(file);
     if (e?.target) e.target.value = "";
   });
+
+  on("kbUploadUrlBtn", "click", () => {
+      const box = $("kbUploadUrlBox");
+      if (box) box.style.display = box.style.display === "none" ? "block" : "none";
+      if ($("kbUploadPdfBox")) $("kbUploadPdfBox").style.display = "none";
+  });
+
+  on("kbUploadPdfBtn", "click", () => {
+      const box = $("kbUploadPdfBox");
+      if (box) box.style.display = box.style.display === "none" ? "block" : "none";
+      if ($("kbUploadUrlBox")) $("kbUploadUrlBox").style.display = "none";
+  });
+
+  on("kbConfirmUrlBtn", "click", async () => {
+      const btn = $("kbConfirmUrlBtn");
+      if(!btn) return;
+      const oldHtml = btn.innerHTML;
+      btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i>';
+      btn.disabled = true;
+      await uploadKbUrl();
+      btn.innerHTML = oldHtml;
+      btn.disabled = false;
+  });
+
+  on("kbConfirmPdfBtn", "click", async () => {
+      const btn = $("kbConfirmPdfBtn");
+      if(!btn) return;
+      const oldHtml = btn.innerHTML;
+      btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i>';
+      btn.disabled = true;
+      await uploadKbPdf();
+      btn.innerHTML = oldHtml;
+      btn.disabled = false;
+  });
+
   on("regenerateBtn", "click", regenerateLastAnswer);
 
   on("myTicketsRefreshBtn", "click", refreshMyTickets);

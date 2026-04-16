@@ -371,6 +371,33 @@
               <b><i class="fa-solid fa-list" style="color:var(--primary); margin-right:8px;"></i> Artiklar</b>
               <span class="muted small" id="knowledgeHint"></span>
             </div>
+            
+            <!-- Quick Actions -->
+            <div style="display:flex; gap:5px; margin-bottom:15px;">
+              <button id="kbUploadUrlBtn" class="btn ghost small" type="button" style="flex:1;">
+                <i class="fa-solid fa-link"></i> Lägg till URL
+              </button>
+              <button id="kbUploadPdfBtn" class="btn ghost small" type="button" style="flex:1;">
+                <i class="fa-solid fa-file-pdf"></i> Ladda upp PDF
+              </button>
+            </div>
+            
+            <!-- Dolda inputs för URL och PDF -->
+            <div id="kbUploadUrlBox" style="display:none; margin-bottom:15px; padding:10px; background:var(--panel2); border-radius:var(--radius-1); border:1px solid var(--border);">
+              <label class="muted small">Klistra in URL att läsa in:</label>
+              <div style="display:flex; gap:5px; margin-top:5px;">
+                <input id="kbUrlInput" class="input smallInput" placeholder="https://..." style="flex:1;" />
+                <button id="kbConfirmUrlBtn" class="btn primary small" type="button">Hämta</button>
+              </div>
+            </div>
+            <div id="kbUploadPdfBox" style="display:none; margin-bottom:15px; padding:10px; background:var(--panel2); border-radius:var(--radius-1); border:1px solid var(--border);">
+              <label class="muted small">Välj en PDF-fil (max 5MB):</label>
+              <div style="display:flex; gap:5px; margin-top:5px;">
+                <input type="file" id="kbPdfFile" accept="application/pdf" class="input smallInput" style="flex:1;" />
+                <button id="kbConfirmPdfBtn" class="btn primary small" type="button">Ladda upp</button>
+              </div>
+            </div>
+
             <div class="filterBar" style="display:flex; flex-direction:column; gap:10px; margin-bottom:15px;">
               <div class="search-box" style="position:relative;">
                 <i class="fa-solid fa-magnifying-glass" style="position:absolute; left:12px; top:50%; transform:translateY(-50%); color:var(--muted);"></i>
