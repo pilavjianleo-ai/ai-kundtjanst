@@ -254,6 +254,7 @@ function setActiveMenu(btnId) {
     "openSettingsView",
     "openSlaView",
     "openAiPanelView",
+    "openAiOsView",
     "openCustomerAdminView",
     "openBillingView",
     "openCustomerSettingsView",
@@ -5457,6 +5458,11 @@ function bindEvents() {
   on("slaExportCsvBtn", "click", exportSlaCsv);
   on("slaClearMyStatsBtn", "click", () => clearSla('my'));
   on("slaClearAllStatsBtn", "click", () => clearSla('all'));
+
+  on("openAiOsView", "click", () => {
+    showView("aiOsView", "openAiOsView");
+    initAiOs();
+  });
 
   on("openAiPanelView", "click", async () => {
     showView("aiPanelView", "openAiPanelView");

@@ -94,7 +94,11 @@
         </button>
 
         <button id="openAiPanelView" class="menuBtn" style="display:none;" type="button">
-          <i class="fa-solid fa-brain"></i> AI Control Center
+          <i class="fa-solid fa-brain"></i> AI Inställningar (Gammal)
+        </button>
+
+        <button id="openAiOsView" class="menuBtn" style="display:none;" type="button">
+          <i class="fa-solid fa-microchip"></i> AI Control Center
         </button>
 
         <button id="openScenarioView" class="menuBtn" style="display:none;" type="button">
@@ -3342,6 +3346,41 @@
 
       </section>
 
+      <!-- AI CONTROL CENTER (NEW OS) -->
+      <section id="aiOsView" class="view" style="display:none; padding:0; height:calc(100vh - 0px); overflow:hidden;">
+        <div style="display:flex; height:100%;">
+          <aside style="width:260px; background:var(--panel2); border-right:1px solid var(--border); display:flex; flex-direction:column; padding-top:20px;">
+            <div style="padding:0 20px 20px 20px; font-weight:900; font-size:16px; border-bottom:1px solid var(--border); margin-bottom:12px;">
+              <i class="fa-solid fa-microchip" style="color:var(--primary); margin-right:8px;"></i> AI Control Center
+            </div>
+            <div id="aiOsNav" style="display:flex; flex-direction:column; gap:4px; padding:0 12px; overflow-y:auto;">
+              <button class="menuBtn active" data-aios="live-studio"><i class="fa-solid fa-play-circle"></i> Live Studio</button>
+              <button class="menuBtn" data-aios="conversations"><i class="fa-solid fa-pen-to-square"></i> Conversations</button>
+              <button class="menuBtn" data-aios="behavior"><i class="fa-solid fa-brain"></i> Behavior</button>
+              <button class="menuBtn" data-aios="flows"><i class="fa-solid fa-diagram-project"></i> Flows</button>
+              <button class="menuBtn" data-aios="knowledge"><i class="fa-solid fa-book-bookmark"></i> Knowledge</button>
+              <button class="menuBtn" data-aios="training"><i class="fa-solid fa-crosshairs"></i> Training</button>
+              <button class="menuBtn" data-aios="performance"><i class="fa-solid fa-chart-pie"></i> Performance</button>
+              <button class="menuBtn" data-aios="experiments"><i class="fa-solid fa-flask"></i> Experiments</button>
+              <button class="menuBtn" data-aios="automations"><i class="fa-solid fa-bolt"></i> Automations</button>
+              <button class="menuBtn" data-aios="logs"><i class="fa-solid fa-clipboard-list"></i> Logs</button>
+            </div>
+          </aside>
+          <div style="flex:1; display:flex; flex-direction:column; background:var(--bg);">
+            <div style="height:70px; border-bottom:1px solid var(--border); display:flex; align-items:center; padding:0 30px; justify-content:space-between; background:var(--panel);">
+              <div>
+                <div id="aiOsHeaderTitle" class="title" style="font-size:20px; font-weight:800;">Live Studio</div>
+                <div id="aiOsHeaderSub" class="muted small" style="margin-top:4px;">Test AI in real-time and understand behavior.</div>
+              </div>
+              <div id="aiOsHeaderActions"></div>
+            </div>
+            <div id="aiOsContent" style="flex:1; overflow:auto; padding:30px;">
+              <!-- Dynamic module content -->
+            </div>
+          </div>
+        </div>
+      </section>
+
     </main>
   </div>
 
@@ -3825,6 +3864,7 @@
   <script src="admin_users.js?v=2026.18"></script>
   <script src="simulator_logic.js?v=2026.18"></script>
   <script src="contact_logic.js?v=2026.18"></script>
+  <script src="ai_os.js?v=2026.55"></script>
 </body>
 
 </html>
