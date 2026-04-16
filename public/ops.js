@@ -62,10 +62,10 @@ function formatMoneySEK(n) {
 
 function trendPill(delta) {
   const d = Number(delta || 0);
-  if (!Number.isFinite(d) || d === 0) return { cls: "", text: "0%" };
+  if (!Number.isFinite(d) || d === 0) return { cls: "muted", text: "0%" };
   const pct = Math.round(d * 100);
-  if (pct > 0) return { cls: "pos", text: `+${pct}%` };
-  return { cls: "neg", text: `${pct}%` };
+  if (pct > 0) return { cls: "success", text: `+${pct}%` };
+  return { cls: "danger", text: `${pct}%` };
 }
 
 function confidenceLabel(confidence) {
@@ -86,7 +86,7 @@ function formatImpact(impact) {
 
 function setTopbar() {
   const env = envLabel();
-  $("opsEnvBadge").innerHTML = `<span class="opsPill ${env.pill}">${escapeHtml(env.text)}</span>`;
+  $("opsEnvBadge").innerHTML = `<span class="pill ${env.pill}">${escapeHtml(env.text)}</span>`;
   $("opsUserName").textContent = ops.me?.username || ops.me?.email || "User";
   const selected = ops.companies.find((c) => String(c.companyId) === String(ops.companyId));
   const name = ops.companyId ? (selected?.displayName || selected?.companyId || "Company") : "All companies";
@@ -143,15 +143,15 @@ function renderNotifPopover() {
       const when = n.ts ? new Date(n.ts).toLocaleString("sv-SE") : "";
       const pill = n.type === "danger" ? "danger" : n.type === "warn" ? "warn" : "ok";
       return `
-        <div class="opsInsightCard" style="margin-top:10px;">
+        <div class="panel" style="margin-top:10px;">
           <div style="display:flex; align-items:center; justify-content:space-between; gap:10px;">
             <div style="font-weight:900;">${escapeHtml(n.title)}</div>
-            <span class="opsPill ${pill}">${escapeHtml(when)}</span>
+            <span class="pill ${pill}">${escapeHtml(when)}</span>
           </div>
-          <div class="opsInsightBody">${escapeHtml(n.body)}</div>
+          <div class="muted small" style="margin-top:8px; line-height:1.45;">${escapeHtml(n.body)}</div>
         </div>
       `;
-    }).join("") : `<div class="opsEmpty">No notifications yet. Live AI events and operational alerts will appear here.</div>`}
+    }).join("") : `<div class="panel soft">No notifications yet. Live AI events and operational alerts will appear here.</div>`}
   `;
   $("opsNotifClearBtn")?.addEventListener("click", () => {
     ops.notifications = [];
@@ -165,9 +165,9 @@ function renderUserPopover() {
   panel.innerHTML = `
     <div style="display:flex; align-items:center; justify-content:space-between; gap:10px; padding:6px 6px 10px 6px;">
       <div style="font-weight:900;">${escapeHtml(ops.me?.username || "Account")}</div>
-      <span class="opsPill">${escapeHtml(ops.me?.role || "")}</span>
+      <span class="pill">${escapeHtml(ops.me?.role || "")}</span>
     </div>
-    <div class="opsEmpty" style="margin-top:10px;">
+    <div class="panel soft" style="margin-top:10px;">
       <div style="font-weight:850;">Signed in</div>
       <div class="muted small" style="margin-top:6px;">Use the main app for profile management.</div>
       <div style="margin-top:12px; display:flex; gap:10px;">
@@ -188,14 +188,14 @@ function mountKpis(kpis) {
   strip.innerHTML = (kpis || []).map((k) => {
     const t = trendPill(k.trendPct);
     return `
-      <div class="opsKpiCard">
-        <div class="opsKpiLabel">${escapeHtml(k.label)}</div>
-        <div class="opsKpiValue">${escapeHtml(k.value)}</div>
-        <div class="opsKpiMeta">
-          <span class="opsTrend ${t.cls}">${t.text}</span>
+      <div class="panel soft kpiCard">
+        <div class="muted small">${escapeHtml(k.label)}</div>
+        <div class="title" style="font-size:24px; margin-top:8px;">${escapeHtml(k.value)}</div>
+        <div style="display:flex; justify-content:space-between; margin-top:10px; font-size:12px; color:var(--muted);">
+          <span style="color:var(--${t.cls}); font-weight:600;">${t.text}</span>
           <span>${escapeHtml(k.context || "")}</span>
         </div>
-        <div class="opsKpiWhy">${escapeHtml(k.why || "")}</div>
+        <div class="kpiWhy muted small" style="margin-top:10px;">${escapeHtml(k.why || "")}</div>
       </div>
     `;
   }).join("");
@@ -210,18 +210,18 @@ function mountInsights(items) {
     const c = confidenceLabel(i.confidence ?? i.confidencePct ?? (pill === "danger" ? 0.78 : pill === "warn" ? 0.70 : 0.64));
     const actionLabel = i.cta || i.actionLabel || "Open";
     return `
-      <div class="opsInsightCard">
+      <div class="panel">
         <div style="display:flex; align-items:center; justify-content:space-between; gap:10px;">
-          <div class="opsInsightTitle">${escapeHtml(i.title)}</div>
-          <span class="opsPill ${pill}">${escapeHtml(i.badge || "Insight")}</span>
+          <div class="title" style="font-size:16px;">${escapeHtml(i.title)}</div>
+          <span class="pill ${pill}">${escapeHtml(i.badge || "Insight")}</span>
         </div>
-        <div class="opsInsightBody">${escapeHtml(i.body)}</div>
-        <div class="opsInsightMeta">
-          <span class="opsPill"><span class="opsImpact">${escapeHtml(impactText)}</span></span>
-          <span class="opsConfidence">Confidence ${escapeHtml(String(c.label))} • ${escapeHtml(String(c.pct))}%</span>
+        <div class="muted small" style="margin-top:8px; line-height:1.45;">${escapeHtml(i.body)}</div>
+        <div style="margin-top:10px; display:flex; gap:10px; align-items:center;">
+          <span class="pill"><span style="font-weight:900; color:var(--text);">${escapeHtml(impactText)}</span></span>
+          <span class="muted small" style="white-space:nowrap;">Confidence ${escapeHtml(String(c.label))} • ${escapeHtml(String(c.pct))}%</span>
         </div>
-        <div class="opsInsightFooter">
-          <div class="opsInsightFooterLeft">
+        <div style="margin-top:12px; display:flex; gap:10px; align-items:center; justify-content:space-between;">
+          <div style="display:flex; gap:10px; align-items:center; min-width:0;">
             <span class="muted small" style="white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${escapeHtml(i.next || "")}</span>
           </div>
           <button class="btn primary small" type="button" data-insight-act="${idx}">${escapeHtml(actionLabel)}</button>
@@ -447,7 +447,7 @@ function renderPrimaryCta({ label, icon, onClick }) {
 
 function renderEmpty({ title, body, actions = [] }) {
   return `
-    <div class="opsEmpty">
+    <div class="panel soft">
       <div style="font-weight:900;">${escapeHtml(title || "No data yet")}</div>
       <div class="muted small" style="margin-top:8px; line-height:1.45;">${escapeHtml(body || "Connect data sources or generate sample activity to get started.")}</div>
       ${actions.length ? `<div style="margin-top:12px; display:flex; gap:10px; flex-wrap:wrap;">
@@ -482,19 +482,19 @@ async function renderOverview({ tickets, events }) {
   mountInsights(insights);
 
   const left = `
-    <div class="opsCard">
-      <div class="opsCardHead">
-        <div class="opsCardTitle">Status</div>
-        <span class="opsPill">${escapeHtml(ops.companyId || "All companies")}</span>
+    <div class="panel soft">
+      <div class="panelHead">
+        <div class="title" style="font-size:16px;">Status</div>
+        <span class="pill">${escapeHtml(ops.companyId || "All companies")}</span>
       </div>
-      <div class="opsCardBody">
-        <div class="opsGrid2">
-          <div class="opsMiniCard">
+      <div style="padding:16px;">
+        <div class="grid2">
+          <div class="panel soft">
             <div class="muted small">AI handling now</div>
             <div style="font-weight:920; font-size:22px; margin-top:8px;">${formatNumber(Math.min(open.length, 12))} conversations</div>
             <div class="muted small" style="margin-top:8px;">Live signals update in real-time.</div>
           </div>
-          <div class="opsMiniCard">
+          <div class="panel soft">
             <div class="muted small">Escalation pressure</div>
             <div style="font-weight:920; font-size:22px; margin-top:8px;">${formatNumber(open.filter((t) => t.priority === "high").length)} high priority</div>
             <div class="muted small" style="margin-top:8px;">Prioritize to protect revenue and CX.</div>
@@ -514,41 +514,41 @@ async function renderOverview({ tickets, events }) {
   const feed = buildActivityFeed({ tickets, events });
   const right = `
     <div style="display:flex; flex-direction:column; gap:14px;">
-      <div class="opsCard">
-        <div class="opsCardHead">
-          <div class="opsCardTitle">Executive signals</div>
-          <span class="opsPill ok"><i class="fa-solid fa-shield"></i> High trust</span>
+      <div class="panel soft">
+        <div class="panelHead">
+          <div class="title" style="font-size:16px;">Executive signals</div>
+          <span class="pill ok"><i class="fa-solid fa-shield"></i> High trust</span>
         </div>
-        <div class="opsCardBody">
-          <div class="opsEmpty">
+        <div style="padding:16px;">
+          <div class="panel soft">
             <div style="font-weight:900;">Operate with clarity</div>
             <div class="muted small" style="margin-top:8px;">Use Insights to identify what to fix next. Use Live AI to intervene when outcomes are at risk.</div>
           </div>
           <div class="divider"></div>
           <div class="muted small">System signals</div>
           <div style="margin-top:10px; display:flex; flex-direction:column; gap:10px;">
-            <div class="opsPill"><i class="fa-solid fa-clock"></i> Ticket activity <span style="margin-left:auto;">${escapeHtml(ops.live.lastTicketUpdateAt ? new Date(ops.live.lastTicketUpdateAt).toLocaleTimeString("sv-SE", { hour: "2-digit", minute: "2-digit" }) : "—")}</span></div>
-            <div class="opsPill"><i class="fa-solid fa-bolt"></i> AI typing <span style="margin-left:auto;">${formatNumber(ops.live.typing.size)}</span></div>
-            <div class="opsPill"><i class="fa-solid fa-coins"></i> Tokens (30d) <span style="margin-left:auto;">${escapeHtml(formatNumber(tokens))}</span></div>
+            <div class="pill"><i class="fa-solid fa-clock"></i> Ticket activity <span style="margin-left:auto;">${escapeHtml(ops.live.lastTicketUpdateAt ? new Date(ops.live.lastTicketUpdateAt).toLocaleTimeString("sv-SE", { hour: "2-digit", minute: "2-digit" }) : "—")}</span></div>
+            <div class="pill"><i class="fa-solid fa-bolt"></i> AI typing <span style="margin-left:auto;">${formatNumber(ops.live.typing.size)}</span></div>
+            <div class="pill"><i class="fa-solid fa-coins"></i> Tokens (30d) <span style="margin-left:auto;">${escapeHtml(formatNumber(tokens))}</span></div>
           </div>
         </div>
       </div>
 
-      <div class="opsCard">
-        <div class="opsCardHead">
-          <div class="opsCardTitle">Activity feed</div>
-          <span class="opsPill">signals</span>
+      <div class="panel soft">
+        <div class="panelHead">
+          <div class="title" style="font-size:16px;">Activity feed</div>
+          <span class="pill">signals</span>
         </div>
-        <div class="opsCardBody">
-          <div class="opsFeed">
+        <div style="padding:16px;">
+          <div style="display:flex; flex-direction:column; gap:10px;">
             ${feed.map((it) => {
               const when = it.ts ? new Date(it.ts).toLocaleString("sv-SE") : "";
               return `
-                <div class="opsFeedItem">
-                  <div class="opsFeedIcon"><i class="fa-solid ${escapeHtml(it.icon || "fa-bolt")}"></i></div>
-                  <div class="opsFeedBody">
-                    <div class="opsFeedTitle">${escapeHtml(it.title || "")}</div>
-                    <div class="opsFeedMeta">${escapeHtml(it.meta || "")} • ${escapeHtml(when)}</div>
+                <div class="listItem">
+                  <div style="width:30px; height:30px; border-radius:999px; display:flex; align-items:center; justify-content:center; background:var(--primary-fade); color:var(--primary); flex:0 0 30px;"><i class="fa-solid ${escapeHtml(it.icon || "fa-bolt")}"></i></div>
+                  <div style="flex:1; min-width:0;">
+                    <div style="font-weight:900; letter-spacing:-0.01em;">${escapeHtml(it.title || "")}</div>
+                    <div class="muted small" style="margin-top:4px;">${escapeHtml(it.meta || "")} • ${escapeHtml(when)}</div>
                   </div>
                 </div>
               `;
@@ -595,7 +595,7 @@ async function renderLiveAi({ tickets }) {
 
   const listHtml = open.length
     ? `
-      <div class="opsList">
+      <div style="display:flex; flex-direction:column; gap:10px;">
         ${open.map((t) => {
           const last = t.lastActivityAt ? new Date(t.lastActivityAt).toLocaleString("sv-SE") : "";
           const pri = t.priority === "high" ? "danger" : t.priority === "low" ? "" : "warn";
@@ -603,17 +603,17 @@ async function renderLiveAi({ tickets }) {
           const owned = t.assignedToUserId ? "ok" : "warn";
           const active = selectedId && String(t._id) === String(selectedId) ? "active" : "";
           return `
-            <div class="opsListItem ${active}" data-live-id="${escapeHtml(String(t._id || ""))}">
+            <div class="listItem ${active}" data-live-id="${escapeHtml(String(t._id || ""))}">
               <div style="display:flex; align-items:flex-start; justify-content:space-between; gap:10px;">
                 <div style="min-width:0;">
                   <div style="font-weight:900; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${escapeHtml(t.title || "Conversation")}</div>
                   <div class="muted tiny">#${escapeHtml(t.publicTicketId || "")} • ${escapeHtml(t.channel || "chat")} • ${escapeHtml(last)}</div>
                 </div>
-                <span class="opsPill ${pri}">${escapeHtml(String(t.priority || ""))}</span>
+                <span class="pill ${pri}">${escapeHtml(String(t.priority || ""))}</span>
               </div>
               <div style="margin-top:10px; display:flex; gap:10px; flex-wrap:wrap;">
-                <span class="opsPill ${status}">Status: ${escapeHtml(String(t.status || ""))}</span>
-                <span class="opsPill ${owned}">${t.assignedToUserId ? "Owned" : "Unassigned"}</span>
+                <span class="pill ${status}">Status: ${escapeHtml(String(t.status || ""))}</span>
+                <span class="pill ${owned}">${t.assignedToUserId ? "Owned" : "Unassigned"}</span>
               </div>
             </div>
           `;
@@ -630,12 +630,12 @@ async function renderLiveAi({ tickets }) {
       });
 
   const left = `
-    <div class="opsCard">
-      <div class="opsCardHead">
-        <div class="opsCardTitle">Live feed</div>
-        <span class="opsPill"><i class="fa-solid fa-signal"></i> realtime</span>
+    <div class="panel soft">
+      <div class="panelHead">
+        <div class="title" style="font-size:16px;">Live feed</div>
+        <span class="pill"><i class="fa-solid fa-signal"></i> realtime</span>
       </div>
-      <div class="opsCardBody">
+      <div style="padding:16px;">
         ${listHtml}
       </div>
     </div>
@@ -645,7 +645,7 @@ async function renderLiveAi({ tickets }) {
   const hasAiError = selected ? (selected.events || []).some((e) => e.type === "ai_error") : false;
   const explain = selected
     ? `
-      <div class="opsEmpty" style="margin-top:12px;">
+      <div class="panel soft" style="margin-top:12px;">
         <div style="font-weight:900;">Summary</div>
         <div class="muted small" style="margin-top:8px;">${escapeHtml(hasAiError ? "AI failed or was uncertain. This conversation needs human review." : "AI is handling the conversation and routing based on risk signals.")}</div>
         <div class="divider"></div>
@@ -657,21 +657,21 @@ async function renderLiveAi({ tickets }) {
 
   const eventsList = selected && Array.isArray(selected.events) && selected.events.length
     ? selected.events.slice().sort((a, b) => new Date(b.timestamp || 0) - new Date(a.timestamp || 0)).slice(0, 6)
-      .map((e) => `<div class="opsPill">${escapeHtml(String(e.type || ""))}</div>`).join("")
-    : `<div class="opsPill">No explainability events yet</div>`;
+      .map((e) => `<div class="pill">${escapeHtml(String(e.type || ""))}</div>`).join("")
+    : `<div class="pill">No explainability events yet</div>`;
 
   const right = `
-    <div class="opsCard">
-      <div class="opsCardHead">
-        <div class="opsCardTitle">AI reasoning</div>
-        <span class="opsPill ${risk}">${escapeHtml(selected ? (risk === "danger" ? "High risk" : risk === "warn" ? "Medium risk" : "Low risk") : "—")}</span>
+    <div class="panel soft">
+      <div class="panelHead">
+        <div class="title" style="font-size:16px;">AI reasoning</div>
+        <span class="pill ${risk}">${escapeHtml(selected ? (risk === "danger" ? "High risk" : risk === "warn" ? "Medium risk" : "Low risk") : "—")}</span>
       </div>
-      <div class="opsCardBody">
+      <div style="padding:16px;">
         ${selected ? `
           <div style="display:flex; gap:10px; flex-wrap:wrap; align-items:center;">
-            <span class="opsPill">${escapeHtml(selected.channel || "chat")}</span>
-            <span class="opsPill">Status: ${escapeHtml(String(selected.status || ""))}</span>
-            <span class="opsPill">Priority: ${escapeHtml(String(selected.priority || ""))}</span>
+            <span class="pill">${escapeHtml(selected.channel || "chat")}</span>
+            <span class="pill">Status: ${escapeHtml(String(selected.status || ""))}</span>
+            <span class="pill">Priority: ${escapeHtml(String(selected.priority || ""))}</span>
           </div>
           <div style="margin-top:12px; display:flex; gap:10px; flex-wrap:wrap;">
             <button class="btn primary" type="button" id="opsTakeoverBtn"><i class="fa-solid fa-hand"></i> Take over</button>
@@ -739,14 +739,14 @@ async function renderConversations({ tickets }) {
     const ts = t.lastActivityAt ? new Date(t.lastActivityAt).toLocaleString("sv-SE") : "";
     const pill = t.status === "solved" ? "ok" : t.status === "pending" ? "warn" : "";
     return `
-      <div class="opsInsightCard" style="margin-top:10px;">
+      <div class="panel" style="margin-top:10px;">
         <div style="display:flex; align-items:center; justify-content:space-between; gap:12px;">
           <div>
             <div style="font-weight:900;">${escapeHtml(t.title || "Conversation")}</div>
             <div class="muted tiny">#${escapeHtml(t.publicTicketId || "")} • ${escapeHtml(t.channel || "chat")} • ${escapeHtml(ts)}</div>
           </div>
           <div style="display:flex; gap:10px; align-items:center;">
-            <span class="opsPill ${pill}">${escapeHtml(t.status || "")}</span>
+            <span class="pill ${pill}">${escapeHtml(t.status || "")}</span>
             <button class="btn ghost small" type="button" data-open-ticket="${escapeHtml(String(t._id || ""))}">
               <i class="fa-solid fa-arrow-up-right-from-square"></i> Open
             </button>
@@ -757,22 +757,22 @@ async function renderConversations({ tickets }) {
   }).join("");
 
   $("opsContent").innerHTML = `
-    <div class="opsCard">
-      <div class="opsCardHead">
-        <div class="opsCardTitle">Conversation list</div>
-        <span class="opsPill">${escapeHtml(ops.companyId || "All companies")}</span>
+    <div class="panel soft">
+      <div class="panelHead">
+        <div class="title" style="font-size:16px;">Conversation list</div>
+        <span class="pill">${escapeHtml(ops.companyId || "All companies")}</span>
       </div>
-      <div class="opsCardBody">
+      <div style="padding:16px;">
         ${tickets.length ? list : renderEmpty({ title: "No conversations", body: "Create conversations through Chat or Inbox to populate this view." })}
       </div>
     </div>
-    <div class="opsCard">
-      <div class="opsCardHead">
-        <div class="opsCardTitle">Action</div>
-        <span class="opsPill warn">recommended</span>
+    <div class="panel soft">
+      <div class="panelHead">
+        <div class="title" style="font-size:16px;">Action</div>
+        <span class="pill warn">recommended</span>
       </div>
-      <div class="opsCardBody">
-        <div class="opsEmpty">
+      <div style="padding:16px;">
+        <div class="panel soft">
           <div style="font-weight:900;">Improve business outcomes</div>
           <div class="muted small" style="margin-top:8px;">Use Opportunities to prioritize changes by impact on revenue, cost, and customer experience.</div>
           <div style="margin-top:12px;">
@@ -812,15 +812,15 @@ async function renderSupportPerformance({ tickets }) {
   mountInsights(await buildInsights({ tickets, events: [] }));
 
   $("opsContent").innerHTML = `
-    <div class="opsCard">
-      <div class="opsCardHead">
-        <div class="opsCardTitle">Where time is lost</div>
-        <span class="opsPill">business language</span>
+    <div class="panel soft">
+      <div class="panelHead">
+        <div class="title" style="font-size:16px;">Where time is lost</div>
+        <span class="pill">business language</span>
       </div>
-      <div class="opsCardBody">
+      <div style="padding:16px;">
         ${open.length ? `
-          <div class="opsGrid2">
-            <div class="opsMiniCard">
+          <div class="grid2">
+            <div class="panel soft">
               <div class="muted small">Biggest bottleneck</div>
               <div style="font-weight:920; font-size:20px; margin-top:8px;">Unassigned conversations</div>
               <div class="muted small" style="margin-top:8px;">Assign ownership faster to reduce wait time and escalation rate.</div>
@@ -828,25 +828,25 @@ async function renderSupportPerformance({ tickets }) {
                 <button class="btn primary" type="button" id="opsGoLive"><i class="fa-solid fa-signal"></i> Take over in Live AI</button>
               </div>
             </div>
-            <div class="opsMiniCard">
+            <div class="panel soft">
               <div class="muted small">Quick wins</div>
               <div style="margin-top:10px; display:flex; flex-direction:column; gap:10px;">
-                <div class="opsPill"><i class="fa-solid fa-check"></i> Route refunds to humans</div>
-                <div class="opsPill"><i class="fa-solid fa-check"></i> Reduce AI uncertainty handoffs</div>
-                <div class="opsPill"><i class="fa-solid fa-check"></i> Escalate VIP faster</div>
+                <div class="pill"><i class="fa-solid fa-check"></i> Route refunds to humans</div>
+                <div class="pill"><i class="fa-solid fa-check"></i> Reduce AI uncertainty handoffs</div>
+                <div class="pill"><i class="fa-solid fa-check"></i> Escalate VIP faster</div>
               </div>
             </div>
           </div>
         ` : renderEmpty({ title: "No support data", body: "Generate some conversations first to unlock performance insights." })}
       </div>
     </div>
-    <div class="opsCard">
-      <div class="opsCardHead">
-        <div class="opsCardTitle">Recommendation</div>
-        <span class="opsPill warn">action</span>
+    <div class="panel soft">
+      <div class="panelHead">
+        <div class="title" style="font-size:16px;">Recommendation</div>
+        <span class="pill warn">action</span>
       </div>
-      <div class="opsCardBody">
-        <div class="opsEmpty">
+      <div style="padding:16px;">
+        <div class="panel soft">
           <div style="font-weight:900;">Build a high-trust support motion</div>
           <div class="muted small" style="margin-top:8px;">Use Automation Rules to ensure the right conversations escalate automatically.</div>
           <div style="margin-top:12px;">
@@ -922,8 +922,8 @@ async function renderSalesPerformance({ tickets }) {
 
   const funnelHtml = deals.length
     ? `
-      <div class="opsGrid2">
-        <div class="opsMiniCard">
+      <div class="grid2">
+        <div class="panel soft">
           <div class="muted small">Pipeline (count)</div>
           <div style="margin-top:12px; display:flex; flex-direction:column; gap:10px;">
             ${stageStats.map((x) => `
@@ -937,16 +937,16 @@ async function renderSalesPerformance({ tickets }) {
             `).join("")}
           </div>
         </div>
-        <div class="opsMiniCard">
+        <div class="panel soft">
           <div class="muted small">Conversion drop-offs</div>
           <div style="margin-top:12px; display:flex; flex-direction:column; gap:10px;">
-            <div class="opsPill warn"><i class="fa-solid fa-arrow-trend-down"></i> Biggest drop: Proposal → Negotiation</div>
-            <div class="opsPill danger"><i class="fa-solid fa-triangle-exclamation"></i> Lost value ${escapeHtml(formatMoneySEK(lostAmount))}</div>
-            <div class="opsPill ok"><i class="fa-solid fa-arrow-trend-up"></i> Won value ${escapeHtml(formatMoneySEK(wonAmount))}</div>
+            <div class="pill warn"><i class="fa-solid fa-arrow-trend-down"></i> Biggest drop: Proposal → Negotiation</div>
+            <div class="pill danger"><i class="fa-solid fa-triangle-exclamation"></i> Lost value ${escapeHtml(formatMoneySEK(lostAmount))}</div>
+            <div class="pill ok"><i class="fa-solid fa-arrow-trend-up"></i> Won value ${escapeHtml(formatMoneySEK(wonAmount))}</div>
           </div>
           <div class="divider"></div>
           <div class="muted small">AI recommendation</div>
-          <div style="margin-top:10px;" class="opsEmpty">
+          <div style="margin-top:10px;" class="panel soft">
             <div style="font-weight:900;">Improve first response in pricing journeys</div>
             <div class="muted small" style="margin-top:6px;">Shorter response time reduces drop-offs. Use Sales-driven preset + takeover for VIP leads.</div>
           </div>
@@ -954,7 +954,7 @@ async function renderSalesPerformance({ tickets }) {
       </div>
     `
     : `
-      <div class="opsEmpty">
+      <div class="panel soft">
         <div style="font-weight:900;">Funnel needs CRM data</div>
         <div class="muted small" style="margin-top:8px;">Connect CRM or ingest deal events to show pipeline, conversion drop-offs, and true revenue attribution.</div>
         <div style="margin-top:12px; display:flex; gap:10px; flex-wrap:wrap;">
@@ -965,33 +965,33 @@ async function renderSalesPerformance({ tickets }) {
     `;
 
   $("opsContent").innerHTML = `
-    <div class="opsCard">
-      <div class="opsCardHead">
-        <div class="opsCardTitle">Funnel</div>
-        <span class="opsPill">visual</span>
+    <div class="panel soft">
+      <div class="panelHead">
+        <div class="title" style="font-size:16px;">Funnel</div>
+        <span class="pill">visual</span>
       </div>
-      <div class="opsCardBody">
+      <div style="padding:16px;">
         ${funnelHtml}
       </div>
     </div>
-    <div class="opsCard">
-      <div class="opsCardHead">
-        <div class="opsCardTitle">AI recommendations</div>
-        <span class="opsPill warn">action</span>
+    <div class="panel soft">
+      <div class="panelHead">
+        <div class="title" style="font-size:16px;">AI recommendations</div>
+        <span class="pill warn">action</span>
       </div>
-      <div class="opsCardBody">
-        <div class="opsInsightCard">
-          <div class="opsInsightTitle">Add a proactive next-step question</div>
-          <div class="opsInsightBody">When pricing is requested, ask for timeline and use-case. This increases conversion with minimal friction.</div>
-          <div class="opsInsightCta">
+      <div style="padding:16px;">
+        <div class="panel">
+          <div class="title" style="font-size:16px;">Add a proactive next-step question</div>
+          <div class="muted small" style="margin-top:8px; line-height:1.45;">When pricing is requested, ask for timeline and use-case. This increases conversion with minimal friction.</div>
+          <div style="margin-top:12px; display:flex; gap:10px; align-items:center;">
             <button class="btn primary small" type="button" id="opsApplySalesPreset"><i class="fa-solid fa-wand-magic-sparkles"></i> Apply Sales-driven preset</button>
             <span class="muted small">Instantly updates tone and CTA behavior.</span>
           </div>
         </div>
-        <div class="opsInsightCard" style="margin-top:12px;">
-          <div class="opsInsightTitle">Route refunds to human</div>
-          <div class="opsInsightBody">Refund intents have high churn risk. Escalate immediately to protect trust.</div>
-          <div class="opsInsightCta">
+        <div class="panel" style="margin-top:12px;">
+          <div class="title" style="font-size:16px;">Route refunds to human</div>
+          <div class="muted small" style="margin-top:8px; line-height:1.45;">Refund intents have high churn risk. Escalate immediately to protect trust.</div>
+          <div style="margin-top:12px; display:flex; gap:10px; align-items:center;">
             <button class="btn secondary small" type="button" id="opsGoRules3"><i class="fa-solid fa-diagram-project"></i> Add rule</button>
             <span class="muted small">IF intent=refund → THEN escalate</span>
           </div>
@@ -1094,41 +1094,41 @@ async function renderAiConfiguration() {
   };
 
   $("opsContent").innerHTML = `
-    <div class="opsCard">
-      <div class="opsCardHead">
-        <div class="opsCardTitle">Personality presets</div>
-        <span class="opsPill">business-ready</span>
+    <div class="panel soft">
+      <div class="panelHead">
+        <div class="title" style="font-size:16px;">Personality presets</div>
+        <span class="pill">business-ready</span>
       </div>
-      <div class="opsCardBody">
-        <div class="opsGrid2">
-          <div class="opsInsightCard">
-            <div class="opsInsightTitle">Professional</div>
-            <div class="opsInsightBody">High trust, short answers, consistent tone. Recommended default.</div>
-            <div class="opsInsightCta">
+      <div style="padding:16px;">
+        <div class="grid2">
+          <div class="panel">
+            <div class="title" style="font-size:16px;">Professional</div>
+            <div class="muted small" style="margin-top:8px; line-height:1.45;">High trust, short answers, consistent tone. Recommended default.</div>
+            <div style="margin-top:12px; display:flex; gap:10px; align-items:center;">
               <button class="btn primary" type="button" id="presetProfessional"><i class="fa-solid fa-wand-magic-sparkles"></i> Apply</button>
               <span class="muted small">Best baseline</span>
             </div>
           </div>
-          <div class="opsInsightCard">
-            <div class="opsInsightTitle">Friendly</div>
-            <div class="opsInsightBody">Warm and empathetic while staying concise. Great for retention.</div>
-            <div class="opsInsightCta">
+          <div class="panel">
+            <div class="title" style="font-size:16px;">Friendly</div>
+            <div class="muted small" style="margin-top:8px; line-height:1.45;">Warm and empathetic while staying concise. Great for retention.</div>
+            <div style="margin-top:12px; display:flex; gap:10px; align-items:center;">
               <button class="btn secondary" type="button" id="presetFriendly"><i class="fa-solid fa-heart"></i> Apply</button>
               <span class="muted small">CX uplift</span>
             </div>
           </div>
-          <div class="opsInsightCard">
-            <div class="opsInsightTitle">Sales-driven</div>
-            <div class="opsInsightBody">Proactive next steps. Optimized for pricing, demos and conversions.</div>
-            <div class="opsInsightCta">
+          <div class="panel">
+            <div class="title" style="font-size:16px;">Sales-driven</div>
+            <div class="muted small" style="margin-top:8px; line-height:1.45;">Proactive next steps. Optimized for pricing, demos and conversions.</div>
+            <div style="margin-top:12px; display:flex; gap:10px; align-items:center;">
               <button class="btn secondary" type="button" id="presetSales"><i class="fa-solid fa-chart-line"></i> Apply</button>
               <span class="muted small">Revenue uplift</span>
             </div>
           </div>
-          <div class="opsInsightCard">
-            <div class="opsInsightTitle">Expert advisor</div>
-            <div class="opsInsightBody">More structured guidance when users need complex help.</div>
-            <div class="opsInsightCta">
+          <div class="panel">
+            <div class="title" style="font-size:16px;">Expert advisor</div>
+            <div class="muted small" style="margin-top:8px; line-height:1.45;">More structured guidance when users need complex help.</div>
+            <div style="margin-top:12px; display:flex; gap:10px; align-items:center;">
               <button class="btn ghost" type="button" id="presetExpert"><i class="fa-solid fa-graduation-cap"></i> Apply</button>
               <span class="muted small">Complex cases</span>
             </div>
@@ -1138,7 +1138,7 @@ async function renderAiConfiguration() {
         <div class="divider"></div>
         <details>
           <summary class="muted small" style="cursor:pointer; user-select:none;">Advanced settings</summary>
-          <div class="opsEmpty" style="margin-top:12px;">
+          <div class="panel soft" style="margin-top:12px;">
             <div style="font-weight:900;">Use only when you have a clear business reason</div>
             <div class="muted small" style="margin-top:8px;">Advanced configuration can reduce trust if used without guardrails. Prefer presets.</div>
           </div>
@@ -1146,14 +1146,14 @@ async function renderAiConfiguration() {
       </div>
     </div>
     <div style="display:flex; flex-direction:column; gap:14px;">
-      <div class="opsCard">
-        <div class="opsCardHead">
-          <div class="opsCardTitle">Live tone preview</div>
-          <span class="opsPill">preview</span>
+      <div class="panel soft">
+        <div class="panelHead">
+          <div class="title" style="font-size:16px;">Live tone preview</div>
+          <span class="pill">preview</span>
         </div>
-        <div class="opsCardBody">
+        <div style="padding:16px;">
           <div style="display:flex; gap:10px; align-items:center; flex-wrap:wrap;">
-            <span class="opsPill">Preset</span>
+            <span class="pill">Preset</span>
             <select id="opsPreviewPreset" class="input smallInput" style="min-width:220px;">
               <option value="professional">Professional</option>
               <option value="friendly">Friendly</option>
@@ -1166,13 +1166,13 @@ async function renderAiConfiguration() {
         </div>
       </div>
 
-      <div class="opsCard">
-        <div class="opsCardHead">
-          <div class="opsCardTitle">Next action</div>
-          <span class="opsPill warn">recommended</span>
+      <div class="panel soft">
+        <div class="panelHead">
+          <div class="title" style="font-size:16px;">Next action</div>
+          <span class="pill warn">recommended</span>
         </div>
-        <div class="opsCardBody">
-          <div class="opsEmpty">
+        <div style="padding:16px;">
+          <div class="panel soft">
             <div style="font-weight:900;">Move from settings to outcomes</div>
             <div class="muted small" style="margin-top:8px;">Use Opportunities to prioritize changes by revenue impact and operational effort.</div>
             <div style="margin-top:12px;">
@@ -1191,12 +1191,12 @@ async function renderAiConfiguration() {
     const box = $("opsTonePreview");
     if (!box) return;
     box.innerHTML = `
-      <div class="opsMiniCard">
+      <div class="panel soft">
         <div class="muted small">Customer message</div>
         <div style="margin-top:8px; font-weight:850;">${escapeHtml(data.user)}</div>
       </div>
       <div style="height:10px;"></div>
-      <div class="opsMiniCard">
+      <div class="panel soft">
         <div class="muted small">AI response (${escapeHtml(data.title)})</div>
         <div style="margin-top:8px; font-weight:850;">${escapeHtml(data.ai)}</div>
       </div>
@@ -1240,22 +1240,22 @@ async function renderOpportunities({ tickets }) {
   ];
 
   $("opsContent").innerHTML = `
-    <div class="opsCard">
-      <div class="opsCardHead">
-        <div class="opsCardTitle">Prioritized list</div>
-        <span class="opsPill">one-click</span>
+    <div class="panel soft">
+      <div class="panelHead">
+        <div class="title" style="font-size:16px;">Prioritized list</div>
+        <span class="pill">one-click</span>
       </div>
-      <div class="opsCardBody">
+      <div style="padding:16px;">
         ${items.map((x, i) => `
-          <div class="opsInsightCard" style="margin-top:${i ? "12px" : "0"};">
+          <div class="panel" style="margin-top:${i ? "12px" : "0"};">
             <div style="display:flex; align-items:center; justify-content:space-between; gap:12px;">
               <div>
-                <div class="opsInsightTitle">${escapeHtml(x.title)}</div>
-                <div class="opsInsightBody">${escapeHtml(x.body)}</div>
+                <div class="title" style="font-size:16px;">${escapeHtml(x.title)}</div>
+                <div class="muted small" style="margin-top:8px; line-height:1.45;">${escapeHtml(x.body)}</div>
               </div>
               <div style="text-align:right; min-width:180px;">
-                <div class="opsPill warn" style="justify-content:center; width:100%;">Impact: ${escapeHtml(x.impact)}</div>
-                <div class="opsPill" style="justify-content:center; width:100%; margin-top:8px;">Effort: ${escapeHtml(x.effort)}</div>
+                <div class="pill warn" style="justify-content:center; width:100%;">Impact: ${escapeHtml(x.impact)}</div>
+                <div class="pill" style="justify-content:center; width:100%; margin-top:8px;">Effort: ${escapeHtml(x.effort)}</div>
                 <button class="btn primary small" type="button" style="margin-top:10px; width:100%;" data-opp-act="${i}">
                   <i class="fa-solid fa-bolt"></i> Take action
                 </button>
@@ -1265,13 +1265,13 @@ async function renderOpportunities({ tickets }) {
         `).join("")}
       </div>
     </div>
-    <div class="opsCard">
-      <div class="opsCardHead">
-        <div class="opsCardTitle">Why this matters</div>
-        <span class="opsPill ok">business</span>
+    <div class="panel soft">
+      <div class="panelHead">
+        <div class="title" style="font-size:16px;">Why this matters</div>
+        <span class="pill ok">business</span>
       </div>
-      <div class="opsCardBody">
-        <div class="opsEmpty">
+      <div style="padding:16px;">
+        <div class="panel soft">
           <div style="font-weight:900;">Operate the system, don’t configure it</div>
           <div class="muted small" style="margin-top:8px;">Every opportunity includes a recommended action and a clear business outcome.</div>
         </div>
@@ -1360,12 +1360,12 @@ async function renderAutomationRules() {
   }
 
   $("opsContent").innerHTML = `
-    <div class="opsCard">
-      <div class="opsCardHead">
-        <div class="opsCardTitle">Automation builder</div>
-        <span class="opsPill warn">visual</span>
+    <div class="panel soft">
+      <div class="panelHead">
+        <div class="title" style="font-size:16px;">Automation builder</div>
+        <span class="pill warn">visual</span>
       </div>
-      <div class="opsCardBody">
+      <div style="padding:16px;">
         <div class="opsBuilder">
           <div class="opsPalette">
             <div class="muted small" style="font-weight:900; margin-bottom:10px;">Blocks</div>
@@ -1395,7 +1395,7 @@ async function renderAutomationRules() {
                       </div>
                     </div>
                   `).join("")
-                  : `<div class="opsEmpty">Drag blocks here to build logic. Start with IF, then add THEN.</div>`
+                  : `<div class="panel soft">Drag blocks here to build logic. Start with IF, then add THEN.</div>`
               }
             </div>
             <div style="margin-top:12px; display:flex; gap:10px; flex-wrap:wrap;">
@@ -1407,13 +1407,13 @@ async function renderAutomationRules() {
         </div>
       </div>
     </div>
-    <div class="opsCard">
-      <div class="opsCardHead">
-        <div class="opsCardTitle">Governance</div>
-        <span class="opsPill ok">next</span>
+    <div class="panel soft">
+      <div class="panelHead">
+        <div class="title" style="font-size:16px;">Governance</div>
+        <span class="pill ok">next</span>
       </div>
-      <div class="opsCardBody">
-        <div class="opsEmpty">
+      <div style="padding:16px;">
+        <div class="panel soft">
           <div style="font-weight:900;">Ship changes safely</div>
           <div class="muted small" style="margin-top:8px;">Automation should be auditable. Review logs and keep ownership clear.</div>
           <div style="margin-top:12px;">
@@ -1554,22 +1554,22 @@ async function renderSecurity() {
   ]);
 
   $("opsContent").innerHTML = `
-    <div class="opsCard">
-      <div class="opsCardHead">
-        <div class="opsCardTitle">Audit logs</div>
-        <span class="opsPill">enterprise</span>
+    <div class="panel soft">
+      <div class="panelHead">
+        <div class="title" style="font-size:16px;">Audit logs</div>
+        <span class="pill">enterprise</span>
       </div>
-      <div class="opsCardBody" id="opsAuditBox">
+      <div style="padding:16px;" id="opsAuditBox">
         ${renderEmpty({ title: "Load audit logs", body: "Click Review audit logs to fetch recent actions (admin and settings changes).", actions: [{ label: "Review audit logs", variant: "primary", icon: "fa-clipboard-list" }] })}
       </div>
     </div>
-    <div class="opsCard">
-      <div class="opsCardHead">
-        <div class="opsCardTitle">Controls</div>
-        <span class="opsPill warn">recommended</span>
+    <div class="panel soft">
+      <div class="panelHead">
+        <div class="title" style="font-size:16px;">Controls</div>
+        <span class="pill warn">recommended</span>
       </div>
-      <div class="opsCardBody">
-        <div class="opsEmpty">
+      <div style="padding:16px;">
+        <div class="panel soft">
           <div style="font-weight:900;">Enterprise readiness checklist</div>
           <div class="muted small" style="margin-top:8px;">RBAC, audit logs, usage tracking and tenant scoping are foundational. Keep building on these controls.</div>
           <div style="margin-top:12px; display:flex; gap:10px; flex-wrap:wrap;">
@@ -1599,24 +1599,24 @@ async function loadAuditLogs() {
     q.set("limit", "120");
     const items = await api("/admin/audit?" + q.toString());
     if (!Array.isArray(items) || items.length === 0) {
-      box.innerHTML = `<div class="opsEmpty">No audit logs for the selected scope.</div>`;
+      box.innerHTML = `<div class="panel soft">No audit logs for the selected scope.</div>`;
       return;
     }
     box.innerHTML = items.slice(0, 120).map((it) => {
       const when = it.createdAt ? new Date(it.createdAt).toLocaleString("sv-SE") : "";
       const actor = it.actorUserId ? (it.actorUserId.username || it.actorUserId.email || it.actorUserId._id) : "system";
       return `
-        <div class="opsInsightCard" style="margin-top:12px;">
+        <div class="panel" style="margin-top:12px;">
           <div style="display:flex; align-items:center; justify-content:space-between; gap:12px;">
             <div style="font-weight:900;">${escapeHtml(it.action || "")}</div>
-            <span class="opsPill">${escapeHtml(when)}</span>
+            <span class="pill">${escapeHtml(when)}</span>
           </div>
           <div class="muted small" style="margin-top:8px;">Actor: ${escapeHtml(String(actor || ""))} • Target: ${escapeHtml(String(it.targetType || ""))} ${escapeHtml(String(it.targetId || ""))}</div>
         </div>
       `;
     }).join("");
   } catch (e) {
-    box.innerHTML = `<div class="opsEmpty">Could not load audit logs: ${escapeHtml(e.message)}</div>`;
+    box.innerHTML = `<div class="panel soft">Could not load audit logs: ${escapeHtml(e.message)}</div>`;
   }
 }
 
@@ -1646,21 +1646,21 @@ async function renderForecasting() {
   ];
 
   $("opsContent").innerHTML = `
-    <div class="opsCard">
-      <div class="opsCardHead">
-        <div class="opsCardTitle">Scenario cards</div>
-        <span class="opsPill">scenario</span>
+    <div class="panel soft">
+      <div class="panelHead">
+        <div class="title" style="font-size:16px;">Scenario cards</div>
+        <span class="pill">scenario</span>
       </div>
-      <div class="opsCardBody">
-        <div class="opsGrid3">
+      <div style="padding:16px;">
+        <div class="grid3">
           ${cards.map((c, i) => `
-            <div class="opsInsightCard">
-              <div class="opsInsightTitle">${escapeHtml(c.title)}</div>
-              <div class="opsInsightBody">${escapeHtml(c.body)}</div>
+            <div class="panel">
+              <div class="title" style="font-size:16px;">${escapeHtml(c.title)}</div>
+              <div class="muted small" style="margin-top:8px; line-height:1.45;">${escapeHtml(c.body)}</div>
               <div style="margin-top:12px; display:flex; flex-direction:column; gap:8px;">
-                <div class="opsPill ok"><i class="fa-solid fa-arrow-trend-up"></i> Revenue ${escapeHtml(c.rev)}</div>
-                <div class="opsPill warn"><i class="fa-solid fa-coins"></i> Cost ${escapeHtml(c.cost)}</div>
-                <div class="opsPill"><i class="fa-solid fa-bolt"></i> Capacity ${escapeHtml(c.cap)}</div>
+                <div class="pill ok"><i class="fa-solid fa-arrow-trend-up"></i> Revenue ${escapeHtml(c.rev)}</div>
+                <div class="pill warn"><i class="fa-solid fa-coins"></i> Cost ${escapeHtml(c.cost)}</div>
+                <div class="pill"><i class="fa-solid fa-bolt"></i> Capacity ${escapeHtml(c.cap)}</div>
               </div>
               <div style="margin-top:12px;">
                 <button class="btn primary small" type="button" data-scenario="${i}"><i class="fa-solid fa-wand-magic-sparkles"></i> Apply scenario</button>
@@ -1670,13 +1670,13 @@ async function renderForecasting() {
         </div>
       </div>
     </div>
-    <div class="opsCard">
-      <div class="opsCardHead">
-        <div class="opsCardTitle">Action</div>
-        <span class="opsPill warn">recommended</span>
+    <div class="panel soft">
+      <div class="panelHead">
+        <div class="title" style="font-size:16px;">Action</div>
+        <span class="pill warn">recommended</span>
       </div>
-      <div class="opsCardBody">
-        <div class="opsEmpty">
+      <div style="padding:16px;">
+        <div class="panel soft">
           <div style="font-weight:900;">Validate scenarios with Live AI</div>
           <div class="muted small" style="margin-top:8px;">Use Live AI to verify that automation is safe and intervention is easy.</div>
           <div style="margin-top:12px;">
@@ -1715,26 +1715,26 @@ async function renderRoi({ tickets }) {
   mountInsights(await buildInsights({ tickets, events: [] }));
 
   $("opsContent").innerHTML = `
-    <div class="opsCard">
-      <div class="opsCardHead">
-        <div class="opsCardTitle">Impact model</div>
-        <span class="opsPill">business</span>
+    <div class="panel soft">
+      <div class="panelHead">
+        <div class="title" style="font-size:16px;">Impact model</div>
+        <span class="pill">business</span>
       </div>
-      <div class="opsCardBody">
-        <div class="opsGrid2">
-          <div class="opsInsightCard">
-            <div class="opsInsightTitle">What is your AI doing?</div>
-            <div class="opsInsightBody">Handling conversations, recovering edge cases, and escalating when needed.</div>
+      <div style="padding:16px;">
+        <div class="grid2">
+          <div class="panel">
+            <div class="title" style="font-size:16px;">What is your AI doing?</div>
+            <div class="muted small" style="margin-top:8px; line-height:1.45;">Handling conversations, recovering edge cases, and escalating when needed.</div>
             <div class="divider"></div>
-            <div class="opsPill"><i class="fa-solid fa-signal"></i> Live AI shows real-time behavior</div>
-            <div class="opsPill" style="margin-top:10px;"><i class="fa-solid fa-clipboard-list"></i> Audit logs show accountability</div>
+            <div class="pill"><i class="fa-solid fa-signal"></i> Live AI shows real-time behavior</div>
+            <div class="pill" style="margin-top:10px;"><i class="fa-solid fa-clipboard-list"></i> Audit logs show accountability</div>
           </div>
-          <div class="opsInsightCard">
-            <div class="opsInsightTitle">What are you losing?</div>
-            <div class="opsInsightBody">Revenue leakage is typically caused by failed escalations and slow first response.</div>
+          <div class="panel">
+            <div class="title" style="font-size:16px;">What are you losing?</div>
+            <div class="muted small" style="margin-top:8px; line-height:1.45;">Revenue leakage is typically caused by failed escalations and slow first response.</div>
             <div class="divider"></div>
-            <div class="opsPill danger"><i class="fa-solid fa-triangle-exclamation"></i> Estimated leakage ${escapeHtml(formatMoneySEK(estLoss))}/month</div>
-            <div class="opsPill warn" style="margin-top:10px;"><i class="fa-solid fa-clock"></i> Reduce first response time for uplift</div>
+            <div class="pill danger"><i class="fa-solid fa-triangle-exclamation"></i> Estimated leakage ${escapeHtml(formatMoneySEK(estLoss))}/month</div>
+            <div class="pill warn" style="margin-top:10px;"><i class="fa-solid fa-clock"></i> Reduce first response time for uplift</div>
           </div>
         </div>
         <div class="divider"></div>
@@ -1745,13 +1745,13 @@ async function renderRoi({ tickets }) {
         </div>
       </div>
     </div>
-    <div class="opsCard">
-      <div class="opsCardHead">
-        <div class="opsCardTitle">Recommendation</div>
-        <span class="opsPill warn">action</span>
+    <div class="panel soft">
+      <div class="panelHead">
+        <div class="title" style="font-size:16px;">Recommendation</div>
+        <span class="pill warn">action</span>
       </div>
-      <div class="opsCardBody">
-        <div class="opsEmpty">
+      <div style="padding:16px;">
+        <div class="panel soft">
           <div style="font-weight:900;">Operate for outcomes</div>
           <div class="muted small" style="margin-top:8px;">Use Opportunities to prioritize changes with one-click actions.</div>
         </div>
@@ -1780,12 +1780,12 @@ async function renderIntegrations() {
     { sev: "ok", badge: "Billing", title: "Stripe can support usage-based pricing", body: "Track AI usage and monetize outcomes with tiering and quotas.", cta: "Open overview", next: "Measure usage trends.", route: "overview" }
   ]);
   $("opsContent").innerHTML = `
-    <div class="opsCard">
-      <div class="opsCardHead">
-        <div class="opsCardTitle">Integration catalog</div>
-        <span class="opsPill">enterprise</span>
+    <div class="panel soft">
+      <div class="panelHead">
+        <div class="title" style="font-size:16px;">Integration catalog</div>
+        <span class="pill">enterprise</span>
       </div>
-      <div class="opsCardBody">
+      <div style="padding:16px;">
         ${renderEmpty({
           title: "No integrations connected",
           body: "Connect CRM (Salesforce/HubSpot), ecommerce (Shopify), email, and webhooks to unlock revenue attribution and automation.",
@@ -1796,13 +1796,13 @@ async function renderIntegrations() {
         })}
       </div>
     </div>
-    <div class="opsCard">
-      <div class="opsCardHead">
-        <div class="opsCardTitle">Next actions</div>
-        <span class="opsPill warn">recommended</span>
+    <div class="panel soft">
+      <div class="panelHead">
+        <div class="title" style="font-size:16px;">Next actions</div>
+        <span class="pill warn">recommended</span>
       </div>
-      <div class="opsCardBody">
-        <div class="opsEmpty">
+      <div style="padding:16px;">
+        <div class="panel soft">
           <div style="font-weight:900;">Start with webhooks</div>
           <div class="muted small" style="margin-top:8px;">Webhooks enable real-time escalations and operational alerts with minimal effort.</div>
           <div style="margin-top:12px;">
@@ -1832,19 +1832,19 @@ async function renderAiAgents() {
     { sev: "ok", badge: "Ops", title: "Use Live AI for interventions", body: "Human takeover should be one click for high-risk conversations.", cta: "Open Live AI", next: "Protect revenue.", route: "live-ai" }
   ]);
   $("opsContent").innerHTML = `
-    <div class="opsCard">
-      <div class="opsCardHead">
-        <div class="opsCardTitle">Agent catalog</div>
-        <span class="opsPill">premium</span>
+    <div class="panel soft">
+      <div class="panelHead">
+        <div class="title" style="font-size:16px;">Agent catalog</div>
+        <span class="pill">premium</span>
       </div>
-      <div class="opsCardBody">
-        <div class="opsInsightCard">
+      <div style="padding:16px;">
+        <div class="panel">
           <div style="display:flex; align-items:center; justify-content:space-between; gap:12px;">
             <div>
-              <div class="opsInsightTitle">Customer Experience Agent</div>
-              <div class="opsInsightBody">Short, accurate answers. Escalates when uncertain. High trust.</div>
+              <div class="title" style="font-size:16px;">Customer Experience Agent</div>
+              <div class="muted small" style="margin-top:8px; line-height:1.45;">Short, accurate answers. Escalates when uncertain. High trust.</div>
             </div>
-            <span class="opsPill ok"><i class="fa-solid fa-check"></i> Active</span>
+            <span class="pill ok"><i class="fa-solid fa-check"></i> Active</span>
           </div>
           <div style="margin-top:12px; display:flex; gap:10px; flex-wrap:wrap;">
             <button class="btn secondary" type="button" id="agentGoConfig"><i class="fa-solid fa-sliders"></i> Configure</button>
@@ -1855,13 +1855,13 @@ async function renderAiAgents() {
         ${renderEmpty({ title: "Add more AI agents", body: "Create a Sales agent and an Expert agent. Then route by intent using rules and segmentation.", actions: [{ label: "Apply Sales preset", variant: "primary", icon: "fa-chart-line" }] })}
       </div>
     </div>
-    <div class="opsCard">
-      <div class="opsCardHead">
-        <div class="opsCardTitle">Action</div>
-        <span class="opsPill warn">recommended</span>
+    <div class="panel soft">
+      <div class="panelHead">
+        <div class="title" style="font-size:16px;">Action</div>
+        <span class="pill warn">recommended</span>
       </div>
-      <div class="opsCardBody">
-        <div class="opsEmpty">
+      <div style="padding:16px;">
+        <div class="panel soft">
           <div style="font-weight:900;">Align agents to outcomes</div>
           <div class="muted small" style="margin-top:8px;">Use presets to remove complexity and reduce configuration risk.</div>
         </div>
@@ -1905,7 +1905,7 @@ async function renderExperiments() {
   ]);
   const tableHtml = variants.length
     ? `
-      <table class="opsTable">
+      <table class="table">
         <thead>
           <tr>
             <th>Variant</th>
@@ -1940,22 +1940,22 @@ async function renderExperiments() {
       });
 
   $("opsContent").innerHTML = `
-    <div class="opsCard">
-      <div class="opsCardHead">
-        <div class="opsCardTitle">A/B testing</div>
-        <span class="opsPill">business</span>
+    <div class="panel soft">
+      <div class="panelHead">
+        <div class="title" style="font-size:16px;">A/B testing</div>
+        <span class="pill">business</span>
       </div>
-      <div class="opsCardBody">
+      <div style="padding:16px;">
         ${tableHtml}
       </div>
     </div>
-    <div class="opsCard">
-      <div class="opsCardHead">
-        <div class="opsCardTitle">Action</div>
-        <span class="opsPill warn">recommended</span>
+    <div class="panel soft">
+      <div class="panelHead">
+        <div class="title" style="font-size:16px;">Action</div>
+        <span class="pill warn">recommended</span>
       </div>
-      <div class="opsCardBody">
-        <div class="opsEmpty">
+      <div style="padding:16px;">
+        <div class="panel soft">
           <div style="font-weight:900;">Ship the winner</div>
           <div class="muted small" style="margin-top:8px;">When Variant B improves solved rate and does not increase escalations, roll it out — then move to the next experiment.</div>
           <div style="margin-top:12px; display:flex; gap:10px; flex-wrap:wrap;">
@@ -1991,22 +1991,22 @@ async function renderGeneric({ title, subtitle, ctaLabel, ctaRoute }) {
     { sev: "ok", badge: "Ops", title: "Use Opportunities to prioritize", body: "Stop guessing. Use an impact score with one-click actions.", cta: "Opportunities", next: "Act now.", route: "opportunities" }
   ]);
   $("opsContent").innerHTML = `
-    <div class="opsCard">
-      <div class="opsCardHead">
-        <div class="opsCardTitle">${escapeHtml(title)}</div>
-        <span class="opsPill">premium</span>
+    <div class="panel soft">
+      <div class="panelHead">
+        <div class="title" style="font-size:16px;">${escapeHtml(title)}</div>
+        <span class="pill">premium</span>
       </div>
-      <div class="opsCardBody">
+      <div style="padding:16px;">
         ${renderEmpty({ title: "This page is ready for data", body: "The layout, insights engine pattern and actions are in place. Next step is wiring richer data sources and workflows." })}
       </div>
     </div>
-    <div class="opsCard">
-      <div class="opsCardHead">
-        <div class="opsCardTitle">Action</div>
-        <span class="opsPill warn">recommended</span>
+    <div class="panel soft">
+      <div class="panelHead">
+        <div class="title" style="font-size:16px;">Action</div>
+        <span class="pill warn">recommended</span>
       </div>
-      <div class="opsCardBody">
-        <div class="opsEmpty">
+      <div style="padding:16px;">
+        <div class="panel soft">
           <div style="font-weight:900;">Open Opportunities</div>
           <div class="muted small" style="margin-top:8px;">Prioritize improvements by revenue, cost, and customer experience impact.</div>
           <div style="margin-top:12px;">

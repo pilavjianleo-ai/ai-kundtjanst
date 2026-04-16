@@ -289,6 +289,12 @@ body[data-theme="light"] {
   box-shadow: var(--shadow-sm);
 }
 
+.listItem.active {
+  border-color: var(--primary);
+  background: color-mix(in srgb, var(--primary) 10%, transparent);
+  box-shadow: inset 2px 0 0 0 var(--primary);
+}
+
 @media (max-width: 920px) {
   .main {
     padding: var(--space-2);

@@ -66,16 +66,16 @@
     </aside>
 
     <main class="opsMain">
-      <div class="opsTopbar">
+      <div class="topbar">
         <div class="opsTopbarLeft">
           <div class="opsCompany">
-            <div class="opsCompanyName" id="opsCompanyName">Company</div>
-            <div class="opsEnv" id="opsEnvBadge">Environment</div>
+            <div class="title" id="opsCompanyName" style="font-size:18px;">Company</div>
+            <div class="muted small" id="opsEnvBadge">Environment</div>
           </div>
-          <select id="opsCompanySelect" class="input smallInput" style="min-width:240px;"></select>
+          <select id="opsCompanySelect" class="input" style="min-width:240px;"></select>
         </div>
-        <div class="opsTopbarRight">
-          <button id="opsNotifBtn" class="btn ghost round" type="button" title="Notifications">
+        <div class="topbarActions">
+          <button id="opsNotifBtn" class="btn ghost round icon" type="button" title="Notifications">
             <i class="fa-solid fa-bell"></i>
           </button>
           <button id="opsUserBtn" class="btn ghost" type="button">
@@ -84,28 +84,28 @@
         </div>
       </div>
 
-      <div id="opsNotifPanel" class="opsPopover" style="display:none;"></div>
-      <div id="opsUserPanel" class="opsPopover" style="display:none;"></div>
+      <div id="opsNotifPanel" class="opsPopover panel soft" style="display:none;"></div>
+      <div id="opsUserPanel" class="opsPopover panel soft" style="display:none;"></div>
 
       <section class="opsPage">
         <div class="opsHeader">
           <div>
-            <div class="opsTitle" id="opsPageTitle">Overview</div>
-            <div class="opsSub" id="opsPageSub">Customer operations.</div>
+            <div class="title" id="opsPageTitle" style="font-size: clamp(22px, 2vw, 30px);">Overview</div>
+            <div class="subtitle" id="opsPageSub">Customer operations.</div>
           </div>
           <div id="opsPrimaryCta"></div>
         </div>
 
-        <div id="opsKpiStrip" class="opsKpiStrip"></div>
+        <div id="opsKpiStrip" class="grid4" style="margin-top: 14px; gap: 14px;"></div>
 
-        <div class="opsInsights">
-          <div class="opsInsightsHead">
-            <div style="font-weight:850;">AI Insights</div>
+        <div class="panel soft" style="margin-top: 14px;">
+          <div class="panelHead">
+            <div><b>AI Insights</b></div>
           </div>
-          <div id="opsInsightsGrid" class="opsInsightsGrid"></div>
+          <div id="opsInsightsGrid" class="grid2" style="padding: 14px;"></div>
         </div>
 
-        <div id="opsContent" class="opsContent"></div>
+        <div id="opsContent" style="display: grid; grid-template-columns: 1fr 380px; gap: 14px; margin-top: 14px;"></div>
       </section>
     </main>
   </div>

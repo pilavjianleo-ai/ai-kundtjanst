@@ -187,212 +187,64 @@
   max-width: 72ch;
 }
 
-.opsKpiStrip {
-  margin-top: 14px;
-  display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  gap: 14px;
-}
-
-.opsKpiCard {
-  padding: 14px;
-  border: 1px solid var(--ops-border);
-  border-radius: 16px;
-  background: var(--panel);
-  box-shadow: var(--shadow-sm);
-}
-
-.opsKpiLabel {
-  color: var(--muted);
-  font-size: 12px;
-}
-
-.opsKpiValue {
-  margin-top: 8px;
-  font-size: 22px;
-  font-weight: 920;
-  letter-spacing: -0.02em;
-}
-
-.opsKpiMeta {
-  margin-top: 10px;
-  display: flex;
-  justify-content: space-between;
-  gap: 10px;
-  color: var(--muted);
-  font-size: 12px;
-}
-
-.opsKpiWhy {
-  margin-top: 10px;
-  color: var(--muted);
-  font-size: 12px;
-  line-height: 1.35;
-  opacity: 0;
-  max-height: 0;
-  overflow: hidden;
-  transition: opacity 0.14s ease, max-height 0.14s ease;
-}
-
-.opsKpiCard:hover .opsKpiWhy,
-.opsKpiCard:focus-within .opsKpiWhy {
-  opacity: 1;
-  max-height: 44px;
-}
-
-.opsTrend {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  font-weight: 750;
-}
-
-.opsTrend.pos {
-  color: var(--success);
-}
-
-.opsTrend.neg {
-  color: var(--danger);
-}
-
-.opsInsights {
-  margin-top: 14px;
-  border: 1px solid var(--ops-border);
-  border-radius: 18px;
-  background: var(--panel);
-  box-shadow: var(--shadow-sm);
-  overflow: hidden;
-}
-
-.opsInsightsHead {
-  padding: 14px 16px;
-  border-bottom: 1px solid var(--ops-border);
-  display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: 14px;
-}
-
-.opsInsightsGrid {
-  padding: 14px 16px 16px 16px;
-  display: grid;
-  grid-template-columns: repeat(2, 1fr);
-  gap: 14px;
-}
-
-.opsInsightCard {
-  border: 1px solid var(--ops-border);
-  border-radius: 16px;
-  background: var(--panel2);
-  padding: 14px;
-  box-shadow: var(--shadow-sm);
-}
-
-.opsInsightMeta {
-  margin-top: 10px;
-  display: flex;
-  gap: 10px;
-  align-items: center;
-  flex-wrap: wrap;
-}
-
-.opsInsightFooter {
-  margin-top: 12px;
-  display: flex;
-  gap: 10px;
-  align-items: center;
-  justify-content: space-between;
-}
-
-.opsInsightFooterLeft {
-  display: flex;
-  gap: 10px;
-  align-items: center;
-  min-width: 0;
-}
-
-.opsConfidence {
-  color: var(--muted);
-  font-size: 12px;
-  white-space: nowrap;
-}
-
-.opsImpact {
-  font-weight: 900;
-  color: var(--text);
-}
 
 
-.opsFeed {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-}
 
-.opsFeedItem {
-  display: flex;
-  gap: 12px;
-  align-items: flex-start;
-  padding: 12px;
-  border: 1px solid var(--ops-border);
-  border-radius: 16px;
-  background: var(--panel2);
-  box-shadow: var(--shadow-sm);
-}
 
-.opsFeedIcon {
-  width: 30px;
-  height: 30px;
-  border-radius: 999px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: var(--primary-fade);
-  color: var(--primary);
-  flex: 0 0 30px;
-}
 
-.opsFeedBody {
-  flex: 1;
-  min-width: 0;
-}
 
-.opsFeedTitle {
-  font-weight: 900;
-  letter-spacing: -0.01em;
-}
 
-.opsFeedMeta {
-  margin-top: 4px;
-  color: var(--muted);
-  font-size: 12px;
-}
 
-.opsList {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-}
 
-.opsListItem {
-  padding: 12px;
-  border: 1px solid var(--ops-border);
-  border-radius: 16px;
-  background: var(--panel2);
-  box-shadow: var(--shadow-sm);
-  cursor: pointer;
-  transition: transform 0.12s ease, box-shadow 0.12s ease, border-color 0.12s ease, background 0.12s ease;
-}
 
-.opsListItem:hover {
-  transform: translateY(-1px);
-  box-shadow: 0 10px 20px rgba(0, 0, 0, 0.10);
-}
 
-.opsListItem.active {
-  border-color: color-mix(in srgb, var(--primary) 70%, var(--ops-border));
-  background: color-mix(in srgb, var(--primary-fade) 65%, transparent);
-}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 .opsBuilder {
   display: grid;
@@ -460,94 +312,33 @@
   gap: 8px;
 }
 
-.opsInsightTitle {
-  font-weight: 900;
-  letter-spacing: -0.01em;
-}
 
-.opsInsightBody {
-  margin-top: 8px;
-  color: var(--muted);
-  line-height: 1.45;
-}
 
-.opsInsightCta {
-  margin-top: 12px;
-  display: flex;
-  gap: 10px;
-  align-items: center;
-}
 
-.opsContent {
-  margin-top: 14px;
-  display: grid;
-  grid-template-columns: 1fr 380px;
-  gap: 14px;
-}
 
-.opsGrid2 {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 14px;
-}
 
-.opsGrid3 {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 14px;
-}
 
-.opsMiniCard {
-  border: 1px solid var(--ops-border);
-  border-radius: 16px;
-  background: var(--panel2);
-  padding: 14px;
-  box-shadow: var(--shadow-sm);
-}
 
-.opsCard {
-  border: 1px solid var(--ops-border);
-  border-radius: 18px;
-  background: var(--panel);
-  box-shadow: var(--shadow-sm);
-  overflow: hidden;
-}
 
-.opsCardHead {
-  padding: 14px 16px;
-  border-bottom: 1px solid var(--ops-border);
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-}
 
-.opsCardTitle {
-  font-weight: 900;
-  letter-spacing: -0.01em;
-}
 
-.opsCardBody {
-  padding: 14px 16px 16px 16px;
-}
 
-.opsTable {
-  width: 100%;
-  border-collapse: collapse;
-}
 
-.opsTable th,
-.opsTable td {
-  text-align: left;
-  padding: 10px 8px;
-  border-bottom: 1px solid var(--ops-border);
-  font-size: 13px;
-}
 
-.opsTable th {
-  color: var(--muted);
-  font-weight: 750;
-}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 .opsPill {
   display: inline-flex;
