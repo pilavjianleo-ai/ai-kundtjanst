@@ -2499,6 +2499,47 @@ function initKnowledgeEvents() {
             });
         });
     }
+
+    // Helper for event binding within this function
+    const bindBtn = (id, event, handler) => {
+        const el = $(id);
+        if (el) el.addEventListener(event, handler);
+    };
+
+    // URL & PDF Upload toggles
+    bindBtn("kbUploadUrlBtn", "click", () => {
+        const box = $("kbUploadUrlBox");
+        if (box) box.style.display = box.style.display === "none" ? "block" : "none";
+        if ($("kbUploadPdfBox")) $("kbUploadPdfBox").style.display = "none";
+    });
+
+    bindBtn("kbUploadPdfBtn", "click", () => {
+        const box = $("kbUploadPdfBox");
+        if (box) box.style.display = box.style.display === "none" ? "block" : "none";
+        if ($("kbUploadUrlBox")) $("kbUploadUrlBox").style.display = "none";
+    });
+
+    bindBtn("kbConfirmUrlBtn", "click", async () => {
+        const btn = $("kbConfirmUrlBtn");
+        if(!btn) return;
+        const oldHtml = btn.innerHTML;
+        btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i>';
+        btn.disabled = true;
+        await uploadKbUrl();
+        btn.innerHTML = oldHtml;
+        btn.disabled = false;
+    });
+
+    bindBtn("kbConfirmPdfBtn", "click", async () => {
+        const btn = $("kbConfirmPdfBtn");
+        if(!btn) return;
+        const oldHtml = btn.innerHTML;
+        btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i>';
+        btn.disabled = true;
+        await uploadKbPdf();
+        btn.innerHTML = oldHtml;
+        btn.disabled = false;
+    });
 }
 
 // Koppla initKnowledgeEvents till bindEvents eller window load
