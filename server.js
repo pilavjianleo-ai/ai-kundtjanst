@@ -1,13 +1,11 @@
 require("dotenv").config();
 const express = require("express");
 const cors = require("cors");
-const sanitizeHtml = require("sanitize-html");
 const helmet = require("helmet");
 const rateLimit = require("express-rate-limit");
 const compression = require("compression");
 const mongoose = require("mongoose");
 const bcrypt = require("bcryptjs");
-const jwt = require("jsonwebtoken");
 const path = require("path");
 const crypto = require("crypto");
 const multer = require("multer");
@@ -17,6 +15,28 @@ const pdf = require("pdf-parse");
 const OpenAI = require("openai");
 const http = require("http");
 const { Server } = require("socket.io");
+const { cleanText, escapeRegExp } = require("./utils/text");
+const { genPublicId } = require("./utils/ids");
+const { initModels } = require("./models");
+const { createAuthMiddleware } = require("./middleware/auth");
+const { enforceUserCompanyScope } = require("./middleware/companyScope");
+const { requestLogger } = require("./middleware/requestLogger");
+const { errorHandler } = require("./middleware/errorHandler");
+const { createAiResponseService } = require("./services/ai/responseService");
+const { createSummaryService } = require("./services/ai/summaryService");
+const { createMemoryService } = require("./services/ai/memoryService");
+const { inferDepartment } = require("./services/ai/promptBuilder");
+const { createKnowledgeRoutes } = require("./routes/knowledgeRoutes");
+const { createKnowledgePublicRoutes } = require("./routes/knowledgePublicRoutes");
+const { createAuthRoutes } = require("./routes/authRoutes");
+const { createAdminAnalyticsRoutes } = require("./routes/adminAnalyticsRoutes");
+const { createAdminAuditRoutes } = require("./routes/adminAuditRoutes");
+const { createAdminUsageRoutes } = require("./routes/adminUsageRoutes");
+const { createDashboardRoutes } = require("./routes/dashboardRoutes");
+const { createUsageService } = require("./services/usageService");
+const { createAuditService } = require("./services/auditService");
+const { addTicketEvent, setFirstResponseTimeIfMissing, setResolvedAt } = require("./services/tickets/ticketEventService");
+const { computeTicketStats } = require("./services/tickets/ticketStatsService");
 
 /* =====================
    Init & Config
@@ -33,6 +53,8 @@ app.use(express.urlencoded({ extended: true }));
 
 // Compression for all responses
 app.use(compression());
+
+app.use(requestLogger);
 
 // Serve frontend strictly from 'public' with caching
 app.use(express.static(path.join(__dirname, "public"), {
@@ -128,189 +150,24 @@ const upload = multer({
 /* =====================
    Helpers
 ===================== */
-function cleanText(text) {
-  return sanitizeHtml(text || "", { allowedTags: [], allowedAttributes: {} })
-    .replace(/\s+/g, " ")
-    .trim();
-}
+const {
+  User,
+  Company,
+  Document,
+  Knowledge,
+  KnowledgeChunk,
+  RefreshToken,
+  AuditLog,
+  UsageEvent,
+  Ticket,
+  Feedback,
+  CrmCustomer,
+  CrmDeal,
+  CrmActivity
+} = initModels(mongoose, { genPublicId });
 
-function escapeRegExp(string) {
-  return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-}
-
-function genPublicId(prefix = "T") {
-  const rnd = crypto.randomBytes(5).toString("hex").toUpperCase();
-  return `${prefix}-${rnd}`;
-}
-
-/* =====================
-   MODELS
-===================== */
-
-// User
-const userSchema = new mongoose.Schema({
-  publicUserId: { type: String, unique: true, index: true, default: () => genPublicId("U") },
-  username: { type: String, unique: true, required: true, index: true },
-  email: { type: String, default: "", index: true },
-  password: { type: String, required: true },
-  role: { type: String, default: "user" }, // user | agent | admin
-  companyId: { type: String, default: null, index: true },
-  createdAt: { type: Date, default: Date.now },
-});
-const User = mongoose.model("User", userSchema);
-
-// Company
-// Company
-const companySchema = new mongoose.Schema({
-  companyId: { type: String, unique: true, required: true },
-  displayName: { type: String, required: true },
-  orgNr: { type: String, default: "" },
-  contactName: { type: String, default: "" },
-  contactEmail: { type: String, default: "" },
-  phone: { type: String, default: "" },
-  notes: { type: String, default: "" },
-  status: { type: String, enum: ["trial", "active", "pending", "inactive", "past_due", "canceled"], default: "active" },
-  plan: { type: String, enum: ["trial", "bas", "pro", "enterprise"], default: "bas" },
-  settings: {
-    greeting: { type: String, default: "Hej! 👋 Hur kan jag hjälpa dig idag?" },
-    tone: { type: String, default: "professional", enum: ["professional", "friendly", "strict"] },
-    widgetColor: { type: String, default: "#0066cc" },
-  },
-  createdAt: { type: Date, default: Date.now },
-  updatedAt: { type: Date, default: Date.now },
-});
-const Company = mongoose.model("Company", companySchema);
-
-// Knowledge Base Document
-const documentSchema = new mongoose.Schema({
-  companyId: { type: String, required: true, index: true },
-  title: { type: String, required: true },
-  content: { type: String, required: true },
-  sourceType: { type: String, enum: ["text", "url", "pdf", "generated"], required: true },
-  sourceUrl: { type: String, default: "" },
-  createdAt: { type: Date, default: Date.now },
-});
-const Document = mongoose.model("Document", documentSchema);
-
-// Ticket & Messages
-const messageSchema = new mongoose.Schema({
-  role: String, // user | assistant | agent
-  content: String,
-  timestamp: { type: Date, default: Date.now },
-});
-
-const ticketSchema = new mongoose.Schema({
-  publicTicketId: { type: String, unique: true, index: true, default: () => genPublicId("T") },
-  userId: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true },
-  companyId: { type: String, required: true, index: true },
-  channel: { type: String, enum: ["chat","email","sms","whatsapp","facebook"], default: "chat" },
-  status: { type: String, enum: ["open", "pending", "solved"], default: "open" },
-  priority: { type: String, enum: ["low", "normal", "high"], default: "normal" },
-  ticketIdInput: { type: String, default: "" }, // user provided reference
-  contactInfo: {
-    name: { type: String, default: "" },
-    surname: { type: String, default: "" },
-    email: { type: String, default: "" },
-    phone: { type: String, default: "" },
-    isCompany: { type: Boolean, default: false },
-    orgName: { type: String, default: "" },
-    orgNr: { type: String, default: "" },
-    ticketIdInput: { type: String, default: "" }
-  },
-  title: { type: String, default: "" },
-  assignedToUserId: { type: mongoose.Schema.Types.ObjectId, ref: "User", default: null },
-  agentUserId: { type: mongoose.Schema.Types.ObjectId, ref: "User", default: null },
-  internalNotes: [{ createdBy: mongoose.Schema.Types.ObjectId, content: String, createdAt: Date }],
-  firstAgentReplyAt: { type: Date, default: null },
-  solvedAt: { type: Date, default: null },
-  messages: [messageSchema],
-  lastActivityAt: { type: Date, default: Date.now },
-  createdAt: { type: Date, default: Date.now },
-  abVariant: {
-    name: { type: String, default: "" },
-    tone: { type: String, default: "" },
-    greeting: { type: String, default: "" }
-  },
-  csatRating: { type: Number, min: 1, max: 5, default: null },
-});
-const Ticket = mongoose.model("Ticket", ticketSchema);
-
-// Feedback Model
-const feedbackSchema = new mongoose.Schema({
-  publicFeedbackId: { type: String, unique: true, index: true, default: () => genPublicId("FB") },
-  ticketId: { type: mongoose.Schema.Types.ObjectId, ref: "Ticket", default: null },
-  companyId: { type: String, required: true, index: true },
-  userId: { type: mongoose.Schema.Types.ObjectId, ref: "User", default: null },
-  targetType: { type: String, enum: ["agent", "ai"], required: true },
-  targetAgentId: { type: mongoose.Schema.Types.ObjectId, ref: "User", default: null },
-  rating: { type: Number, min: 1, max: 5, required: true },
-  comment: { type: String, default: "" },
-  category: { type: String, enum: ["support", "response_time", "helpfulness", "overall"], default: "overall" },
-  createdAt: { type: Date, default: Date.now },
-});
-const Feedback = mongoose.model("Feedback", feedbackSchema);
-
-// CRM Models (For multi-device sync)
-const crmCustomerSchema = new mongoose.Schema({
-  companyId: { type: String, required: true, index: true },
-  id: { type: String, required: true }, // Local ID used by frontend
-  name: { type: String, required: true },
-  email: { type: String, default: "" },
-  phone: { type: String, default: "" },
-  value: { type: Number, default: 0 },
-  status: { type: String, default: "Kund" },
-  industry: { type: String, default: "" },
-  orgNr: { type: String, default: "" },
-  notes: { type: String, default: "" },
-  aiConfig: {
-    status: { type: String, default: "inactive" },
-    model: { type: String, default: "GPT-5-mini" },
-    lang: { type: String, default: "Svenska" }
-  },
-  address: {
-    zip: { type: String, default: "" },
-    city: { type: String, default: "" },
-    country: { type: String, default: "Sverige" }
-  },
-  contactName: { type: String, default: "" },
-  role: { type: String, default: "" },
-  createdAt: { type: Date, default: Date.now }
-});
-// Unique per company + customer ID
-crmCustomerSchema.index({ companyId: 1, id: 1 }, { unique: true });
-const CrmCustomer = mongoose.model("CrmCustomer", crmCustomerSchema);
-
-const crmDealSchema = new mongoose.Schema({
-  companyId: { type: String, required: true, index: true },
-  id: { type: String, required: true },
-  name: { type: String, default: "" },
-  company: { type: String, required: true },
-  value: { type: Number, default: 0 },
-  stage: { type: String, default: "new" },
-  probability: { type: Number, default: 50 },
-  closeDate: { type: String, default: "" },
-  type: { type: String, default: "ny" },
-  owner: { type: String, default: "me" },
-  description: { type: String, default: "" },
-  nextStep: { type: String, default: "" },
-  createdAt: { type: Date, default: Date.now }
-});
-crmDealSchema.index({ companyId: 1, id: 1 }, { unique: true });
-const CrmDeal = mongoose.model("CrmDeal", crmDealSchema);
-
-const crmActivitySchema = new mongoose.Schema({
-  companyId: { type: String, required: true, index: true },
-  id: { type: String, required: true },
-  type: { type: String, default: "info" },
-  subject: { type: String, required: true },
-  description: { type: String, default: "" },
-  date: { type: String, default: "" },
-  status: { type: String, default: "done" },
-  targetId: { type: String, default: "" },
-  created: { type: Date, default: Date.now }
-});
-crmActivitySchema.index({ companyId: 1, id: 1 }, { unique: true });
-const CrmActivity = mongoose.model("CrmActivity", crmActivitySchema);
+const { authenticate, requireAgent, requireAdmin } = createAuthMiddleware({ User });
+const audit = createAuditService({ AuditLog });
 
 // Run database fixes and index cleanup after models are defined
 (async () => {
@@ -350,37 +207,47 @@ const CrmActivity = mongoose.model("CrmActivity", crmActivitySchema);
 /* =====================
    Auth Permissions
 ===================== */
-const authenticate = async (req, res, next) => {
-  const token = req.header("Authorization")?.replace("Bearer ", "");
-  if (!token) return res.status(401).json({ error: "Ingen token" });
-  try {
-    const decoded = jwt.verify(token, process.env.JWT_SECRET);
-    const user = await User.findById(decoded.id).select("-password");
-    if (!user) throw new Error();
-    req.user = user;
-    next();
-  } catch {
-    res.status(401).json({ error: "Ogiltig token" });
-  }
-};
-
-const requireAgent = (req, res, next) => {
-  if (!req.user || (req.user.role !== "agent" && req.user.role !== "admin")) {
-    return res.status(403).json({ error: "Agent/Admin krävs" });
-  }
-  next();
-};
-
-const requireAdmin = (req, res, next) => {
-  if (!req.user || req.user.role !== "admin") return res.status(403).json({ error: "Admin krävs" });
-  next();
-};
+ 
 
 /* =====================
    Routes
 ===================== */
 
 app.get("/health", (req, res) => res.json({ ok: true }));
+
+app.use(
+  "/dashboard",
+  authenticate,
+  enforceUserCompanyScope((req) => req.query?.companyId),
+  createDashboardRoutes({ User, Ticket, UsageEvent })
+);
+
+app.use(
+  "/admin/analytics",
+  authenticate,
+  requireAdmin,
+  createAdminAnalyticsRoutes({ User, Ticket, UsageEvent })
+);
+
+app.use(
+  "/admin/audit",
+  authenticate,
+  requireAdmin,
+  createAdminAuditRoutes({ AuditLog })
+);
+
+app.use(
+  "/admin/usage",
+  authenticate,
+  requireAdmin,
+  createAdminUsageRoutes({ UsageEvent })
+);
+
+app.use(
+  "/knowledge",
+  authenticate,
+  createKnowledgePublicRoutes({ Knowledge, KnowledgeChunk })
+);
 
 // Rate limiters
 const chatLimiter = rateLimit({
@@ -420,47 +287,7 @@ app.get("/me/stats", authenticate, async (req, res) => {
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
-app.post("/auth/register", async (req, res) => {
-  try {
-    const { username, password, email } = req.body;
-    if (!username || !password) return res.status(400).json({ error: "Användarnamn/lösenord krävs" });
-    if (await User.findOne({ username })) return res.status(400).json({ error: "Upptaget användarnamn" });
-
-    const user = await new User({
-      username,
-      email: email || "",
-      password: await bcrypt.hash(password, 10),
-      role: "user",
-    }).save();
-
-    const token = jwt.sign({ id: user._id }, process.env.JWT_SECRET, { expiresIn: "7d" });
-    res.json({ token, user: { id: user._id, username: user.username, role: user.role } });
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
-});
-
-app.post("/auth/login", async (req, res) => {
-  try {
-    const { username, password } = req.body;
-    console.log(`[AUTH] Login attempt: ${username}`);
-    const user = await User.findOne({ username });
-    if (!user) {
-      console.warn(`[AUTH] User not found: ${username}`);
-      return res.status(400).json({ error: "Fel inloggningsuppgifter" });
-    }
-    const match = await bcrypt.compare(password, user.password);
-    if (!match) {
-      console.warn(`[AUTH] Password mismatch for: ${username}`);
-      return res.status(400).json({ error: "Fel inloggningsuppgifter" });
-    }
-    const token = jwt.sign({ id: user._id }, process.env.JWT_SECRET, { expiresIn: "7d" });
-    res.json({ token, user: { id: user._id, username: user.username, role: user.role } });
-  } catch (err) {
-    console.error(`[AUTH] Error: ${err.message}`);
-    res.status(500).json({ error: err.message });
-  }
-});
+app.use("/auth", createAuthRoutes({ User, RefreshToken }));
 
 app.get("/me", authenticate, async (req, res) => {
   const user = await User.findById(req.user.id).select("-password");
@@ -531,18 +358,26 @@ app.get("/companies", authenticate, async (req, res) => {
 });
 
 // COMPANY SETTINGS (User/Public view)
-app.get("/company/settings", authenticate, async (req, res) => {
+app.get("/company/settings", authenticate, enforceUserCompanyScope((req) => req.query?.companyId), async (req, res) => {
   const company = await Company.findOne({ companyId: req.query.companyId });
   if (!company) return res.status(404).json({ error: "Hittades ej" });
   res.json(company.settings);
 });
 
-app.patch("/company/settings", authenticate, async (req, res) => {
+app.patch("/company/settings", authenticate, enforceUserCompanyScope((req) => req.body?.companyId), async (req, res) => {
   const { companyId, settings } = req.body;
   const company = await Company.findOne({ companyId });
   if (!company) return res.status(404).json({ error: "Hittades ej" });
   company.settings = { ...company.settings, ...settings };
   await company.save();
+  await audit.log({
+    companyId,
+    actorUserId: req.user?.id,
+    action: "company.settings.update",
+    targetType: "company",
+    targetId: String(companyId || ""),
+    meta: { keys: Object.keys(settings || {}) }
+  });
   res.json({ message: "Sparat", settings: company.settings });
 });
 
@@ -563,6 +398,14 @@ app.delete("/companies/:companyId", authenticate, requireAdmin, async (req, res)
 
     // Also delete associated knowledge base documents
     const deletedDocs = await Document.deleteMany({ companyId });
+    await audit.log({
+      companyId,
+      actorUserId: req.user?.id,
+      action: "company.delete",
+      targetType: "company",
+      targetId: String(companyId || ""),
+      meta: { deletedDocuments: deletedDocs.deletedCount }
+    });
 
     res.json({
       message: "Företag borttaget",
@@ -579,6 +422,20 @@ app.delete("/companies/:companyId", authenticate, requireAdmin, async (req, res)
    - Real implementations
 ===================== */
 
+app.use(
+  "/admin/knowledge",
+  authenticate,
+  requireAdmin,
+  createKnowledgeRoutes({
+    upload,
+    Knowledge,
+    KnowledgeChunk,
+    Readability,
+    JSDOM,
+    pdfParse: pdf
+  })
+);
+
 // List docs
 app.get("/admin/kb", authenticate, requireAdmin, async (req, res) => {
   try {
@@ -594,7 +451,16 @@ app.get("/admin/kb", authenticate, requireAdmin, async (req, res) => {
 // Delete doc
 app.delete("/admin/kb/:id", authenticate, requireAdmin, async (req, res) => {
   try {
+    const doc = await Document.findById(req.params.id);
     await Document.findByIdAndDelete(req.params.id);
+    await audit.log({
+      companyId: doc?.companyId || null,
+      actorUserId: req.user?.id,
+      action: "kb.doc.delete",
+      targetType: "document",
+      targetId: String(req.params.id || ""),
+      meta: { title: doc?.title || "" }
+    });
     res.json({ message: "Borttagen" });
   } catch (e) {
     res.status(500).json({ error: e.message });
@@ -626,12 +492,20 @@ app.post("/admin/kb/text", authenticate, requireAdmin, async (req, res) => {
   const { companyId, title, content } = req.body;
   if (!companyId || !content) return res.status(400).json({ error: "Saknar data" });
 
-  await new Document({
+  const doc = await new Document({
     companyId,
     title: title || "Text snippet",
     content: cleanText(content),
     sourceType: "text",
   }).save();
+  await audit.log({
+    companyId,
+    actorUserId: req.user?.id,
+    action: "kb.doc.create",
+    targetType: "document",
+    targetId: String(doc?._id || ""),
+    meta: { sourceType: "text", title: doc?.title || "" }
+  });
 
   res.json({ message: "Sparad" });
 });
@@ -671,6 +545,14 @@ app.post("/admin/kb/url", authenticate, requireAdmin, async (req, res) => {
     });
 
     await doc.save();
+    await audit.log({
+      companyId: doc.companyId,
+      actorUserId: req.user?.id,
+      action: "kb.doc.create",
+      targetType: "document",
+      targetId: String(doc?._id || ""),
+      meta: { sourceType: "url", title: doc?.title || "", sourceUrl: url }
+    });
     console.log(`✅ URL sparad: ${article.title}`);
     res.json({ message: "URL tolkad och sparad", title: article.title });
   } catch (e) {
@@ -686,12 +568,20 @@ app.post("/admin/kb/pdf", authenticate, requireAdmin, upload.single("pdf"), asyn
 
   try {
     const data = await pdf(req.file.buffer);
-    await new Document({
+    const doc = await new Document({
       companyId: companyId || "demo",
       title: req.file.originalname,
       content: cleanText(data.text),
       sourceType: "pdf",
     }).save();
+    await audit.log({
+      companyId: doc.companyId,
+      actorUserId: req.user?.id,
+      action: "kb.doc.create",
+      targetType: "document",
+      targetId: String(doc?._id || ""),
+      meta: { sourceType: "pdf", title: doc?.title || "" }
+    });
     res.json({ message: "PDF sparad" });
   } catch (e) {
     res.status(500).json({ error: "PDF-fel: " + e.message });
@@ -734,6 +624,14 @@ ${text}`;
       content: cleanText(article),
       sourceType: "generated",
     }).save();
+    await audit.log({
+      companyId,
+      actorUserId: req.user?.id,
+      action: "kb.doc.generate_from_ticket",
+      targetType: "document",
+      targetId: String(doc?._id || ""),
+      meta: { ticketId: String(ticketId || ""), publicTicketId: String(t.publicTicketId || ""), title: doc?.title || "" }
+    });
     res.json({ message: "Artikel genererad", id: doc._id });
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
@@ -741,177 +639,10 @@ ${text}`;
 /* =====================
    OpenAI Chat Functions
 ===================== */
-function inferDepartment(userMessage, ticket) {
-  const txt = String(userMessage || "").toLowerCase();
-  const hasCompany = !!(ticket?.contactInfo?.isCompany);
-  if (/(pris|offert|rabatt|kostnad|faktur|betal|plan|avtal)/i.test(txt)) return "sälj";
-  if (/(bugg|fel|fungerar inte|support|hjälp|problem|crash|konto)/i.test(txt)) return "support";
-  if (/(api|server|integration|deploy|docker|it|nätverk|säkerhet|oauth|webhook)/i.test(txt)) return "it";
-  if (hasCompany && /(demo|avtal|offert|pris)/i.test(txt)) return "sälj";
-  return "support";
-}
-async function generateAIResponse(companyId, messages, userMessage, abTone) {
-  try {
-    const company = await Company.findOne({ companyId });
-    const ai = company?.settings?.ai || {};
-    const profiles = ai?.profiles || {};
-    const activeName = ai?.activeProfile || Object.keys(profiles)[0] || "default";
-    const now = new Date();
-    const hour = now.getHours();
-    const mappings = ai?.segmenting?.mappings || [];
-    const dept = inferDepartment(userMessage);
-    let profileName = activeName;
-    for (const m of mappings) {
-      const langOk = (m.language || "sv") === "sv";
-      let timeOk = true;
-      if (m.schedule === "kontorstid") timeOk = hour >= 9 && hour < 17;
-      else if (m.schedule === "kväll") timeOk = hour >= 17 && hour < 23;
-      const deptOk = !m.department || m.department === dept;
-      const custOk = true;
-      if (langOk && timeOk && deptOk && custOk && profiles[m.profile]) { profileName = m.profile; break; }
-    }
-    const prof = profiles[profileName] || {};
-    const p = prof.personality || {};
-    const i = prof.interpretation || {};
-    const l = prof.logic || {};
-    const b = prof.behavior_rules || {};
-    const s = prof.safety || {};
-    const forbidden = (s.forbidden_topics || []).map(t => String(t).toLowerCase());
-    const txtLow = String(userMessage || "").toLowerCase();
-    if (forbidden.some(t => txtLow.includes(t))) {
-      return "Det ämnet kan vi inte behandla här. Jag kopplar dig vidare till en mänsklig agent som kan hjälpa dig.";
-    }
-    const rules = ai?.rules || [];
-    const willWarmTone = rules.some(r => String(r.then || "").toLowerCase().includes("ändra_ton=varm") && /arg|förbannad|😡|!{2,}/i.test(userMessage));
-    if (willWarmTone) p.style = "varm";
-    const sales = prof.sales || {};
-    const styleDesc = p.style === "formell" ? "Formell och korrekt" :
-                      p.style === "vänlig" ? "Vänlig och varm" :
-                      p.style === "avslappnad" ? "Avslappnad och lugn" :
-                      p.style === "professionell" ? "Professionell och tydlig" :
-                      p.style === "varm" ? "Varm och empatisk" : "Neutral och hjälpsam";
-    const verbDesc = p.verbosity === "kort" ? "Kortfattade svar" :
-                     p.verbosity === "utförlig" ? "Utförliga svar med fler detaljer" : "Normala svar";
-    const assertDesc = p.assertiveness === "hög" ? "Tydliga rekommendationer" :
-                       p.assertiveness === "låg" ? "Försiktiga förslag" : "Balans mellan förslag och val";
-    const probDesc = p.problem_style === "vägledande" ? "Guida steg‑för‑steg" : "Aktiv problemlösning";
-    const allowed = (s.allowed_phrases || []).join(", ");
-    const rulesText = (ai.rules || []).map(r => `IF ${r.if} THEN ${r.then}`).join("; ");
-    const flowsText = (ai.flows || []).map((st, idx) => `${idx + 1}. ${st.type}: ${st.text || ""}`).join("\n");
-    const timePolicy = l.time_policy || "direkt";
-    const emp = Number(p.empathy_level ?? 50);
-    const pol = Number(p.politeness_level ?? 50);
-    const toneLevel = Number(p.tone_level ?? 50);
-
-    // 1. Fetch relevant KB docs
-    const keywords = userMessage.toLowerCase().split(/\s+/).filter(w => w.length > 3);
-    let docs = [];
-    if (keywords.length > 0) {
-      console.log(`🔍 Söker KB med nyckelord: ${keywords.join(", ")}`);
-      // Use $or with multiple regexes for better Mongoose compatibility
-      const orConditions = keywords.flatMap(kw => [
-        { title: { $regex: escapeRegExp(kw), $options: 'i' } },
-        { content: { $regex: escapeRegExp(kw), $options: 'i' } }
-      ]);
-
-      docs = await Document.find({
-        companyId,
-        $or: orConditions
-      }).limit(5);
-    }
-
-    if (docs.length === 0) {
-      docs = await Document.find({ companyId }).sort({ createdAt: -1 }).limit(5);
-    }
-
-    const context = docs.map((d) => `[Fakta: ${d.title}]\n${d.content.slice(0, 1500)}`).join("\n\n");
-    const tone = abTone || company?.settings?.tone || "professional";
-
-    const systemPrompt = `Du är en AI‑kundtjänstagent för "${company?.displayName || "vår tjänst"}".
-Avdelning: ${dept.toUpperCase()}.
-Stil: ${styleDesc}. ${verbDesc}. ${assertDesc}. ${probDesc}. Empati=${emp}/100, Artighet=${pol}/100, Ton=${toneLevel}/100.
-Språk: Svenska.
-Tolkning: ${i.detect_emotion ? "Identifiera känsla." : "Ignorera känsla."} ${i.handle_slang ? "Förstå slang/emojis." : ""} ${i.ask_followup !== false ? "Ställ följdfråga vid oklarhet." : ""}
-Tidspolicy: ${timePolicy}.
-Legal: ${s?.legal?.no_guarantees ? "Ge inga garantier." : ""} ${s?.legal?.no_promises ? "Ge inga löften." : ""}
-Säkerhet: Förbjudna ämnen hanteras med neutral avvisning. Tillåtna fraser: ${allowed || "Inga specifika"}.
-Regler: ${rulesText || "Inga"}.
-Flöden:
-${flowsText || "Inga definierade flöden"}
-
-Använd endast FAKTA nedan. Om fakta saknas, skapa prioriterad ticket och be om kontaktuppgifter.
-Fakta:
-${context || "Ingen specifik fakta tillgänglig."}
-
-Tid: ${new Date().toLocaleString('sv-SE')}`;
-
-    // Fail-safe: Check if OpenAI is actually working
-    if (!process.env.OPENAI_API_KEY || process.env.OPENAI_API_KEY.includes("INSERT")) {
-      throw new Error("Missing Key");
-    }
-
-    const apiMessages = [
-      { role: "system", content: systemPrompt },
-      ...messages.slice(-6).map((m) => ({
-        role: m.role === "assistant" || m.role === "agent" ? "assistant" : "user",
-        content: m.content
-      })),
-      { role: "user", content: userMessage },
-    ];
-
-    console.log(`🧠 Skickar till OpenAI (${apiMessages.length} meddelanden)...`);
-    const completion = await openai.chat.completions.create({
-      model: "gpt-4o-mini",
-      messages: apiMessages,
-      temperature: 0.7,
-      max_tokens: 800
-    });
-
-    let result = completion.choices[0]?.message?.content || "Jag kunde tyvärr inte generera ett svar just nu.";
-    if (i.ask_followup !== false && result && userMessage && userMessage.trim().length < 8) {
-      const follow = " Kan du beskriva lite mer vad som inte fungerar?";
-      if (!result.includes(follow)) result += follow;
-    }
-    if (timePolicy === "kontorstid") {
-      const h = new Date().getHours();
-      if (h < 9 || h >= 17) result += " Vi återkommer med mer detaljer under kontorstid.";
-    } else if (timePolicy === "fördröjt") {
-      result += " Jag återkommer strax med fler detaljer.";
-    }
-    const suggestComp = rules.some(r => String(r.then || "").toLowerCase().includes("föreslå_kompensation") && /(skada|försening|feldebitering|besviken|missnöjd)/i.test(userMessage));
-    if (suggestComp) {
-      result += " Vi kan titta på kompensation om det är motiverat enligt vår policy.";
-    }
-    const askFollowRule = rules.some(r => String(r.then || "").toLowerCase().includes("ställ_följdfråga") && /(osäker|vet inte|\?{2,})/i.test(userMessage));
-    if (askFollowRule) {
-      result += " Skulle du kunna beskriva situationen lite närmare?";
-    }
-    if (dept === "sälj" && sales.enable_cta) {
-      const ctas = [];
-      if (sales.offer_demo) ctas.push("Vill du boka en kort demo?");
-      if (sales.offer_offert) ctas.push("Ska vi ta fram en offert?");
-      if (sales.link_pricing) ctas.push("Vi kan gå igenom prisplanerna tillsammans.");
-      if (sales.schedule_meeting) ctas.push("Vill du boka ett möte med en säljkollega?");
-      if (sales.request_contact) ctas.push("Kan jag få din e‑post och telefon så återkopplar vi snarast?");
-      if (ctas.length) result += " " + ctas.join(" ");
-    }
-    console.log("✅ AI-svar genererat.");
-    return result;
-  } catch (e) {
-    console.log("AI FAILSAFE TRIGGERED:", e.message);
-    // SMART FAILBACK: Local Response logic
-    const input = userMessage.toLowerCase();
-
-    // Check if it's a quota issue to give a better tip
-    if (e.message.includes("quota") || e.message.includes("429")) {
-      return "Tack för ditt meddelande! Systemet är för tillfället i begränsat läge (OpenAI Quota slut). En mänsklig agent har notifierats och kommer hjälpa dig så snart som möjligt. 😊";
-    }
-
-    if (input.includes("hej") || input.includes("tja")) return "Hej! 👋 Hur kan jag stå till tjänst idag? (AI i begränsat läge)";
-    if (input.includes("pris") || input.includes("kosta")) return "Vi har olika prisplaner. Kontakta gärna vår säljavdelning för en offert! (AI i begränsat läge)";
-    return "Tack för ditt meddelande. En av våra agenter kommer att titta på detta så snart som möjligt. (AI i begränsat läge)";
-  }
-}
+const { summarizeConversation, summarizeTicketText } = createSummaryService({ openai });
+const { getConversationSummary } = createMemoryService({ summarizeTicketText });
+const { generateAIResponse } = createAiResponseService({ openai, Company, Document, Knowledge, KnowledgeChunk, getConversationSummary });
+const { recordAiEvent } = createUsageService({ UsageEvent });
 
 /* =====================
    Endpoints: Chat & Tickets
@@ -931,18 +662,18 @@ app.delete("/inbox/tickets/solved", authenticate, requireAgent, async (req, res)
   }
 });
 
-app.post("/chat", authenticate, chatLimiter, async (req, res) => {
+app.post("/chat", authenticate, enforceUserCompanyScope((req) => req.body?.companyId), chatLimiter, async (req, res) => {
   const fs = require("fs");
   const log = (msg) => fs.appendFileSync("chat_debug.log", `[${new Date().toISOString()}] ${msg}\n`);
 
   try {
-    const { companyId = "demo", conversation = [], ticketId, contactInfo } = req.body;
+    const { companyId = "demo", conversation = [], ticketId, contactInfo, regenerate = false } = req.body;
     log(`START: companyId=${companyId}, ticketId=${ticketId}, user=${req.user?.id}`);
 
     const lastMsgObj = conversation.length > 0 ? conversation[conversation.length - 1] : null;
-    const lastUserMsg = lastMsgObj ? lastMsgObj.content : "";
+    let lastUserMsg = lastMsgObj ? lastMsgObj.content : "";
 
-    if (!lastUserMsg) {
+    if (!lastUserMsg && !regenerate) {
       log("EMPTY MESSAGE");
       return res.json({ reply: "Hur kan jag hjälpa dig idag? 😊" });
     }
@@ -950,6 +681,10 @@ app.post("/chat", authenticate, chatLimiter, async (req, res) => {
     let ticket = null;
     if (ticketId && mongoose.Types.ObjectId.isValid(ticketId)) {
       ticket = await Ticket.findById(ticketId);
+    }
+
+    if (regenerate && !ticket) {
+      return res.status(400).json({ error: "Regenerate kräver ticketId" });
     }
 
     if (!ticket) {
@@ -963,6 +698,7 @@ app.post("/chat", authenticate, chatLimiter, async (req, res) => {
         contactInfo: contactInfo || {}
       });
       await ticket.save(); // Save to generate publicTicketId
+      addTicketEvent(ticket, "ticket_created", { channel: "chat", createdByUserId: req.user.id });
       console.log(`🆕 Ny ticket skapad: ${ticket.publicTicketId}`);
     } else {
       log("USING EXISTING TICKET");
@@ -987,7 +723,18 @@ app.post("/chat", authenticate, chatLimiter, async (req, res) => {
 
     // Safety check messages
     if (!Array.isArray(ticket.messages)) ticket.messages = [];
-    ticket.messages.push({ role: "user", content: cleanText(lastUserMsg) });
+    if (regenerate) {
+      if (ticket.messages.length && ticket.messages[ticket.messages.length - 1].role === "assistant") {
+        ticket.messages.pop();
+      }
+      const lastUser = [...ticket.messages].reverse().find((m) => m.role === "user");
+      lastUserMsg = lastUser ? lastUser.content : lastUserMsg;
+      if (!lastUserMsg) return res.status(400).json({ error: "Inget tidigare user-meddelande att regenerera" });
+      addTicketEvent(ticket, "ai_regenerate_requested", { by: req.user.id });
+    } else {
+      ticket.messages.push({ role: "user", content: cleanText(lastUserMsg) });
+      addTicketEvent(ticket, "message_sent", { role: "user" });
+    }
 
     const company = await Company.findOne({ companyId });
     const ai = company?.settings?.ai || {};
@@ -1034,11 +781,37 @@ app.post("/chat", authenticate, chatLimiter, async (req, res) => {
     try {
       log("START AI GENERATION");
       if (io) io.emit("aiTyping", { ticketId: ticket._id, companyId });
-      reply = await generateAIResponse(companyId, ticket.messages, lastUserMsg, ticket.abVariant?.tone || undefined);
+      const t0 = Date.now();
+      reply = await generateAIResponse(companyId, ticket.messages, lastUserMsg, ticket.abVariant?.tone || undefined, { ticket });
+      setFirstResponseTimeIfMissing(ticket);
+      addTicketEvent(ticket, regenerate ? "ai_regenerated" : "ai_response", { model: "gpt-4o-mini" });
+      await recordAiEvent({
+        companyId,
+        userId: req.user?.id,
+        ticketId: ticket._id,
+        type: "ai_chat",
+        model: "gpt-4o-mini",
+        inputText: lastUserMsg,
+        outputText: reply,
+        latencyMs: Date.now() - t0,
+        ok: true
+      });
       log("FINISH AI GENERATION");
     } catch (aiErr) {
       log(`AI CRASH: ${aiErr.message}`);
       reply = "Tekniskt fel vid AI-generering. En agent har notifierats.";
+      addTicketEvent(ticket, "ai_error", { message: String(aiErr.message || "ai_error") });
+      await recordAiEvent({
+        companyId,
+        userId: req.user?.id,
+        ticketId: ticket._id,
+        type: "ai_chat",
+        model: "gpt-4o-mini",
+        inputText: lastUserMsg,
+        outputText: reply,
+        latencyMs: 0,
+        ok: false
+      });
     }
 
     const msgLow = lastUserMsg.toLowerCase();
@@ -1046,15 +819,21 @@ app.post("/chat", authenticate, chatLimiter, async (req, res) => {
     const needsHuman = handoff;
 
     if (needsHuman) {
+      const beforePriority = ticket.priority;
+      const beforeStatus = ticket.status;
       ticket.priority = "high";
       ticket.status = "open";
+      if (beforePriority !== ticket.priority) addTicketEvent(ticket, "priority_changed", { from: beforePriority, to: ticket.priority, reason: "handoff" });
+      if (beforeStatus !== ticket.status) addTicketEvent(ticket, "status_changed", { from: beforeStatus, to: ticket.status, reason: "handoff" });
       reply = "Självklart! Jag kopplar dig vidare till en mänsklig medarbetare nu. Ditt ärende har prioriterats. Vill du lämna e‑post eller telefon för snabb återkoppling?";
       if (io) io.emit("newImportantTicket", { id: ticket._id, title: "HUMAN REQUIRED: " + ticket.title });
     }
 
     const isUrgent = ["akut", "bråttom", "panik", "fungerar inte", "fel"].some(w => msgLow.includes(w));
     if (isUrgent) {
+      const beforePriority = ticket.priority;
       ticket.priority = "high";
+      if (beforePriority !== ticket.priority) addTicketEvent(ticket, "priority_changed", { from: beforePriority, to: ticket.priority, reason: "urgent" });
       if (io) io.emit("newImportantTicket", { id: ticket._id, title: ticket.title });
     }
 
@@ -1089,36 +868,23 @@ app.post("/chat", authenticate, chatLimiter, async (req, res) => {
 });
 
 // Chat summary (for current conversation)
-app.post("/chat/summary", authenticate, summaryLimiter, async (req, res) => {
+app.post("/chat/summary", authenticate, enforceUserCompanyScope((req) => req.body?.companyId), summaryLimiter, async (req, res) => {
   try {
     const { conversation = [], companyId = "demo" } = req.body;
-    const safeConv = Array.isArray(conversation) ? conversation.slice(-20) : [];
-    const text = safeConv.map(m => `${m.role}: ${cleanText(m.content || "")}`).join("\n").slice(0, 4000);
-
-    let summary = "";
-    if (process.env.NODE_ENV === "test" || !process.env.OPENAI_API_KEY || process.env.OPENAI_API_KEY.includes("INSERT")) {
-      const sentences = text.split(/\.\s+/).slice(0, 6);
-      const keyPoints = sentences.filter(s => s && s.length > 0).slice(0, 4);
-      summary = keyPoints.map((s, i) => `${i + 1}. ${s.trim()}.`).join(" ");
-      if (!summary) summary = "Kund och AI har inlett en dialog. Ingen ytterligare information.";
-    } else {
-      const prompt = `Sammanfatta följande dialog kort, tydligt och informativt på svenska.
-Företag: ${companyId}
-Max 120 ord. Inkludera:
-- Syftet med konversationen
-- Viktiga detaljer och beslut
-- Nästa steg (om tydliga)
-
-Dialog:
-${text}`;
-      const completion = await openai.chat.completions.create({
-        model: "gpt-4o-mini",
-        messages: [{ role: "user", content: prompt }],
-        temperature: 0.2,
-        max_tokens: 300
-      });
-      summary = completion.choices?.[0]?.message?.content || "Kunde inte generera sammanfattning.";
-    }
+    const t0 = Date.now();
+    const summary = await summarizeConversation({ conversation, companyId });
+    const inputText = Array.isArray(conversation) ? conversation.map(m => `${m?.role}: ${m?.content || ""}`).join("\n") : "";
+    await recordAiEvent({
+      companyId,
+      userId: req.user?.id,
+      ticketId: null,
+      type: "ai_summary",
+      model: process.env.OPENAI_API_KEY && !process.env.OPENAI_API_KEY.includes("INSERT") ? "gpt-4o-mini" : "local-fallback",
+      inputText,
+      outputText: summary,
+      latencyMs: Date.now() - t0,
+      ok: true
+    });
     res.json({ summary });
   } catch (e) {
     res.status(500).json({ error: e.message });
@@ -1135,27 +901,24 @@ app.get("/tickets/:id/summary", authenticate, summaryLimiter, async (req, res) =
     if (!isOwner && !isAgentOrAdmin) return res.status(403).json({ error: "Ej behörig" });
 
     const text = (t.messages || []).map(m => `${m.role}: ${cleanText(m.content || "")}`).join("\n").slice(0, 4000);
-    let summary = "";
-    if (process.env.NODE_ENV === "test" || !process.env.OPENAI_API_KEY || process.env.OPENAI_API_KEY.includes("INSERT")) {
-      const items = text.split(/\n/).filter(Boolean).slice(-8);
-      summary = items.map((s, i) => `${i + 1}. ${s}`).join(" ");
-    } else {
-      const prompt = `Sammanfatta ticket ${t.publicTicketId} kort (max 120 ord) på svenska med syfte, läge och nästa steg.
-
-${text}`;
-      const completion = await openai.chat.completions.create({
-        model: "gpt-4o-mini",
-        messages: [{ role: "user", content: prompt }],
-        temperature: 0.2,
-        max_tokens: 280
-      });
-      summary = completion.choices?.[0]?.message?.content || "Kunde inte generera sammanfattning.";
-    }
+    const t0 = Date.now();
+    const summary = await summarizeTicketText({ publicTicketId: t.publicTicketId, text });
+    await recordAiEvent({
+      companyId: t.companyId,
+      userId: req.user?.id,
+      ticketId: t._id,
+      type: "ai_ticket_summary",
+      model: process.env.OPENAI_API_KEY && !process.env.OPENAI_API_KEY.includes("INSERT") ? "gpt-4o-mini" : "local-fallback",
+      inputText: text,
+      outputText: summary,
+      latencyMs: Date.now() - t0,
+      ok: true
+    });
     res.json({ summary });
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
-app.post("/company/simulator", authenticate, async (req, res) => {
+app.post("/company/simulator", authenticate, enforceUserCompanyScope((req) => req.body?.companyId), async (req, res) => {
   const { companyId, message } = req.body;
   const reply = await generateAIResponse(companyId || "demo", [], message || "Hej");
 
@@ -1188,7 +951,9 @@ app.get("/tickets/:id", authenticate, async (req, res) => {
       return res.status(403).json({ error: `Ej behörig (Roll: ${req.user.role})` });
     }
 
-    res.json(ticket);
+    const payload = ticket.toObject ? ticket.toObject() : ticket;
+    payload.stats = computeTicketStats(payload);
+    res.json(payload);
   } catch (e) {
     res.status(500).json({ error: e.message });
   }
@@ -1216,6 +981,8 @@ app.post("/ingest/email", async (req, res) => {
     }
     const t = new Ticket({ userId: user._id, companyId: comp, channel: "email", title, contactInfo: { email }, messages: [], priority: "normal" });
     t.messages.push({ role: "user", content: text });
+    addTicketEvent(t, "ticket_created", { channel: "email", createdBy: "webhook" });
+    addTicketEvent(t, "message_sent", { role: "user" });
     t.lastActivityAt = new Date();
     await t.save();
     try {
@@ -1224,6 +991,8 @@ app.post("/ingest/email", async (req, res) => {
       if (auto.email !== false) {
         const reply = await generateAIResponse(comp, t.messages, text);
         t.messages.push({ role: "assistant", content: reply });
+        setFirstResponseTimeIfMissing(t);
+        addTicketEvent(t, "ai_response", { model: "gpt-4o-mini" });
         t.lastActivityAt = new Date();
         await t.save();
       }
@@ -1253,6 +1022,8 @@ app.post("/ingest/sms", async (req, res) => {
     }
     const t = new Ticket({ userId: user._id, companyId: comp, channel: "sms", title: content.slice(0, 50), contactInfo: { phone }, messages: [], priority: "normal" });
     t.messages.push({ role: "user", content: content });
+    addTicketEvent(t, "ticket_created", { channel: "sms", createdBy: "webhook" });
+    addTicketEvent(t, "message_sent", { role: "user" });
     t.lastActivityAt = new Date();
     await t.save();
     try {
@@ -1261,6 +1032,8 @@ app.post("/ingest/sms", async (req, res) => {
       if (auto.sms !== false) {
         const reply = await generateAIResponse(comp, t.messages, content);
         t.messages.push({ role: "assistant", content: reply });
+        setFirstResponseTimeIfMissing(t);
+        addTicketEvent(t, "ai_response", { model: "gpt-4o-mini" });
         t.lastActivityAt = new Date();
         await t.save();
       }
@@ -1290,6 +1063,8 @@ app.post("/ingest/whatsapp", async (req, res) => {
     }
     const t = new Ticket({ userId: user._id, companyId: comp, channel: "whatsapp", title: content.slice(0, 50), contactInfo: { phone }, messages: [], priority: "normal" });
     t.messages.push({ role: "user", content: content });
+    addTicketEvent(t, "ticket_created", { channel: "whatsapp", createdBy: "webhook" });
+    addTicketEvent(t, "message_sent", { role: "user" });
     t.lastActivityAt = new Date();
     await t.save();
     try {
@@ -1298,6 +1073,8 @@ app.post("/ingest/whatsapp", async (req, res) => {
       if (auto.whatsapp !== false) {
         const reply = await generateAIResponse(comp, t.messages, content);
         t.messages.push({ role: "assistant", content: reply });
+        setFirstResponseTimeIfMissing(t);
+        addTicketEvent(t, "ai_response", { model: "gpt-4o-mini" });
         t.lastActivityAt = new Date();
         await t.save();
       }
@@ -1327,6 +1104,8 @@ app.post("/ingest/facebook", async (req, res) => {
     }
     const t = new Ticket({ userId: user._id, companyId: comp, channel: "facebook", title: content.slice(0, 50), contactInfo: { social: "facebook", senderId: sender }, messages: [], priority: "normal" });
     t.messages.push({ role: "user", content: content });
+    addTicketEvent(t, "ticket_created", { channel: "facebook", createdBy: "webhook" });
+    addTicketEvent(t, "message_sent", { role: "user" });
     t.lastActivityAt = new Date();
     await t.save();
     try {
@@ -1335,6 +1114,8 @@ app.post("/ingest/facebook", async (req, res) => {
       if (auto.facebook !== false) {
         const reply = await generateAIResponse(comp, t.messages, content);
         t.messages.push({ role: "assistant", content: reply });
+        setFirstResponseTimeIfMissing(t);
+        addTicketEvent(t, "ai_response", { model: "gpt-4o-mini" });
         t.lastActivityAt = new Date();
         await t.save();
       }
@@ -1351,17 +1132,22 @@ app.post("/tickets/:id/reply", authenticate, async (req, res) => {
 
   const text = req.body.message;
   ticket.messages.push({ role: "user", content: text });
+  addTicketEvent(ticket, "message_sent", { role: "user" });
 
   // Auto-AI reply if status is not 'solved'? Or always AI?
   // Usually if user replies, AI might answer again if no agent attached.
   if (!ticket.assignedToUserId) {
     const reply = await generateAIResponse(ticket.companyId, ticket.messages, text);
     ticket.messages.push({ role: "assistant", content: reply });
+    setFirstResponseTimeIfMissing(ticket);
+    addTicketEvent(ticket, "ai_response", { model: "gpt-4o-mini" });
   }
 
   ticket.lastActivityAt = new Date();
   await ticket.save();
-  res.json({ message: "Skickat", ticket });
+  const payload = ticket.toObject ? ticket.toObject() : ticket;
+  payload.stats = computeTicketStats(payload);
+  res.json({ message: "Skickat", ticket: payload });
 });
 
 /* =====================
@@ -1374,13 +1160,25 @@ app.get("/inbox/tickets", authenticate, requireAgent, async (req, res) => {
   if (companyId) q.companyId = companyId;
   if (channel) q.channel = channel;
   const tickets = await Ticket.find(q).sort({ lastActivityAt: -1 }).limit(1000);
-  res.json(tickets);
+  const payload = (tickets || []).map((t) => {
+    const o = t.toObject ? t.toObject() : t;
+    o.stats = computeTicketStats(o);
+    return o;
+  });
+  res.json(payload);
 });
 
 app.patch("/inbox/tickets/:id/status", authenticate, requireAgent, async (req, res) => {
   const t = await Ticket.findById(req.params.id);
+  if (!t) return res.status(404).json({ error: "Ticket hittades ej" });
+  const before = t.status;
   t.status = req.body.status;
-  if (t.status === "solved") t.solvedAt = new Date();
+  addTicketEvent(t, "status_changed", { from: before, to: t.status });
+  if (t.status === "solved") {
+    t.solvedAt = new Date();
+    setResolvedAt(t, t.solvedAt);
+    addTicketEvent(t, "ticket_closed", { status: "solved" }, t.solvedAt);
+  }
   t.lastActivityAt = new Date();
   await t.save();
   res.json({ message: "Uppdaterad" });
@@ -1390,7 +1188,9 @@ app.patch("/inbox/tickets/:id/priority", authenticate, requireAgent, async (req,
   try {
     const t = await Ticket.findById(req.params.id);
     if (!t) return res.status(404).json({ error: "Ticket hittades ej" });
+    const before = t.priority;
     t.priority = req.body.priority || "normal";
+    addTicketEvent(t, "priority_changed", { from: before, to: t.priority });
     await t.save();
     res.json({ message: "Prioritet uppdaterad" });
   } catch (e) { res.status(500).json({ error: e.message }); }
@@ -1403,7 +1203,10 @@ app.post("/inbox/tickets/:id/reply", authenticate, requireAgent, async (req, res
     t.messages.push({ role: "agent", content: req.body.message });
     t.agentUserId = req.user.id;
     if (!t.firstAgentReplyAt) t.firstAgentReplyAt = new Date();
+    setFirstResponseTimeIfMissing(t, t.firstAgentReplyAt);
+    addTicketEvent(t, "agent_response", { agentUserId: req.user.id });
     t.status = "pending"; // Auto-status change when agent replies
+    addTicketEvent(t, "status_changed", { to: "pending", reason: "agent_reply" });
     t.lastActivityAt = new Date();
     await t.save();
     if (io) io.emit("ticketUpdate", { ticketId: t._id, companyId: t.companyId, type: "agentReply" });
@@ -1416,6 +1219,7 @@ app.post("/inbox/tickets/:id/note", authenticate, requireAgent, async (req, res)
     const t = await Ticket.findById(req.params.id);
     if (!t) return res.status(404).json({ error: "Ticket hittades ej" });
     t.internalNotes.push({ createdBy: req.user.id, content: cleanText(req.body.content), createdAt: new Date() });
+    addTicketEvent(t, "internal_note_added", { createdBy: req.user.id });
     await t.save();
     if (io) io.emit("noteUpdate", { ticketId: t._id, companyId: t.companyId, action: "added" });
     res.json({ message: "Note sparad" });
@@ -1426,7 +1230,9 @@ app.patch("/tickets/:id/assign", authenticate, requireAgent, async (req, res) =>
   try {
     const t = await Ticket.findById(req.params.id);
     if (!t) return res.status(404).json({ error: "Ej hittad" });
+    const before = t.assignedToUserId?.toString() || null;
     t.assignedToUserId = req.body.assignedToUserId;
+    addTicketEvent(t, "ticket_assigned", { from: before, to: t.assignedToUserId?.toString() || null, by: req.user.id });
     await t.save();
     if (io) io.emit("assignmentUpdate", { ticketId: t._id, companyId: t.companyId, assignedToUserId: t.assignedToUserId });
     res.json(t);
@@ -1445,6 +1251,7 @@ app.delete("/inbox/tickets/:id/notes", authenticate, requireAgent, async (req, r
     const t = await Ticket.findById(req.params.id);
     if (!t) return res.status(404).json({ error: "Ticket hittades ej" });
     t.internalNotes = [];
+    addTicketEvent(t, "internal_note_cleared", { by: req.user.id });
     await t.save();
     if (io) io.emit("noteUpdate", { ticketId: t._id, companyId: t.companyId, action: "cleared" });
     res.json({ message: "Notes raderade" });
@@ -1456,7 +1263,9 @@ app.patch("/inbox/tickets/:id/assign", authenticate, requireAgent, async (req, r
     const { userId } = req.body;
     const t = await Ticket.findById(req.params.id);
     if (!t) return res.status(404).json({ error: "Ticket hittades ej" });
+    const before = t.assignedToUserId?.toString() || null;
     t.assignedToUserId = userId || null;
+    addTicketEvent(t, "ticket_assigned", { from: before, to: t.assignedToUserId?.toString() || null, by: req.user.id });
     await t.save();
     if (io) io.emit("assignmentUpdate", { ticketId: t._id, companyId: t.companyId, assignedToUserId: t.assignedToUserId });
     res.json({ message: "Ticket tilldelad" });
@@ -1493,6 +1302,14 @@ app.patch("/admin/users/:id/role", authenticate, requireAdmin, async (req, res) 
     const u = await User.findById(id);
     if (!u) return res.status(404).json({ error: "Användare hittades ej" });
     await User.findByIdAndUpdate(id, { role });
+    await audit.log({
+      companyId: u.companyId || null,
+      actorUserId: req.user?.id,
+      action: "admin.user.role_update",
+      targetType: "user",
+      targetId: String(id || ""),
+      meta: { from: String(u.role || ""), to: String(role || ""), username: String(u.username || "") }
+    });
     res.json({ message: "Roll uppdaterad" });
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
@@ -1502,7 +1319,18 @@ app.patch("/inbox/tickets/solve-all", authenticate, requireAgent, async (req, re
     const { companyId } = req.body;
     const q = { status: { $ne: "solved" } };
     if (companyId) q.companyId = companyId;
-    await Ticket.updateMany(q, { status: "solved", solvedAt: new Date() });
+    const ts = new Date();
+    await Ticket.updateMany(q, {
+      $set: { status: "solved", solvedAt: ts, resolvedAt: ts },
+      $push: {
+        events: {
+          $each: [
+            { type: "status_changed", timestamp: ts, data: { to: "solved", reason: "bulk_solve", by: req.user.id } },
+            { type: "ticket_closed", timestamp: ts, data: { status: "solved", bulk: true, by: req.user.id } }
+          ]
+        }
+      }
+    });
     io.emit("ticketUpdate", { message: "Bulk solve completed" });
     res.json({ message: "Alla markerade ärenden lösta" });
   } catch (e) { res.status(500).json({ error: e.message }); }
@@ -1562,6 +1390,14 @@ app.post("/admin/companies", authenticate, requireAdmin, async (req, res) => {
       createdAt: new Date()
     });
     await company.save();
+    await audit.log({
+      companyId,
+      actorUserId: req.user?.id,
+      action: "admin.company.create",
+      targetType: "company",
+      targetId: String(companyId || ""),
+      meta: { displayName: String(displayName || ""), plan: String(company.plan || ""), status: String(company.status || "") }
+    });
     if (io) io.emit("crmUpdate", { companyId });
     res.json({ message: "Skapat", company });
   } catch (e) { res.status(500).json({ error: e.message }); }
@@ -1834,9 +1670,17 @@ app.get("/billing/history", authenticate, async (req, res) => {
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
-app.post("/billing/create-checkout", authenticate, async (req, res) => {
+app.post("/billing/create-checkout", authenticate, enforceUserCompanyScope((req) => req.body?.companyId), async (req, res) => {
   try {
     const { plan, companyId } = req.body;
+    await audit.log({
+      companyId: companyId || req.user?.companyId || null,
+      actorUserId: req.user?.id,
+      action: "billing.checkout.create",
+      targetType: "company",
+      targetId: String(companyId || req.user?.companyId || ""),
+      meta: { plan: String(plan || ""), stripeEnabled: !!stripe }
+    });
     if (!stripe) {
       // DEMO MODE SUCCESS
       return res.json({
@@ -1959,7 +1803,16 @@ app.get("/admin/diagnostics", authenticate, requireAdmin, async (req, res) => {
 app.delete("/admin/users/:id", authenticate, requireAdmin, async (req, res) => {
   try {
     if (req.params.id === req.user.id) return res.status(400).json({ error: "Du kan inte radera dig själv" });
+    const u = await User.findById(req.params.id);
     await User.findByIdAndDelete(req.params.id);
+    await audit.log({
+      companyId: u?.companyId || null,
+      actorUserId: req.user?.id,
+      action: "admin.user.delete",
+      targetType: "user",
+      targetId: String(req.params.id || ""),
+      meta: { username: String(u?.username || "") }
+    });
     res.json({ message: "Användare borttagen" });
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
@@ -1999,6 +1852,14 @@ app.post("/admin/companies", authenticate, requireAdmin, async (req, res) => {
       createdAt: new Date()
     });
     await c.save();
+    await audit.log({
+      companyId,
+      actorUserId: req.user?.id,
+      action: "admin.company.create",
+      targetType: "company",
+      targetId: String(companyId || ""),
+      meta: { displayName: String(displayName || ""), plan: String(c.plan || ""), status: String(c.status || "") }
+    });
     if (io) io.emit("crmUpdate", { companyId });
     res.json(c);
   } catch (e) { res.status(500).json({ error: e.message }); }
@@ -2008,12 +1869,24 @@ app.put("/admin/companies/:id", authenticate, requireAdmin, async (req, res) => 
   try {
     const { displayName, contactEmail, plan, status, orgNr, contactName, phone, notes } = req.body;
     const companyId = req.params.id;
+    const before = await Company.findOne({ companyId });
     const c = await Company.findOneAndUpdate(
       { companyId },
       { displayName, contactEmail, plan, status, orgNr, contactName, phone, notes },
       { new: true }
     );
     if (!c) return res.status(404).json({ error: "Bolag hittades ej" });
+    await audit.log({
+      companyId,
+      actorUserId: req.user?.id,
+      action: "admin.company.update",
+      targetType: "company",
+      targetId: String(companyId || ""),
+      meta: {
+        before: before ? { displayName: before.displayName, plan: before.plan, status: before.status } : null,
+        after: { displayName: c.displayName, plan: c.plan, status: c.status }
+      }
+    });
     if (io) io.emit("crmUpdate", { companyId });
     res.json(c);
   } catch (e) { res.status(500).json({ error: e.message }); }
@@ -2022,10 +1895,22 @@ app.put("/admin/companies/:id", authenticate, requireAdmin, async (req, res) => 
 app.delete("/admin/companies/:id", authenticate, requireAdmin, async (req, res) => {
   try {
     const companyId = req.params.id;
-    await Company.findOneAndDelete({ companyId });
+    const deletedCompany = await Company.findOneAndDelete({ companyId });
     // await User.deleteMany({ companyId }); // REMOVED: DANGEROUS! Users might not have companyId set yet, leading to empty filter {} delete
-    await Ticket.deleteMany({ companyId });
-    await Document.deleteMany({ companyId });
+    const tRes = await Ticket.deleteMany({ companyId });
+    const dRes = await Document.deleteMany({ companyId });
+    await audit.log({
+      companyId,
+      actorUserId: req.user?.id,
+      action: "admin.company.delete",
+      targetType: "company",
+      targetId: String(companyId || ""),
+      meta: {
+        displayName: String(deletedCompany?.displayName || ""),
+        deletedTickets: tRes.deletedCount,
+        deletedDocuments: dRes.deletedCount
+      }
+    });
     if (io) io.emit("crmUpdate", { companyId });
     res.json({ message: "Bolag och all data raderad" });
   } catch (e) { res.status(500).json({ error: e.message }); }
@@ -2071,6 +1956,14 @@ app.patch("/company/settings", authenticate, requireAgent, async (req, res) => {
 
     c.markModified('settings');
     await c.save();
+    await audit.log({
+      companyId: String(companyId || "").trim(),
+      actorUserId: req.user?.id,
+      action: "company.settings.update",
+      targetType: "company",
+      targetId: String(companyId || ""),
+      meta: { keys: Object.keys(settings || {}) }
+    });
     if (io) io.emit("crmUpdate", { companyId });
     res.json(c);
   } catch (e) { res.status(500).json({ error: e.message }); }
@@ -2080,7 +1973,15 @@ app.delete("/admin/kb/bulk-delete", authenticate, requireAdmin, async (req, res)
   try {
     const { companyId } = req.body;
     if (!companyId) return res.status(400).json({ error: "CompanyId krävs" });
-    await Document.deleteMany({ companyId });
+    const r = await Document.deleteMany({ companyId });
+    await audit.log({
+      companyId,
+      actorUserId: req.user?.id,
+      action: "kb.doc.bulk_delete",
+      targetType: "document",
+      targetId: String(companyId || ""),
+      meta: { deletedCount: r.deletedCount }
+    });
     res.json({ message: "KB rensad för valt bolag" });
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
@@ -2115,6 +2016,14 @@ app.post("/admin/users", authenticate, requireAdmin, async (req, res) => {
     });
 
     await user.save();
+    await audit.log({
+      companyId: user.companyId || null,
+      actorUserId: req.user?.id,
+      action: "admin.user.create",
+      targetType: "user",
+      targetId: String(user?._id || ""),
+      meta: { username: String(user.username || ""), role: String(user.role || "") }
+    });
     res.json({ message: "Användare skapad", user: { id: user._id, username: user.username } });
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
@@ -2125,7 +2034,16 @@ app.delete("/admin/users/:id", authenticate, requireAdmin, async (req, res) => {
     const { id } = req.params;
     if (id === req.user.id) return res.status(400).json({ error: "Du kan inte radera dig själv" });
 
+    const u = await User.findById(id);
     await User.findByIdAndDelete(id);
+    await audit.log({
+      companyId: u?.companyId || null,
+      actorUserId: req.user?.id,
+      action: "admin.user.delete",
+      targetType: "user",
+      targetId: String(id || ""),
+      meta: { username: String(u?.username || "") }
+    });
     // Optionally delete tickets assigned to this user?? No, keep history.
     res.json({ message: "Användare raderad" });
   } catch (e) { res.status(500).json({ error: e.message }); }
@@ -2900,6 +2818,8 @@ app.post("/crm/activities/sync", authenticate, async (req, res) => {
     res.json({ message: "Aktiviteter synkade" });
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
+
+app.use(errorHandler);
 
 /* =====================
    Fallback

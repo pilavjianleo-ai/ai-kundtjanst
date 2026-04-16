@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>AI Operations Platform for Customer Experience & Revenue</title>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+  <link rel="stylesheet" href="style.css?v=2026.18" />
+  <link rel="stylesheet" href="premium.css?v=2026.25" />
+  <link rel="stylesheet" href="ops.css?v=2026.31" />
+  <script src="https://cdn.socket.io/4.7.5/socket.io.min.js" defer></script>
+</head>
+<body data-theme="light">
+  <div class="opsApp">
+    <aside class="opsSidebar">
+      <div class="opsBrand">
+        <div class="opsLogo"><i class="fa-solid fa-layer-group"></i></div>
+        <div>
+          <div class="opsBrandTitle">AI Operations Platform</div>
+          <div class="opsBrandSub">Customer Experience & Revenue</div>
+        </div>
+      </div>
+
+      <div class="opsNavGroup">
+        <div class="opsNavLabel">AI Operations</div>
+        <button class="opsNavItem" data-route="live-ai"><i class="fa-solid fa-signal"></i> Live AI</button>
+        <button class="opsNavItem" data-route="conversations"><i class="fa-solid fa-messages"></i> Conversations</button>
+        <button class="opsNavItem" data-route="ai-agents"><i class="fa-solid fa-robot"></i> AI Agents</button>
+      </div>
+
+      <div class="opsNavGroup">
+        <div class="opsNavLabel">Performance</div>
+        <button class="opsNavItem" data-route="overview"><i class="fa-solid fa-gauge-high"></i> Overview</button>
+        <button class="opsNavItem" data-route="support-performance"><i class="fa-solid fa-headset"></i> Support Performance</button>
+        <button class="opsNavItem" data-route="sales-performance"><i class="fa-solid fa-chart-line"></i> Sales Performance</button>
+      </div>
+
+      <div class="opsNavGroup">
+        <div class="opsNavLabel">Optimization</div>
+        <button class="opsNavItem" data-route="opportunities"><i class="fa-solid fa-bullseye"></i> Opportunities</button>
+        <button class="opsNavItem" data-route="experiments"><i class="fa-solid fa-flask"></i> Experiments</button>
+        <button class="opsNavItem" data-route="automation-rules"><i class="fa-solid fa-diagram-project"></i> Automation</button>
+      </div>
+
+      <div class="opsNavGroup">
+        <div class="opsNavLabel">Business</div>
+        <button class="opsNavItem" data-route="forecasting"><i class="fa-solid fa-chart-area"></i> Forecasting</button>
+        <button class="opsNavItem" data-route="roi"><i class="fa-solid fa-coins"></i> ROI & Impact</button>
+      </div>
+
+      <div class="opsNavGroup">
+        <div class="opsNavLabel">System</div>
+        <button class="opsNavItem" data-route="ai-configuration"><i class="fa-solid fa-sliders"></i> AI Configuration</button>
+        <button class="opsNavItem" data-route="integrations"><i class="fa-solid fa-plug"></i> Integrations</button>
+        <button class="opsNavItem" data-route="security"><i class="fa-solid fa-shield"></i> Security & Compliance</button>
+      </div>
+
+      <div class="opsSidebarFooter">
+        <button id="opsThemeToggle" class="btn ghost full" type="button">
+          <i class="fa-solid fa-moon"></i> Theme
+        </button>
+        <a class="btn ghost full" href="/" style="text-decoration:none; display:flex; align-items:center; gap:10px; justify-content:center;">
+          <i class="fa-solid fa-arrow-left"></i> Back to App
+        </a>
+      </div>
+    </aside>
+
+    <main class="opsMain">
+      <div class="opsTopbar">
+        <div class="opsTopbarLeft">
+          <div class="opsCompany">
+            <div class="opsCompanyName" id="opsCompanyName">Company</div>
+            <div class="opsEnv" id="opsEnvBadge">Environment</div>
+          </div>
+          <select id="opsCompanySelect" class="input smallInput" style="min-width:240px;"></select>
+        </div>
+        <div class="opsTopbarRight">
+          <button id="opsNotifBtn" class="btn ghost round" type="button" title="Notifications">
+            <i class="fa-solid fa-bell"></i>
+          </button>
+          <button id="opsUserBtn" class="btn ghost" type="button">
+            <i class="fa-solid fa-user"></i> <span id="opsUserName">User</span>
+          </button>
+        </div>
+      </div>
+
+      <div id="opsNotifPanel" class="opsPopover" style="display:none;"></div>
+      <div id="opsUserPanel" class="opsPopover" style="display:none;"></div>
+
+      <section class="opsPage">
+        <div class="opsHeader">
+          <div>
+            <div class="opsTitle" id="opsPageTitle">Overview</div>
+            <div class="opsSub" id="opsPageSub">Customer operations.</div>
+          </div>
+          <div id="opsPrimaryCta"></div>
+        </div>
+
+        <div id="opsKpiStrip" class="opsKpiStrip"></div>
+
+        <div class="opsInsights">
+          <div class="opsInsightsHead">
+            <div style="font-weight:850;">AI Insights</div>
+          </div>
+          <div id="opsInsightsGrid" class="opsInsightsGrid"></div>
+        </div>
+
+        <div id="opsContent" class="opsContent"></div>
+      </section>
+    </main>
+  </div>
+
+  <script src="ops.js?v=2026.32"></script>
+</body>
+</html>

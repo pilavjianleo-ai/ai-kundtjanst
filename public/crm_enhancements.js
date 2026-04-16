@@ -115,7 +115,7 @@ window.flushCrmUnsynced = async function () {
 window.addEventListener('focus', () => {
     if (window.state && window.state.token) {
         window.flushCrmUnsynced();
-        window.syncCrmData();
+        if (window.state?.me?.role === "admin" || window.state?.me?.role === "agent") window.syncCrmData();
     }
 });
 
@@ -199,30 +199,21 @@ function renderCrmDashboard() {
     const monthlyRevenue = customers.reduce((sum, c) => sum + (parseFloat(c.value) || 0), 0);
 
     // Update UI Cards
-    const cards = document.querySelectorAll('.crmStatCard');
-    if (cards.length >= 3) {
-        // Pipeline
-        const val1 = cards[0].querySelector('.crmStatValue');
-        if (val1) val1.innerText = new Intl.NumberFormat('sv-SE', { style: 'currency', currency: 'SEK', maximumSignificantDigits: 3 }).format(totalValue);
+    const val1 = document.getElementById('crmTotalValueHeader2');
+    if (val1) val1.innerText = new Intl.NumberFormat('sv-SE', { style: 'currency', currency: 'SEK', maximumSignificantDigits: 3 }).format(totalValue);
 
-        // Hot Leads
-        const val2 = cards[1].querySelector('.crmStatValue');
-        if (val2) val2.innerText = openDeals + " st";
-        const trend2 = cards[1].querySelector('.crmStatTrend');
-        const negotiationCount = deals.filter(d => d.stage === 'negotiation').length;
-        if (trend2) trend2.innerText = negotiationCount > 0 ? `${negotiationCount} i förhandling` : "Inga i förhandling";
+    const val2 = document.getElementById('crmTotalCustomersHeader2');
+    if (val2) val2.innerText = openDeals + " st";
 
-        // Monthly Revenue
-        const val3 = cards[2].querySelector('.crmStatValue');
-        if (val3) val3.innerText = new Intl.NumberFormat('sv-SE', { style: 'currency', currency: 'SEK' }).format(monthlyRevenue);
-    }
+    const val3 = document.getElementById('crmMonthlyRevenue');
+    if (val3) val3.innerText = new Intl.NumberFormat('sv-SE', { style: 'currency', currency: 'SEK' }).format(monthlyRevenue);
 
     // Refresh Activity Timeline
     renderActivityTimeline(activities);
 }
 
 function renderActivityTimeline(activities) {
-    const feed = document.querySelector('.activityTimeline');
+    const feed = document.getElementById('crmActivityList');
     if (!feed) return;
 
     const sorted = activities.sort((a, b) => new Date(b.created) - new Date(a.created)).slice(0, 20);
@@ -231,45 +222,30 @@ function renderActivityTimeline(activities) {
         return;
     }
 
-    const listItemsHtml = sorted.map((a) => {
-        let iconClass = "fa-info-circle";
-        if (a.type === 'chat') iconClass = "fa-comment-dots";
-        if (a.type === 'ticket') iconClass = "fa-ticket";
-        if (a.type === 'success') iconClass = "fa-check-circle";
-        if (a.type === 'warning') iconClass = "fa-exclamation-triangle";
-        if (a.type === 'deal') iconClass = "fa-handshake";
+    feed.innerHTML = sorted.map((a) => {
+        let iconClass = "fa-info";
+        let bgClass = "var(--panel2)";
+        let colorClass = "var(--text)";
+        
+        if (a.type === 'chat') { iconClass = "fa-comment-dots"; bgClass = "var(--primary-fade)"; colorClass = "var(--primary)"; }
+        if (a.type === 'ticket') { iconClass = "fa-ticket"; bgClass = "var(--warn-fade)"; colorClass = "var(--warn)"; }
+        if (a.type === 'success') { iconClass = "fa-check"; bgClass = "var(--success-fade)"; colorClass = "var(--success)"; }
+        if (a.type === 'deal') { iconClass = "fa-handshake"; bgClass = "var(--success-fade)"; colorClass = "var(--success)"; }
+        if (a.type === 'call') { iconClass = "fa-phone"; bgClass = "var(--success-fade)"; colorClass = "var(--success)"; }
+        if (a.type === 'email') { iconClass = "fa-envelope"; bgClass = "var(--primary-fade)"; colorClass = "var(--primary)"; }
+
+        const dateStr = new Date(a.created).toLocaleString('sv-SE', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
 
         return `
-        <div class="activityItem" style="display:flex; align-items:flex-start; gap:12px; margin-bottom:12px; padding-bottom:12px; border-bottom:1px solid var(--border);">
-            <div style="width:28px; height:28px; border-radius:50%; background:var(--panel2); display:flex; align-items:center; justify-content:center; border:1px solid var(--border); flex-shrink:0;">
-                <i class="fa-solid ${iconClass}" style="font-size:12px; color:var(--primary);"></i>
-            </div>
-            <div style="flex:1;">
-                <div style="font-weight:600; font-size:13px; color:var(--text);">${a.subject}</div>
-                <div style="font-size:11px; color:var(--muted); margin-top:3px;">
-                    ${new Date(a.created).toLocaleString('sv-SE')} • ${a.type?.toUpperCase()}
-                </div>
-            </div>
-        </div>`;
-    }).join('');
-
-    feed.innerHTML = `
-        <div class="accordion-item" style="border:1px solid var(--border); border-radius:12px; background:var(--panel2); overflow:hidden; box-shadow:0 4px 12px rgba(0,0,0,0.03);">
-            <div class="accordion-header" onclick="toggleAccordion('crmTimelineBody')" style="padding:15px; display:flex; align-items:center; justify-content:space-between; cursor:pointer; background:var(--panel); transition:all 0.2s;">
-                <div style="display:flex; align-items:center; gap:10px; font-weight:700; color:var(--text); font-size:14px;">
-                    <i class="fa-solid fa-clock-rotate-left" style="color:var(--primary);"></i> 
-                    Senaste Händelser
-                </div>
-                <div style="display:flex; align-items:center; gap:10px;">
-                    <span class="pill muted" style="font-size:10px; background:var(--bg); border:1px solid var(--border);">${sorted.length} st</span>
-                    <i class="fa-solid fa-chevron-down accordion-icon" id="icon-crmTimelineBody" style="font-size:12px; transition:transform 0.3s; color:var(--muted);"></i>
-                </div>
-            </div>
-            <div id="crmTimelineBody" class="accordion-content" style="display:none; padding:15px; max-height:420px; overflow-y:auto; background:var(--bg);">
-                ${listItemsHtml}
+        <div class="listItem" style="display:flex; gap:12px; align-items:center;">
+            <div class="avatar-small" style="background:${bgClass}; color:${colorClass};"><i class="fa-solid ${iconClass}"></i></div>
+            <div>
+                <div style="font-weight:600;">${a.subject}</div>
+                <div class="muted tiny">${dateStr} • ${a.description || ''}</div>
             </div>
         </div>
-    `;
+        `;
+    }).join('');
 }
 
 // Populate AI Cost Analysis Customer Select

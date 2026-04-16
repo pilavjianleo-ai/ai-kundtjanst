@@ -7,21 +7,6 @@
 
 const $ = (id) => document.getElementById(id);
 
-// Toggle password visibility
-function togglePasswordVisibility(inputId) {
-  const input = document.getElementById(inputId);
-  const btn = input?.parentElement?.querySelector('button i');
-  if (!input) return;
-  if (input.type === 'password') {
-    input.type = 'text';
-    if (btn) btn.className = 'fa-solid fa-eye-slash';
-  } else {
-    input.type = 'password';
-    if (btn) btn.className = 'fa-solid fa-eye';
-  }
-}
-
-
 const state = {
   apiBase: "",
   token: localStorage.getItem("token") || "",
@@ -61,7 +46,60 @@ const state = {
   userContactInfo: null,
   aiAbConfig: { active: false, variants: [] },
   aiAutoReply: { email: true, sms: true, whatsapp: true, facebook: true },
+  autoReloadEnabled: localStorage.getItem("autoReloadEnabled") !== "0",
 };
+
+window.UI_VERSION = "2026.53";
+
+let _autoReloadTimer = null;
+let _autoReloadViewId = null;
+
+function setAutoReloadEnabled(v) {
+  state.autoReloadEnabled = !!v;
+  localStorage.setItem("autoReloadEnabled", state.autoReloadEnabled ? "1" : "0");
+  applyAutoReloadForView(state.currentView);
+}
+
+function updateInboxAutoReloadBadge() {
+  const badge = $("inboxAutoReloadBadge");
+  if (!badge) return;
+  if (state.currentView !== "inboxView") {
+    badge.style.display = "none";
+    return;
+  }
+  badge.style.display = "";
+  badge.textContent = state.autoReloadEnabled ? "Auto‑reload: På" : "Auto‑reload: Av";
+  badge.classList.remove("info", "soft");
+  badge.classList.add(state.autoReloadEnabled ? "info" : "soft");
+}
+
+function stopAutoReload() {
+  if (_autoReloadTimer) clearInterval(_autoReloadTimer);
+  _autoReloadTimer = null;
+  _autoReloadViewId = null;
+}
+
+function applyAutoReloadForView(viewId) {
+  stopAutoReload();
+  updateInboxAutoReloadBadge();
+  if (!state.autoReloadEnabled) return;
+  const configs = {
+    inboxView: { ms: 15000, run: () => loadInboxTickets() },
+    dashboardView: { ms: 30000, run: () => (typeof loadDashboard === "function" ? loadDashboard() : null) },
+    slaView: { ms: 30000, run: () => (typeof loadSlaDashboard === "function" ? loadSlaDashboard() : null) },
+    feedbackView: { ms: 30000, run: () => (typeof loadFeedback === "function" ? loadFeedback() : null) },
+    adminView: { ms: 45000, run: () => (typeof loadAdminDiagnostics === "function" ? loadAdminDiagnostics() : null) },
+  };
+  const cfg = configs[viewId];
+  if (!cfg) return;
+  _autoReloadViewId = viewId;
+  _autoReloadTimer = setInterval(() => {
+    if (document.visibilityState !== "visible") return;
+    if (state.currentView !== _autoReloadViewId) return;
+    try { cfg.run(); } catch {}
+    updateInboxAutoReloadBadge();
+  }, cfg.ms);
+}
 
 /* =========================
    Helpers
@@ -153,7 +191,7 @@ async function api(path, { method = "GET", body, auth = true, cache = false, ttl
   } catch { }
 
   if (!res.ok) {
-    if (res.status === 401 && auth) {
+    if (res.status === 401 && auth && state.currentView !== "authView") {
       console.warn("Session ogiltig eller utgången (401). Loggar ut...");
       if (typeof doLogout === 'function') doLogout();
     }
@@ -174,9 +212,11 @@ async function api(path, { method = "GET", body, auth = true, cache = false, ttl
 function hideAllViews() {
   const views = [
     "authView",
+    "dashboardView",
     "chatView",
     "myTicketsView",
     "inboxView",
+    "knowledgeView",
     "adminView",
     "settingsView",
     "slaView",
@@ -197,9 +237,11 @@ function hideAllViews() {
 
 function setActiveMenu(btnId) {
   const ids = [
+    "openDashboardView",
     "openChatView",
     "openMyTicketsView",
     "openInboxView",
+    "openKnowledgeView",
     "openAdminView",
     "openSettingsView",
     "openSlaView",
@@ -229,6 +271,7 @@ function showView(viewId, menuBtnId) {
   const v = $(viewId);
   if (v) v.style.display = "";
   if (menuBtnId) setActiveMenu(menuBtnId);
+  applyAutoReloadForView(viewId);
 
   if (viewId === "inboxView") {
     const dot = $("inboxNotifDot");
@@ -426,9 +469,12 @@ function updateRoleUI() {
   const settingsBtn = $("openSettingsView");
 
   // User-specific
+  const dashboardBtn = $("openDashboardView");
   const chatBtn = $("openChatView");
   const myTicketsBtn = $("openMyTicketsView");
+  const knowledgeBtn = $("openKnowledgeView");
   const simulatorBtn = $("openSimulatorView");
+  const opsBtn = $("openOpsPlatform");
 
   // Agent/Admin shared
   const inboxBtn = $("openInboxView");
@@ -448,7 +494,7 @@ function updateRoleUI() {
   // 1. Reset all to hidden first
   [logoutBtn, settingsBtn, chatBtn, myTicketsBtn, simulatorBtn,
     inboxBtn, slaBtn, feedbackBtn, adminBtn, aiPanelBtn, customerAdminBtn,
-    billingBtn, customerSettingsBtn, scenarioBtn, salesBtn, slaClearAllStatsBtn]
+    billingBtn, customerSettingsBtn, scenarioBtn, salesBtn, slaClearAllStatsBtn, dashboardBtn, knowledgeBtn, opsBtn]
     .forEach(el => { if (el) el.style.display = "none"; });
 
   if (!state.me) {
@@ -462,30 +508,36 @@ function updateRoleUI() {
 
   // 3. User Role
   if (role === "user") {
+    if (dashboardBtn) dashboardBtn.style.display = "";
     if (chatBtn) chatBtn.style.display = "";
     if (myTicketsBtn) myTicketsBtn.style.display = "";
+    if (knowledgeBtn) knowledgeBtn.style.display = "";
     if (settingsBtn) settingsBtn.style.display = "";
     if (simulatorBtn) simulatorBtn.style.display = "";
     if (aiPanelBtn) aiPanelBtn.style.display = "";
+    if (opsBtn) opsBtn.style.display = "";
     return;
   }
 
   // 4. Agent Role
   if (role === "agent") {
+    if (dashboardBtn) dashboardBtn.style.display = "";
     if (chatBtn) chatBtn.style.display = "";
     if (myTicketsBtn) myTicketsBtn.style.display = "";
     if (inboxBtn) inboxBtn.style.display = "";
     if (slaBtn) slaBtn.style.display = "";
+    if (knowledgeBtn) knowledgeBtn.style.display = "";
     if (settingsBtn) settingsBtn.style.display = "";
     if (feedbackBtn) feedbackBtn.style.display = "";
     if (simulatorBtn) simulatorBtn.style.display = "";
     if (aiPanelBtn) aiPanelBtn.style.display = "";
+    if (opsBtn) opsBtn.style.display = "";
     return;
   }
 
   // 5. Admin Role
   if (role === "admin") {
-    [chatBtn, myTicketsBtn, inboxBtn, slaBtn, adminBtn, aiPanelBtn, settingsBtn,
+    [dashboardBtn, chatBtn, myTicketsBtn, inboxBtn, slaBtn, adminBtn, opsBtn, aiPanelBtn, settingsBtn, knowledgeBtn,
       customerAdminBtn, billingBtn, customerSettingsBtn, simulatorBtn,
       feedbackBtn, scenarioBtn, salesBtn, slaClearAllStatsBtn]
       .forEach(el => { if (el) el.style.display = ""; });
@@ -513,6 +565,7 @@ function renderDebug() {
   setDebugLine("dbgRole", state.me?.role || "-");
   setDebugLine("dbgTicket", state.activeTicketPublicId || state.activeTicketId || "-");
   setDebugLine("dbgRag", "-");
+  setDebugLine("dbgUi", window.UI_VERSION || "-");
 }
 
 /* =========================
@@ -544,12 +597,22 @@ function addMsg(role, text, meta = "") {
   const box = document.createElement("div");
   box.appendChild(bubble);
 
+  const metaEl = document.createElement("div");
+  metaEl.className = "msgMeta";
+  const timeStr = new Date().toLocaleTimeString("sv-SE", { hour: "2-digit", minute: "2-digit" });
   if (meta) {
-    const metaEl = document.createElement("div");
-    metaEl.className = "msgMeta";
-    metaEl.textContent = meta;
-    box.appendChild(metaEl);
+    const metaText = document.createElement("span");
+    metaText.textContent = meta;
+    metaEl.appendChild(metaText);
+    const dot = document.createElement("span");
+    dot.className = "dotSep";
+    dot.textContent = "•";
+    metaEl.appendChild(dot);
   }
+  const timeText = document.createElement("span");
+  timeText.textContent = timeStr;
+  metaEl.appendChild(timeText);
+  box.appendChild(metaEl);
 
   msg.appendChild(avatar);
   msg.appendChild(box);
@@ -793,6 +856,32 @@ async function loadCompanies() {
     });
   }
 
+  const entSel = $("enterpriseCompanySelect");
+  if (entSel) {
+    const current = entSel.value;
+    entSel.innerHTML = '<option value="">Alla företag</option>';
+    state.companies.forEach((c) => {
+      const opt = document.createElement("option");
+      opt.value = c.companyId;
+      opt.textContent = `${c.companyId} - ${c.displayName}`;
+      entSel.appendChild(opt);
+    });
+    entSel.value = current || "";
+  }
+
+  const auditSel = $("auditCompanySelect");
+  if (auditSel) {
+    const current = auditSel.value;
+    auditSel.innerHTML = '<option value="">Alla företag</option>';
+    state.companies.forEach((c) => {
+      const opt = document.createElement("option");
+      opt.value = c.companyId;
+      opt.textContent = `${c.companyId} - ${c.displayName}`;
+      auditSel.appendChild(opt);
+    });
+    auditSel.value = current || "";
+  }
+
   // Also populate Inbox category filter
   const inboxSel = $("inboxCategoryFilter");
   if (inboxSel) {
@@ -1005,6 +1094,48 @@ async function sendChat() {
   }
 }
 
+function renderConversationFromState() {
+  const wrap = $("messages");
+  if (!wrap) return;
+  wrap.innerHTML = "";
+  (state.conversation || []).forEach((m) => {
+    addMsg(m.role === "user" ? "user" : "assistant", m.content || "");
+  });
+}
+
+async function regenerateLastAnswer() {
+  if (!state.activeTicketId) return toast("Info", "Ingen aktiv konversation att regenerera.", "info");
+  const lastUserIdx = [...(state.conversation || [])].map((m, i) => ({ m, i })).reverse().find((x) => x.m.role === "user")?.i;
+  if (lastUserIdx === undefined) return toast("Info", "Inget user-meddelande hittades.", "info");
+
+  const lastAiIdx = [...(state.conversation || [])].map((m, i) => ({ m, i })).reverse().find((x) => x.m.role !== "user")?.i;
+  if (lastAiIdx !== undefined && lastAiIdx > lastUserIdx) {
+    state.conversation.splice(lastAiIdx, 1);
+    renderConversationFromState();
+  }
+
+  showTyping();
+  try {
+    const data = await api("/chat", {
+      method: "POST",
+      body: {
+        companyId: state.companyId,
+        conversation: [],
+        ticketId: state.activeTicketId,
+        regenerate: true
+      }
+    });
+    hideTyping();
+    const reply = data.reply || "Jag kunde inte regenerera ett svar just nu.";
+    addMsg("assistant", reply);
+    state.conversation.push({ role: "assistant", content: reply });
+    renderDebug();
+  } catch (e) {
+    hideTyping();
+    toast("Fel", e.message, "error");
+  }
+}
+
 function optimizeUserText(t) {
   let s = String(t || "").trim().replace(/\s+/g, " ");
   s = s.replace(/([.!?]){2,}/g, "$1");
@@ -1067,7 +1198,7 @@ async function requestHumanHandoff() {
 /* =========================
    MY TICKETS (FULLT)
 ========================= */
-function renderMyTicketsList() {
+function renderMyTicketsListLegacy() {
   const list = $("myTicketsList");
   if (!list) return;
   list.innerHTML = "";
@@ -1092,15 +1223,15 @@ function renderMyTicketsList() {
   });
 }
 
-async function refreshMyTickets() {
+async function refreshMyTicketsLegacy() {
   try {
     const tickets = await api("/tickets/my");
     state.myTickets = tickets || [];
-    renderMyTicketsList();
+    renderMyTicketsListLegacy();
   } catch { }
 }
 
-async function renderMyTicketDetails(ticketId) {
+async function renderMyTicketDetailsLegacy(ticketId) {
   const box = $("myTicketDetails");
   if (!box) return;
 
@@ -1125,7 +1256,7 @@ async function renderMyTicketDetails(ticketId) {
   }
 }
 
-async function replyMyTicket() {
+async function replyMyTicketLegacy() {
   const text = $("myTicketReplyText")?.value?.trim();
   if (!text) return toast("Saknas", "Skriv ett meddelande", "error");
   if (!state.activeTicketId) return toast("Saknas", "Välj ett ärende först", "error");
@@ -1138,8 +1269,8 @@ async function replyMyTicket() {
 
     $("myTicketReplyText").value = "";
     toast("Skickat", "Ditt meddelande skickades ✅", "info");
-    await renderMyTicketDetails(state.activeTicketId);
-    await refreshMyTickets();
+    await renderMyTicketDetailsLegacy(state.activeTicketId);
+    await refreshMyTicketsLegacy();
   } catch (e) {
     toast("Fel", e.message, "error");
   }
@@ -1148,65 +1279,6 @@ async function replyMyTicket() {
 /* =========================
    INBOX (agent/admin)
 ========================= */
-function renderInboxList() {
-  const list = $("inboxTicketsList");
-  if (!list) return;
-  list.innerHTML = "";
-
-  const total = state.inboxTickets.length;
-  if (total === 0) {
-    list.innerHTML = `<div class="muted small">Inga tickets hittades.</div>`;
-    return;
-  }
-
-  const end = Math.min(total, state.inboxPage * state.inboxPageSize);
-  const items = state.inboxTickets.slice(0, end);
-  const frag = document.createDocumentFragment();
-  items.forEach((t) => {
-    const div = document.createElement("div");
-    const isHighPri = t.priority === "high";
-    const shouldHighlight = isHighPri && t.status !== "solved";
-    const priClass = isHighPri ? "danger" : t.priority === "low" ? "muted" : "info";
-
-    div.className = "listItem " + (shouldHighlight ? "important-highlight" : "");
-    div.innerHTML = `
-      <div class="listItemTitle">
-        ${isHighPri ? '<i class="fa-solid fa-triangle-exclamation" style="color:var(--danger)"></i> ' : ""}
-        ${escapeHtml(t.title || "Ticket")}
-        <span class="pill ${priClass}">${escapeHtml(t.priority || "normal")}</span>
-        <span class="pill">${escapeHtml(t.status)}</span>
-      </div>
-      <div class="muted small">${escapeHtml(t.publicTicketId)} • ${escapeHtml(t.companyId)} • ${new Date(t.lastActivityAt).toLocaleString('sv-SE')}</div>
-    `;
-    div.addEventListener("click", () => selectInboxTicket(t._id));
-    frag.appendChild(div);
-  });
-  list.appendChild(frag);
-
-  if (end < total) {
-    const more = document.createElement("button");
-    more.className = "btn ghost small";
-    more.textContent = "Visa fler";
-    more.style.marginTop = "8px";
-    more.addEventListener("click", () => {
-      state.inboxPage++;
-      renderInboxList();
-    });
-    list.appendChild(more);
-  }
-}
-
-async function loadInboxTickets() {
-  const status = $("inboxStatusFilter")?.value || "";
-  const companyId = $("inboxCategoryFilter")?.value || "";
-  state.inboxLoadSeq = (state.inboxLoadSeq || 0) + 1;
-  const seq = state.inboxLoadSeq;
-  const tickets = await api(`/inbox/tickets?status=${encodeURIComponent(status)}&companyId=${encodeURIComponent(companyId)}`, { cancelKey: "inboxTickets" });
-  if (seq !== state.inboxLoadSeq) return;
-  state.inboxTickets = tickets || [];
-  renderInboxList();
-}
-
 function showInboxAutoReloadBadge() {
   const badge = $("inboxAutoReloadBadge");
   if (!badge) return;
@@ -1219,49 +1291,19 @@ function showInboxAutoReloadBadge() {
   }, 1000);
 }
 
+let _inboxReloadTimeout = null;
+function scheduleInboxReload() {
+  clearTimeout(_inboxReloadTimeout);
+  _inboxReloadTimeout = setTimeout(() => {
+    if (state.currentView !== "inboxView") return;
+    state.inboxPage = 1;
+    loadInboxTickets();
+  }, 150);
+}
+
 function filterInboxBySearch() {
-  const query = $("inboxSearchInput")?.value?.toLowerCase()?.trim() || "";
-
-  if (!query) {
-    renderInboxList();
-    return;
-  }
-
-  const list = $("inboxTicketsList");
-  if (!list) return;
-  list.innerHTML = "";
-
-  const filtered = state.inboxTickets.filter(t => {
-    const title = (t.title || "").toLowerCase();
-    const publicId = (t.publicTicketId || "").toLowerCase();
-    const company = (t.companyId || "").toLowerCase();
-    return title.includes(query) || publicId.includes(query) || company.includes(query);
-  });
-
-  if (filtered.length === 0) {
-    list.innerHTML = `<div class="muted small">Inga tickets matchar "${escapeHtml(query)}".</div>`;
-    return;
-  }
-
-  filtered.forEach((t) => {
-    const div = document.createElement("div");
-    const isHighPri = t.priority === "high";
-    const shouldHighlight = isHighPri && t.status !== "solved";
-    const priClass = isHighPri ? "danger" : t.priority === "low" ? "muted" : "info";
-
-    div.className = "listItem " + (shouldHighlight ? "important-highlight" : "");
-    div.innerHTML = `
-      <div class="listItemTitle">
-        ${isHighPri ? '<i class="fa-solid fa-triangle-exclamation" style="color:var(--danger)"></i> ' : ""}
-        ${escapeHtml(t.title || "Ticket")}
-        <span class="pill ${priClass}">${escapeHtml(t.priority || "normal")}</span>
-        <span class="pill">${escapeHtml(t.status)}</span>
-      </div>
-      <div class="muted small">${escapeHtml(t.publicTicketId)} • ${escapeHtml(t.companyId)} • ${new Date(t.lastActivityAt).toLocaleString('sv-SE')}</div>
-    `;
-    div.addEventListener("click", () => selectInboxTicket(t._id));
-    list.appendChild(div);
-  });
+  state.inboxPage = 1;
+  renderInboxList();
 }
 
 
@@ -1298,96 +1340,66 @@ window.showTicketContactModal = function (ticketId) {
   modal.style.display = 'flex';
 };
 
-async function selectInboxTicket(ticketId) {
-  const box = $("ticketDetails");
-  if (!box) return;
+function formatDuration(ms) {
+  const n = Number(ms);
+  if (!Number.isFinite(n) || n < 0) return "—";
+  if (n < 1000) return `${Math.round(n)} ms`;
+  const s = Math.floor(n / 1000);
+  if (s < 60) return `${s}s`;
+  const m = Math.floor(s / 60);
+  if (m < 60) return `${m} min`;
+  const h = Math.floor(m / 60);
+  if (h < 48) return `${h} h`;
+  const d = Math.floor(h / 24);
+  return `${d} d`;
+}
 
-  try {
-    box.innerHTML = `<div class="muted small center" style="padding:20px;">Laddar ärende...</div>`;
-
-    // Fetch directly from API to ensure we get it even if not in local list
-    const t = await api("/tickets/" + ticketId);
-
-    if (!t) throw new Error("Kunde inte hämta ärendet.");
-
-    // Update state
-    state.inboxSelectedTicket = t;
-
-    const msgs = (t.messages || [])
-      .map((m) => `<div class="muted small"><b>${escapeHtml(m.role)}:</b> ${escapeHtml(m.content)}</div>`)
-      .join("<br>");
-
-    // Render details
-    box.innerHTML = `
-      <div class="row" style="justify-content:space-between; align-items:flex-start; margin-bottom:15px;">
-          <div style="flex:1;">
-              <div style="font-size:18px; font-weight:700; color:var(--text); margin-bottom:6px;">${escapeHtml(t.title || "Ärende")}</div>
-              <div style="display:flex; align-items:center; flex-wrap:wrap; gap:8px;">
-                <span class="pill muted">#${escapeHtml(t.publicTicketId)}</span>
-                <span class="pill ${t.status === 'solved' ? 'ok' : t.status === 'high' ? 'danger' : 'info'}">${escapeHtml(t.status?.toUpperCase())}</span>
-                <span class="muted small"><i class="fa-solid fa-building" style="font-size:10px;"></i> ${escapeHtml(t.companyId || 'demo')}</span>
-                <span class="pill small">${escapeHtml(t.channel || 'chat')}</span>
-                
-                <!-- CUSTOMER CARD BUTTON - More prominent placement -->
-                <button class="btn ${t.contactInfo && (t.contactInfo.name || t.contactInfo.email) ? 'primary' : 'ghost'} tiny" 
-                        onclick="showTicketContactModal('${t._id}')" 
-                        style="margin-left:10px; padding:4px 10px; border-radius:6px; font-size:11px;">
-                    <i class="fa-solid fa-address-card"></i> Kundkort
-                </button>
-              </div>
-          </div>
-          <button class="btn ghost small" onclick="summarizeTicket('${t._id}')" style="white-space:nowrap;">
-              <i class="fa-solid fa-wand-magic-sparkles"></i> AI Sammanfatta
-          </button>
-      </div>
-      <div id="ticketSummaryContent" class="alert info small" style="display:none; margin-top:10px;"></div>
-      
-      <!-- Contact Info Panel Removed (Replaced by Button/Modal) -->
-
-      <div class="divider"></div>
-      <div class="messageList" style="max-height:400px; overflow-y:auto;">
-        ${msgs || "<div class='muted small'>Inga meddelanden ännu.</div>"}
-      </div>
-    `;
-
-    const priSel = $("ticketPrioritySelect");
-    if (priSel) priSel.value = t.priority || "normal";
-
-    // Update internal notes if they exist
-    const noteArea = $("internalNoteText");
-    if (noteArea) noteArea.value = t.internalNote || "";
-
-    // Show internal notes (orphaned fix)
-    if (t.internalNotes && t.internalNotes.length > 0) {
-      const notesHtml = t.internalNotes.map(n => {
-        const ts = n.createdAt ? new Date(n.createdAt).toLocaleString() : "";
-        return `<div class="alert info tiny" style="margin-top:5px; border-style:dashed;">
-                <i class="fa-solid fa-note-sticky"></i> ${escapeHtml(n.content)}
-                <span class="muted tiny" style="margin-left:8px;">${escapeHtml(ts)}</span>
-            </div>`;
-      }).join("");
-      box.innerHTML += `
-            <div style="margin-top:15px;">
-                <b>Interna noter (${t.internalNotes.length}):</b>
-                ${notesHtml}
-            </div>
-          `;
-    }
-
-    // Populate agent select (if we have users)
-    const userSel = $("assignUserSelect");
-    if (userSel) {
-      userSel.value = t.assignedToUserId || "";
-    }
-
-    const highlightDetails = t.priority === "high" && t.status !== "solved";
-    if (highlightDetails) box.classList.add("important-highlight");
-    else box.classList.remove("important-highlight");
-
-  } catch (e) {
-    console.error("Select ticket error:", e);
-    box.innerHTML = `<div class="alert error">Kunde inte öppna ärendet: ${e.message}</div>`;
+function buildTimelineItems(t) {
+  const events = Array.isArray(t?.events) ? t.events : [];
+  if (events.length) {
+    return events
+      .slice()
+      .sort((a, b) => new Date(a.timestamp || 0).getTime() - new Date(b.timestamp || 0).getTime());
   }
+
+  const items = [];
+  if (t?.createdAt) items.push({ type: "ticket_created", timestamp: t.createdAt, data: { channel: t.channel } });
+  (t?.messages || []).forEach((m) => {
+    const type = m.role === "user" ? "message_sent" : m.role === "assistant" ? "ai_response" : "agent_response";
+    items.push({ type, timestamp: m.timestamp || t.createdAt || new Date(), data: { role: m.role } });
+  });
+  return items.sort((a, b) => new Date(a.timestamp || 0).getTime() - new Date(b.timestamp || 0).getTime());
+}
+
+function timelineMeta(e) {
+  const type = String(e?.type || "");
+  const when = e?.timestamp ? new Date(e.timestamp).toLocaleString("sv-SE") : "";
+  const data = e?.data || {};
+
+  const map = {
+    ticket_created: { icon: "fa-plus", label: "Ticket skapad" },
+    message_sent: { icon: "fa-user", label: "Kundmeddelande" },
+    ai_response: { icon: "fa-robot", label: "AI-svar" },
+    ai_regenerated: { icon: "fa-rotate-right", label: "AI-svar regenererat" },
+    ai_regenerate_requested: { icon: "fa-rotate-right", label: "Regenerate begärt" },
+    agent_response: { icon: "fa-headset", label: "Agent-svar" },
+    status_changed: { icon: "fa-arrows-rotate", label: "Status ändrad" },
+    priority_changed: { icon: "fa-flag", label: "Prioritet ändrad" },
+    ticket_closed: { icon: "fa-check", label: "Ticket stängd" },
+    internal_note_added: { icon: "fa-note-sticky", label: "Intern notering" },
+    ai_error: { icon: "fa-triangle-exclamation", label: "AI-fel" },
+    ticket_assigned: { icon: "fa-user-check", label: "Tilldelning" }
+  };
+
+  const def = map[type] || { icon: "fa-circle", label: type || "Event" };
+  let desc = def.label;
+  if (type === "status_changed" && (data.from || data.to)) desc = `Status: ${data.from || "?"} → ${data.to || "?"}`;
+  if (type === "priority_changed" && (data.from || data.to)) desc = `Prioritet: ${data.from || "?"} → ${data.to || "?"}`;
+  if (type === "ticket_assigned" && (data.from !== undefined || data.to !== undefined)) desc = `Tilldelad: ${data.from || "—"} → ${data.to || "—"}`;
+  if (type === "ai_response" && data.model) desc = `AI-svar (${data.model})`;
+  if (type === "ticket_created" && data.channel) desc = `Ticket skapad (${data.channel})`;
+
+  return { icon: def.icon, when, desc };
 }
 
 async function editCustomer(companyId) {
@@ -1482,215 +1494,6 @@ async function editCustomer(companyId) {
   modal.style.display = "flex";
 }
 
-async function summarizeTicket(id) {
-  const contentBox = $("ticketSummaryContent");
-  if (contentBox) {
-    contentBox.style.display = "block";
-    contentBox.textContent = "Genererar sammanfattning... ✨";
-    try {
-      const res = await api(`/tickets/${id}/summary`);
-      contentBox.textContent = "AI Sammanfattning: " + res.summary;
-    } catch (e) { contentBox.textContent = "Kunde inte sammanfatta: " + e.message; }
-  }
-}
-
-async function assignTicket() {
-  if (!state.inboxSelectedTicket) return toast("Fel", "Välj ett ärende först", "error");
-  const userId = $("assignUserSelect")?.value;
-
-  try {
-    await api(`/tickets/${state.inboxSelectedTicket._id}/assign`, {
-      method: "PATCH",
-      body: { assignedToUserId: userId }
-    });
-    toast("Tilldelad", "Ärendet har tilldelats", "info");
-    await loadInboxTickets();
-  } catch (e) {
-    toast("Fel", e.message, "error");
-  }
-}
-
-async function saveInternalNote() {
-  if (!state.inboxSelectedTicket) return toast("Fel", "Välj ett ärende först", "error");
-  const note = $("internalNoteText")?.value.trim();
-  if (!note) return toast("Saknas", "Skriv en notering först", "error");
-
-  try {
-    await api(`/inbox/tickets/${state.inboxSelectedTicket._id}/note`, {
-      method: "POST",
-      body: { content: note }
-    });
-    $("internalNoteText").value = "";
-    toast("Sparat", "Notering sparad", "info");
-    await selectInboxTicket(state.inboxSelectedTicket._id);
-  } catch (e) {
-    toast("Fel", e.message, "error");
-  }
-}
-
-async function deleteTicket() {
-  if (!state.inboxSelectedTicket) return toast("Fel", "Välj ett ärende först", "error");
-  if (!confirm("Är du säker på att du vill radera detta ärende permanent?")) return;
-
-  try {
-    await api(`/tickets/${state.inboxSelectedTicket._id}`, { method: "DELETE" });
-    toast("Raderat", "Ärendet raderades", "info");
-    $("ticketDetails").innerHTML = '<div class="muted small center" style="padding: 40px;">Välj ett ärende för att se detaljer</div>';
-    state.inboxSelectedTicket = null;
-    await loadInboxTickets();
-  } catch (e) {
-    toast("Fel", e.message, "error");
-  }
-}
-
-async function setInboxStatus(status) {
-  if (!state.inboxSelectedTicket) return toast("Fel", "Välj ett ärende först", "error");
-
-  try {
-    await api(`/inbox/tickets/${state.inboxSelectedTicket._id}/status`, {
-      method: "PATCH",
-      body: { status }
-    });
-    await selectInboxTicket(state.inboxSelectedTicket._id);
-    await loadInboxTickets();
-  } catch (e) { toast("Fel", e.message, "error"); }
-}
-
-async function setInboxPriority() {
-  const pri = $("ticketPrioritySelect")?.value;
-  if (!state.inboxSelectedTicket) return toast("Fel", "Välj ett ärende först", "error");
-
-  try {
-    await api(`/inbox/tickets/${state.inboxSelectedTicket._id}/priority`, {
-      method: "PATCH",
-      body: { priority: pri }
-    });
-    toast("Uppdaterad", `Prioritet satt till ${pri}`, "info");
-    await loadInboxTickets();
-  } catch (e) { toast("Fel", e.message, "error"); }
-}
-
-async function sendAgentReplyInbox() {
-  const text = $("agentReplyTextInbox")?.value.trim();
-  if (!text) return toast("Saknas", "Skriv ett meddelande", "error");
-  if (!state.inboxSelectedTicket) return toast("Saknas", "Välj ett ärende först", "error");
-
-  try {
-    await api(`/inbox/tickets/${state.inboxSelectedTicket._id}/reply`, {
-      method: "POST",
-      body: { message: text }
-    });
-
-    $("agentReplyTextInbox").value = "";
-    toast("Skickat", "Ditt svar skickades", "info");
-    await selectInboxTicket(state.inboxSelectedTicket._id);
-    await loadInboxTickets();
-  } catch (e) {
-    toast("Fel", e.message, "error");
-  }
-}
-
-function useQuickReply(type) {
-  const area = $("agentReplyTextInbox");
-  if (!area) return;
-  const templates = {
-    greeting: "Hej! Tack för att du hör av dig. Hur kan jag hjälpa dig idag?",
-    working: "Vi tittar på ditt ärende just nu och återkommer så snart vi har mer information.",
-    solved: "Hoppas detta löser ditt ärende! Jag markerar ticketen som löst nu. Ha en fin dag!",
-    thanks: "Tack för din feedback! Vi uppskattar att du hörde av dig."
-  };
-  area.value = templates[type] || "";
-}
-
-async function setInboxStatus(status) {
-  if (!state.inboxSelectedTicket) return toast("Saknas", "Välj en ticket först", "error");
-
-  await api(`/inbox/tickets/${state.inboxSelectedTicket._id}/status`, {
-    method: "PATCH",
-    body: { status },
-  });
-
-  toast("OK", "Status uppdaterad ✅", "info");
-  await loadInboxTickets();
-}
-
-async function setInboxPriority() {
-  if (!state.inboxSelectedTicket) return toast("Saknas", "Välj en ticket först", "error");
-  const priority = $("ticketPrioritySelect")?.value || "normal";
-
-  await api(`/inbox/tickets/${state.inboxSelectedTicket._id}/priority`, {
-    method: "PATCH",
-    body: { priority },
-  });
-
-  toast("OK", "Prioritet uppdaterad ✅", "info");
-  await loadInboxTickets();
-}
-
-async function sendAgentReplyInbox() {
-  if (!state.inboxSelectedTicket) return toast("Saknas", "Välj en ticket först", "error");
-  const text = $("agentReplyTextInbox")?.value?.trim();
-  if (!text) return toast("Saknas", "Skriv ett svar", "error");
-
-  await api(`/inbox/tickets/${state.inboxSelectedTicket._id}/reply`, {
-    method: "POST",
-    body: { message: text },
-  });
-
-  $("agentReplyTextInbox").value = "";
-  toast("Skickat", "Svar skickat ✅", "info");
-  await selectInboxTicket(state.inboxSelectedTicket._id);
-  await loadInboxTickets();
-}
-
-async function saveInternalNote() {
-  if (!state.inboxSelectedTicket) return toast("Saknas", "Välj en ticket först", "error");
-  const content = $("internalNoteText")?.value?.trim();
-  if (!content) return toast("Saknas", "Skriv en note", "error");
-
-  await api(`/inbox/tickets/${state.inboxSelectedTicket._id}/note`, {
-    method: "POST",
-    body: { content },
-  });
-
-  $("internalNoteText").value = "";
-  toast("Klar", "Intern note sparad 📝", "info");
-  await selectInboxTicket(state.inboxSelectedTicket._id);
-}
-
-async function clearInternalNotes() {
-  if (!state.inboxSelectedTicket) return toast("Saknas", "Välj en ticket först", "error");
-  if (!confirm("Vill du radera alla interna noter på denna ticket?")) return;
-
-  await api(`/inbox/tickets/${state.inboxSelectedTicket._id}/notes`, { method: "DELETE" });
-  toast("Raderat", "Notes raderade 🗑️", "info");
-  await selectInboxTicket(state.inboxSelectedTicket._id);
-}
-
-async function assignTicket() {
-  if (!state.inboxSelectedTicket) return toast("Saknas", "Välj en ticket först", "error");
-  const userId = $("assignUserSelect")?.value;
-
-  await api(`/inbox/tickets/${state.inboxSelectedTicket._id}/assign`, {
-    method: "PATCH",
-    body: { userId },
-  });
-
-  toast("Klar", "Ärende tilldelat ✅", "info");
-  await loadInboxTickets();
-}
-
-async function deleteTicket() {
-  if (!state.inboxSelectedTicket) return toast("Saknas", "Välj en ticket först", "error");
-  if (!confirm("ÄR DU SÄKER? Detta raderar ticketen permanent!")) return;
-
-  await api(`/inbox/tickets/${state.inboxSelectedTicket._id}`, { method: "DELETE" });
-  toast("Raderat", "Ticket borta för alltid", "warning");
-  state.inboxSelectedTicket = null;
-  $("ticketDetails").innerHTML = "Välj en ticket.";
-  await loadInboxTickets();
-}
-
 /* =========================
    SLA
 ========================= */
@@ -1727,7 +1530,7 @@ function isAbortError(e) {
   if (!e) return false;
   if (e.name === "AbortError") return true;
   if (typeof DOMException !== "undefined" && e instanceof DOMException && e.name === "AbortError") return true;
-  if (typeof e.message === "string" && /aborted/i.test(e.message)) return true;
+  if (typeof e.message === "string" && (e.message.includes("aborted") || e.message.includes("AbortError"))) return true;
   return false;
 }
 /* =========================
@@ -2106,11 +1909,6 @@ async function loadSlaDashboard() {
     setSlaLoading(false);
   }
 }
-
-
-
-/* duplicate removed */
-
 /* =========================
    Billing
 ========================= */
@@ -2135,7 +1933,7 @@ async function loadBilling() {
     const activeFeatures = $("activePlanFeatures");
     if (activeFeatures) {
       activeFeatures.innerHTML = details.planInfo.features.map(f => `
-            <li style="font-size:13px;"><i class="fa-solid fa-circle-check" style="color:var(--ok)"></i> ${f}</li>
+            <li class="billingFeatureItem"><i class="fa-solid fa-circle-check billingFeatureIcon"></i> ${f}</li>
         `).join("");
     }
 
@@ -2163,7 +1961,7 @@ async function loadBilling() {
                 <td>${inv.date}</td>
                 <td><b>${inv.amount}</b></td>
                 <td><span class="pill ok">${inv.status}</span></td>
-                <td style="text-align:right">
+                <td class="taRight">
                     <a href="${inv.url}" class="btn ghost small"><i class="fa-solid fa-file-pdf"></i></a>
                 </td>
             </tr>
@@ -2173,6 +1971,10 @@ async function loadBilling() {
     console.error("Billing Load Error:", e);
     toast("Fel", "Kunde inte ladda betalningsinformation", "error");
   }
+}
+
+async function openBillingPortal() {
+  toast("Stripe Portal", "Stripe Portal är inte aktiverad i den här miljön ännu.", "info");
 }
 
 async function upgradeToPro() {
@@ -2349,7 +2151,7 @@ async function loadAdminDiagnostics() {
   } catch (e) { box.innerHTML = `<div class="alert error">Kunde inte ladda systemdiagnostik.</div>`; }
 }
 
-async function bulkDeleteKb() {
+async function bulkDeleteKbLegacy() {
   if (!confirm("VARNING: Detta raderar ALLA dokument i kunskapsbasen för valt bolag. Är du säker?")) return;
   try {
     await api("/admin/kb/bulk-delete", {
@@ -2364,7 +2166,7 @@ async function bulkDeleteKb() {
 /* =========================
    CRM Admin (admin)
 ========================= */
-async function refreshCustomers() {
+async function refreshCustomersLegacy() {
   const list = $("customersList");
   if (!list) return;
 
@@ -2387,7 +2189,7 @@ async function refreshCustomers() {
   });
 }
 
-async function createCompany() {
+async function createCompanyLegacy() {
   const displayName = $("newCompanyDisplayName")?.value?.trim() || "";
   const contactEmail = $("newCompanyContactEmail")?.value?.trim() || "";
   const plan = $("newCompanyPlan")?.value || "bas";
@@ -2412,14 +2214,14 @@ async function createCompany() {
 /* =========================
    Customer settings
 ========================= */
-async function loadCustomerSettings() {
+async function loadCustomerSettingsLegacy() {
   const settings = await api("/company/settings?companyId=" + encodeURIComponent(state.companyId));
   $("custGreeting").value = settings.greeting || "";
   $("custTone").value = settings.tone || "professional";
   $("custWidgetColor").value = settings.widgetColor || "#0066cc";
 }
 
-async function saveCustomerSettings() {
+async function saveCustomerSettingsLegacy() {
   const settings = {
     greeting: $("custGreeting")?.value?.trim() || "",
     tone: $("custTone")?.value || "professional",
@@ -2434,7 +2236,7 @@ async function saveCustomerSettings() {
   toast("Sparat", "Inställningar uppdaterade ✅", "info");
 }
 
-async function simulateSettings() {
+async function simulateSettingsLegacy() {
   const previewBox = $("settingsSimulator");
   if (!previewBox) return;
 
@@ -2843,8 +2645,10 @@ async function refreshCustomers() {
     if (typeof syncCrmData === 'function') await syncCrmData();
 
     // Render all CRM sections
-    renderCrmOverview();
-    renderCrmCustomersList(companies); // Show categories in the dashboard
+    renderCrmOverview(companies);
+    if (typeof window.renderCrmDashboard === "function") window.renderCrmDashboard();
+    if (typeof window.renderCustomerList === "function") window.renderCustomerList();
+    renderCrmCustomersList(companies);
     renderCrmActivity();
     renderCrmAnalytics();
 
@@ -2857,6 +2661,9 @@ async function refreshCustomers() {
 // Real-time CRM sync for the active company
 async function syncCrmData(companyIdOverride) {
   try {
+    const role = state.me?.role || "";
+    if (!state.token) return;
+    if (role && !["admin", "agent"].includes(role)) return;
     const companyId = companyIdOverride || state.companyId || state.currentCompany?.companyId || "demo";
     const res = await api(`/crm/sync?companyId=${encodeURIComponent(companyId)}`);
     const data = res || {};
@@ -2918,49 +2725,35 @@ function generateCrmActivities(tickets, customers) {
 }
 
 function renderCrmOverview(providedCompanies) {
-  // KPI Cards
-  const s = crmData.stats;
+  const s = crmData?.stats || {};
   const companies = providedCompanies || state.companies || [];
+  const setText = (id, v) => {
+    const el = $(id);
+    if (el) el.textContent = v;
+  };
+  const fmtSek = (n) => new Intl.NumberFormat("sv-SE", { style: "currency", currency: "SEK", maximumFractionDigits: 0 }).format(n || 0);
 
-  $("crmTotalCustomers").textContent = s.total;
-  $("crmCustomersDelta").textContent = `+${s.newThisMonth} denna månad`;
-  $("crmActiveCustomers").textContent = s.active;
-  $("crmProCustomers").textContent = s.pro + s.enterprise;
-  $("crmProPercentage").textContent = s.total ? `${Math.round((s.pro + s.enterprise) / s.total * 100)}% av alla` : "0%";
-  $("crmTotalTickets").textContent = s.totalTickets;
-  $("crmOpenTickets").textContent = `${s.openTickets} öppna`;
-  $("crmCsatScore").textContent = s.avgCsat ? `${s.avgCsat}/5` : "--";
+  const customers = (() => {
+    try { return JSON.parse(localStorage.getItem("crmCustomers") || "[]"); } catch { return []; }
+  })();
+  const monthlyRevenue = customers.reduce((sum, c) => sum + (parseFloat(c?.value) || 0), 0);
+  const activeCustomers = s.active ?? companies.filter((c) => c?.status !== "inactive").length;
 
-  // Recent 
-  const recentList = $("crmRecentCustomersList");
-  if (recentList) {
-    const recent = companies.slice(0, 5);
-    recentList.innerHTML = recent.length ? recent.map(c => `
-      <div class="listItem" style="cursor: pointer;" onclick="switchCompany('${c.companyId}')">
-        <div class="listItemTitle">
-          <b>${escapeHtml(c.displayName || c.name)}</b>
-          <span class="planBadge ${c.plan || 'bas'}">${(c.plan || 'bas').toUpperCase()}</span>
-        </div>
-        <div class="muted small">${escapeHtml(c.companyId || (c.name ? 'CRM 2.0' : '-'))} • ${new Date(c.createdAt || Date.now()).toLocaleDateString('sv-SE')}</div>
-      </div>
-    `).join('') : '<div class="muted small center">Inga nyligen tillagda företag</div>';
-  }
+  setText("crmTotalCustomers", String(s.total ?? companies.length ?? 0));
+  setText("crmCustomersDelta", `+${s.newThisMonth ?? 0} denna månad`);
+  setText("crmActiveCustomers", String(activeCustomers));
+  setText("crmProCustomers", String((s.pro ?? 0) + (s.enterprise ?? 0)));
+  setText("crmProPercentage", (s.total ? `${Math.round(((s.pro ?? 0) + (s.enterprise ?? 0)) / s.total * 100)}% av alla` : "0%"));
+  setText("crmTotalTickets", String(s.totalTickets ?? 0));
+  setText("crmOpenTickets", `${s.openTickets ?? 0} öppna`);
+  setText("crmCsatScore", s.avgCsat ? `${s.avgCsat}/5` : "--");
 
-  // Recent Activity
-  const activityList = $("crmRecentActivityList");
-  if (activityList) {
-    const recent = crmData.activities.slice(0, 5);
-    activityList.innerHTML = recent.length ? recent.map(a => `
-      <div class="crmActivityItem">
-        <div class="icon ${a.type}"><i class="fa-solid ${a.icon}"></i></div>
-        <div class="content">
-          <div><b>${escapeHtml(a.title)}</b></div>
-          <div class="muted small">${escapeHtml(a.description)}</div>
-        </div>
-        <div class="time">${timeAgo(a.time)}</div>
-      </div>
-    `).join("") : '<div class="muted small center">Ingen aktivitet ännu.</div>';
-  }
+  const headerCount = $("crmTotalCustomersHeader");
+  if (headerCount) headerCount.textContent = `${activeCustomers} st`;
+  const headerValue = $("crmTotalValueHeader");
+  if (headerValue) headerValue.textContent = fmtSek(monthlyRevenue);
+  const mrr = $("crmMonthlyRevenue");
+  if (mrr) mrr.textContent = fmtSek(monthlyRevenue);
 }
 
 function timeAgo(date) {
@@ -3091,7 +2884,7 @@ function renderCrmCustomersList(providedCompanies) {
   }
 }
 
-async function deleteCompanyFromCrm(companyId, name) {
+async function deleteCompanyFromCrmLegacy(companyId, name) {
   if (!confirm(`VARNING: Vill du verkligen TABORT ${name} (${companyId})?\n\nDetta raderar ALLA användare, ärenden och dokument kopplade till bolaget.\nDetta går inte att ångra.`)) return;
 
   try {
@@ -3103,23 +2896,17 @@ async function deleteCompanyFromCrm(companyId, name) {
   }
 }
 
-function togglePasswordVisibility(inputId) {
-  const input = document.getElementById(inputId);
-  if (!input) return;
-  const isPass = input.type === 'password';
-  input.type = isPass ? 'text' : 'password';
-  const btn = input.nextElementSibling || input.parentElement.querySelector('button');
-  if (btn) {
-    const icon = btn.querySelector('i');
-    if (icon) {
-      icon.className = isPass ? 'fa-solid fa-eye-slash' : 'fa-solid fa-eye';
-    }
-  }
-}
-
 async function openCustomerModal(companyId) {
-  const customer = crmData.customers.find(c => c.companyId === companyId);
+  const key = String(companyId || "").trim().toLowerCase();
+  let customer = crmData.customers.find(c => String(c.companyId || "").toLowerCase() === key);
+  if (!customer) {
+    customer = crmData.customers.find(c =>
+      String(c.displayName || "").toLowerCase().includes(key) ||
+      String(c.name || "").toLowerCase().includes(key)
+    );
+  }
   if (!customer) return toast("Fel", "Kunden hittades ej", "error");
+  const resolvedCompanyId = customer.companyId || companyId;
 
   const modal = $("crmCustomerModal");
   const nameEl = $("crmModalCustomerName");
@@ -3130,7 +2917,7 @@ async function openCustomerModal(companyId) {
   // Get ticket count
   let tickets = [];
   try {
-    tickets = await api(`/inbox/tickets?companyId=${companyId}`);
+    tickets = await api(`/inbox/tickets?companyId=${encodeURIComponent(resolvedCompanyId)}`);
   } catch (e) { }
 
   const openTickets = tickets.filter(t => t.status !== "solved").length;
@@ -3174,7 +2961,7 @@ async function openCustomerModal(companyId) {
            <div class="row gap" style="align-items:center; justify-content:space-between;">
                <span class="statusBadge ${customer.status}" style="font-size:14px;">${customer.status.toUpperCase()}</span>
                
-               <button class="btn secondary small" onclick="toggleCompanyStatus('${companyId}', '${customer.status === 'active' ? 'inactive' : 'active'}')">
+               <button class="btn secondary small" onclick="toggleCompanyStatus('${resolvedCompanyId}', '${customer.status === 'active' ? 'inactive' : 'active'}')">
                   ${customer.status === 'active' ? '<i class="fa-solid fa-ban"></i> Inaktivera' : '<i class="fa-solid fa-check"></i> Aktivera'}
                </button>
            </div>
@@ -3240,7 +3027,7 @@ async function openCustomerModal(companyId) {
         });
         toast("Sparat", "Kundinformation uppdaterad", "info");
         await refreshCustomers();
-        openCustomerModal(companyId);
+        openCustomerModal(resolvedCompanyId);
       } catch (e) {
         toast("Fel", "Kunde inte spara: " + e.message, "error");
       }
@@ -3256,15 +3043,15 @@ async function toggleCompanyStatus(companyId, newStatus) {
     });
     toast("Uppdaterat", `Status ändrad till ${newStatus}`, "info");
     await refreshCustomers();
-    openCustomerModal(companyId);
+    openCustomerModal(resolvedCompanyId);
   } catch (e) { toast("Fel", e.message, "error"); }
 }
 
-function closeCrmModal() {
+function closeCrmModalLegacy() {
   $("crmCustomerModal").style.display = "none";
 }
 
-async function editCustomer(companyId) {
+async function editCustomerLegacy(companyId) {
   toast("Info", "Redigering via Kategorier-tabben i Admin-panelen", "info");
   closeCrmModal();
 }
@@ -3621,7 +3408,6 @@ async function replyMyTicket() {
 function renderInboxList() {
   const list = $("inboxTicketsList");
   if (!list) return;
-  list.innerHTML = "";
   const q = ($("inboxSearchInput")?.value || "").trim().toLowerCase();
   const filtered = q ? state.inboxTickets.filter(t => {
     const title = String(t.title || "").toLowerCase();
@@ -3636,38 +3422,25 @@ function renderInboxList() {
   }
   const end = Math.min(total, state.inboxPage * state.inboxPageSize);
   const items = filtered.slice(0, end);
-  const frag = document.createDocumentFragment();
-  items.forEach((t) => {
-    const div = document.createElement("div");
+  const rows = items.map((t) => {
     const isHighPri = t.priority === "high";
     const shouldHighlight = isHighPri && t.status !== "solved";
     const priClass = isHighPri ? "danger" : t.priority === "low" ? "muted" : "info";
-    div.className = "listItem " + (shouldHighlight ? "important-highlight" : "");
-    div.innerHTML = `
-      <div class="listItemTitle">
-        ${isHighPri ? '<i class="fa-solid fa-triangle-exclamation" style="color:var(--danger)"></i> ' : ""}
-        ${escapeHtml(t.title || "Ticket")}
-        <span class="pill ${priClass}">${escapeHtml(t.priority || "normal")}</span>
-        <span class="pill">${escapeHtml(t.status)}</span>
+    const icon = isHighPri ? '<i class="fa-solid fa-triangle-exclamation" style="color:var(--danger)"></i> ' : "";
+    const ts = t.lastActivityAt ? new Date(t.lastActivityAt).toLocaleString("sv-SE") : "";
+    return `
+      <div class="listItem ${shouldHighlight ? "important-highlight" : ""}" data-inbox-id="${escapeHtml(t._id)}">
+        <div class="listItemTitle">
+          ${icon}${escapeHtml(t.title || "Ticket")}
+          <span class="pill ${priClass}">${escapeHtml(t.priority || "normal")}</span>
+          <span class="pill">${escapeHtml(t.status)}</span>
+        </div>
+        <div class="muted small">${escapeHtml(t.publicTicketId)} • ${escapeHtml(t.companyId)} • ${escapeHtml(ts)}</div>
       </div>
-      <div class="muted small">${escapeHtml(t.publicTicketId)} • ${escapeHtml(t.companyId)} • ${new Date(t.lastActivityAt).toLocaleString('sv-SE')}</div>
     `;
-    div.addEventListener("click", () => selectInboxTicket(t._id));
-    frag.appendChild(div);
-  });
-  list.appendChild(frag);
+  }).join("");
   list.dataset.hasMore = end < total ? "true" : "false";
-  if (end < total) {
-    const more = document.createElement("button");
-    more.className = "btn ghost small";
-    more.textContent = "Visa fler";
-    more.style.marginTop = "8px";
-    more.addEventListener("click", () => {
-      state.inboxPage++;
-      renderInboxList();
-    });
-    list.appendChild(more);
-  }
+  list.innerHTML = rows + (end < total ? `<button class="btn ghost small inboxMoreBtn" type="button" data-inbox-action="more">Visa fler</button>` : "");
 }
 
 async function loadInboxTickets() {
@@ -3675,13 +3448,26 @@ async function loadInboxTickets() {
     const status = $("inboxStatusFilter")?.value || "";
     const companyId = $("inboxCategoryFilter")?.value || "";
     const channel = $("inboxChannelFilter")?.value || "";
+    const list = $("inboxTicketsList");
     state.inboxLoadSeq = (state.inboxLoadSeq || 0) + 1;
     const seq = state.inboxLoadSeq;
-    const tickets = await api(`/inbox/tickets?status=${encodeURIComponent(status)}&companyId=${encodeURIComponent(companyId)}&channel=${encodeURIComponent(channel)}`);
+    if (state.inboxAbortController) { try { state.inboxAbortController.abort(); } catch {} }
+    const ctrl = window.AbortController ? new AbortController() : null;
+    state.inboxAbortController = ctrl;
+    if (list) list.classList.add("isLoading");
+    const tickets = await api(`/inbox/tickets?status=${encodeURIComponent(status)}&companyId=${encodeURIComponent(companyId)}&channel=${encodeURIComponent(channel)}`, { signal: ctrl?.signal });
     if (seq !== state.inboxLoadSeq) return;
     state.inboxTickets = tickets || [];
     renderInboxList();
-  } catch (e) { console.error("Inbox Load Error:", e); }
+    if (list) list.classList.remove("isLoading");
+  } catch (e) {
+    const listEl = $("inboxTicketsList");
+    if (listEl) listEl.classList.remove("isLoading");
+    if (isAbortError(e)) return;
+    console.error("Inbox Load Error:", e);
+    toast("Fel", "Kunde inte ladda inbox: " + e.message, "error");
+    if (listEl) listEl.innerHTML = `<div class="alert error">Kunde inte ladda inbox.</div>`;
+  }
 }
 
 async function selectInboxTicket(ticketId) {
@@ -3699,13 +3485,68 @@ async function selectInboxTicket(ticketId) {
       .map((m) => `<div class="muted small"><b>${escapeHtml(m.role)}:</b> ${escapeHtml(m.content)}</div>`)
       .join("<br>");
 
+    const stats = t.stats || {};
+    const timeline = buildTimelineItems(t);
+    const statsHtml = `
+      <div class="grid4" style="margin-top:10px;">
+        <div class="card soft" style="padding:12px;">
+          <div class="muted small">Meddelanden</div>
+          <div style="font-weight:900; font-size:18px;">${escapeHtml(String(stats.totalMessages ?? (t.messages || []).length))}</div>
+          <div class="muted tiny">User ${escapeHtml(String(stats.userCount ?? 0))} • AI ${escapeHtml(String(stats.aiCount ?? 0))} • Agent ${escapeHtml(String(stats.agentCount ?? 0))}</div>
+        </div>
+        <div class="card soft" style="padding:12px;">
+          <div class="muted small">Första svarstid</div>
+          <div style="font-weight:900; font-size:18px;">${escapeHtml(formatDuration(stats.firstResponseTimeMs))}</div>
+          <div class="muted tiny">från skapad ticket</div>
+        </div>
+        <div class="card soft" style="padding:12px;">
+          <div class="muted small">Total tid</div>
+          <div style="font-weight:900; font-size:18px;">${escapeHtml(formatDuration(stats.totalResolutionTimeMs))}</div>
+          <div class="muted tiny">till solved</div>
+        </div>
+        <div class="card soft" style="padding:12px;">
+          <div class="muted small">AI / User</div>
+          <div style="font-weight:900; font-size:18px;">${stats.aiVsUserRatio === null || stats.aiVsUserRatio === undefined ? "—" : escapeHtml(stats.aiVsUserRatio.toFixed(2))}</div>
+          <div class="muted tiny">förhållande</div>
+        </div>
+      </div>
+    `;
+
+    const timelineHtml = `
+      <div class="divider"></div>
+      <details class="card soft" open style="margin-top:15px; cursor:pointer;">
+        <summary class="panelHead" style="display:flex; justify-content:space-between; align-items:center; outline:none; border-bottom:none; margin-bottom:0; padding-bottom:0;">
+          <b><i class="fa-solid fa-clock-rotate-left" style="color:var(--primary); margin-right:8px;"></i> Timeline <span class="muted tiny" style="margin-left:8px;">(${timeline.length} events)</span></b>
+          <i class="fa-solid fa-chevron-down toggleIcon"></i>
+        </summary>
+        <div class="timeline" style="margin-top:15px; border-top:1px solid var(--border); padding-top:15px;">
+          ${
+            timeline.length
+              ? timeline.map((e) => {
+                  const m = timelineMeta(e);
+                  return `
+                    <div class="timelineItem">
+                      <div class="timelineDot"><i class="fa-solid ${escapeHtml(m.icon)}"></i></div>
+                      <div class="timelineBody">
+                        <div style="font-weight:800;">${escapeHtml(m.desc)}</div>
+                        <div class="muted tiny">${escapeHtml(m.when)}</div>
+                      </div>
+                    </div>
+                  `;
+                }).join("")
+              : `<div class="muted small center" style="padding:16px;">Inga events ännu.</div>`
+          }
+        </div>
+      </details>
+    `;
+
     box.innerHTML = `
       <div class="row" style="justify-content:space-between; align-items:flex-start; margin-bottom:15px;">
           <div style="flex:1;">
               <div style="font-size:18px; font-weight:700; color:var(--text); margin-bottom:6px;">${escapeHtml(t.title || "Ärende")}</div>
               <div style="display:flex; align-items:center; flex-wrap:wrap; gap:8px;">
                 <span class="pill muted">#${escapeHtml(t.publicTicketId)}</span>
-                <span class="pill ${t.status === 'solved' ? 'ok' : t.status === 'high' ? 'danger' : 'info'}">${escapeHtml(t.status?.toUpperCase())}</span>
+                <span class="pill ${t.status === 'solved' ? 'ok' : t.priority === 'high' ? 'danger' : 'info'}">${escapeHtml(t.status?.toUpperCase())}</span>
                 <span class="muted small"><i class="fa-solid fa-building" style="font-size:10px;"></i> ${escapeHtml(t.companyId || 'demo')}</span>
                 <span class="pill small">${escapeHtml(t.channel || 'chat')}</span>
                 
@@ -3723,9 +3564,21 @@ async function selectInboxTicket(ticketId) {
       </div>
       <div id="ticketSummaryContent" class="alert info small" style="display:none; margin-top:10px;"></div>
       <div class="divider"></div>
-      <div class="messageList" style="max-height:400px; overflow-y:auto;">
-        ${msgs || "<div class='muted small'>Inga meddelanden ännu.</div>"}
+      <div>
+        <b>Statistik</b>
+        ${statsHtml}
       </div>
+      ${timelineHtml}
+      <div class="divider"></div>
+      <details class="card soft" open style="margin-top:15px; cursor:pointer;">
+        <summary class="panelHead" style="display:flex; justify-content:space-between; align-items:center; outline:none; border-bottom:none; margin-bottom:0; padding-bottom:0;">
+          <b><i class="fa-solid fa-comments" style="color:var(--primary); margin-right:8px;"></i> Meddelanden</b>
+          <i class="fa-solid fa-chevron-down toggleIcon"></i>
+        </summary>
+        <div class="messageList" style="max-height:400px; overflow-y:auto; margin-top:15px; border-top:1px solid var(--border); padding-top:15px;">
+          ${msgs || "<div class='muted small'>Inga meddelanden ännu.</div>"}
+        </div>
+      </details>
     `;
 
     const priSel = $("ticketPrioritySelect");
@@ -3791,6 +3644,18 @@ async function sendAgentReplyInbox() {
   await loadInboxTickets();
 }
 
+function useQuickReply(type) {
+  const area = $("agentReplyTextInbox");
+  if (!area) return;
+  const templates = {
+    greeting: "Hej! Tack för att du hör av dig. Hur kan jag hjälpa dig idag?",
+    working: "Vi tittar på ditt ärende just nu och återkommer så snart vi har mer information.",
+    solved: "Hoppas detta löser ditt ärende. Jag markerar ticketen som löst. Ha en fin dag!",
+    thanks: "Tack för din feedback. Vi uppskattar att du hör av dig."
+  };
+  area.value = templates[type] || "";
+}
+
 async function saveInternalNote() {
   if (!state.inboxSelectedTicket) return toast("Saknas", "Välj en ticket först", "error");
   const content = $("internalNoteText")?.value?.trim();
@@ -3830,7 +3695,7 @@ async function deleteTicket() {
 /* =========================
    SLA
 ========================= */
-async function loadSlaDashboard() {
+async function loadSlaDashboardLegacy() {
   const days = $("slaDaysSelect")?.value || "30";
 
   try {
@@ -4220,7 +4085,7 @@ async function clearSla(scope) {
 /* =========================
    Billing
 ========================= */
-async function loadBilling() {
+async function loadBillingLegacy() {
   try {
     const [details, history] = await Promise.all([api("/billing/details"), api("/billing/history")]);
     if ($("currentPlanName")) $("currentPlanName").textContent = details.plan.toUpperCase();
@@ -4231,7 +4096,7 @@ async function loadBilling() {
     const activeLabel = $("activePlanLabel");
     if (activeLabel) activeLabel.textContent = details.planInfo.name;
     const activeFeatures = $("activePlanFeatures");
-    if (activeFeatures) activeFeatures.innerHTML = details.planInfo.features.map(f => `<li style="font-size:13px;"><i class="fa-solid fa-circle-check" style="color:var(--ok)"></i> ${f}</li>`).join("");
+    if (activeFeatures) activeFeatures.innerHTML = details.planInfo.features.map(f => `<li class="billingFeatureItem"><i class="fa-solid fa-circle-check billingFeatureIcon"></i> ${f}</li>`).join("");
     const proCard = $("planCardPro");
     const basCard = $("planCardBas");
     if (details.plan === "pro") {
@@ -4240,11 +4105,11 @@ async function loadBilling() {
       if (upBtn) { upBtn.textContent = "Din nuvarande plan"; upBtn.disabled = true; upBtn.className = "btn ghost full"; }
     } else if (basCard) { basCard.style.boxShadow = "0 0 20px rgba(55, 214, 122, 0.15)"; }
     const list = $("billingHistoryList");
-    if (list) list.innerHTML = history.invoices.length ? history.invoices.map(inv => `<tr><td>${inv.date}</td><td><b>${inv.amount}</b></td><td><span class="pill ok">${inv.status}</span></td><td style="text-align:right"><a href="${inv.url}" class="btn ghost small"><i class="fa-solid fa-file-pdf"></i></a></td></tr>`).join("") : '<tr><td colspan="4" class="muted center">Inga fakturor än.</td></tr>';
+    if (list) list.innerHTML = history.invoices.length ? history.invoices.map(inv => `<tr><td>${inv.date}</td><td><b>${inv.amount}</b></td><td><span class="pill ok">${inv.status}</span></td><td class="taRight"><a href="${inv.url}" class="btn ghost small"><i class="fa-solid fa-file-pdf"></i></a></td></tr>`).join("") : '<tr><td colspan="4" class="muted center">Inga fakturor än.</td></tr>';
   } catch (e) { toast("Fel", "Kunde inte ladda betalningsinformation", "error"); }
 }
 
-async function upgradeToPro() {
+async function upgradeToProLegacy() {
   try {
     const res = await api("/billing/create-checkout", { method: "POST", body: { plan: "pro", companyId: state.companyId } });
     if (res?.message?.includes("DEMO")) toast("Demo Mode", res.message, "info");
@@ -4256,7 +4121,7 @@ async function upgradeToPro() {
 /* =========================
    Admin
 ========================= */
-async function loadAdminUsers() {
+async function loadAdminUsersLegacy() {
   const list = $("adminUsersList");
   const msg = $("adminUsersMsg");
   if (!list) return;
@@ -4357,7 +4222,7 @@ async function loadAdminUsers() {
   }
 }
 
-async function loadAdminDiagnostics() {
+async function loadAdminDiagnosticsLegacy() {
   const box = $("diagnosticsBox");
   if (!box) return;
   try {
@@ -4407,6 +4272,407 @@ async function loadAdminDiagnostics() {
   } catch (e) { box.innerHTML = `<div class="alert error">Kunde inte ladda systemdiagnostik.</div>`; }
 }
 
+async function loadEnterpriseAnalytics() {
+  const box = $("adminAnalyticsBox");
+  if (!box) return;
+  box.innerHTML = `<div class="muted center" style="padding:16px;">Laddar analytics...</div>`;
+
+  try {
+    const companyId = $("enterpriseCompanySelect")?.value || "";
+    const days = Number($("enterpriseDays")?.value || 30);
+    const qs = new URLSearchParams();
+    if (companyId) qs.set("companyId", companyId);
+    qs.set("days", String(days || 30));
+    const data = await api("/admin/analytics/overview?" + qs.toString());
+    const evQs = new URLSearchParams();
+    if (companyId) evQs.set("companyId", companyId);
+    evQs.set("days", String(days || 30));
+    evQs.set("limit", "50");
+    const events = await api("/admin/usage/events?" + evQs.toString()).catch(() => []);
+
+    box.innerHTML = `
+      <div class="slaGrid">
+        <div class="slaCard">
+          <div class="slaLabel"><i class="fa-solid fa-users"></i> Users</div>
+          <div class="slaValue">${Number(data?.users?.total || 0)}</div>
+          <div class="slaDelta">Totalt</div>
+        </div>
+        <div class="slaCard">
+          <div class="slaLabel"><i class="fa-solid fa-ticket"></i> Tickets</div>
+          <div class="slaValue">${Number(data?.tickets?.total || 0)}</div>
+          <div class="slaDelta">Totalt</div>
+        </div>
+        <div class="slaCard">
+          <div class="slaLabel"><i class="fa-solid fa-brain"></i> AI events</div>
+          <div class="slaValue">${Number(data?.ai?.events || 0)}</div>
+          <div class="slaDelta">${Number(data?.scope?.days || 30)} dagar</div>
+        </div>
+        <div class="slaCard">
+          <div class="slaLabel"><i class="fa-solid fa-bolt"></i> Avg latency</div>
+          <div class="slaValue">${Number(data?.ai?.avgLatencyMs || 0)} ms</div>
+          <div class="slaDelta">Genomsnitt</div>
+        </div>
+      </div>
+      <div class="panel" style="margin-top:14px;">
+        <div class="panelHead"><b><i class="fa-solid fa-coins"></i> AI tokens (approx)</b></div>
+        <div class="list">
+          <div class="listItem" style="cursor:default"><b>Tokens:</b> ${Number(data?.ai?.tokensApprox || 0)}</div>
+          <div class="listItem muted small" style="cursor:default">Mätningen är approx baserad på textlängd.</div>
+        </div>
+      </div>
+      <div class="panel" style="margin-top:14px;">
+        <div class="panelHead"><b><i class="fa-solid fa-list"></i> Senaste AI-händelser</b></div>
+        <div class="list">
+          ${
+            Array.isArray(events) && events.length
+              ? events.map((e) => {
+                  const when = e.createdAt ? new Date(e.createdAt).toLocaleString("sv-SE") : "";
+                  const c = e.companyId || "-";
+                  const t = e.type || "";
+                  const tok = Number(e.tokensApprox || 0);
+                  const ms = Number(e.latencyMs || 0);
+                  const ok = e.ok === false ? "❌" : "✅";
+                  return `<div class="listItem" style="cursor:default; display:flex; justify-content:space-between; gap:12px; flex-wrap:wrap;">
+                    <div style="min-width:240px;">
+                      <div style="font-weight:800;">${ok} ${escapeHtml(String(t))}</div>
+                      <div class="muted tiny">${escapeHtml(String(when))} • ${escapeHtml(String(c))}</div>
+                    </div>
+                    <div class="muted small" style="text-align:right;">
+                      ${tok} tok • ${ms} ms
+                    </div>
+                  </div>`;
+                }).join("")
+              : `<div class="listItem muted small" style="cursor:default;">Inga AI-händelser ännu för vald period. Skicka ett meddelande i chatten eller kör “Sammanfatta”.</div>`
+          }
+        </div>
+      </div>
+    `;
+  } catch (e) {
+    box.innerHTML = `<div class="alert error">Kunde inte ladda analytics: ${escapeHtml(e.message)}</div>`;
+  }
+}
+
+async function loadAuditLog() {
+  const box = $("adminAuditBox");
+  if (!box) return;
+  box.innerHTML = `<div class="muted center" style="padding:16px;">Laddar audit log...</div>`;
+
+  try {
+    const companyId = $("auditCompanySelect")?.value || "";
+    const days = Number($("auditDays")?.value || 30);
+    const qs = new URLSearchParams();
+    if (companyId) qs.set("companyId", companyId);
+    qs.set("days", String(days || 30));
+    qs.set("limit", "200");
+    const items = await api("/admin/audit?" + qs.toString());
+
+    if (!Array.isArray(items) || items.length === 0) {
+      box.innerHTML = `<div class="muted center" style="padding:16px;">Inga loggar för vald period.</div>`;
+      return;
+    }
+
+    box.innerHTML = items.map((it) => {
+      const when = it.createdAt ? new Date(it.createdAt).toLocaleString("sv-SE") : "";
+      const actor = it.actorUserId ? (it.actorUserId.username || it.actorUserId.email || it.actorUserId._id) : "system";
+      const company = it.companyId || "-";
+      const meta = it.meta ? JSON.stringify(it.meta).slice(0, 220) : "";
+      return `
+        <div class="listItem" style="cursor:default;">
+          <div style="display:flex; gap:10px; flex-wrap:wrap; align-items:center;">
+            <span class="muted tiny">${escapeHtml(when)}</span>
+            <span class="badge badge-user">${escapeHtml(company)}</span>
+            <span style="font-weight:800">${escapeHtml(it.action || "")}</span>
+            <span class="muted small">av ${escapeHtml(String(actor || ""))}</span>
+          </div>
+          <div class="muted tiny" style="margin-top:6px;">
+            ${escapeHtml(String(it.targetType || ""))} ${escapeHtml(String(it.targetId || ""))}
+          </div>
+          ${meta ? `<div class="muted tiny" style="margin-top:6px; white-space:pre-wrap;">${escapeHtml(meta)}${meta.length >= 220 ? "..." : ""}</div>` : ""}
+        </div>
+      `;
+    }).join("");
+  } catch (e) {
+    box.innerHTML = `<div class="alert error">Kunde inte ladda audit log: ${escapeHtml(e.message)}</div>`;
+  }
+}
+
+async function loadDashboard() {
+  const cards = $("dashboardCards");
+  const eventsBox = $("dashboardEvents");
+  if (cards) cards.innerHTML = `<div class="muted center" style="padding:16px;">Laddar...</div>`;
+  if (eventsBox) eventsBox.innerHTML = `<div class="muted center" style="padding:16px;">Laddar...</div>`;
+
+  try {
+    const qs = new URLSearchParams();
+    qs.set("companyId", state.companyId || "");
+    qs.set("days", "30");
+    const data = await api("/dashboard/overview?" + qs.toString());
+    const events = await api("/dashboard/events?" + qs.toString() + "&limit=20").catch(() => []);
+
+    const aiTotals = Object.values(data?.ai || {}).reduce((acc, v) => {
+      acc.count += Number(v?.count || 0);
+      acc.tokensApprox += Number(v?.tokensApprox || 0);
+      return acc;
+    }, { count: 0, tokensApprox: 0 });
+
+    if (cards) {
+      cards.innerHTML = `
+        <div class="card statCard">
+          <div class="statIcon"><i class="fa-solid fa-comments"></i></div>
+          <div class="statValue">${Number(data?.tickets || 0)}</div>
+          <div class="statLabel">Konversationer</div>
+          <div class="statTrend"><i class="fa-solid fa-chart-line"></i> Totalt antal</div>
+        </div>
+        <div class="card statCard">
+          <div class="statIcon"><i class="fa-solid fa-users"></i></div>
+          <div class="statValue">${Number(data?.users || 0)}</div>
+          <div class="statLabel">Användare</div>
+          <div class="statTrend"><i class="fa-solid fa-chart-line"></i> Totalt antal</div>
+        </div>
+        <div class="card statCard" style="border-color: var(--primary);">
+          <div class="statIcon" style="color: var(--primary);"><i class="fa-solid fa-brain"></i></div>
+          <div class="statValue">${aiTotals.count}</div>
+          <div class="statLabel">AI-Händelser</div>
+          <div class="statTrend"><i class="fa-solid fa-calendar-days"></i> Senaste 30 dagarna</div>
+        </div>
+        <div class="card statCard">
+          <div class="statIcon"><i class="fa-solid fa-coins"></i></div>
+          <div class="statValue">${(aiTotals.tokensApprox / 1000).toFixed(1)}k</div>
+          <div class="statLabel">Tokens Förbrukade</div>
+          <div class="statTrend"><i class="fa-solid fa-calculator"></i> Ungefärlig åtgång</div>
+        </div>
+      `;
+    }
+
+    if (eventsBox) {
+      const emptyState = $("dashboardEventsEmpty");
+      if (!Array.isArray(events) || events.length === 0) {
+        eventsBox.style.display = "none";
+        if (emptyState) emptyState.style.display = "block";
+      } else {
+        eventsBox.style.display = "block";
+        if (emptyState) emptyState.style.display = "none";
+        eventsBox.innerHTML = events.map((e) => {
+          const when = e.createdAt ? new Date(e.createdAt).toLocaleString("sv-SE") : "";
+          const ok = e.ok === false ? "❌" : "✅";
+          return `
+            <div class="listItem" style="cursor:default; display:flex; justify-content:space-between; gap:12px; flex-wrap:wrap;">
+              <div style="display:flex; gap:12px; align-items:center;">
+                <div class="avatar-small" style="background:var(--panel2);"><i class="fa-solid fa-bolt" style="color:var(${e.ok === false ? '--danger' : '--ok'});"></i></div>
+                <div>
+                  <div style="font-weight:600;">${escapeHtml(String(e.type || ""))}</div>
+                  <div class="muted tiny">${escapeHtml(when)} • ID: ${escapeHtml(String(e.companyId || "-"))}</div>
+                </div>
+              </div>
+              <div class="muted small" style="text-align:right; display:flex; align-items:center; gap:8px;">
+                <span class="pill soft">${Number(e.tokensApprox || 0)} tokens</span> 
+                <span class="pill soft"><i class="fa-solid fa-stopwatch"></i> ${Number(e.latencyMs || 0)} ms</span>
+              </div>
+            </div>
+          `;
+        }).join("");
+      }
+    }
+  } catch (e) {
+    if (cards) cards.innerHTML = `<div class="alert error">Kunde inte ladda dashboard: ${escapeHtml(e.message)}</div>`;
+    if (eventsBox) eventsBox.innerHTML = `<div class="alert error">Kunde inte ladda events: ${escapeHtml(e.message)}</div>`;
+  }
+}
+
+function renderKnowledgeList(items) {
+  const list = $("knowledgeList");
+  const hint = $("knowledgeHint");
+  if (!list) return;
+  const arr = Array.isArray(items) ? items : [];
+  state.knowledgeItems = arr;
+  if (hint) hint.textContent = `${arr.length} st`;
+  if (arr.length === 0) {
+    list.innerHTML = `<div class="muted center" style="padding:16px;">Inga artiklar ännu.</div>`;
+    return;
+  }
+  list.innerHTML = arr.map((k) => {
+    const tags = Array.isArray(k.tags) && k.tags.length ? k.tags.join(", ") : "";
+    const chunks = Number(k.chunkCount || 0);
+    return `
+      <div class="listItem" style="cursor:default;">
+        <div class="listItemTitle" style="display:flex; align-items:center; gap:10px;">
+          <b>${escapeHtml(k.title || "")}</b>
+          <span class="muted small">${escapeHtml(k.category || "")}</span>
+          ${chunks ? `<span class="pill muted">Chunks: ${escapeHtml(String(chunks))}</span>` : ""}
+          <span style="margin-left:auto; display:flex; gap:6px;">
+            <button class="btn ghost tiny" data-kedit="${escapeHtml(String(k._id || ""))}">
+              <i class="fa-solid fa-pen"></i>
+            </button>
+            <button class="btn ghost tiny" data-kcopy="${escapeHtml(String(k._id || ""))}">
+              <i class="fa-solid fa-copy"></i>
+            </button>
+            <button class="btn ghost tiny danger" data-kdel="${escapeHtml(String(k._id || ""))}">
+              <i class="fa-solid fa-trash"></i>
+            </button>
+          </span>
+        </div>
+        ${tags ? `<div class="muted tiny">Taggar: ${escapeHtml(tags)}</div>` : ""}
+        <div class="muted tiny" style="margin-top:6px; white-space:pre-wrap;">${escapeHtml(String(k.rawContent || "").slice(0, 260))}${String(k.rawContent || "").length > 260 ? "..." : ""}</div>
+      </div>
+    `;
+  }).join("");
+
+  list.querySelectorAll("button[data-kedit]").forEach((btn) => {
+    btn.addEventListener("click", async () => {
+      const id = btn.getAttribute("data-kedit");
+      const k = (state.knowledgeItems || []).find((x) => String(x._id) === String(id));
+      if (!k) return;
+      state.knowledgeEditingId = id;
+      const hint = $("knowledgeEditHint");
+      if (hint) hint.textContent = `Redigerar: ${k.title || ""}`;
+      if ($("knowledgeTitle")) $("knowledgeTitle").value = k.title || "";
+      if ($("knowledgeCategory")) $("knowledgeCategory").value = k.category || "";
+      if ($("knowledgeTags")) $("knowledgeTags").value = Array.isArray(k.tags) ? k.tags.join(", ") : "";
+      if ($("knowledgeContent")) $("knowledgeContent").value = k.rawContent || "";
+      const btnSave = $("knowledgeSaveBtn");
+      if (btnSave) btnSave.innerHTML = '<i class="fa-solid fa-floppy-disk"></i> Uppdatera';
+      toast("Redigera", "Formuläret är fyllt. Uppdatera och spara.", "info");
+    });
+  });
+
+  list.querySelectorAll("button[data-kcopy]").forEach((btn) => {
+    btn.addEventListener("click", async () => {
+      const id = btn.getAttribute("data-kcopy");
+      const k = (state.knowledgeItems || []).find((x) => String(x._id) === String(id));
+      if (!k) return;
+      try {
+        await navigator.clipboard.writeText(String(k.rawContent || ""));
+        toast("Kopierat", "Innehåll kopierat till urklipp.", "info");
+      } catch {
+        toast("Info", "Kunde inte kopiera i denna miljö.", "info");
+      }
+    });
+  });
+
+  list.querySelectorAll("button[data-kdel]").forEach((btn) => {
+    btn.addEventListener("click", async () => {
+      const id = btn.getAttribute("data-kdel");
+      if (!id) return;
+      if (!confirm("Radera artikel?")) return;
+      try {
+        await api("/knowledge/" + encodeURIComponent(id), { method: "DELETE" });
+        if (String(state.knowledgeEditingId || "") === String(id)) resetKnowledgeForm();
+        toast("Borttagen", "Artikeln raderades.", "info");
+        await loadKnowledge();
+      } catch (e) {
+        toast("Fel", e.message, "error");
+      }
+    });
+  });
+}
+
+async function loadKnowledge() {
+  const list = $("knowledgeList");
+  if (list) list.innerHTML = `<div class="muted center" style="padding:16px;">Laddar...</div>`;
+  try {
+    const qs = new URLSearchParams();
+    qs.set("companyId", state.companyId || "");
+    const q = $("knowledgeSearchInput")?.value?.trim() || "";
+    const category = $("knowledgeCategoryFilter")?.value?.trim() || "";
+    if (q) qs.set("q", q);
+    if (category) qs.set("category", category);
+    const items = await api("/knowledge/?" + qs.toString());
+    renderKnowledgeList(items);
+  } catch (e) {
+    if (list) list.innerHTML = `<div class="alert error">Kunde inte ladda knowledge: ${escapeHtml(e.message)}</div>`;
+  }
+}
+
+function resetKnowledgeForm() {
+  state.knowledgeEditingId = null;
+  const hint = $("knowledgeEditHint");
+  if (hint) hint.textContent = "";
+  ["knowledgeTitle", "knowledgeCategory", "knowledgeTags", "knowledgeContent"].forEach((id) => { const el = $(id); if (el) el.value = ""; });
+  const btnSave = $("knowledgeSaveBtn");
+  if (btnSave) btnSave.innerHTML = '<i class="fa-solid fa-floppy-disk"></i> Spara';
+}
+
+async function saveKnowledge() {
+  const msg = $("knowledgeMsg");
+  const title = $("knowledgeTitle")?.value?.trim() || "";
+  const category = $("knowledgeCategory")?.value?.trim() || "";
+  const tagsRaw = $("knowledgeTags")?.value?.trim() || "";
+  const content = $("knowledgeContent")?.value?.trim() || "";
+  const tags = tagsRaw ? tagsRaw.split(",").map((t) => t.trim()).filter(Boolean).slice(0, 20) : [];
+
+  if (!title || !content) return toast("Saknas", "Titel och innehåll krävs", "error");
+  if (msg) msg.style.display = "none";
+
+  try {
+    if (state.knowledgeEditingId) {
+      await api("/knowledge/" + encodeURIComponent(state.knowledgeEditingId), {
+        method: "PATCH",
+        body: { title, content, category, tags }
+      });
+      toast("Sparat", "Knowledge-artikel uppdaterad ✅", "info");
+    } else {
+      await api("/knowledge", {
+        method: "POST",
+        body: { companyId: state.companyId, title, content, category, tags }
+      });
+      toast("Sparat", "Knowledge-artikel skapad ✅", "info");
+    }
+    resetKnowledgeForm();
+    await loadKnowledge();
+  } catch (e) {
+    if (msg) { msg.className = "alert error"; msg.style.display = ""; msg.textContent = e.message; }
+  }
+}
+
+function exportKnowledge() {
+  const items = Array.isArray(state.knowledgeItems) ? state.knowledgeItems : [];
+  const payload = items.map((k) => ({
+    title: k.title,
+    content: k.rawContent,
+    category: k.category || "",
+    tags: Array.isArray(k.tags) ? k.tags : []
+  }));
+  const blob = new Blob([JSON.stringify(payload, null, 2)], { type: "application/json" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = `knowledge_${state.companyId || "all"}_${new Date().toISOString().slice(0, 10)}.json`;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  URL.revokeObjectURL(url);
+  toast("Export", "JSON export nedladdad.", "info");
+}
+
+async function importKnowledgeFile(file) {
+  if (!file) return;
+  const text = await file.text();
+  let arr = [];
+  try {
+    arr = JSON.parse(text);
+  } catch {
+    return toast("Fel", "Ogiltig JSON-fil", "error");
+  }
+  if (!Array.isArray(arr) || arr.length === 0) return toast("Info", "Ingen data att importera", "info");
+  const items = arr.slice(0, 50);
+  for (const it of items) {
+    try {
+      await api("/knowledge", {
+        method: "POST",
+        body: {
+          companyId: state.companyId,
+          title: String(it.title || "").slice(0, 120) || "Import",
+          content: String(it.content || it.rawContent || ""),
+          category: String(it.category || ""),
+          tags: Array.isArray(it.tags) ? it.tags : []
+        }
+      });
+    } catch {}
+  }
+  toast("Import", `Importerade ${items.length} artiklar (max 50).`, "info");
+  await loadKnowledge();
+}
+
 async function bulkDeleteKb() {
   if (!confirm("VARNING: Detta raderar ALLA dokument i kunskapsbasen för valt bolag. Är du säker?")) return;
   try {
@@ -4419,7 +4685,7 @@ async function bulkDeleteKb() {
 /* =========================
    CRM Admin (admin)
 ========================= */
-async function refreshCustomers() {
+async function refreshCustomersLegacy2() {
   try {
     const companies = await api("/admin/companies");
     crmData.customers = companies || [];
@@ -4431,7 +4697,7 @@ async function refreshCustomers() {
   }
 }
 
-async function createCompany() {
+async function createCompanyLegacy2() {
   const displayName = $("newCompanyDisplayName")?.value?.trim() || "";
   const contactEmail = $("newCompanyContactEmail")?.value?.trim() || "";
   const plan = $("newCompanyPlan")?.value || "bas";
@@ -4494,7 +4760,7 @@ async function simulateSettings() {
 /* =========================
    KB & Tabs
 ========================= */
-function initTabs() {
+function initTabsLegacy() {
   const tabs = document.querySelectorAll(".tabBtn");
   tabs.forEach((t) => {
     t.addEventListener("click", () => {
@@ -4504,11 +4770,15 @@ function initTabs() {
       const target = t.getAttribute("data-tab");
       const p = $(target);
       if (p) p.style.display = "";
+      if (target === "tabAdminStats") loadAdminDiagnostics();
+      if (target === "tabUsers") loadAdminUsers();
+      if (target === "tabEnterpriseAnalytics") loadEnterpriseAnalytics();
+      if (target === "tabAuditLog") loadAuditLog();
     });
   });
 }
 
-async function loadKb() {
+async function loadKbLegacy() {
   const companyId = $("kbCategorySelect")?.value || "demo";
   const list = $("kbList");
   if (!list) return;
@@ -4722,6 +4992,7 @@ async function loadAiPanel() {
       sel.innerHTML = Object.keys(profiles).map(p => `<option value="${escapeHtml(p)}"${p===active?' selected':''}>${escapeHtml(p)}</option>`).join("");
     }
     setAiFieldsFromSettings(profiles[active] || {});
+    setupAiRangeValueDisplays();
     renderAiFlows();
     renderAiSegmenting();
     renderAiRules();
@@ -4758,10 +5029,64 @@ async function loadAiPanel() {
     const sel = $("aiProfileSelect");
     if (sel) sel.innerHTML = `<option value="default">default</option>`;
     setAiFieldsFromSettings({});
+    setupAiRangeValueDisplays();
     renderAiFlows();
     renderAiSegmenting();
     renderAiRules();
   }
+}
+
+function setupAiRangeValueDisplays() {
+  const styleEl = $("aiStyleSelect");
+  const getStyle = () => String(styleEl?.value || "neutral");
+  const recByStyle = {
+    formell: { aiToneLevel: [30, 55], aiEmpathyLevel: [35, 55], aiPolitenessLevel: [70, 90] },
+    vänlig: { aiToneLevel: [55, 75], aiEmpathyLevel: [60, 80], aiPolitenessLevel: [65, 85] },
+    avslappnad: { aiToneLevel: [65, 85], aiEmpathyLevel: [45, 65], aiPolitenessLevel: [45, 65] },
+    professionell: { aiToneLevel: [45, 65], aiEmpathyLevel: [45, 65], aiPolitenessLevel: [70, 90] },
+    varm: { aiToneLevel: [70, 90], aiEmpathyLevel: [75, 95], aiPolitenessLevel: [70, 90] },
+    neutral: { aiToneLevel: [40, 60], aiEmpathyLevel: [40, 60], aiPolitenessLevel: [55, 75] },
+  };
+
+  const clampInt = (v) => Math.max(0, Math.min(100, Number(v || 0)));
+  const ids = ["aiToneLevel", "aiEmpathyLevel", "aiPolitenessLevel"];
+  const inputs = ids.map(id => $(id)).filter(Boolean);
+
+  const syncOne = (input) => {
+    const v = clampInt(input.value);
+    const outId = input.getAttribute("data-value-target");
+    const out = outId ? $(outId) : null;
+    if (out) out.textContent = String(v);
+
+    const recId = input.getAttribute("data-reco-target");
+    const recEl = recId ? $(recId) : null;
+    if (recEl) {
+      const style = getStyle();
+      const map = recByStyle[style] || recByStyle.neutral;
+      const range = map[input.id] || [40, 60];
+      const min = range[0];
+      const max = range[1];
+      recEl.textContent = `Rek ${min}–${max}`;
+      recEl.classList.remove("ok", "warn");
+      recEl.classList.add((v >= min && v <= max) ? "ok" : "warn");
+    }
+  };
+
+  const syncAll = () => inputs.forEach(syncOne);
+
+  inputs.forEach((input) => {
+    if (input.dataset.aiRangeBound !== "1") {
+      input.addEventListener("input", () => syncOne(input));
+      input.dataset.aiRangeBound = "1";
+    }
+  });
+
+  if (styleEl && styleEl.dataset.aiRangeBound !== "1") {
+    styleEl.addEventListener("change", syncAll);
+    styleEl.dataset.aiRangeBound = "1";
+  }
+
+  syncAll();
 }
 
 async function saveAiSettings() {
@@ -4856,6 +5181,17 @@ function bindEvents() {
   on("registerBtn", "click", doRegister);
   on("logoutBtn", "click", doLogout);
 
+  on("openOpsPlatform", "click", () => {
+    if (!state.token) return toast("Info", "Logga in först för att öppna AI Ops Platform.", "info");
+    window.open("/ops.html#overview", "_blank");
+  });
+
+  on("openDashboardView", "click", async () => {
+    if (!state.me) return showView("authView", "openChatView");
+    showView("dashboardView", "openDashboardView");
+    await loadDashboard();
+  });
+
   on("openChatView", "click", () => showView(state.me ? "chatView" : "authView", "openChatView"));
 
   on("openMyTicketsView", "click", async () => {
@@ -4863,6 +5199,28 @@ function bindEvents() {
     showView("myTicketsView", "openMyTicketsView");
     await refreshMyTickets();
   });
+
+  on("openKnowledgeView", "click", async () => {
+    if (!state.me) return showView("authView", "openChatView");
+    showView("knowledgeView", "openKnowledgeView");
+    await loadKnowledge();
+  });
+
+  on("dashboardRefreshBtn", "click", loadDashboard);
+  on("knowledgeRefreshBtn", "click", loadKnowledge);
+  on("knowledgeSaveBtn", "click", saveKnowledge);
+  on("knowledgeResetBtn", "click", resetKnowledgeForm);
+  on("knowledgeSearchBtn", "click", loadKnowledge);
+  on("knowledgeSearchInput", "keydown", (e) => { if (e.key === "Enter") loadKnowledge(); });
+  on("knowledgeCategoryFilter", "keydown", (e) => { if (e.key === "Enter") loadKnowledge(); });
+  on("knowledgeExportBtn", "click", exportKnowledge);
+  on("knowledgeImportBtn", "click", () => $("knowledgeImportFile")?.click());
+  on("knowledgeImportFile", "change", async (e) => {
+    const file = e?.target?.files?.[0];
+    await importKnowledgeFile(file);
+    if (e?.target) e.target.value = "";
+  });
+  on("regenerateBtn", "click", regenerateLastAnswer);
 
   on("myTicketsRefreshBtn", "click", refreshMyTickets);
   on("myTicketReplyBtn", "click", replyMyTicket);
@@ -4872,6 +5230,7 @@ function bindEvents() {
     showView("inboxView", "openInboxView");
     await loadInboxTickets();
   });
+  on("inboxAutoReloadBadge", "click", () => setAutoReloadEnabled(!state.autoReloadEnabled));
 
   on("inboxRefreshBtn", "click", loadInboxTickets);
   on("solveAllBtn", "click", async () => {
@@ -4882,9 +5241,17 @@ function bindEvents() {
       await loadInboxTickets();
     } catch (e) { toast("Fel", e.message, "error"); }
   });
-  on("inboxSearchInput", "input", () => {
-    state.inboxPage = 1;
-    renderInboxList();
+  on("inboxSearchInput", "input", filterInboxBySearch);
+  on("inboxTicketsList", "click", (e) => {
+    const more = e.target?.closest?.('[data-inbox-action="more"]');
+    if (more) {
+      state.inboxPage++;
+      renderInboxList();
+      return;
+    }
+    const row = e.target?.closest?.("[data-inbox-id]");
+    const id = row?.getAttribute?.("data-inbox-id");
+    if (id) selectInboxTicket(id);
   });
   on("setStatusOpen", "click", () => setInboxStatus("open"));
   on("setStatusPending", "click", () => setInboxStatus("pending"));
@@ -4899,7 +5266,7 @@ function bindEvents() {
   // ✅ SLA
   on("openSlaView", "click", async () => {
     showView("slaView", "openSlaView");
-    await loadSlaDashboard();
+    try { await loadSlaDashboard(); } catch (e) { toast("Fel", e.message || "SLA kunde inte laddas", "error"); }
   });
 
   on("slaRefreshBtn", "click", loadSlaDashboard);
@@ -4926,6 +5293,10 @@ function bindEvents() {
     await loadAiPanel();
   });
   on("aiSaveBtn", "click", saveAiSettings);
+  on("aiManageConfigTopBtn", "click", () => {
+    const btn = $("aiManageConfigBtn");
+    if (btn) btn.click();
+  });
   on("aiManageConfigBtn", "click", () => {
     const p = $("aiAdvancedSettings");
     if (!p) return;
@@ -5036,8 +5407,13 @@ function bindEvents() {
     p.style.display = "";
     try { p.scrollIntoView({ behavior: "smooth", block: "start" }); } catch {}
   }
+  on("aiOpenFlowPanelBtn", "click", () => openAdvancedAndShow("panelFlow"));
+  on("aiOpenRulesPanelBtn", "click", () => openAdvancedAndShow("panelRules"));
+  on("aiOpenSegmentsPanelBtn", "click", () => openAdvancedAndShow("panelSegments"));
+  on("aiOpenSalesPanelBtn", "click", () => openAdvancedAndShow("panelSales"));
   on("aiManageFlowsBtn", "click", () => openAdvancedAndShow("panelFlow"));
   on("aiManageFlowsBtn2", "click", () => openAdvancedAndShow("panelFlow"));
+  on("aiManageRulesTopBtn", "click", () => openAdvancedAndShow("panelRules"));
   on("aiManageRulesBtn", "click", () => openAdvancedAndShow("panelRules"));
   on("aiManageSegmentsBtn", "click", () => openAdvancedAndShow("panelSegments"));
   on("aiManageRulesBtn", "click", () => {
@@ -5143,7 +5519,7 @@ function bindEvents() {
     renderAiRules();
     toast("Rensat", "Regler rensade", "info");
   });
-  on("aiUpdateAnalyticsBtn", "click", async () => {
+  async function refreshAiAnalytics() {
     try {
       const a = await api(`/ai/analytics?companyId=${encodeURIComponent(state.companyId)}`);
       const ab = await api(`/ai/ab-stats?companyId=${encodeURIComponent(state.companyId)}`);
@@ -5152,7 +5528,10 @@ function bindEvents() {
       renderAiAnalyticsBox();
       renderAiDashboardStats();
     } catch (e) { toast("Fel", e.message, "error"); }
-  });
+  }
+  on("aiUpdateAnalyticsBtn", "click", refreshAiAnalytics);
+  on("aiUpdateAnalyticsTopBtn", "click", refreshAiAnalytics);
+  on("aiUpdateAnalyticsBtn2", "click", refreshAiAnalytics);
   document.querySelectorAll(".ccNavBtn").forEach((b) => {
     b.addEventListener("click", () => {
       document.querySelectorAll(".ccNavBtn").forEach(x => x.classList.remove("active"));
@@ -5162,7 +5541,7 @@ function bindEvents() {
       const mod = document.getElementById(id);
       if (mod) mod.style.display = "";
       const right = document.getElementById("aiRightColumn");
-      if (right) right.style.display = (id === "ccModuleOverview") ? "" : "none";
+      if (right) right.style.display = "";
     });
   });
   on("aiRunRuleSimBtn", "click", () => {
@@ -5176,9 +5555,15 @@ function bindEvents() {
   // ✅ ADMIN
   on("openAdminView", "click", async () => {
     showView("adminView", "openAdminView");
-    await loadAdminDiagnostics();
-    await loadAdminUsers();
-    await loadCategories();
+    try {
+      await loadAdminDiagnostics();
+      await loadAdminUsers();
+      await loadCategories();
+      await loadEnterpriseAnalytics();
+      await loadAuditLog();
+    } catch (e) {
+      toast("Fel", e.message || "Admin kunde inte laddas", "error");
+    }
   });
 
   on("adminUsersRefreshBtn", "click", loadAdminUsers);
@@ -5188,6 +5573,13 @@ function bindEvents() {
     window.__adminUsersSearchDeb = setTimeout(loadAdminUsers, 250);
   });
   on("kbBulkDeleteBtn", "click", bulkDeleteKb);
+
+  on("enterpriseAnalyticsRefreshBtn", "click", loadEnterpriseAnalytics);
+  on("enterpriseCompanySelect", "change", loadEnterpriseAnalytics);
+  on("enterpriseDays", "change", loadEnterpriseAnalytics);
+  on("auditRefreshBtn", "click", loadAuditLog);
+  on("auditCompanySelect", "change", loadAuditLog);
+  on("auditDays", "change", loadAuditLog);
 
   // KB Events
   initTabs();
@@ -5226,7 +5618,7 @@ function bindEvents() {
   // ✅ CRM
   on("openCustomerAdminView", "click", async () => {
     showView("customerAdminView", "openCustomerAdminView");
-    await refreshCustomers();
+    try { await refreshCustomers(); } catch (e) { toast("Fel", e.message || "CRM kunde inte laddas", "error"); }
   });
   on("refreshCustomersBtn", "click", refreshCustomers);
   on("createCompanyBtn", "click", createCrmCustomer);
@@ -5250,13 +5642,15 @@ function bindEvents() {
   // ✅ Billing
   on("openBillingView", "click", async () => {
     showView("billingView", "openBillingView");
-    await loadBilling();
+    try { await loadBilling(); } catch (e) { toast("Fel", e.message || "Billing kunde inte laddas", "error"); }
   });
   on("upgradeToProBtn", "click", upgradeToPro);
+  on("manageBillingBtn", "click", openBillingPortal);
+  on("manageBillingTopBtn", "click", openBillingPortal);
 
   on("openSettingsView", "click", () => {
     showView("settingsView", "openSettingsView");
-    loadProfile();
+    try { loadProfile(); } catch (e) { toast("Fel", e.message || "Profil kunde inte laddas", "error"); }
   });
 
   on("changeUsernameBtn", "click", changeUsername);
@@ -5266,8 +5660,12 @@ function bindEvents() {
   // ✅ Customer settings (Admin only / Company settings)
   on("openCustomerSettingsView", "click", async () => {
     showView("customerSettingsView", "openCustomerSettingsView");
-    await loadCustomerSettings();
-    await simulateSettings();
+    try {
+      await loadCustomerSettings();
+      await simulateSettings();
+    } catch (e) {
+      toast("Fel", e.message || "Företagsinställningar kunde inte laddas", "error");
+    }
   });
   on("saveCustomerSettingsBtn", "click", saveCustomerSettings);
 
@@ -5278,7 +5676,7 @@ function bindEvents() {
   // ✅ Product Simulator
   on("openSimulatorView", "click", async () => {
     showView("simulatorView", "openSimulatorView");
-    await loadSimHistory();
+    try { await loadSimHistory(); } catch (e) { toast("Fel", e.message || "Simulator kunde inte laddas", "error"); }
   });
   on("simGenerateBtn", "click", generateSimulation);
   on("simResetBtn", "click", resetSimulator);
@@ -5290,7 +5688,7 @@ function bindEvents() {
   // ✅ FEEDBACK
   on("openFeedbackView", "click", async () => {
     showView("feedbackView", "openFeedbackView");
-    if (typeof loadFeedback === "function") await loadFeedback();
+    try { if (typeof loadFeedback === "function") await loadFeedback(); } catch (e) { toast("Fel", e.message || "Feedback kunde inte laddas", "error"); }
   });
   on("refreshFeedbackBtn", "click", () => { if (typeof loadFeedback === "function") loadFeedback(); });
   on("clearFeedbackBtn", "click", () => { if (typeof clearFeedback === "function") clearFeedback(); });
@@ -5302,13 +5700,13 @@ function bindEvents() {
   // ✅ SCENARIO PLANNER
   on("openScenarioView", "click", async () => {
     showView("scenarioView", "openScenarioView");
-    if (typeof initScenarioPlanner === "function") await initScenarioPlanner();
+    try { if (typeof initScenarioPlanner === "function") await initScenarioPlanner(); } catch (e) { toast("Fel", e.message || "Scenarioplanering kunde inte laddas", "error"); }
   });
 
   // ✅ SALES ANALYTICS
   on("openSalesView", "click", async () => {
     showView("salesView", "openSalesView");
-    if (typeof initSalesAnalytics === "function") await initSalesAnalytics();
+    try { if (typeof initSalesAnalytics === "function") await initSalesAnalytics(); } catch (e) { toast("Fel", e.message || "Sälj-analys kunde inte laddas", "error"); }
   });
 
   // ✅ Company switching - syncs chat context and inbox
@@ -5321,32 +5719,20 @@ function bindEvents() {
 
   // Inbox category filter - reload inbox when changed
   on("inboxCategoryFilter", "change", () => {
-    state.inboxPage = 1;
-    loadInboxTickets();
+    scheduleInboxReload();
     showInboxAutoReloadBadge();
   });
 
   // Inbox status filter - reload inbox when changed
   on("inboxStatusFilter", "change", () => {
-    state.inboxPage = 1;
-    loadInboxTickets();
+    scheduleInboxReload();
     showInboxAutoReloadBadge();
   });
 
   // Inbox channel filter - reload inbox when changed
   on("inboxChannelFilter", "change", () => {
-    state.inboxPage = 1;
-    loadInboxTickets();
+    scheduleInboxReload();
     showInboxAutoReloadBadge();
-  });
-
-  // Inbox search - debounced search
-  let inboxSearchTimeout = null;
-  on("inboxSearchInput", "input", () => {
-    clearTimeout(inboxSearchTimeout);
-    inboxSearchTimeout = setTimeout(() => {
-      filterInboxBySearch();
-    }, 300);
   });
 
   // Chat send
@@ -6580,9 +6966,9 @@ function renderStars(rating) {
 
 // Initialize on view change
 const originalShowView = window.showView || function () { };
-window.showView = function (viewId) {
-  originalShowView(viewId);
-  if (viewId === "feedbackView") {
+window.showView = function (viewId, menuBtnId) {
+  originalShowView(viewId, menuBtnId);
+  if (viewId === "feedbackView" && typeof loadFeedback === "function") {
     loadFeedback();
   }
 };
@@ -6737,10 +7123,10 @@ setTimeout(addFeedbackButton, 1000);
 ===================== */
 
 // Initialize Sales Analytics
-async function initSalesAnalytics() {
+async function initSalesAnalyticsLegacy() {
   bindSalesTabs();
-  bindSalesEvents();
-  await loadSalesData();
+  bindSalesEventsLegacy();
+  await loadSalesDataLegacy();
 }
 
 function bindSalesTabs() {
@@ -6757,18 +7143,18 @@ function bindSalesTabs() {
   });
 }
 
-function bindSalesEvents() {
+function bindSalesEventsLegacy() {
   const periodFilter = $("salesPeriodFilter");
-  if (periodFilter) periodFilter.onchange = loadSalesData;
+  if (periodFilter) periodFilter.onchange = loadSalesDataLegacy;
 
   const refreshBtn = $("refreshSalesBtn");
-  if (refreshBtn) refreshBtn.onclick = loadSalesData;
+  if (refreshBtn) refreshBtn.onclick = loadSalesDataLegacy;
 
   const exportBtn = $("exportSalesBtn");
-  if (exportBtn) exportBtn.onclick = exportSalesReport;
+  if (exportBtn) exportBtn.onclick = exportSalesReportLegacy;
 }
 
-async function loadSalesData() {
+async function loadSalesDataLegacy() {
   const days = parseInt($("salesPeriodFilter")?.value || 30);
 
   // Since we don't have real sales data yet, generate demo/simulation data
@@ -7042,7 +7428,7 @@ function formatCurrency(amount) {
   return amount.toLocaleString("sv-SE") + " kr";
 }
 
-function exportSalesReport() {
+function exportSalesReportLegacy() {
   const days = $("salesPeriodFilter")?.value || 30;
   const data = generateDemoSalesData(parseInt(days));
 
@@ -7233,7 +7619,7 @@ function toggleSalesSection(sectionId) {
 }
 window.toggleSalesSection = toggleSalesSection;
 
-function toggleFavorite(kpiId) {
+function toggleFavoriteLegacy(kpiId) {
   const idx = salesState.favorites.indexOf(kpiId);
   if (idx === -1) {
     salesState.favorites.push(kpiId);
@@ -7671,7 +8057,7 @@ function toggleFavorite(id, name) {
   if (scenarioState.currentMode === 'myView') renderFavorites();
 }
 
-function updateFavoriteButtons() {
+function updateFavoriteButtonsLegacy() {
   document.querySelectorAll('.favoriteBtn').forEach(btn => {
     btn.innerHTML = '<i class="fa-regular fa-star"></i>';
     btn.classList.remove('active');
@@ -7988,6 +8374,19 @@ function setCrmTab(tabId) {
   if (tabId === 'ai_cost' && window.calculateAiMargins) calculateAiMargins();
 }
 
+function normalizeDealStage(stage) {
+  const s = String(stage || "").toLowerCase();
+  const map = {
+    qualified: "contact",
+    contacted: "contact",
+    meeting: "demo",
+    won_deal: "won",
+    closed_won: "won",
+    closed_lost: "lost",
+  };
+  return map[s] || s || "new";
+}
+
 function allowDrop(ev) {
   ev.preventDefault();
 }
@@ -8024,7 +8423,7 @@ function updateDealStageInsideStorage(id, stage) {
   let deals = window.crmState.deals;
   const idx = deals.findIndex(d => d.id === id);
   if (idx !== -1) {
-    deals[idx].stage = stage;
+    deals[idx].stage = normalizeDealStage(stage);
     localStorage.setItem('crmDeals', JSON.stringify(deals));
     if (typeof pushCrmToBackend === 'function') pushCrmToBackend('deals');
     renderPipeline();
@@ -8070,38 +8469,35 @@ function updatePipelineCounts() {
 }
 
 function renderPipeline() {
-  const stages = ['new', 'qualified', 'proposal', 'negotiation'];
-  stages.forEach(s => {
-    const body = document.getElementById('pipelineBody-' + s);
-    if (body) body.innerHTML = '';
-  });
+  document.querySelectorAll('.pipelineBody').forEach((body) => { body.innerHTML = ""; });
 
   const deals = JSON.parse(localStorage.getItem('crmDeals') || '[]');
   deals.forEach(deal => {
-    const body = document.getElementById('pipelineBody-' + deal.stage);
-    if (body) {
-      const card = document.createElement('div');
-      card.className = 'dealCard';
-      card.draggable = true;
-      card.id = deal.id;
-      card.ondragstart = drag;
-      card.innerHTML = `
-                <div style="display:flex; justify-content:space-between; align-items:flex-start;">
-                    <div class="dealCompany"><b>${deal.company}</b></div>
-                    <div style="display:flex; gap:5px;">
-                        <button class="btn ghost small icon" onclick="openEditDealModal('${deal.id}')" title="Redigera"><i class="fa-solid fa-pen" style="font-size:10px;"></i></button>
-                        <button class="btn ghost small icon" onclick="deleteDeal('${deal.id}')" title="Ta bort"><i class="fa-solid fa-trash" style="color:var(--danger); font-size:10px;"></i></button>
-                    </div>
-                </div>
-                <div class="dealName small muted" style="margin-bottom:5px;">${deal.name}</div>
-                <div class="dealValue" style="font-weight:bold; color:var(--primary);">${new Intl.NumberFormat('sv-SE', { style: 'currency', currency: 'SEK', maximumSignificantDigits: 3 }).format(deal.value || 0)}</div>
-                <div class="dealFooter" style="margin-top:10px; display:flex; justify-content:space-between; align-items:center;">
-                    <div class="dealTags"><span class="dealTag tag-hot" style="font-size:9px;">${deal.type?.toUpperCase() || 'NY'}</span></div>
-                    <div class="dealOwner" style="font-size:10px; opacity:0.7;">👤 ${deal.owner === 'me' ? 'MIG' : 'TEAM'}</div>
-                </div>
-            `;
-      body.appendChild(card);
-    }
+    const stage = normalizeDealStage(deal.stage);
+    const body = document.getElementById('pipelineBody-' + stage) || document.getElementById('pipelineBody-new');
+    if (!body) return;
+
+    const card = document.createElement('div');
+    card.className = 'dealCard';
+    card.draggable = true;
+    card.id = deal.id;
+    card.ondragstart = drag;
+    card.innerHTML = `
+              <div class="dealTop">
+                  <div class="dealCompany"><b>${deal.company}</b></div>
+                  <div class="dealActions">
+                      <button class="btn ghost small icon dealActionBtn" onclick="openEditDealModal('${deal.id}')" title="Redigera"><i class="fa-solid fa-pen dealActionIcon"></i></button>
+                      <button class="btn ghost small icon dealActionBtn" onclick="deleteDeal('${deal.id}')" title="Ta bort"><i class="fa-solid fa-trash dealActionIcon danger"></i></button>
+                  </div>
+              </div>
+              <div class="dealName small muted dealNameRow">${deal.name}</div>
+              <div class="dealValue dealValueAccent">${new Intl.NumberFormat('sv-SE', { style: 'currency', currency: 'SEK', maximumSignificantDigits: 3 }).format(deal.value || 0)}</div>
+              <div class="dealFooter dealFooterRow">
+                  <div class="dealTags"><span class="dealTag tag-hot dealTagCompact">${deal.type?.toUpperCase() || 'NY'}</span></div>
+                  <div class="dealOwnerLabel">👤 ${deal.owner === 'me' ? 'MIG' : 'TEAM'}</div>
+              </div>
+          `;
+    body.appendChild(card);
   });
   updatePipelineCounts();
 }
@@ -8145,10 +8541,8 @@ window.updateDeal = function () {
 
   deals[idx].name = document.getElementById('editDealName').value;
   deals[idx].value = parseInt(document.getElementById('editDealValue').value) || 0;
-  let stageVal = document.getElementById('editDealStage').value;
-  // Map legacy "qualified" to current "contact"
-  if (stageVal === 'qualified') stageVal = 'contact';
-  deals[idx].stage = stageVal;
+  const stageVal = document.getElementById('editDealStage').value;
+  deals[idx].stage = normalizeDealStage(stageVal);
   deals[idx].description = document.getElementById('editDealDesc').value;
 
   localStorage.setItem('crmDeals', JSON.stringify(deals));
@@ -8160,7 +8554,7 @@ window.updateDeal = function () {
   if (typeof toast === 'function') toast("Uppdaterad", "Affären har sparats.", "success");
 };
 
-function openCustomerModal(name) {
+function openCustomerModalLegacy2(name) {
   const modal = document.getElementById('crmCustomerModal');
   if (modal) {
     modal.style.display = 'flex';
@@ -8190,7 +8584,7 @@ window.setCrmTab = setCrmTab;
 window.allowDrop = allowDrop;
 window.drag = drag;
 window.drop = drop;
-window.openCustomerModal = openCustomerModal;
+window.openCustomerModalLegacy2 = openCustomerModalLegacy2;
 window.openDealModal = openDealModal;
 window.renderPipeline = renderPipeline;
 
@@ -8206,7 +8600,7 @@ window.renderPipeline = renderPipeline;
 
 // --- MODAL CONTROLLERS ---
 
-function openDealModal() {
+function openDealModalLegacy() {
   const modal = document.getElementById('crmAddDealModal');
   if (modal) {
     // Populate Companies
@@ -8322,7 +8716,8 @@ function finalizeCustomerSave(customer) {
 }
 
 function closeCrmModal(id) {
-  const el = document.getElementById(id);
+  const targetId = id || "crmCustomerModal";
+  const el = document.getElementById(targetId);
   if (el) el.style.display = 'none';
 }
 
@@ -8341,7 +8736,7 @@ function renderCustomerList() {
   }
 
   tbody.innerHTML = displayList.map(c => `
-            <tr onclick="openCustomerModal('${c.id}')" style="cursor:pointer; border-bottom:1px solid var(--border);">
+            <tr onclick="openCustomerModalLegacy('${c.id}')" style="cursor:pointer; border-bottom:1px solid var(--border);">
                 <td style="padding:12px;"><b>${c.name}</b><br><span class="muted small">${c.industry || '-'}</span></td>
                 <td style="padding:12px;">${c.contact || '-'}<br><span class="muted small">${c.email || '-'}</span></td>
                 <td style="padding:12px;">${c.aiConfig ? '<span class="pill ok">AI Aktiv</span>' : '<span class="pill">Ingen AI</span>'}</td>
@@ -8366,7 +8761,7 @@ function deleteCustomer(id, event) {
 }
 
 // Override previous openCustomerModal to handle dynamic data
-function openCustomerModal(idOrName) {
+function openCustomerModalLegacy(idOrName) {
   // Try to find in state first
   let customer = window.crmState.customers.find(c => c.id === idOrName || c.name === idOrName);
 
@@ -8388,7 +8783,7 @@ function openCustomerModal(idOrName) {
   renderCustomerModalContent(customer, modal);
 }
 
-function renderCustomerModalContent(customer, modal) {
+function renderCustomerModalContentLegacy1(customer, modal) {
   const body = document.getElementById('crmModalBody');
 
   body.innerHTML = `
@@ -8605,7 +9000,7 @@ function saveNewCustomerExpanded() {
 }
 
 // Override renderCustomerModalContent to show rich data
-function renderCustomerModalContent(customer, modal) {
+function renderCustomerModalContentLegacy2(customer, modal) {
   const body = document.getElementById('crmModalBody');
   const initials = customer.name.substring(0, 2).toUpperCase();
 
@@ -8760,7 +9155,7 @@ function saveNewDealAdvanced() {
   const name = document.getElementById('dealName')?.value;
   const company = document.getElementById('dealCompanyInput')?.value; // Using input not select
   const value = document.getElementById('dealValue')?.value;
-  const stage = document.getElementById('dealStage')?.value;
+  const stage = normalizeDealStage(document.getElementById('dealStage')?.value);
   const prob = document.getElementById('dealProb')?.value;
   const closeDate = document.getElementById('dealCloseDate')?.value;
   const type = document.getElementById('dealType')?.value;
