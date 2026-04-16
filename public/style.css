@@ -1453,6 +1453,30 @@ img {
   .panel { padding: 12px; }
   .table { min-width: 0; }
   .table th, .table td { padding: 8px 10px; font-size: 12px; }
+
+  #aiOsView header {
+    padding: 10px 12px;
+  }
+  #aiOsView #aiOsNav {
+    padding: 8px 12px;
+    overflow-x: auto;
+    gap: 6px;
+  }
+  #aiOsView #aiOsNav::-webkit-scrollbar {
+    display: none;
+  }
+  #aiOsView > div > div:last-child {
+    flex-direction: column !important;
+  }
+  #aiOsMainWorkspace {
+    min-height: 0;
+  }
+  #aiOsRightPanel {
+    width: 100% !important;
+    border-left: none;
+    border-top: 1px solid var(--border);
+    max-height: none;
+  }
 }
 
 @media (min-width: 481px) and (max-width: 1024px) {
@@ -1468,6 +1492,21 @@ img {
   .menuBtn { flex: 1 1 auto; white-space: normal; }
   .table { min-width: 0; }
   .table th, .table td { padding: 9px 11px; font-size: 12.5px; }
+
+  #aiOsView header {
+    padding: 12px 16px;
+  }
+  #aiOsView #aiOsNav {
+    padding: 8px 16px;
+    overflow-x: auto;
+    gap: 8px;
+  }
+  #aiOsMainWorkspace {
+    min-height: 0;
+  }
+  #aiOsRightPanel {
+    max-height: none;
+  }
 }
 
 @media (min-width: 1025px) and (max-width: 1366px) {

@@ -959,6 +959,51 @@ app.get("/tickets/:id", authenticate, async (req, res) => {
   }
 });
 
+app.post("/admin/kb/optimize", authenticate, requireAdmin, async (req, res) => {
+  try {
+    const { companyId, content, title } = req.body || {};
+    if (!companyId || !content) return res.status(400).json({ error: "Saknar companyId eller innehåll" });
+    const text = cleanText(String(content || "")).slice(0, 8000);
+    let optimized = text;
+    const t0 = Date.now();
+    let model = "local-fallback";
+    if (process.env.OPENAI_API_KEY && !process.env.OPENAI_API_KEY.includes("INSERT")) {
+      model = "gpt-4o-mini";
+      const messages = [
+        {
+          role: "system",
+          content: "Du är en svensk kundtjänstcopywriter. Förbättra texter till tydliga, strukturerade kunskapsartiklar utan att ändra sanningshalt."
+        },
+        {
+          role: "user",
+          content: `Förbättra och optimera följande kunskapsartikel för en AI-driven kundtjänst.\n\nTitel: ${title || ""}\n\nText:\n${text}`
+        }
+      ];
+      const completion = await openai.chat.completions.create({
+        model,
+        messages,
+        temperature: 0.35,
+        max_tokens: 1200
+      });
+      optimized = completion.choices?.[0]?.message?.content || text;
+    }
+    await recordAiEvent({
+      companyId,
+      userId: req.user?.id,
+      ticketId: null,
+      type: "kb_optimize",
+      model,
+      inputText: text.slice(0, 4000),
+      outputText: String(optimized || "").slice(0, 4000),
+      latencyMs: Date.now() - t0,
+      ok: true
+    });
+    res.json({ optimized: cleanText(String(optimized || "")) });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
 app.post("/ingest/email", async (req, res) => {
   try {
     const token = req.headers["x-webhook-token"];

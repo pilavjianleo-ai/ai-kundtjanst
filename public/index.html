@@ -473,17 +473,17 @@
 
             <label>Innehåll <span style="color:var(--danger);">*</span></label>
             <div class="kb-toolbar" style="display:flex; gap:5px; padding:8px; background:var(--bg); border:1px solid var(--border); border-bottom:none; border-radius:var(--radius-1) var(--radius-1) 0 0;">
-              <button class="btn ghost tiny icon" type="button" title="Fetstil"><i class="fa-solid fa-bold"></i></button>
-              <button class="btn ghost tiny icon" type="button" title="Kursiv"><i class="fa-solid fa-italic"></i></button>
-              <button class="btn ghost tiny icon" type="button" title="Stryk under"><i class="fa-solid fa-underline"></i></button>
+              <button class="btn ghost tiny icon" type="button" title="Fetstil" data-kb-action="bold"><i class="fa-solid fa-bold"></i></button>
+              <button class="btn ghost tiny icon" type="button" title="Kursiv" data-kb-action="italic"><i class="fa-solid fa-italic"></i></button>
+              <button class="btn ghost tiny icon" type="button" title="Stryk under" data-kb-action="underline"><i class="fa-solid fa-underline"></i></button>
               <div style="width:1px; background:var(--border); margin:0 5px;"></div>
-              <button class="btn ghost tiny icon" type="button" title="Rubrik 1"><i class="fa-solid fa-heading"></i></button>
-              <button class="btn ghost tiny icon" type="button" title="Punktlista"><i class="fa-solid fa-list-ul"></i></button>
-              <button class="btn ghost tiny icon" type="button" title="Länk"><i class="fa-solid fa-link"></i></button>
+              <button class="btn ghost tiny icon" type="button" title="Rubrik 1" data-kb-action="h1"><i class="fa-solid fa-heading"></i></button>
+              <button class="btn ghost tiny icon" type="button" title="Punktlista" data-kb-action="list"><i class="fa-solid fa-list-ul"></i></button>
+              <button class="btn ghost tiny icon" type="button" title="Länk" data-kb-action="link"><i class="fa-solid fa-link"></i></button>
               <div style="width:1px; background:var(--border); margin:0 5px;"></div>
-              <button class="btn ghost tiny icon" type="button" title="AI Optimera text" style="color:var(--primary);"><i class="fa-solid fa-wand-magic-sparkles"></i></button>
+              <button class="btn ghost tiny icon" type="button" title="AI Optimera text" data-kb-action="ai-optimize" style="color:var(--primary);"><i class="fa-solid fa-wand-magic-sparkles"></i></button>
             </div>
-            <textarea id="knowledgeContent" class="input textarea" placeholder="Skriv det fullständiga innehållet här. Använd tydliga stycken och punkter för bästa AI-förståelse..." style="height:300px; border-radius:0 0 var(--radius-1) var(--radius-1); margin-bottom:15px; font-family:inherit;"></textarea>
+            <div id="knowledgeContent" class="input textarea" contenteditable="true" placeholder="Skriv det fullständiga innehållet här. Använd tydliga stycken och punkter för bästa AI-förståelse..." style="height:300px; border-radius:0 0 var(--radius-1) var(--radius-1); margin-bottom:15px; font-family:inherit; overflow-y:auto; white-space:pre-wrap;"></div>
             
             <div class="row gap" style="justify-content:flex-end;">
               <button id="knowledgeDeleteBtn" class="btn ghost danger" type="button" style="display:none; margin-right:auto;">

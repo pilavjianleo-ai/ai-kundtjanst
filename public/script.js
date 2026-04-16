@@ -492,7 +492,6 @@ function updateRoleUI() {
 
   // Admin specific
   const adminBtn = $("openAdminView");
-  const aiPanelBtn = $("openAiPanelView");
   const customerAdminBtn = $("openCustomerAdminView");
   const billingBtn = $("openBillingView");
   const customerSettingsBtn = $("openCustomerSettingsView");
@@ -502,7 +501,7 @@ function updateRoleUI() {
 
   // 1. Reset all to hidden first
   [logoutBtn, settingsBtn, chatBtn, myTicketsBtn, simulatorBtn,
-    inboxBtn, slaBtn, feedbackBtn, adminBtn, aiPanelBtn, customerAdminBtn,
+    inboxBtn, slaBtn, feedbackBtn, adminBtn, customerAdminBtn,
     billingBtn, customerSettingsBtn, scenarioBtn, salesBtn, slaClearAllStatsBtn, dashboardBtn, knowledgeBtn, opsBtn]
     .forEach(el => { if (el) el.style.display = "none"; });
 
@@ -517,19 +516,15 @@ function updateRoleUI() {
 
   // 3. User Role
   if (role === "user") {
-    if (dashboardBtn) dashboardBtn.style.display = "";
     if (chatBtn) chatBtn.style.display = "";
     if (myTicketsBtn) myTicketsBtn.style.display = "";
-    if (knowledgeBtn) knowledgeBtn.style.display = "";
     if (settingsBtn) settingsBtn.style.display = "";
     if (simulatorBtn) simulatorBtn.style.display = "";
-    if (opsBtn) opsBtn.style.display = "";
     return;
   }
 
   // 4. Agent Role
   if (role === "agent") {
-    if (dashboardBtn) dashboardBtn.style.display = "";
     if (chatBtn) chatBtn.style.display = "";
     if (myTicketsBtn) myTicketsBtn.style.display = "";
     if (inboxBtn) inboxBtn.style.display = "";
@@ -538,7 +533,7 @@ function updateRoleUI() {
     if (settingsBtn) settingsBtn.style.display = "";
     if (feedbackBtn) feedbackBtn.style.display = "";
     if (simulatorBtn) simulatorBtn.style.display = "";
-    if (opsBtn) opsBtn.style.display = "";
+    if (salesBtn) salesBtn.style.display = "";
     return;
   }
 
@@ -2320,7 +2315,8 @@ async function loadKb() {
       div.style.cssText = "display:flex; justify-content:space-between; align-items:center; cursor:pointer;";
       div.onclick = () => {
           $("knowledgeTitle").value = d.title || "";
-          $("knowledgeContent").value = d.content || "";
+          const kc = $("knowledgeContent");
+          if (kc) kc.innerText = d.content || "";
           $("knowledgeCategory").value = d.category || "";
           $("knowledgeTags").value = d.tags || "";
           if(d.status) $("knowledgeStatus").value = d.status;
@@ -2371,10 +2367,14 @@ async function loadKb() {
 }
 
 function resetKnowledgeForm() {
-    $("knowledgeTitle").value = "";
-    $("knowledgeContent").value = "";
-    $("knowledgeCategory").value = "";
-    $("knowledgeTags").value = "";
+    const kt = $("knowledgeTitle");
+    const kc = $("knowledgeContent");
+    const kcat = $("knowledgeCategory");
+    const ktags = $("knowledgeTags");
+    if (kt) kt.value = "";
+    if (kc) kc.innerText = "";
+    if (kcat) kcat.value = "";
+    if (ktags) ktags.value = "";
     $("knowledgeStatus").value = "published";
     $("knowledgeEditHint").innerText = "Skapar ny artikel";
     $("knowledgeDeleteBtn").style.display = "none";
@@ -2445,7 +2445,7 @@ async function searchKb() {
 async function saveKnowledgeArticle() {
   const companyId = $("knowledgeCompanySelect")?.value || "demo";
   const title = $("knowledgeTitle")?.value.trim();
-  const content = $("knowledgeContent")?.value.trim();
+  const content = $("knowledgeContent")?.innerText.trim();
   const category = $("knowledgeCategory")?.value.trim();
   const tags = $("knowledgeTags")?.value.trim();
   const status = $("knowledgeStatus")?.value || "published";
@@ -4419,7 +4419,13 @@ async function loadEnterpriseAnalytics() {
         </div>
       </div>
       <div class="panel" style="margin-top:14px;">
-        <div class="panelHead"><b><i class="fa-solid fa-list"></i> Senaste AI-händelser</b></div>
+        <div class="panelHead" style="display:flex; justify-content:space-between; align-items:center;">
+          <b><i class="fa-solid fa-list"></i> Senaste AI-händelser</b>
+          <div class="row gap tiny">
+            <button type="button" class="btn ghost tiny adminEventsExpandAll"><i class="fa-solid fa-chevron-down"></i> Visa alla</button>
+            <button type="button" class="btn ghost tiny adminEventsCollapseAll"><i class="fa-solid fa-chevron-up"></i> Dölj alla</button>
+          </div>
+        </div>
         <div class="list" id="adminEventsList">
           ${
             Array.isArray(events) && events.length
@@ -4468,6 +4474,20 @@ async function loadEnterpriseAnalytics() {
         if (icon) icon.className = isOpen ? "fa-solid fa-chevron-down" : "fa-solid fa-chevron-up";
       });
     });
+    const adminExpandAll = box.querySelector(".adminEventsExpandAll");
+    const adminCollapseAll = box.querySelector(".adminEventsCollapseAll");
+    const toggleAllAdmin = (open) => {
+      box.querySelectorAll(".adminEventItem").forEach((li) => {
+        li.style.display = open ? "block" : "none";
+        const details = li.querySelector(".adminEventDetails");
+        if (details) details.style.display = open ? "block" : "none";
+      });
+      box.querySelectorAll(".adminEventToggle i").forEach((icon) => {
+        icon.className = open ? "fa-solid fa-chevron-up" : "fa-solid fa-chevron-down";
+      });
+    };
+    if (adminExpandAll) adminExpandAll.addEventListener("click", () => toggleAllAdmin(true));
+    if (adminCollapseAll) adminCollapseAll.addEventListener("click", () => toggleAllAdmin(false));
   } catch (e) {
     box.innerHTML = `<div class="alert error">Kunde inte ladda analytics: ${escapeHtml(e.message)}</div>`;
   }
@@ -4492,26 +4512,70 @@ async function loadAuditLog() {
       return;
     }
 
-    box.innerHTML = items.map((it) => {
+    const rows = items.map((it) => {
       const when = it.createdAt ? new Date(it.createdAt).toLocaleString("sv-SE") : "";
       const actor = it.actorUserId ? (it.actorUserId.username || it.actorUserId.email || it.actorUserId._id) : "system";
       const company = it.companyId || "-";
-      const meta = it.meta ? JSON.stringify(it.meta).slice(0, 220) : "";
+      const meta = it.meta || null;
       return `
-        <div class="listItem" style="cursor:default;">
-          <div style="display:flex; gap:10px; flex-wrap:wrap; align-items:center;">
-            <span class="muted tiny">${escapeHtml(when)}</span>
-            <span class="badge badge-user">${escapeHtml(company)}</span>
-            <span style="font-weight:800">${escapeHtml(it.action || "")}</span>
-            <span class="muted small">av ${escapeHtml(String(actor || ""))}</span>
+        <div class="listItem auditItem" style="cursor:default;">
+          <div style="display:flex; justify-content:space-between; gap:10px; flex-wrap:wrap; align-items:center;">
+            <div style="display:flex; gap:8px; flex-wrap:wrap; align-items:center;">
+              <span class="muted tiny">${escapeHtml(when)}</span>
+              <span class="badge badge-user">${escapeHtml(company)}</span>
+              <span style="font-weight:800">${escapeHtml(it.action || "")}</span>
+              <span class="muted small">av ${escapeHtml(String(actor || ""))}</span>
+            </div>
+            <div style="display:flex; align-items:center; gap:8px;">
+              <span class="pill soft muted tiny">${escapeHtml(String(it.targetType || ""))} ${escapeHtml(String(it.targetId || ""))}</span>
+              ${meta ? `
+                <button type="button" class="btn ghost tiny auditToggle">
+                  <i class="fa-solid fa-chevron-down"></i>
+                </button>` : ``}
+            </div>
           </div>
-          <div class="muted tiny" style="margin-top:6px;">
-            ${escapeHtml(String(it.targetType || ""))} ${escapeHtml(String(it.targetId || ""))}
-          </div>
-          ${meta ? `<div class="muted tiny" style="margin-top:6px; white-space:pre-wrap;">${escapeHtml(meta)}${meta.length >= 220 ? "..." : ""}</div>` : ""}
+          ${meta ? `
+          <div class="auditDetails" style="display:none; margin-top:8px; padding:10px; background:var(--panel2); border-radius:8px;">
+            <div class="muted tiny" style="margin-bottom:4px;">Metadata</div>
+            <pre style="margin:0; font-size:11px; max-height:220px; overflow-y:auto;">${escapeHtml(JSON.stringify(meta, null, 2))}</pre>
+          </div>` : ``}
         </div>
       `;
     }).join("");
+    box.innerHTML = `
+      <div class="row gap tiny" style="justify-content:flex-end; margin-bottom:8px;">
+        <button type="button" class="btn ghost tiny auditExpandAll"><i class="fa-solid fa-chevron-down"></i> Visa alla</button>
+        <button type="button" class="btn ghost tiny auditCollapseAll"><i class="fa-solid fa-chevron-up"></i> Dölj alla</button>
+      </div>
+      ${rows}
+    `;
+    const auditToggles = box.querySelectorAll(".auditToggle");
+    auditToggles.forEach((btn) => {
+      btn.addEventListener("click", () => {
+        const li = btn.closest(".auditItem");
+        if (!li) return;
+        const details = li.querySelector(".auditDetails");
+        if (!details) return;
+        const isOpen = details.style.display === "block";
+        details.style.display = isOpen ? "none" : "block";
+        const icon = btn.querySelector("i");
+        if (icon) icon.className = isOpen ? "fa-solid fa-chevron-down" : "fa-solid fa-chevron-up";
+      });
+    });
+    const auditExpandAll = box.querySelector(".auditExpandAll");
+    const auditCollapseAll = box.querySelector(".auditCollapseAll");
+    const toggleAllAudit = (open) => {
+      box.querySelectorAll(".auditItem").forEach((li) => {
+        li.style.display = open ? "block" : "none";
+        const details = li.querySelector(".auditDetails");
+        if (details) details.style.display = open ? "block" : "none";
+      });
+      box.querySelectorAll(".auditToggle i").forEach((icon) => {
+        icon.className = open ? "fa-solid fa-chevron-up" : "fa-solid fa-chevron-down";
+      });
+    };
+    if (auditExpandAll) auditExpandAll.addEventListener("click", () => toggleAllAudit(true));
+    if (auditCollapseAll) auditCollapseAll.addEventListener("click", () => toggleAllAudit(false));
   } catch (e) {
     box.innerHTML = `<div class="alert error">Kunde inte ladda audit log: ${escapeHtml(e.message)}</div>`;
   }
@@ -4573,11 +4637,11 @@ async function loadDashboard() {
       } else {
         eventsBox.style.display = "block";
         if (emptyState) emptyState.style.display = "none";
-        eventsBox.innerHTML = events.map((e) => {
+        const rows = events.map((e) => {
           const when = e.createdAt ? new Date(e.createdAt).toLocaleString("sv-SE") : "";
           const ok = e.ok === false ? "❌" : "✅";
           return `
-            <div class="listItem" style="cursor:default;">
+            <div class="listItem dashboardEventItem" style="cursor:default;">
               <div style="display:flex; justify-content:space-between; gap:12px; flex-wrap:wrap; align-items:center;">
                 <div style="display:flex; gap:12px; align-items:center;">
                   <div class="avatar-small" style="background:var(--panel2);"><i class="fa-solid fa-bolt" style="color:var(${e.ok === false ? '--danger' : '--ok'});"></i></div>
@@ -4601,6 +4665,13 @@ async function loadDashboard() {
             </div>
           `;
         }).join("");
+        eventsBox.innerHTML = `
+          <div class="row gap tiny" style="justify-content:flex-end; margin-bottom:6px;">
+            <button type="button" class="btn ghost tiny dashboardExpandAll"><i class="fa-solid fa-chevron-down"></i> Visa alla</button>
+            <button type="button" class="btn ghost tiny dashboardCollapseAll"><i class="fa-solid fa-chevron-up"></i> Dölj alla</button>
+          </div>
+          ${rows}
+        `;
         eventsBox.querySelectorAll(".dashboardEventToggle").forEach((btn) => {
           btn.addEventListener("click", () => {
             const li = btn.closest(".listItem");
@@ -4613,6 +4684,20 @@ async function loadDashboard() {
             if (icon) icon.className = isOpen ? "fa-solid fa-chevron-down" : "fa-solid fa-chevron-up";
           });
         });
+        const dashExpandAll = eventsBox.querySelector(".dashboardExpandAll");
+        const dashCollapseAll = eventsBox.querySelector(".dashboardCollapseAll");
+        const toggleAll = (open) => {
+          eventsBox.querySelectorAll(".dashboardEventItem").forEach((li) => {
+            li.style.display = open ? "block" : "none";
+            const details = li.querySelector(".dashboardEventDetails");
+            if (details) details.style.display = open ? "block" : "none";
+          });
+          eventsBox.querySelectorAll(".dashboardEventToggle i").forEach((icon) => {
+            icon.className = open ? "fa-solid fa-chevron-up" : "fa-solid fa-chevron-down";
+          });
+        };
+        if (dashExpandAll) dashExpandAll.addEventListener("click", () => toggleAll(true));
+        if (dashCollapseAll) dashCollapseAll.addEventListener("click", () => toggleAll(false));
       }
     }
   } catch (e) {
@@ -4670,7 +4755,8 @@ function renderKnowledgeList(items) {
       if ($("knowledgeTitle")) $("knowledgeTitle").value = k.title || "";
       if ($("knowledgeCategory")) $("knowledgeCategory").value = k.category || "";
       if ($("knowledgeTags")) $("knowledgeTags").value = Array.isArray(k.tags) ? k.tags.join(", ") : "";
-      if ($("knowledgeContent")) $("knowledgeContent").value = k.rawContent || "";
+      const kc = $("knowledgeContent");
+      if (kc) kc.innerText = k.rawContent || "";
       const btnSave = $("knowledgeSaveBtn");
       if (btnSave) btnSave.innerHTML = '<i class="fa-solid fa-floppy-disk"></i> Uppdatera';
       toast("Redigera", "Formuläret är fyllt. Uppdatera och spara.", "info");
@@ -4708,6 +4794,84 @@ function renderKnowledgeList(items) {
   });
 }
 
+function initKbToolbar() {
+  const toolbar = document.querySelector(".kb-toolbar");
+  const editor = $("knowledgeContent");
+  if (!toolbar || !editor) return;
+  if (toolbar.dataset.bound === "1") return;
+  toolbar.dataset.bound = "1";
+  toolbar.addEventListener("click", async (e) => {
+    const btn = e.target.closest("button[data-kb-action]");
+    if (!btn) return;
+    const action = btn.dataset.kbAction;
+    editor.focus();
+    if (["bold", "italic", "underline", "h1", "list", "link"].includes(action)) {
+      e.preventDefault();
+      try {
+        if (action === "bold") {
+          document.execCommand("bold", false, null);
+        } else if (action === "italic") {
+          document.execCommand("italic", false, null);
+        } else if (action === "underline") {
+          document.execCommand("underline", false, null);
+        } else if (action === "h1") {
+          document.execCommand("formatBlock", false, "h3");
+        } else if (action === "list") {
+          document.execCommand("insertUnorderedList", false, null);
+        } else if (action === "link") {
+          const url = prompt("Ange URL för länken:");
+          if (!url) return;
+          document.execCommand("createLink", false, url);
+        }
+      } catch {}
+      return;
+    }
+    if (action === "bold") {
+      // handled above
+    } else if (action === "ai-optimize") {
+      const current = editor.innerText.trim();
+      if (!current) {
+        toast("Saknas", "Skriv innehåll först så kan AI optimera den.", "info");
+        return;
+      }
+      const companyId = state.companyId || "demo";
+      const titleEl = $("knowledgeTitle");
+      const title = titleEl?.value?.trim() || "";
+      const oldHtml = btn.innerHTML;
+      btn.disabled = true;
+      btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i>';
+      try {
+        const res = await api("/chat/summary", {
+          method: "POST",
+          body: {
+            companyId,
+            conversation: [
+              {
+                role: "user",
+                content: `Förbättra och optimera följande kunskapsartikel för en AI-driven kundtjänst. 
+Skriv en tydlig, strukturerad artikel på svenska med rubriker och punktlistor där det passar.
+
+Titel: ${title || "-"}
+
+Text:
+${current}`
+              }
+            ]
+          }
+        });
+        const optimized = res.summary || current;
+        editor.innerText = optimized;
+        toast("Optimerad", "Texten har optimerats av AI ✅", "info");
+      } catch (err) {
+        toast("Fel", err.message || "Kunde inte optimera texten.", "error");
+      } finally {
+        btn.disabled = false;
+        btn.innerHTML = oldHtml;
+      }
+    }
+  });
+}
+
 async function loadKnowledge() {
   const list = $("knowledgeList");
   if (list) list.innerHTML = `<div class="muted center" style="padding:16px;">Laddar...</div>`;
@@ -4729,7 +4893,9 @@ function resetKnowledgeForm() {
   state.knowledgeEditingId = null;
   const hint = $("knowledgeEditHint");
   if (hint) hint.textContent = "";
-  ["knowledgeTitle", "knowledgeCategory", "knowledgeTags", "knowledgeContent"].forEach((id) => { const el = $(id); if (el) el.value = ""; });
+  ["knowledgeTitle", "knowledgeCategory", "knowledgeTags"].forEach((id) => { const el = $(id); if (el) el.value = ""; });
+  const kc = $("knowledgeContent");
+  if (kc) kc.innerText = "";
   const btnSave = $("knowledgeSaveBtn");
   if (btnSave) btnSave.innerHTML = '<i class="fa-solid fa-floppy-disk"></i> Spara';
 }
@@ -4739,7 +4905,7 @@ async function saveKnowledge() {
   const title = $("knowledgeTitle")?.value?.trim() || "";
   const category = $("knowledgeCategory")?.value?.trim() || "";
   const tagsRaw = $("knowledgeTags")?.value?.trim() || "";
-  const content = $("knowledgeContent")?.value?.trim() || "";
+  const content = $("knowledgeContent")?.innerText?.trim() || "";
   const tags = tagsRaw ? tagsRaw.split(",").map((t) => t.trim()).filter(Boolean).slice(0, 20) : [];
 
   if (!title || !content) return toast("Saknas", "Titel och innehåll krävs", "error");
@@ -5369,6 +5535,7 @@ function bindEvents() {
     }
     
     await loadKb(); // was loadKnowledge()
+    initKbToolbar();
   });
 
   on("dashboardRefreshBtn", "click", loadDashboard);
