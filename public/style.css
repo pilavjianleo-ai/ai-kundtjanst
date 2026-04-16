@@ -1477,6 +1477,11 @@ img {
     border-top: 1px solid var(--border);
     max-height: none;
   }
+
+  #opsContent {
+    display: flex !important;
+    flex-direction: column !important;
+  }
 }
 
 @media (min-width: 481px) and (max-width: 1024px) {
@@ -1506,6 +1511,11 @@ img {
   }
   #aiOsRightPanel {
     max-height: none;
+  }
+
+  #opsContent {
+    display: flex !important;
+    flex-direction: column !important;
   }
 }
 
@@ -2322,6 +2332,13 @@ input[type="range"].slider::-webkit-slider-thumb:hover {
     background: var(--panel);
     border-top: 1px solid var(--border);
     z-index: 100;
+  }
+
+  /* AI Ops main layout: stack panels on small screens */
+  #opsContent {
+    display: flex !important;
+    flex-direction: column !important;
+    gap: 14px !important;
   }
 
   .view {
@@ -4608,6 +4625,9 @@ body[data-theme="light"] .messages {
     background: var(--panel2);
     display: flex !important;
     flex-direction: column;
+    overflow-y: auto;
+    overflow-x: hidden;
+    -webkit-overflow-scrolling: touch;
   }
 
   .sidebar.active {

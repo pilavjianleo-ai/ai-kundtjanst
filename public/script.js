@@ -514,12 +514,21 @@ function updateRoleUI() {
   if (roleBadge) roleBadge.textContent = `${state.me.username} (${role})`;
   if (logoutBtn) logoutBtn.style.display = "";
 
+  const updateSidebarGroups = () => {
+    document.querySelectorAll(".menu .sidebarBlock").forEach((group) => {
+      const buttons = Array.from(group.querySelectorAll(".menuBtn"));
+      const hasVisibleButton = buttons.some((btn) => btn.style.display !== "none");
+      group.style.display = hasVisibleButton ? "" : "none";
+    });
+  };
+
   // 3. User Role
   if (role === "user") {
     if (chatBtn) chatBtn.style.display = "";
     if (myTicketsBtn) myTicketsBtn.style.display = "";
     if (settingsBtn) settingsBtn.style.display = "";
     if (simulatorBtn) simulatorBtn.style.display = "";
+    updateSidebarGroups();
     return;
   }
 
@@ -529,11 +538,11 @@ function updateRoleUI() {
     if (myTicketsBtn) myTicketsBtn.style.display = "";
     if (inboxBtn) inboxBtn.style.display = "";
     if (slaBtn) slaBtn.style.display = "";
-    if (knowledgeBtn) knowledgeBtn.style.display = "";
     if (settingsBtn) settingsBtn.style.display = "";
     if (feedbackBtn) feedbackBtn.style.display = "";
     if (simulatorBtn) simulatorBtn.style.display = "";
     if (salesBtn) salesBtn.style.display = "";
+    updateSidebarGroups();
     return;
   }
 
@@ -544,6 +553,7 @@ function updateRoleUI() {
       feedbackBtn, scenarioBtn, salesBtn, slaClearAllStatsBtn]
       .forEach(el => { if (el) el.style.display = ""; });
   }
+  updateSidebarGroups();
 }
 
 /* =========================

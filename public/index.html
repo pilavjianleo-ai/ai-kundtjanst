@@ -34,80 +34,78 @@
       </div>
 
       <nav class="menu">
-        <button id="openDashboardView" class="menuBtn" style="display:none;" type="button">
-          <i class="fa-solid fa-gauge-high"></i> Dashboard
-        </button>
+        <div class="sidebarBlock">
+          <div class="label">Kundservice</div>
+          <button id="openDashboardView" class="menuBtn" style="display:none;" type="button">
+            <i class="fa-solid fa-gauge-high"></i> Dashboard
+          </button>
+          <button id="openChatView" class="menuBtn active" type="button">
+            <i class="fa-solid fa-comments"></i> Chat
+          </button>
+          <button id="openMyTicketsView" class="menuBtn" type="button">
+            <i class="fa-solid fa-ticket"></i> Mina ärenden
+          </button>
+        </div>
 
-        <button id="openChatView" class="menuBtn active" type="button">
-          <i class="fa-solid fa-comments"></i> Chat
-        </button>
+        <div class="sidebarBlock">
+          <div class="label">Kunskap</div>
+          <button id="openKnowledgeView" class="menuBtn" style="display:none;" type="button">
+            <i class="fa-solid fa-book-open"></i> Knowledge
+          </button>
+        </div>
 
-        <button id="openMyTicketsView" class="menuBtn" type="button">
-          <i class="fa-solid fa-ticket"></i> Mina ärenden
-        </button>
+        <div class="sidebarBlock">
+          <div class="label">Agent & Drift</div>
+          <button id="openInboxView" class="menuBtn" style="display:none;" type="button">
+            <i class="fa-solid fa-inbox"></i> Inbox (Agent)
+            <span id="inboxNotifDot" class="notifDot" style="display:none;"></span>
+          </button>
+          <button id="openSlaView" class="menuBtn" style="display:none;" type="button">
+            <i class="fa-solid fa-chart-line"></i> SLA & KPI
+          </button>
+        </div>
 
-        <button id="openKnowledgeView" class="menuBtn" style="display:none;" type="button">
-          <i class="fa-solid fa-book-open"></i> Knowledge
-        </button>
+        <div class="sidebarBlock">
+          <div class="label">Admin & Företag</div>
+          <button id="openAdminView" class="menuBtn" style="display:none;" type="button">
+            <i class="fa-solid fa-shield-halved"></i> Admin
+          </button>
+          <button id="openCustomerAdminView" class="menuBtn" style="display:none;" type="button">
+            <i class="fa-solid fa-building"></i> Kunder (CRM)
+          </button>
+          <button id="openBillingView" class="menuBtn" style="display:none;" type="button">
+            <i class="fa-solid fa-credit-card"></i> Abonnemang & Fakturor
+          </button>
+          <button id="openCustomerSettingsView" class="menuBtn" style="display:none;" type="button">
+            <i class="fa-solid fa-cog"></i> Företagsinställningar
+          </button>
+          <button id="openSettingsView" class="menuBtn" style="display:none;" type="button">
+            <i class="fa-solid fa-user-gear"></i> Min Profil & Säkerhet
+          </button>
+        </div>
 
-        <button id="openInboxView" class="menuBtn" style="display:none;" type="button">
-          <i class="fa-solid fa-inbox"></i> Inbox (Agent)
-          <span id="inboxNotifDot" class="notifDot" style="display:none;"></span>
-        </button>
-
-        <button id="openSlaView" class="menuBtn" style="display:none;" type="button">
-          <i class="fa-solid fa-chart-line"></i> SLA & KPI
-        </button>
-
-        <button id="openAdminView" class="menuBtn" style="display:none;" type="button">
-          <i class="fa-solid fa-shield-halved"></i> Admin
-        </button>
-
-        <button id="openOpsPlatform" class="menuBtn" style="display:none;" type="button">
-          <i class="fa-solid fa-layer-group"></i> AI Ops Platform
-        </button>
-
-        <button id="openSettingsView" class="menuBtn" style="display:none;" type="button">
-          <i class="fa-solid fa-user-gear"></i> Min Profil & Säkerhet
-        </button>
-
-        <!-- NYA MENYKNAPPAR – läggs till sist i menyn -->
-        <button id="openCustomerAdminView" class="menuBtn" style="display:none;" type="button">
-          <i class="fa-solid fa-building"></i> Kunder (CRM)
-        </button>
-
-        <button id="openBillingView" class="menuBtn" style="display:none;" type="button">
-          <i class="fa-solid fa-credit-card"></i> Abonnemang & Fakturor
-        </button>
-
-        <button id="openCustomerSettingsView" class="menuBtn" style="display:none;" type="button">
-          <i class="fa-solid fa-cog"></i> Företagsinställningar
-        </button>
-
-        <button id="openSimulatorView" class="menuBtn" style="display:none;" type="button">
-          <i class="fa-solid fa-wand-magic-sparkles"></i> Produktsimulator
-        </button>
-
-        <button id="openFeedbackView" class="menuBtn" style="display:none;" type="button">
-          <i class="fa-solid fa-star"></i> Feedback
-          <span id="feedbackNotifDot" class="notifDot" style="display:none;"></span>
-        </button>
-
-        <button id="openAiPanelView" class="menuBtn" style="display:none;" type="button">
-          <i class="fa-solid fa-brain"></i> AI Inställningar (Gammal)
-        </button>
-
-        <button id="openAiOsView" class="menuBtn" style="display:none;" type="button">
-          <i class="fa-solid fa-microchip"></i> AI Control Center
-        </button>
-
-        <button id="openScenarioView" class="menuBtn" style="display:none;" type="button">
-          <i class="fa-solid fa-crystal-ball"></i> Scenarioplanering
-        </button>
-
-        <button id="openSalesView" class="menuBtn" style="display:none;" type="button">
-          <i class="fa-solid fa-chart-column"></i> Säljanalys
-        </button>
+        <div class="sidebarBlock">
+          <div class="label">AI & Verktyg</div>
+          <button id="openOpsPlatform" class="menuBtn" style="display:none;" type="button">
+            <i class="fa-solid fa-layer-group"></i> AI Ops Platform
+          </button>
+          <button id="openAiOsView" class="menuBtn" style="display:none;" type="button">
+            <i class="fa-solid fa-microchip"></i> AI Control Center
+          </button>
+          <button id="openSimulatorView" class="menuBtn" style="display:none;" type="button">
+            <i class="fa-solid fa-wand-magic-sparkles"></i> Produktsimulator
+          </button>
+          <button id="openFeedbackView" class="menuBtn" style="display:none;" type="button">
+            <i class="fa-solid fa-star"></i> Feedback
+            <span id="feedbackNotifDot" class="notifDot" style="display:none;"></span>
+          </button>
+          <button id="openScenarioView" class="menuBtn" style="display:none;" type="button">
+            <i class="fa-solid fa-crystal-ball"></i> Scenarioplanering
+          </button>
+          <button id="openSalesView" class="menuBtn" style="display:none;" type="button">
+            <i class="fa-solid fa-chart-column"></i> Säljanalys
+          </button>
+        </div>
       </nav>
 
       <div class="sidebarFooter">
